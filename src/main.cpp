@@ -227,10 +227,6 @@ class EvalVecRType {
   }
 };
 
-inline Evaluation interpolate(Evaluation early, Evaluation late, Evaluation time) {
-  return (early * (16 - time) + late * time) / 16;
-}
-
 inline Bitboard fatten(Bitboard b) {
   return shift<Direction::WEST>(b) | b | shift<Direction::EAST>(b);
 }
@@ -405,7 +401,7 @@ struct Evaluator {
 
     features[EF::YOUR_TURN] = (pos.turn_ == Color::WHITE) * 2 - 1;
     features[EF::IN_CHECK] = can_enemy_attack<Color::WHITE>(pos, whiteKingSq) - can_enemy_attack<Color::BLACK>(pos, blackKingSq);
-    features[EF::KING_ON_BACK_RANK] = (7 - blackKingSq / 8) - (whiteKingSq / 8);
+    features[EF::KING_ON_BACK_RANK] = (whiteKingSq / 8 == 7) - (blackKingSq / 8 == 0);
 
     // Pawns
     const Bitboard blockadedBlackPawns = shift<Direction::NORTH>(whitePawns) & blackPawns;
@@ -421,10 +417,10 @@ struct Evaluator {
       const Bitboard filesWithBlackPawns = northFill(filledBlack);
       const Bitboard filesWithoutWhitePawns = ~filesWithWhitePawns;
       const Bitboard filesWithoutBlackPawns = ~filesWithBlackPawns;
-      const Bitboard passedWhitePawns = whitePawns & ~fatten(filesWithBlackPawns);
-      const Bitboard passedBlackPawns = blackPawns & ~fatten(filesWithWhitePawns);
-      const Bitboard isolatedWhitePawns = whitePawns & shift<Direction::WEST>(filesWithoutWhitePawns) & shift<Direction::EAST>(filesWithoutWhitePawns);
-      const Bitboard isolatedBlackPawns = blackPawns & shift<Direction::WEST>(filesWithoutBlackPawns) & shift<Direction::EAST>(filesWithoutBlackPawns);
+      const Bitboard passedWhitePawns = whitePawns & ~(fatten(filledBlack) << 8);
+      const Bitboard passedBlackPawns = blackPawns & ~(fatten(filledWhite) >> 8);
+      const Bitboard isolatedWhitePawns = whitePawns & ~shift<Direction::WEST>(filesWithWhitePawns) & ~shift<Direction::EAST>(filesWithWhitePawns);
+      const Bitboard isolatedBlackPawns = blackPawns & ~shift<Direction::WEST>(filesWithBlackPawns) & ~shift<Direction::EAST>(filesWithBlackPawns);
       const Bitboard doubledWhitePawns = whitePawns & (filledWhite >> 8);
       const Bitboard doubledBlackPawns = blackPawns & (filledBlack << 8);
       constexpr Bitboard kRookPawns = kFiles[0] | kFiles[7];
@@ -435,10 +431,10 @@ struct Evaluator {
       features[EF::PASSED_PAWNS] = std::popcount(passedWhitePawns) - std::popcount(passedBlackPawns);
       features[EF::ISOLATED_PAWNS] = std::popcount(isolatedWhitePawns) - std::popcount(isolatedBlackPawns);
       features[EF::DOUBLED_PAWNS] = std::popcount(doubledWhitePawns) - std::popcount(doubledBlackPawns);
-      features[EF::ADVANCED_PASSED_PAWNS_1] = std::popcount(passedWhitePawns & kRanks[7]) - std::popcount(passedBlackPawns & kRanks[1]);
-      features[EF::ADVANCED_PASSED_PAWNS_2] = std::popcount(passedWhitePawns & kRanks[6]) - std::popcount(passedBlackPawns & kRanks[2]);
-      features[EF::ADVANCED_PASSED_PAWNS_3] = std::popcount(passedWhitePawns & kRanks[5]) - std::popcount(passedBlackPawns & kRanks[3]);
-      features[EF::ADVANCED_PASSED_PAWNS_4] = std::popcount(passedWhitePawns & kRanks[4]) - std::popcount(passedBlackPawns & kRanks[4]);
+      features[EF::ADVANCED_PASSED_PAWNS_1] = std::popcount(passedWhitePawns & kRanks[0]) - std::popcount(passedBlackPawns & kRanks[7]);
+      features[EF::ADVANCED_PASSED_PAWNS_2] = std::popcount(passedWhitePawns & kRanks[1]) - std::popcount(passedBlackPawns & kRanks[6]);
+      features[EF::ADVANCED_PASSED_PAWNS_3] = std::popcount(passedWhitePawns & kRanks[2]) - std::popcount(passedBlackPawns & kRanks[5]);
+      features[EF::ADVANCED_PASSED_PAWNS_4] = std::popcount(passedWhitePawns & kRanks[3]) - std::popcount(passedBlackPawns & kRanks[4]);
       features[EF::PAWN_MINOR_CAPTURES] = std::popcount(whitePawnTargets & minorBlack) - std::popcount(blackPawnTargets & minorWhite);
       features[EF::PAWN_MAJOR_CAPTURES] = std::popcount(whitePawnTargets & majorBlack) - std::popcount(blackPawnTargets & majorWhite);
       features[EF::PROTECTED_PAWNS] = std::popcount(whitePawns & whitePawnTargets) - std::popcount(blackPawns & blackPawnTargets);
@@ -526,15 +522,15 @@ struct Evaluator {
     r += features[EF::IN_CHECK] * -300;
     r += features[EF::KING_ON_BACK_RANK] * 50;
 
-    r += features[EF::PASSED_PAWNS] * 0;
+    // r += features[EF::PASSED_PAWNS] * 0;
     r += features[EF::ISOLATED_PAWNS] * -30;
     r += features[EF::DOUBLED_PAWNS] * -10;
     r += features[EF::PAWNS_CENTER_16] * 10;
     r += features[EF::PAWNS_CENTER_4] * 58;
-    r += features[EF::ADVANCED_PASSED_PAWNS_1] * 0;
-    r += features[EF::ADVANCED_PASSED_PAWNS_2] * 0;
-    r += features[EF::ADVANCED_PASSED_PAWNS_3] * 0;
-    r += features[EF::ADVANCED_PASSED_PAWNS_4] * 0;
+    // r += features[EF::ADVANCED_PASSED_PAWNS_1] * 0;
+    // r += features[EF::ADVANCED_PASSED_PAWNS_2] * 0;
+    // r += features[EF::ADVANCED_PASSED_PAWNS_3] * 0;
+    // r += features[EF::ADVANCED_PASSED_PAWNS_4] * 0;
     r += features[EF::PAWN_MINOR_CAPTURES] * 50;
     r += features[EF::PAWN_MAJOR_CAPTURES] * 50;
     r += features[EF::PROTECTED_PAWNS] * 10;
@@ -581,10 +577,12 @@ struct Evaluator {
     r += features[EF::BISHOPS] * 539;
     r += features[EF::ROOKS] * 1561;
     r += features[EF::QUEENS] * 3101;
-    r += features[EF::YOUR_TURN] * 10;
+    r += features[EF::YOUR_TURN] * 20;
     r += features[EF::IN_CHECK] * -200;
 
-    r += features[EF::PASSED_PAWNS] * 30;
+    r += features[EF::KING_ON_BACK_RANK] * -50;
+
+    r += features[EF::PASSED_PAWNS] * 50;
     r += features[EF::DOUBLED_PAWNS] * -20;
     r += features[EF::ADVANCED_PASSED_PAWNS_1] * 140;
     r += features[EF::ADVANCED_PASSED_PAWNS_2] * 80;
@@ -602,6 +600,20 @@ struct Evaluator {
     r += features[EF::BLOCKADED_ROOKS] * -20;
     r += features[EF::SCARY_ROOKS] * 10;
     r += features[EF::ROOKS_ON_7TH] * 10;
+
+    const Square blackKingSq = lsb(pos.colorBitboards_[Color::BLACK]);
+    const Square whiteKingSq = lsb(pos.colorBitboards_[Color::WHITE]);
+    const int wx = whiteKingSq % 8;
+    const int wy = whiteKingSq / 8;
+    const int bx = blackKingSq % 8;
+    const int by = blackKingSq / 8;
+    const int dist = std::max(std::abs(wx - bx), std::abs(wy - by));
+    // If black's king is the last black piece alive, white wants to drive it near the edge.
+    // If black's king is the last black piece alive, white wants to be near him.
+    r -= kDistToCorner[blackKingSq] * 2 * (std::popcount(pos.colorBitboards_[Color::BLACK]) == 1);
+    r -= (std::popcount(pos.colorBitboards_[Color::BLACK]) == 1) * dist * 10;
+    r += kDistToCorner[whiteKingSq] * 2 * (std::popcount(pos.colorBitboards_[Color::WHITE]) == 1);
+    r += (std::popcount(pos.colorBitboards_[Color::WHITE]) == 1) * dist * 10;
 
     return r;
   }

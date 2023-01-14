@@ -106,6 +106,9 @@ Bitboard northFill(Bitboard b);
 
 Bitboard southFill(Bitboard b);
 
+extern const int8_t kDistToEdge[64];
+extern const int8_t kDistToCorner[64];
+
 constexpr Square operator+(Square s, Direction d) { return Square(int(s) + int(d)); }
 constexpr Square operator-(Square s, Direction d) { return Square(int(s) - int(d)); }
 
