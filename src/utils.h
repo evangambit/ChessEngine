@@ -8,6 +8,12 @@
 
 namespace ChessEngine {
 
+enum MoveGenType {
+  CAPTURES = 1,
+  QUIET_MOVES = 2,
+  ALL_MOVES = 3,
+};
+
 typedef uint8_t CastlingRights;
 typedef int16_t Evaluation;
 

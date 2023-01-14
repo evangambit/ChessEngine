@@ -1,9 +1,12 @@
-#ifndef SLIDE_LOOKUP_H
-#define SLIDE_LOOKUP_H
+#ifndef MOVEGEN_SLIDING_H
+#define MOVEGEN_SLIDING_H
 
-#include <cstdint>
+#include "../Position.h"
+#include "../utils.h"
 
 namespace ChessEngine {
+
+namespace {
 
 // Code for generating:
 // for (int i = 0; i < 8; ++i) {
@@ -296,6 +299,28 @@ constexpr uint8_t kSlideLookup[2048] = {
   0, 0, 0, 0, 0, 0, 0, 0,
 };
 
+}  // namespace
+
+uint8_t sliding_moves(uint8_t loc, uint8_t friends, uint8_t enemies) {
+  assert(std::popcount(loc) == 1);
+  uint8_t left = loc - 1;
+  // Move enemies away from me by one and treat them as friends.
+  friends |= (
+    (enemies & left) >> 1
+  ) | (
+    (enemies & ~left) << 1
+  );
+
+  // Now we have 256 configurations of friends and 8 configurations of loc for a
+  // total of 2048 -- easily cached in an array.
+
+  // TODO: ideally we can reduce this to 64:
+  // (idx(loc) - msb(obstaclesLeftOfLoc)) gives 8 values
+  // (lsb(obstaclesRightOfLoc) - idx(loc)) gives 8 values
+
+  return kSlideLookup[256 * lsb(loc) + friends];
+}
+
 }  // namespace ChessEngine
 
-#endif  // SLIDE_LOOKUP_H
+#endif  // MOVEGEN_SLIDING_H
