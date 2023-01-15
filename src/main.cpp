@@ -237,17 +237,17 @@ enum EF {
   KNIGHTS_CENTER_4,
   KNIGHT_ON_ENEMY_SIDE,
 
-  HANGING_WHITE_PAWNS,
-  HANGING_WHITE_KNIGHTS,
-  HANGING_WHITE_BISHOPS,
-  HANGING_WHITE_ROOKS,
-  HANGING_WHITE_QUEENS,
+  OUR_HANGING_PAWNS,
+  OUR_HANGING_KNIGHTS,
+  OUR_HANGING_BISHOPS,
+  OUR_HANGING_ROOKS,
+  OUR_HANGING_QUEENS,
 
-  HANGING_BLACK_PAWNS,
-  HANGING_BLACK_KNIGHTS,
-  HANGING_BLACK_BISHOPS,
-  HANGING_BLACK_ROOKS,
-  HANGING_BLACK_QUEENS,
+  THEIR_HANGING_PAWNS,
+  THEIR_HANGING_KNIGHTS,
+  THEIR_HANGING_BISHOPS,
+  THEIR_HANGING_ROOKS,
+  THEIR_HANGING_QUEENS,
 
   NUM_TARGET_SQUARES,
 
@@ -293,16 +293,16 @@ std::string EFSTR[] = {
   "KNIGHTS_CENTER_16",
   "KNIGHTS_CENTER_4",
   "KNIGHT_ON_ENEMY_SIDE",
-  "HANGING_WHITE_PAWNS",
-  "HANGING_WHITE_KNIGHTS",
-  "HANGING_WHITE_BISHOPS",
-  "HANGING_WHITE_ROOKS",
-  "HANGING_WHITE_QUEENS",
-  "HANGING_BLACK_PAWNS",
-  "HANGING_BLACK_KNIGHTS",
-  "HANGING_BLACK_BISHOPS",
-  "HANGING_BLACK_ROOKS",
-  "HANGING_BLACK_QUEENS",
+  "OUR_HANGING_PAWNS",
+  "OUR_HANGING_KNIGHTS",
+  "OUR_HANGING_BISHOPS",
+  "OUR_HANGING_ROOKS",
+  "OUR_HANGING_QUEENS",
+  "THEIR_HANGING_PAWNS",
+  "THEIR_HANGING_KNIGHTS",
+  "THEIR_HANGING_BISHOPS",
+  "THEIR_HANGING_ROOKS",
+  "THEIR_HANGING_QUEENS",
   "TIME",
   "NUM_TARGET_SQUARES",
 };
@@ -377,6 +377,8 @@ struct Evaluator {
     features[EF::ROOKS] = std::popcount(ourRooks) - std::popcount(theirRooks);
     features[EF::QUEENS] = std::popcount(ourQueens) - std::popcount(theirQueens);
 
+    // Note that TURN (the side to move) often gets larger bonuses since they can take advantage of threats better.
+
     features[EF::YOUR_TURN] = 1;
     bool isUsInCheck = can_enemy_attack<US>(pos, ourKingSq);
     bool isThemInCheck = can_enemy_attack<THEM>(pos, theirKingSq);
@@ -424,24 +426,26 @@ struct Evaluator {
       features[EF::PAWNS_CENTER_16] = std::popcount(ourPawns & kCenter16) - std::popcount(theirPawns & kCenter16);
       features[EF::PAWNS_CENTER_16] = std::popcount(ourPawns & kCenter16) - std::popcount(theirPawns & kCenter16);
       features[EF::PAWNS_CENTER_4] = std::popcount(ourPawns & kCenter4) - std::popcount(theirPawns & kCenter4);
-      features[EF::PASSED_PAWNS] = std::popcount(passedUsPawns) - std::popcount(passedThemPawns);
+      features[EF::PASSED_PAWNS] = std::popcount(passedUsPawns) * 2 - std::popcount(passedThemPawns);
       features[EF::ISOLATED_PAWNS] = std::popcount(isolatedUsPawns) - std::popcount(isolatedThemPawns);
       features[EF::DOUBLED_PAWNS] = std::popcount(doubledUsPawns) - std::popcount(doubledThemPawns);
+
       if (US == Color::WHITE) {
-        features[EF::ADVANCED_PASSED_PAWNS_1] = std::popcount(passedUsPawns & kRanks[0]) - std::popcount(passedThemPawns & kRanks[7]);
-        features[EF::ADVANCED_PASSED_PAWNS_2] = std::popcount(passedUsPawns & kRanks[1]) - std::popcount(passedThemPawns & kRanks[6]);
-        features[EF::ADVANCED_PASSED_PAWNS_3] = std::popcount(passedUsPawns & kRanks[2]) - std::popcount(passedThemPawns & kRanks[5]);
-        features[EF::ADVANCED_PASSED_PAWNS_4] = std::popcount(passedUsPawns & kRanks[3]) - std::popcount(passedThemPawns & kRanks[4]);
+        features[EF::ADVANCED_PASSED_PAWNS_1] = std::popcount(passedUsPawns & kRanks[0]) * 2 - std::popcount(passedThemPawns & kRanks[7]);
+        features[EF::ADVANCED_PASSED_PAWNS_2] = std::popcount(passedUsPawns & kRanks[1]) * 2 - std::popcount(passedThemPawns & kRanks[6]);
+        features[EF::ADVANCED_PASSED_PAWNS_3] = std::popcount(passedUsPawns & kRanks[2]) * 2 - std::popcount(passedThemPawns & kRanks[5]);
+        features[EF::ADVANCED_PASSED_PAWNS_4] = std::popcount(passedUsPawns & kRanks[3]) * 2 - std::popcount(passedThemPawns & kRanks[4]);
       } else {
-        features[EF::ADVANCED_PASSED_PAWNS_1] = std::popcount(passedUsPawns & kRanks[7]) - std::popcount(passedThemPawns & kRanks[0]);
-        features[EF::ADVANCED_PASSED_PAWNS_2] = std::popcount(passedUsPawns & kRanks[6]) - std::popcount(passedThemPawns & kRanks[1]);
-        features[EF::ADVANCED_PASSED_PAWNS_3] = std::popcount(passedUsPawns & kRanks[5]) - std::popcount(passedThemPawns & kRanks[2]);
-        features[EF::ADVANCED_PASSED_PAWNS_4] = std::popcount(passedUsPawns & kRanks[4]) - std::popcount(passedThemPawns & kRanks[3]);
+        features[EF::ADVANCED_PASSED_PAWNS_1] = std::popcount(passedUsPawns & kRanks[7]) * 2 - std::popcount(passedThemPawns & kRanks[0]);
+        features[EF::ADVANCED_PASSED_PAWNS_2] = std::popcount(passedUsPawns & kRanks[6]) * 2 - std::popcount(passedThemPawns & kRanks[1]);
+        features[EF::ADVANCED_PASSED_PAWNS_3] = std::popcount(passedUsPawns & kRanks[5]) * 2 - std::popcount(passedThemPawns & kRanks[2]);
+        features[EF::ADVANCED_PASSED_PAWNS_4] = std::popcount(passedUsPawns & kRanks[4]) * 2 - std::popcount(passedThemPawns & kRanks[3]);
       }
-      features[EF::PAWN_MINOR_CAPTURES] = std::popcount(ourPawnTargets & minorThem) - std::popcount(theirPawnTargets & minorUs);
-      features[EF::PAWN_MAJOR_CAPTURES] = std::popcount(ourPawnTargets & majorThem) - std::popcount(theirPawnTargets & majorUs);
+
+      features[EF::PAWN_MINOR_CAPTURES] = std::popcount(ourPawnTargets & minorThem) * 2 - std::popcount(theirPawnTargets & minorUs);
+      features[EF::PAWN_MAJOR_CAPTURES] = std::popcount(ourPawnTargets & majorThem) * 2 - std::popcount(theirPawnTargets & majorUs);
       features[EF::PROTECTED_PAWNS] = std::popcount(ourPawns & ourPawnTargets) - std::popcount(theirPawns & theirPawnTargets);
-      features[EF::PROTECTED_PASSED_PAWNS] = std::popcount(passedUsPawns & ourPawnTargets) - std::popcount(passedThemPawns & theirPawnTargets);
+      features[EF::PROTECTED_PASSED_PAWNS] = std::popcount(passedUsPawns & ourPawnTargets) * 2 - std::popcount(passedThemPawns & theirPawnTargets);
 
       features[EF::PAWN_SPREAD] = 0;
       if (filesWithOurPawns) {
@@ -498,18 +502,18 @@ struct Evaluator {
       // for a pawn.
       const Bitboard usHanging = themTargets & ~usTargets & pos.colorBitboards_[US];
       const Bitboard themHanging = usTargets & ~themTargets & pos.colorBitboards_[THEM];
-      features[EF::HANGING_WHITE_PAWNS] = std::popcount(ourPawns & usHanging);
-      features[EF::HANGING_BLACK_PAWNS] = std::popcount(theirPawns & themHanging);
-      features[EF::HANGING_WHITE_KNIGHTS] = std::popcount(ourKnights & usHanging);
-      features[EF::HANGING_BLACK_KNIGHTS] = std::popcount(theirKnights & themHanging);
-      features[EF::HANGING_WHITE_BISHOPS] = std::popcount(ourBishops & usHanging);
-      features[EF::HANGING_BLACK_BISHOPS] = std::popcount(theirBishops & themHanging);
-      features[EF::HANGING_WHITE_ROOKS] = std::popcount(ourRooks & usHanging);
-      features[EF::HANGING_BLACK_ROOKS] = std::popcount(theirRooks & themHanging);
-      features[EF::HANGING_WHITE_QUEENS] = std::popcount(ourQueens & usHanging);
-      features[EF::HANGING_BLACK_QUEENS] = std::popcount(theirQueens & themHanging);
+      features[EF::OUR_HANGING_PAWNS] = std::popcount(ourPawns & usHanging);
+      features[EF::THEIR_HANGING_PAWNS] = std::popcount(theirPawns & themHanging);
+      features[EF::OUR_HANGING_KNIGHTS] = std::popcount(ourKnights & usHanging);
+      features[EF::THEIR_HANGING_KNIGHTS] = std::popcount(theirKnights & themHanging);
+      features[EF::OUR_HANGING_BISHOPS] = std::popcount(ourBishops & usHanging);
+      features[EF::THEIR_HANGING_BISHOPS] = std::popcount(theirBishops & themHanging);
+      features[EF::OUR_HANGING_ROOKS] = std::popcount(ourRooks & usHanging);
+      features[EF::THEIR_HANGING_ROOKS] = std::popcount(theirRooks & themHanging);
+      features[EF::OUR_HANGING_QUEENS] = std::popcount(ourQueens & usHanging);
+      features[EF::THEIR_HANGING_QUEENS] = std::popcount(theirQueens & themHanging);
 
-      features[EF::NUM_TARGET_SQUARES] = std::popcount(usTargets) - std::popcount(themTargets);
+      features[EF::NUM_TARGET_SQUARES] = std::popcount(usTargets) * 2 - std::popcount(themTargets);
 
     }
 
@@ -573,17 +577,17 @@ struct Evaluator {
     const Evaluation bScaleFactor = -1;
     const Evaluation denominator = 20;
 
-    r += features[EF::HANGING_WHITE_PAWNS] * 100 * bScaleFactor / denominator;
-    r += features[EF::HANGING_WHITE_KNIGHTS] * 300 * bScaleFactor / denominator;
-    r += features[EF::HANGING_WHITE_BISHOPS] * 300 * bScaleFactor / denominator;
-    r += features[EF::HANGING_WHITE_ROOKS] * 500 * bScaleFactor / denominator;
-    r += features[EF::HANGING_WHITE_QUEENS] * 900 * bScaleFactor / denominator;
+    r += features[EF::OUR_HANGING_PAWNS] * 100 * bScaleFactor / denominator;
+    r += features[EF::OUR_HANGING_KNIGHTS] * 300 * bScaleFactor / denominator;
+    r += features[EF::OUR_HANGING_BISHOPS] * 300 * bScaleFactor / denominator;
+    r += features[EF::OUR_HANGING_ROOKS] * 500 * bScaleFactor / denominator;
+    r += features[EF::OUR_HANGING_QUEENS] * 900 * bScaleFactor / denominator;
 
-    r += features[EF::HANGING_BLACK_PAWNS] * 100 * wScaleFactor / denominator;
-    r += features[EF::HANGING_BLACK_KNIGHTS] * 300 * wScaleFactor / denominator;
-    r += features[EF::HANGING_BLACK_BISHOPS] * 300 * wScaleFactor / denominator;
-    r += features[EF::HANGING_BLACK_ROOKS] * 500 * wScaleFactor / denominator;
-    r += features[EF::HANGING_BLACK_QUEENS] * 900 * wScaleFactor / denominator;
+    r += features[EF::THEIR_HANGING_PAWNS] * 100 * wScaleFactor / denominator;
+    r += features[EF::THEIR_HANGING_KNIGHTS] * 300 * wScaleFactor / denominator;
+    r += features[EF::THEIR_HANGING_BISHOPS] * 300 * wScaleFactor / denominator;
+    r += features[EF::THEIR_HANGING_ROOKS] * 500 * wScaleFactor / denominator;
+    r += features[EF::THEIR_HANGING_QUEENS] * 900 * wScaleFactor / denominator;
 
     r += features[EF::NUM_TARGET_SQUARES] * 4;
 
@@ -822,7 +826,7 @@ std::pair<Evaluation, Move> search(Position* pos, Depth depth, const Evaluation 
   #endif
 
   std::pair<Evaluation, Move> r(
-    kMinEval,
+    kMinEval + 1,
     kNullMove
   );
 
@@ -887,6 +891,12 @@ std::pair<Evaluation, Move> search(Position* pos, Depth depth, const Evaluation 
 
     std::pair<Evaluation, Move> a = search<opposingColor>(pos, depth - depthReduction, -r.first, recommendationsForChildren);
     a.first *= -1;
+    if (a.first > kMaxEval - 100) {
+      a.first -= 1;
+    }
+    if (a.first < kMinEval + 100) {
+      a.first += 1;
+    }
 
     if (a.first > r.first) {
       r.first = a.first;
@@ -918,12 +928,15 @@ std::pair<Evaluation, Move> search(Position* pos, Depth depth, const Evaluation 
   }
 
   if (numValidMoves == 0) {
-    if (inCheck) {
-      return std::make_pair(kMinEval, kNullMove);
-    } else {
-      return std::make_pair(0, kNullMove);
-    }
+    r.first = inCheck ? kMinEval + 1 : 0;
+    r.second = kNullMove;
   }
+
+  // This technically improves the engine but presumably makes optimizing
+  // it really annoying to think about, so commenting out for now.
+  // if (it != gCache.end()) {
+  //   r.first = float(r.first) * 1.1 - float(it->second.eval) * 0.1;
+  // }
 
   it = gCache.find(pos->hash_);  // Need to re-search since the iterator may have changed when searching my children.
   if (it == gCache.end() || depth > it->second.depth) {
@@ -939,6 +952,14 @@ std::pair<Evaluation, Move> search(Position* pos, Depth depth, const Evaluation 
       it->second = cr;
     } else {
       gCache.insert(std::make_pair(pos->hash_, cr));
+    }
+  }
+
+  if (numValidMoves == 0) {
+    if (inCheck) {
+      return std::make_pair(kMinEval + 1, kNullMove);
+    } else {
+      return std::make_pair(0, kNullMove);
     }
   }
 
@@ -1140,7 +1161,7 @@ int main(int argc, char *argv[]) {
     results = search(&pos, i * kDepthScale);
     time_t t1 = clock();
     if (!silent) {
-      std::cout << i << " : " << results.second << " : " << results.first << " (" << double(t1 - t0)/CLOCKS_PER_SEC << " secs)" << std::endl;
+      std::cout << i << " : " << results.second << " : " << results.first * (pos.turn_ == Color::WHITE ? 1 : -1) << " (" << double(t1 - t0)/CLOCKS_PER_SEC << " secs)" << std::endl;
     }
     if (double(clock() - tstart)/CLOCKS_PER_SEC*1000 > timeLimitMs) {
       break;
@@ -1164,6 +1185,9 @@ int main(int argc, char *argv[]) {
   while (it != gCache.end()) {
     if (++i > 10) {
       break;
+    }
+    if (pos.turn_ == Color::BLACK) {
+      it->second.eval *= -1;
     }
     std::cout << it->second.bestMove.uci() << " (" << it->second.eval << ", " << unsigned(it->second.depth) << ")" << std::endl;
     if (it->second.bestMove == kNullMove) {
