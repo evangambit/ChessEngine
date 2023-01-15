@@ -277,17 +277,21 @@ std::string EFSTR[] = {
   "BISHOPS",
   "ROOKS",
   "QUEENS",
+
   "IN_CHECK",
   "KING_ON_BACK_RANK",
   "KING_ACTIVE",
   "THREATS_NEAR_KING_2",
   "THREATS_NEAR_KING_3",
+
   "PASSED_PAWNS",
   "ISOLATED_PAWNS",
   "DOUBLED_PAWNS",
   "DOUBLE_ISOLATED_PAWNS",
+
   "PAWNS_CENTER_16",
   "PAWNS_CENTER_4",
+  "ADVANCED_PASSED_PAWNS_1",
   "ADVANCED_PASSED_PAWNS_2",
   "ADVANCED_PASSED_PAWNS_3",
   "ADVANCED_PASSED_PAWNS_4",
@@ -295,31 +299,40 @@ std::string EFSTR[] = {
   "PAWN_MAJOR_CAPTURES",
   "PROTECTED_PAWNS",
   "PROTECTED_PASSED_PAWNS",
+
   "BISHOPS_DEVELOPED",
   "BISHOP_PAIR",
   "BLOCKADED_BISHOPS",
   "SCARY_BISHOPS",
   "SCARIER_BISHOPS",
+
   "BLOCKADED_ROOKS",
   "SCARY_ROOKS",
   "INFILTRATING_ROOKS",
+
   "KNIGHTS_DEVELOPED",
   "KNIGHT_MAJOR_CAPTURES",
   "KNIGHTS_CENTER_16",
   "KNIGHTS_CENTER_4",
   "KNIGHT_ON_ENEMY_SIDE",
+
   "OUR_HANGING_PAWNS",
   "OUR_HANGING_KNIGHTS",
   "OUR_HANGING_BISHOPS",
   "OUR_HANGING_ROOKS",
   "OUR_HANGING_QUEENS",
+
   "THEIR_HANGING_PAWNS",
   "THEIR_HANGING_KNIGHTS",
   "THEIR_HANGING_BISHOPS",
   "THEIR_HANGING_ROOKS",
   "THEIR_HANGING_QUEENS",
-  "TIME",
+
   "NUM_TARGET_SQUARES",
+
+  "TIME",
+
+  "NUM_EVAL_FEATURES",
 };
 
 // 5584 / 11387
@@ -763,7 +776,26 @@ std::pair<Evaluation, Move> qsearch(Position *pos, int32_t depth) {
   }
 
   if (bestChild.first > selfEval) {
-    return std::make_pair(bestChild.first, moves[0].move);
+    const auto r = std::make_pair(bestChild.first, moves[0].move);
+
+    auto it = gCache.find(pos->hash_);
+    if (it == gCache.end()) {
+      const CacheResult cr = CacheResult{
+        0,
+        r.first,
+        r.second,
+        #ifndef NDEBUG
+        pos->fen(),
+        #endif
+      };
+      if (it != gCache.end()) {
+        it->second = cr;
+      } else {
+        gCache.insert(std::make_pair(pos->hash_, cr));
+      }
+    }
+
+    return r;
   } else {
     return std::make_pair(selfEval, kNullMove);
   }
@@ -1026,11 +1058,11 @@ void print_feature_vec(Position *pos) {
   } else {
     e = -gEvaluator.score<Color::BLACK>(*pos);
   }
-  std::cout << pos->fen() << std::endl;
+  std::cout << "FEN" << pos->fen() << std::endl;
+  std::cout << "SCORE " << e << std::endl;
   for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
     std::cout << gEvaluator.features[i] << " " << EFSTR[i] << std::endl;
   }
-  std::cout << "score: " << e << std::endl;
 }
 
 int main(int argc, char *argv[]) {
