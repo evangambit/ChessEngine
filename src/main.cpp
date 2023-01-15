@@ -655,7 +655,11 @@ std::pair<Evaluation, Move> qsearch(Position *pos) {
   ExtMove *end = compute_moves<TURN, MoveGenType::CAPTURES>(*pos, moves);
 
   if (moves == end) {
-    return std::make_pair(gEvaluator.score(*pos), kNullMove);
+    if (TURN == Color::WHITE) {
+      return std::make_pair(gEvaluator.score(*pos), kNullMove);
+    } else {
+      return std::make_pair(-gEvaluator.score(*pos), kNullMove);
+    }
   }
 
   const Bitboard theirTargets = compute_my_targets<opposingColor>(*pos);
@@ -670,7 +674,7 @@ std::pair<Evaluation, Move> qsearch(Position *pos) {
     return a.score > b.score;
   });
 
-  Evaluation selfEval = gEvaluator.score(*pos);
+  Evaluation selfEval = (TURN == Color::WHITE) ? gEvaluator.score(*pos) : -gEvaluator.score(*pos);
   if (moves[0].score < 0) {
     return std::make_pair(selfEval, kNullMove);
   }
@@ -678,21 +682,14 @@ std::pair<Evaluation, Move> qsearch(Position *pos) {
   make_move<TURN>(pos, moves[0].move);
 
   std::pair<Evaluation, Move> child = qsearch<opposingColor>(pos);
+  child.first *= -1;
 
   undo<TURN>(pos);
 
-  if (TURN == Color::WHITE) {
-    if (child.first > selfEval) {
-      return std::make_pair(child.first, moves[0].move);
-    } else {
-      return std::make_pair(selfEval, kNullMove);
-    }
+  if (child.first > selfEval) {
+    return std::make_pair(child.first, moves[0].move);
   } else {
-    if (child.first < selfEval) {
-      return std::make_pair(child.first, moves[0].move);
-    } else {
-      return std::make_pair(selfEval, kNullMove);
-    }
+    return std::make_pair(selfEval, kNullMove);
   }
 }
 
@@ -701,6 +698,10 @@ std::pair<Evaluation, Move> search(Position* pos, Depth depth, const Evaluation 
   constexpr Color opposingColor = opposite_color<TURN>();
   constexpr ColoredPiece moverKing = coloredPiece<TURN, Piece::KING>();
 
+  if (std::popcount(pos->pieceBitboards_[coloredPiece<TURN, Piece::KING>()]) == 0) {
+    return std::make_pair(kMinEval, kNullMove);
+  }
+
   const bool inCheck = can_enemy_attack<TURN>(*pos, lsb(pos->pieceBitboards_[moverKing]));
   if (inCheck) {
     depth += kDepthScale;
@@ -708,7 +709,8 @@ std::pair<Evaluation, Move> search(Position* pos, Depth depth, const Evaluation 
 
   if (depth <= 0) {
     ++leafCounter;
-    return qsearch<TURN>(pos);
+    std::pair<Evaluation, Move> r = qsearch<TURN>(pos);
+    return r;
   }
   ++nodeCounter;
 
@@ -725,16 +727,6 @@ std::pair<Evaluation, Move> search(Position* pos, Depth depth, const Evaluation 
   }
   if (repeatCounter == 3) {
     return std::make_pair(0, kNullMove);
-  }
-
-  if (TURN == Color::WHITE) {
-    if (std::popcount(pos->pieceBitboards_[ColoredPiece::WHITE_KING]) == 0) {
-      return std::make_pair(kMinEval, kNullMove);
-    }
-  } else {
-    if (std::popcount(pos->pieceBitboards_[ColoredPiece::BLACK_KING]) == 0) {
-      return std::make_pair(kMaxEval, kNullMove);
-    }
   }
 
   auto it = gCache.find(pos->hash_);
@@ -756,7 +748,7 @@ std::pair<Evaluation, Move> search(Position* pos, Depth depth, const Evaluation 
   #endif
 
   std::pair<Evaluation, Move> r(
-    TURN == Color::WHITE ? kMinEval : kMaxEval,
+    kMinEval,
     kNullMove
   );
 
@@ -811,27 +803,21 @@ std::pair<Evaluation, Move> search(Position* pos, Depth depth, const Evaluation 
     make_move<TURN>(pos, extMove->move);
     Depth depthReduction = kDepthScale;
 
+    // Don't move into check.
     if (can_enemy_attack<TURN>(*pos, lsb(pos->pieceBitboards_[moverKing]))) {
       undo<TURN>(pos);
       continue;
     }
+
     ++numValidMoves;
 
-    std::pair<Evaluation, Move> a = search<opposingColor>(pos, depth - depthReduction, r.first, recommendationsForChildren);
+    std::pair<Evaluation, Move> a = search<opposingColor>(pos, depth - depthReduction, -r.first, recommendationsForChildren);
+    a.first *= -1;
 
-    if (TURN == Color::WHITE) {
-      if (a.first > r.first) {
-        r.first = a.first;
-        r.second = extMove->move;
-        recommendationsForChildren.add(a.second);
-      }
-    }
-    else {
-      if (a.first < r.first) {
-        r.first = a.first;
-        r.second = extMove->move;
-        recommendationsForChildren.add(a.second);
-      }
+    if (a.first > r.first) {
+      r.first = a.first;
+      r.second = extMove->move;
+      recommendationsForChildren.add(a.second);
     }
     undo<TURN>(pos);
 
@@ -852,25 +838,14 @@ std::pair<Evaluation, Move> search(Position* pos, Depth depth, const Evaluation 
     pos->assert_valid_state("b " + extMove->uci());
     #endif
 
-    if (TURN == Color::WHITE) {
-      if (r.first >= bestSibling) {
-        return r;
-      }
-    }
-    if (TURN == Color::BLACK) {
-      if (r.first <= bestSibling) {
-        return r;
-      }
+    if (r.first >= bestSibling) {
+      return r;
     }
   }
 
   if (numValidMoves == 0) {
     if (inCheck) {
-      if (TURN == Color::WHITE) {
-        return std::make_pair(kMinEval, kNullMove);
-      } else {
-        return std::make_pair(kMaxEval, kNullMove);
-      }
+      return std::make_pair(kMinEval, kNullMove);
     } else {
       return std::make_pair(0, kNullMove);
     }
@@ -900,7 +875,7 @@ std::pair<Evaluation, Move> search(Position* pos, Depth depth) {
   if (pos->turn_ == Color::WHITE) {
     return search<Color::WHITE>(pos, depth, kMaxEval, RecommendedMoves());
   } else {
-    return search<Color::BLACK>(pos, depth, kMinEval, RecommendedMoves());
+    return search<Color::BLACK>(pos, depth, kMaxEval, RecommendedMoves());
   }
 }
 
