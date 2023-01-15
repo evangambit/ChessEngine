@@ -35,6 +35,7 @@ std::string bstr(uint8_t b) {
 
 Bitboard kKingDist[8][64];
 Bitboard kNearby[7][64];
+Bitboard kSquaresBetween[64][64];
 
 void initialize_geometry() {
   for (int dist = 0; dist < 8; ++dist) {
@@ -67,7 +68,50 @@ void initialize_geometry() {
       }
     }
   }
+
+  for (int a = 0; a < 64; ++a) {
+    const int ax = a % 8;
+    const int ay = a / 8;
+    for (int b = 0; b < 64; ++b) {
+      kSquaresBetween[a][b] = bb(a) | bb(b);
+      const int bx = b % 8;
+      const int by = b / 8;
+      if (ax == bx) {
+        for (int y = std::min(ay, by) + 1; y < std::max(ay, by); ++y) {
+          kSquaresBetween[a][b] |= bb(y * 8 + ax);
+        }
+      } else if (ay == by) {
+        for (int x = std::min(ax, bx) + 1; x < std::max(ax, bx); ++x) {
+          kSquaresBetween[a][b] |= bb(ay * 8 + x);
+        }
+      } else if ((ax - ay) == (bx - by)) {
+        // South-east diagonal
+        for (int x = std::min(ax, bx) + 1; x < std::max(ax, bx); ++x) {
+          kSquaresBetween[a][b] |= bb((ay - ax + x) * 8 + x);
+        }
+      } else if ((ax + ay) == (bx + by)) {
+        // South-west diagonal
+        for (int x = std::min(ax, bx) + 1; x < std::max(ax, bx); ++x) {
+          kSquaresBetween[a][b] |= bb((ay + ax - x) * 8 + x);
+        }
+      } else if ((std::abs(ax - bx) == 1 && std::abs(ay - by) == 2) || (std::abs(ax - bx) == 2 && std::abs(ay - by) == 1)) {
+        // Knight move
+
+      }
+    }
+  }
 }
+
+/*
+  0  1  2  3  4  5  6  7
+  8  9 10 11 12 13 14 15
+ 16 17 18 19 20 21 22 23
+ 24 25 26 27 28 29 30 31
+ 32 33 34 35 36 37 38 39
+ 40 41 42 43 44 45 46 47
+ 48 49 50 51 52 53 54 55
+ 56 57 58 59 60 61 62 63
+*/
 
 Location square2location(Square sq) {
   assert(sq < 65);  // sq is valid

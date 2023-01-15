@@ -18,6 +18,9 @@ std::ostream& operator<<(std::ostream& stream, const ExtMove move) {
 }
 
 std::string Move::uci() const {
+  if (*this == kNullMove) {
+    return "NULL";
+  }
   std::string r = "";
   r += square_to_string(from);
   r += square_to_string(to);
@@ -28,6 +31,9 @@ std::string Move::uci() const {
 }
 
 std::string ExtMove::str() const {
+  if (this->move == kNullMove) {
+    return "NULL";
+  }
   std::string r = "";
   r += char(piece_to_char(this->piece) + 'A' - 'a');
   r += square_to_string(this->move.from);

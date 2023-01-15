@@ -102,6 +102,18 @@ void test_moves() {
   std::cout << "tested " << counter << " positions' move generations" << std::endl;
 }
 
+std::string history_string(const Position& pos) {
+  std::string r = "<HISTORY>";
+  for (size_t i = 0; i < pos.history_.size(); ++i) {
+    if (i != 0) {
+      r += " ";
+    }
+    r += pos.history_[i].uci();
+  }
+  r += "</HISTORY>";
+  return r;
+}
+
 void test1() {
   assert(compute_colored_piece(Piece::PAWN, Color::WHITE) == ColoredPiece::WHITE_PAWN);
   assert(compute_colored_piece(Piece::KING, Color::BLACK) == ColoredPiece::BLACK_KING);
@@ -199,8 +211,6 @@ enum EF {
   ROOKS,
   QUEENS,
 
-  YOUR_TURN,
-
   IN_CHECK,
   KING_ON_BACK_RANK,
   THREATS_NEAR_KING_2,
@@ -223,13 +233,14 @@ enum EF {
   PAWN_SPREAD,
 
   BISHOPS_DEVELOPED,
+  BISHOP_PAIR,
   BLOCKADED_BISHOPS,
   SCARY_BISHOPS,
   SCARIER_BISHOPS,
 
   BLOCKADED_ROOKS,
   SCARY_ROOKS,
-  ROOKS_ON_7TH,
+  INFILTRATING_ROOKS,
 
   KNIGHTS_DEVELOPED,
   KNIGHT_MAJOR_CAPTURES,
@@ -262,7 +273,6 @@ std::string EFSTR[] = {
   "BISHOPS",
   "ROOKS",
   "QUEENS",
-  "YOUR_TURN",
   "IN_CHECK",
   "KING_ON_BACK_RANK",
   "THREATS_NEAR_KING_2",
@@ -282,12 +292,13 @@ std::string EFSTR[] = {
   "PROTECTED_PASSED_PAWNS",
   "PAWN_SPREAD",
   "BISHOPS_DEVELOPED",
+  "BISHOP_PAIR",
   "BLOCKADED_BISHOPS",
   "SCARY_BISHOPS",
   "SCARIER_BISHOPS",
   "BLOCKADED_ROOKS",
   "SCARY_ROOKS",
-  "ROOKS_ON_7TH",
+  "INFILTRATING_ROOKS",
   "KNIGHTS_DEVELOPED",
   "KNIGHT_MAJOR_CAPTURES",
   "KNIGHTS_CENTER_16",
@@ -379,9 +390,11 @@ struct Evaluator {
 
     // Note that TURN (the side to move) often gets larger bonuses since they can take advantage of threats better.
 
-    features[EF::YOUR_TURN] = 1;
     bool isUsInCheck = can_enemy_attack<US>(pos, ourKingSq);
     bool isThemInCheck = can_enemy_attack<THEM>(pos, theirKingSq);
+    // Note: in a rigorous engine isThemInCheck would always be false on your move. For this engine,
+    // it means they have moved into check (e.g. moving a pinned piece). Unfortunately we cannot
+    // immediately return kMaxEval since it's possible they had had legal moves (and were in stalemate).
     features[EF::IN_CHECK] = isUsInCheck - isThemInCheck;
     if (US == Color::WHITE) {
       features[EF::KING_ON_BACK_RANK] = (ourKingSq / 8 == 7) - (theirKingSq / 8 == 0);
@@ -464,6 +477,7 @@ struct Evaluator {
       } else {
         features[EF::BISHOPS_DEVELOPED] = std::popcount(theirBishops & (bb(58) | bb(61))) - std::popcount(ourBishops & (bb( 2) | bb( 5)));
       }
+      features[EF::BISHOP_PAIR] = (std::popcount(ourBishops) >= 2) - (std::popcount(theirBishops) >= 2);
       features[EF::BLOCKADED_BISHOPS] = std::popcount(ourBishopTargetsIgnoringNonBlockades & (outBlockadedPawns | theirProtectedPawns)) - std::popcount(theirBishopTargetsIgnoringNonBlockades & (theirBlockadedPawns | ourProtectedPawns));
       features[EF::SCARY_BISHOPS] = std::popcount(ourBishopTargetsIgnoringNonBlockades & majorThem) - std::popcount(theirBishopTargetsIgnoringNonBlockades & majorUs);
       features[EF::SCARIER_BISHOPS] = std::popcount(ourBishopTargetsIgnoringNonBlockades & royalThem) - std::popcount(theirBishopTargetsIgnoringNonBlockades & royalUs);
@@ -474,14 +488,13 @@ struct Evaluator {
       // const Bitboard theirPawnsOnThem = kThemSquares & theirPawns;
     }
 
+    constexpr Bitboard kOurBackRanks = (US == Color::WHITE ? kRanks[6] | kRanks[7] : kRanks[1] | kRanks[0]);
+    constexpr Bitboard kTheirBackRanks = (US == Color::WHITE ? kRanks[1] | kRanks[0] : kRanks[6] | kRanks[7]);
+
     {  // Rooks
       features[EF::BLOCKADED_ROOKS] = std::popcount(usRookTargets & ourPawns) - std::popcount(themRookTargets & theirPawns);
       features[EF::SCARY_ROOKS] = std::popcount(usRookTargets & royalThem) - std::popcount(themRookTargets & royalUs);
-      if (US == Color::WHITE) {
-        features[EF::ROOKS_ON_7TH] = std::popcount(ourRooks & kRanks[1]) - std::popcount(theirRooks & kRanks[6]);
-      } else {
-        features[EF::ROOKS_ON_7TH] = std::popcount(ourRooks & kRanks[6]) - std::popcount(theirRooks & kRanks[1]);
-      }
+      features[EF::INFILTRATING_ROOKS] = std::popcount(ourRooks & kTheirBackRanks) - std::popcount(theirRooks & kOurBackRanks);
     }
 
     {  // Knights
@@ -532,13 +545,12 @@ struct Evaluator {
 
   template<Color US>
   Evaluation early(const Position& pos) const {
-    Evaluation r = 0;
+    Evaluation r = 20;  // Bonus for being your turn.
     r += features[EF::PAWNS] * 100;
-    r += features[EF::KNIGHTS] * 499;
+    r += features[EF::KNIGHTS] * 450;
     r += features[EF::BISHOPS] * 465;
     r += features[EF::ROOKS] * 365;
     r += features[EF::QUEENS] * 1093;
-    r += features[EF::YOUR_TURN] * 20;
     r += features[EF::IN_CHECK] * -300;
     r += features[EF::KING_ON_BACK_RANK] * 50;
 
@@ -559,13 +571,14 @@ struct Evaluator {
     r += features[EF::PROTECTED_PAWNS] * 10;
 
     r += features[EF::BISHOPS_DEVELOPED] * 10;
+    // r += features[EF::BISHOP_PAIR] * 20;
     r += features[EF::BLOCKADED_BISHOPS] * -10;
     r += features[EF::SCARY_BISHOPS] * 10;
     r += features[EF::SCARIER_BISHOPS] * 30;
 
     r += features[EF::BLOCKADED_ROOKS] * -10;
     r += features[EF::SCARY_ROOKS] * 10;
-    r += features[EF::ROOKS_ON_7TH] * 20;
+    r += features[EF::INFILTRATING_ROOKS] * 20;
 
     r += features[EF::KNIGHTS_DEVELOPED] * 20;
     r += features[EF::KNIGHT_MAJOR_CAPTURES] * 40;
@@ -603,7 +616,6 @@ struct Evaluator {
     r += features[EF::BISHOPS] * 539;
     r += features[EF::ROOKS] * 1561;
     r += features[EF::QUEENS] * 3101;
-    r += features[EF::YOUR_TURN] * 20;
     r += features[EF::IN_CHECK] * -200;
 
     r += features[EF::KING_ON_BACK_RANK] * -50;
@@ -625,7 +637,7 @@ struct Evaluator {
 
     r += features[EF::BLOCKADED_ROOKS] * -20;
     r += features[EF::SCARY_ROOKS] * 10;
-    r += features[EF::ROOKS_ON_7TH] * 10;
+    r += features[EF::INFILTRATING_ROOKS] * 10;
 
     const Square theirKingSq = lsb(pos.colorBitboards_[THEM]);
     const Square ourKingSq = lsb(pos.colorBitboards_[US]);
@@ -672,18 +684,6 @@ struct CacheResult {
   std::string fen;
   #endif
 };
-
-std::string history_string(Position* pos) {
-  std::string r = "<HISTORY>";
-  for (size_t i = 0; i < pos->history_.size(); ++i) {
-    if (i != 0) {
-      r += " ";
-    }
-    r += pos->history_[i].uci();
-  }
-  r += "</HISTORY>";
-  return r;
-}
 
 std::unordered_map<uint64_t, CacheResult> gCache;
 
@@ -1012,6 +1012,28 @@ void handler(int sig) {
   exit(1);
 }
 
+template<Color TURN>
+void print_feature_vec(Position *pos) {
+  std::pair<Evaluation, Move> r = qsearch<TURN>(pos, 0);
+  if (r.second != kNullMove) {
+    make_move<TURN>(pos, r.second);
+    print_feature_vec<opposite_color<TURN>()>(pos);
+    undo<TURN>(pos);
+    return;
+  }
+
+  Evaluation e;
+  if (pos->turn_ == Color::WHITE) {
+    e = gEvaluator.score<Color::WHITE>(*pos);
+  } else {
+    e = gEvaluator.score<Color::BLACK>(*pos);
+  }
+  std::cout << pos->fen() << std::endl;
+  for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
+    std::cout << gEvaluator.features[i] << " " << EFSTR[i] << std::endl;
+  }
+}
+
 int main(int argc, char *argv[]) {
   signal(SIGSEGV, handler);
   #ifndef NDEBUG
@@ -1025,8 +1047,8 @@ int main(int argc, char *argv[]) {
 
   initialize_geometry();
   initialize_zorbrist();
-  // test1();
-  // test_moves();
+  test1();
+  test_moves();
 
   Position pos = Position::init();
   Depth depth = 99;
@@ -1063,14 +1085,10 @@ int main(int argc, char *argv[]) {
       silent = (args[1] == "1");
       args = std::vector<std::string>(args.begin() + 2, args.end());
     } else if (args.size() >= 1 && args[0] == "evalvec") {
-      Evaluation e;
       if (pos.turn_ == Color::WHITE) {
-        e = gEvaluator.score<Color::WHITE>(pos);
+        print_feature_vec<Color::WHITE>(&pos);
       } else {
-        e = gEvaluator.score<Color::BLACK>(pos);
-      }
-      for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
-        std::cout << gEvaluator.features[i] << " " << EFSTR[i] << std::endl;
+        print_feature_vec<Color::BLACK>(&pos);
       }
       return 0;
     } else if (args.size() >= 2 && args[0] == "fens") {

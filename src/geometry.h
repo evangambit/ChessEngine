@@ -102,6 +102,9 @@ constexpr Location bb(unsigned sq) {
 extern Bitboard kKingDist[8][64];
 extern Bitboard kNearby[7][64];
 
+// Used to figure out which squares can be moved to to stop a check.
+extern Bitboard kSquaresBetween[64][64];
+
 void initialize_geometry();
 
 void assert_valid_square(Square sq);

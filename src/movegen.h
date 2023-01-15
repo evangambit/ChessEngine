@@ -98,6 +98,7 @@ Bitboard compute_enemy_attackers(const Position& pos, const Square sq) {
   return attackers;
 }
 
+// We take the liberty of ignoring MGT if you're in check.
 template<Color US, MoveGenType MGT>
 ExtMove* compute_moves(const Position& pos, ExtMove *moves) {
   assert(US == pos.turn_);
@@ -113,20 +114,22 @@ ExtMove* compute_moves(const Position& pos, ExtMove *moves) {
   const unsigned numCheckers = std::popcount(checkers);
 
   if (numCheckers > 1) {  // Double check; king must move.
-    return compute_king_moves<US, MGT, true>(pos, moves, kUniverse);
+    return compute_king_moves<US, MoveGenType::ALL_MOVES, true>(pos, moves, kUniverse);
   }
 
   Bitboard target = kUniverse;
   if (numCheckers == 1) {
-    // TODO
+    target = kSquaresBetween[ourKing][lsb(checkers)];
   }
+
+  const Bitboard validKingSquares = ~compute_my_targets<opposite_color<US>()>(pos);
 
   moves = compute_pawn_moves<US, MGT>(pos, moves, target);
   moves = compute_knight_moves<US, MGT>(pos, moves, target);
   if (numCheckers > 0) {
-    moves = compute_king_moves<US, MGT, true>(pos, moves, kUniverse);
+    moves = compute_king_moves<US, MGT, true>(pos, moves, validKingSquares);
   } else {
-    moves = compute_king_moves<US, MGT, false>(pos, moves, kUniverse);
+    moves = compute_king_moves<US, MGT, false>(pos, moves, validKingSquares);
   }
   moves = compute_bishop_like_moves<US, MGT>(pos, moves, target);
   moves = compute_rook_like_moves<US, MGT>(pos, moves, target);
