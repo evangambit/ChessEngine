@@ -559,8 +559,9 @@ struct Evaluator {
     r += features[EF::ROOKS] * 365;
     r += features[EF::QUEENS] * 1093;
     r += features[EF::IN_CHECK] * -300;
-    r += features[EF::KING_ON_BACK_RANK] * 50;
 
+    r += features[EF::KING_ON_BACK_RANK] * 50;
+    r += features[EF::KING_ACTIVE] * -100;
     r += features[EF::THREATS_NEAR_KING_2] * -2;
     r += features[EF::THREATS_NEAR_KING_3] * -2;
 
