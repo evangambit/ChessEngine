@@ -271,6 +271,58 @@ enum EF {
   NUM_EVAL_FEATURES,
 };
 
+int32_t kEarlyWeights[EF::NUM_EVAL_FEATURES] {
+   100,  // PAWNS
+   450,  // KNIGHTS
+   465,  // BISHOPS
+   365,  // ROOKS
+  1093,  // QUEENS
+  -300,  // IN_CHECK
+    50,  // KING_ON_BACK_RANK
+  -100,  // KING_ACTIVE
+    -2,  // THREATS_NEAR_KING_2
+    -2,  // THREATS_NEAR_KING_3
+     0,  // PASSED_PAWNS
+   -30,  // ISOLATED_PAWNS
+   -20,  // DOUBLED_PAWNS
+   -20,  // DOUBLE_ISOLATED_PAWNS
+    10,  // PAWNS_CENTER_16
+    58,  // PAWNS_CENTER_4
+     0,  // ADVANCED_PASSED_PAWNS_1
+     0,  // ADVANCED_PASSED_PAWNS_2
+     0,  // ADVANCED_PASSED_PAWNS_3
+     0,  // ADVANCED_PASSED_PAWNS_4
+    50,  // PAWN_MINOR_CAPTURES
+    50,  // PAWN_MAJOR_CAPTURES
+    10,  // PROTECTED_PAWNS
+     0,  // PROTECTED_PASSED_PAWNS
+    10,  // BISHOPS_DEVELOPED
+     0,  // BISHOP_PAIR
+   -10,  // BLOCKADED_BISHOPS
+    10,  // SCARY_BISHOPS
+    30,  // SCARIER_BISHOPS
+   -10,  // BLOCKADED_ROOKS
+    10,  // SCARY_ROOKS
+    20,  // INFILTRATING_ROOKS
+    20,  // KNIGHTS_DEVELOPED
+    40,  // KNIGHT_MAJOR_CAPTURES
+    50,  // KNIGHTS_CENTER_16
+     0,  // KNIGHTS_CENTER_4
+    30,  // KNIGHT_ON_ENEMY_SIDE
+     0,  // OUR_HANGING_PAWNS
+     0,  // OUR_HANGING_KNIGHTS
+     0,  // OUR_HANGING_BISHOPS
+     0,  // OUR_HANGING_ROOKS
+     0,  // OUR_HANGING_QUEENS
+     0,  // THEIR_HANGING_PAWNS
+     0,  // THEIR_HANGING_KNIGHTS
+     0,  // THEIR_HANGING_BISHOPS
+     0,  // THEIR_HANGING_ROOKS
+     0,  // THEIR_HANGING_QUEENS
+     4,  // NUM_TARGET_SQUARES
+     0,  // TIME
+};
+
 std::string EFSTR[] = {
   "PAWNS",
   "KNIGHTS",
@@ -555,48 +607,10 @@ struct Evaluator {
 
   template<Color US>
   Evaluation early(const Position& pos) const {
-    Evaluation r = 20;  // Bonus for being your turn.
-    r += features[EF::PAWNS] * 100;
-    r += features[EF::KNIGHTS] * 450;
-    r += features[EF::BISHOPS] * 465;
-    r += features[EF::ROOKS] * 365;
-    r += features[EF::QUEENS] * 1093;
-    r += features[EF::IN_CHECK] * -300;
-
-    r += features[EF::KING_ON_BACK_RANK] * 50;
-    r += features[EF::KING_ACTIVE] * -100;
-    r += features[EF::THREATS_NEAR_KING_2] * -2;
-    r += features[EF::THREATS_NEAR_KING_3] * -2;
-
-    // r += features[EF::PASSED_PAWNS] * 0;
-    r += features[EF::ISOLATED_PAWNS] * -30;
-    r += features[EF::DOUBLED_PAWNS] * -20;
-    r += features[EF::DOUBLE_ISOLATED_PAWNS] * -20;
-    r += features[EF::PAWNS_CENTER_16] * 10;
-    r += features[EF::PAWNS_CENTER_4] * 58;
-    // r += features[EF::ADVANCED_PASSED_PAWNS_1] * 0;
-    // r += features[EF::ADVANCED_PASSED_PAWNS_2] * 0;
-    // r += features[EF::ADVANCED_PASSED_PAWNS_3] * 0;
-    // r += features[EF::ADVANCED_PASSED_PAWNS_4] * 0;
-    r += features[EF::PAWN_MINOR_CAPTURES] * 50;
-    r += features[EF::PAWN_MAJOR_CAPTURES] * 50;
-    r += features[EF::PROTECTED_PAWNS] * 10;
-
-    r += features[EF::BISHOPS_DEVELOPED] * 10;
-    // r += features[EF::BISHOP_PAIR] * 20;
-    r += features[EF::BLOCKADED_BISHOPS] * -10;
-    r += features[EF::SCARY_BISHOPS] * 10;
-    r += features[EF::SCARIER_BISHOPS] * 30;
-
-    r += features[EF::BLOCKADED_ROOKS] * -10;
-    r += features[EF::SCARY_ROOKS] * 10;
-    r += features[EF::INFILTRATING_ROOKS] * 20;
-
-    r += features[EF::KNIGHTS_DEVELOPED] * 20;
-    r += features[EF::KNIGHT_MAJOR_CAPTURES] * 40;
-    r += features[EF::KNIGHTS_CENTER_16] * 50;
-    r += features[EF::KNIGHTS_CENTER_4] * 0;
-    r += features[EF::KNIGHT_ON_ENEMY_SIDE] * 30;
+    int32_t r = 20;
+    for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
+      r += features[i] * kEarlyWeights[i];
+    }
 
     const Evaluation wScaleFactor = 10;
     const Evaluation bScaleFactor = -1;
@@ -613,8 +627,6 @@ struct Evaluator {
     r += features[EF::THEIR_HANGING_BISHOPS] * 300 * wScaleFactor / denominator;
     r += features[EF::THEIR_HANGING_ROOKS] * 500 * wScaleFactor / denominator;
     r += features[EF::THEIR_HANGING_QUEENS] * 900 * wScaleFactor / denominator;
-
-    r += features[EF::NUM_TARGET_SQUARES] * 4;
 
     return r;
   }
