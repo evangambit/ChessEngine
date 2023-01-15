@@ -98,15 +98,20 @@ ExtMove *compute_knight_moves(const Position& pos, ExtMove *moves, Bitboard targ
   constexpr ColoredPiece cp = (US == Color::WHITE ? ColoredPiece::WHITE_KNIGHT : ColoredPiece::BLACK_KNIGHT);
   const Bitboard enemies = pos.colorBitboards_[opposite_color<US>()];
   const Bitboard notfriends = ~pos.colorBitboards_[US];
+
+  if (MGT == MoveGenType::ALL_MOVES) {
+    target &= notfriends;
+  } else if (MGT == MoveGenType::CAPTURES) {
+    target &= enemies;
+  } else if (MGT == MoveGenType::CHECKS_AND_CAPTURES) {
+    const Bitboard checkMask = kKnightMoves[lsb(pos.pieceBitboards_[coloredPiece<opposite_color<US>(), Piece::KING>()])];
+    target &= enemies | (checkMask & notfriends);
+  }
+
   Bitboard knights = pos.pieceBitboards_[cp];
   while (knights) {
     const Square from = pop_lsb(knights);
     Bitboard tos = kKnightMoves[from] & target;
-    if (MGT == MoveGenType::ALL_MOVES) {
-      tos &= notfriends;
-    } else if (MGT == MoveGenType::CAPTURES) {
-      tos &= enemies;
-    }
     while (tos) {
       Square to = pop_lsb(tos);
       *moves++ = ExtMove(Piece::KNIGHT, cp2p(pos.tiles_[to]), Move{from, to, 0, MoveType::NORMAL});

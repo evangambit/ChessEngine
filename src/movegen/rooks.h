@@ -64,6 +64,31 @@ ExtMove *compute_rook_like_moves(const Position& pos, ExtMove *moves, Bitboard t
   const Bitboard friends = pos.colorBitboards_[US];
   const Bitboard enemies = pos.colorBitboards_[opposite_color<US>()];
   Bitboard rookLikePieces = pos.pieceBitboards_[myRookPiece] | pos.pieceBitboards_[myQueenPiece];
+
+  Bitboard checkMask;
+  if (MGT == MoveGenType::CHECKS_AND_CAPTURES) {
+    checkMask = kEmptyBitboard;
+    const Bitboard enemyKing = pos.pieceBitboards_[coloredPiece<opposite_color<US>(), Piece::KING>()];
+    const Square enemyKingSq = lsb(enemyKing);
+    {  // East/west.
+      unsigned y = enemyKingSq / 8;
+      const Bitboard rank = kRanks[y];
+      const unsigned rankShift = y * 8;
+      uint8_t fromByte = enemyKing >> rankShift;
+      uint8_t occupied = (((enemies & ~enemyKing) | friends) & rank) >> rankShift;
+      checkMask |= Bitboard(sliding_moves(fromByte, 0, occupied)) << rankShift;
+    }
+    {  // North/south
+      const unsigned x = enemyKingSq % 8;
+      const unsigned columnShift = 7 - x;
+      uint8_t fromByte = (((enemyKing << columnShift) & kFiles[7]) * kRookMagic) >> 56;
+      uint8_t occupied = (((((enemies & ~enemyKing) | friends) << columnShift) & kFiles[7]) * kRookMagic) >> 56;
+      uint8_t toByte = sliding_moves(fromByte, 0, occupied);
+      checkMask |= (((Bitboard(toByte & 254) * kRookMagic) & kFiles[0]) | (toByte & 1)) << x;    }
+  } else {
+    checkMask = kUniverse;
+  }
+
   while (rookLikePieces) {
     const Square from = pop_lsb(rookLikePieces);
     const Piece piece = cp2p(pos.tiles_[from]);
@@ -95,6 +120,8 @@ ExtMove *compute_rook_like_moves(const Position& pos, ExtMove *moves, Bitboard t
 
     if (MGT == MoveGenType::CAPTURES) {
       tos &= enemies;
+    } else if (MGT == MoveGenType::CHECKS_AND_CAPTURES) {
+      tos &= enemies | checkMask;
     }
 
     tos &= target;

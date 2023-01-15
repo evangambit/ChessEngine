@@ -279,6 +279,25 @@ ExtMove *compute_bishop_like_moves(const Position& pos, ExtMove *moves, Bitboard
   const Bitboard enemies = pos.colorBitboards_[opposite_color<US>()];
   Bitboard bishopLikePieces = pos.pieceBitboards_[myBishopPiece] | pos.pieceBitboards_[myQueenPiece];
 
+  Bitboard checkMask;
+  if (MGT == MoveGenType::CHECKS_AND_CAPTURES) {
+    checkMask = kEmptyBitboard;
+    const Bitboard enemyKing = pos.pieceBitboards_[coloredPiece<opposite_color<US>(), Piece::KING>()];
+    const Square enemyKingSq = lsb(enemyKing);
+    {  // Southeast/Northwest diagonal.
+      uint8_t occupied = diag::southeast_diag_to_byte(enemyKingSq, friends | enemies & ~enemyKing);
+      uint8_t fromByte = diag::southeast_diag_to_byte(enemyKingSq, enemyKing);
+      checkMask |= diag::byte_to_southeast_diag(enemyKingSq, sliding_moves(fromByte, 0, occupied));
+    }
+    {  // Southwest/Northeast diagonal.
+      uint8_t occupied = diag::southwest_diag_to_byte(enemyKingSq, friends | enemies & ~enemyKing);
+      uint8_t fromByte = diag::southwest_diag_to_byte(enemyKingSq, enemyKing);
+      checkMask |= diag::byte_to_southwest_diag(enemyKingSq, sliding_moves(fromByte, 0, occupied));
+    }
+  } else {
+    checkMask = kUniverse;
+  }
+
   while (bishopLikePieces) {
     const Square from = pop_lsb(bishopLikePieces);
     const Piece piece = cp2p(pos.tiles_[from]);
@@ -301,8 +320,14 @@ ExtMove *compute_bishop_like_moves(const Position& pos, ExtMove *moves, Bitboard
       tos |= diag::byte_to_southwest_diag(from, sliding_moves(fromByte, friendsByte, enemiesByte));
     }
 
-    if (MGT == MoveGenType::CAPTURES) {
+    if (MGT == MoveGenType::ALL_MOVES) {
+      // no-op
+    }
+    else if (MGT == MoveGenType::CAPTURES) {
       tos &= enemies;
+    }
+    else if (MGT == MoveGenType::CHECKS_AND_CAPTURES) {
+      tos &= enemies | checkMask;
     }
 
     while (tos) {

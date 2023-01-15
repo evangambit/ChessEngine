@@ -10,6 +10,7 @@ namespace ChessEngine {
 
 enum MoveGenType {
   CAPTURES,
+  CHECKS_AND_CAPTURES,
   ALL_MOVES,
 };
 

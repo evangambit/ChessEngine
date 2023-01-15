@@ -72,6 +72,27 @@ enum Direction : int8_t {
   SOUTH_WEST = -9,
 };
 
+constexpr Direction opposite_dir(Direction dir) {
+  switch (dir) {
+    case Direction::SOUTH:
+      return Direction::NORTH;
+    case Direction::NORTH:
+      return Direction::SOUTH;
+    case Direction::EAST:
+      return Direction::WEST;
+    case Direction::WEST:
+      return Direction::EAST;
+    case Direction::SOUTH_EAST:
+      return Direction::NORTH_WEST;
+    case Direction::NORTH_WEST:
+      return Direction::SOUTH_EAST;
+    case Direction::SOUTH_WEST:
+      return Direction::NORTH_EAST;
+    case Direction::NORTH_EAST:
+      return Direction::SOUTH_WEST;
+  }
+}
+
 Location square2location(Square sq);
 
 constexpr Location bb(unsigned sq) {
@@ -79,6 +100,7 @@ constexpr Location bb(unsigned sq) {
 }
 
 extern Bitboard kKingDist[8][64];
+extern Bitboard kNearby[7][64];
 
 void initialize_geometry();
 

@@ -27,6 +27,9 @@ Bitboard compute_pawn_targets(const Position& pos) {
   return shift<CAPTURE_DIR1>(pawns) | shift<CAPTURE_DIR2>(pawns);
 }
 
+// NOTE: We don't include any promotions when MGT = CHECKS_AND_CAPTURES.  Instead we only
+// include queen promotions, since if you're interested in checks and captures, you're
+// probably interested in promoting to queen too.
 template<Color US, MoveGenType MGT>
 ExtMove *compute_pawn_moves(const Position& pos, ExtMove *moves, Bitboard target) {
   constexpr Direction FORWARD = (US == Color::WHITE ? Direction::NORTH : Direction::SOUTH);
@@ -43,22 +46,33 @@ ExtMove *compute_pawn_moves(const Position& pos, ExtMove *moves, Bitboard target
 
   const Bitboard pawns = pos.pieceBitboards_[cp];
 
+  Bitboard checkMask;
+  if (MGT == MoveGenType::CHECKS_AND_CAPTURES) {
+    const Bitboard enemyKing = pos.pieceBitboards_[coloredPiece<opposite_color<US>(), Piece::KING>()];
+    checkMask = (US == Color::WHITE ? kRanks[0] : kRanks[7]);  // include promotion rank.
+    checkMask |= shift<opposite_dir(CAPTURE_DIR1)>(enemyKing) | shift<opposite_dir(CAPTURE_DIR2)>(enemyKing);
+  } else {
+    checkMask = kUniverse;
+  }
+
   Bitboard b1, b2, promoting;
 
-  if (MGT == MoveGenType::ALL_MOVES) {
+  if (MGT == MoveGenType::ALL_MOVES || MGT == MoveGenType::CHECKS_AND_CAPTURES) {
     b1 = shift<FORWARD>(pawns) & emptySquares;
     b2 = shift<FORWARD>(b1 & rowInFrontOfHome) & emptySquares;
 
-    b1 &= target;
-    b2 &= target;
+    b1 &= target & checkMask;
+    b2 &= target & checkMask;
 
     promoting = b1 & promotionRow;
     b1 &= ~promoting;
     while (promoting) {
       Square to = pop_lsb(promoting);
-      *moves++ = ExtMove(Piece::PAWN, Move{to - FORWARD, to, 0, MoveType::PROMOTION});
-      *moves++ = ExtMove(Piece::PAWN, Move{to - FORWARD, to, 1, MoveType::PROMOTION});
-      *moves++ = ExtMove(Piece::PAWN, Move{to - FORWARD, to, 2, MoveType::PROMOTION});
+      if (MGT != MoveGenType::CHECKS_AND_CAPTURES) {
+        *moves++ = ExtMove(Piece::PAWN, Move{to - FORWARD, to, 0, MoveType::PROMOTION});
+        *moves++ = ExtMove(Piece::PAWN, Move{to - FORWARD, to, 1, MoveType::PROMOTION});
+        *moves++ = ExtMove(Piece::PAWN, Move{to - FORWARD, to, 2, MoveType::PROMOTION});
+      }
       *moves++ = ExtMove(Piece::PAWN, Move{to - FORWARD, to, 3, MoveType::PROMOTION});
     }
 
@@ -72,7 +86,7 @@ ExtMove *compute_pawn_moves(const Position& pos, ExtMove *moves, Bitboard target
     }
   }
 
-  if (MGT == MoveGenType::CAPTURES || MGT == MoveGenType::ALL_MOVES) {
+  if (MGT == MoveGenType::CAPTURES || MGT == MoveGenType::ALL_MOVES || MGT == MoveGenType::CHECKS_AND_CAPTURES) {
     b1 = shift<CAPTURE_DIR1>(pawns) & (enemies | epLoc);
     b1 &= target;
     promoting = b1 & promotionRow;
@@ -80,9 +94,11 @@ ExtMove *compute_pawn_moves(const Position& pos, ExtMove *moves, Bitboard target
     while (promoting) {
       Square to = pop_lsb(promoting);
       Piece capture = cp2p(pos.tiles_[to]);
-      *moves++ = ExtMove(Piece::PAWN, capture, Move{to - CAPTURE_DIR1, to, 0, MoveType::PROMOTION});
-      *moves++ = ExtMove(Piece::PAWN, capture, Move{to - CAPTURE_DIR1, to, 1, MoveType::PROMOTION});
-      *moves++ = ExtMove(Piece::PAWN, capture, Move{to - CAPTURE_DIR1, to, 2, MoveType::PROMOTION});
+      if (MGT != MoveGenType::CHECKS_AND_CAPTURES) {
+        *moves++ = ExtMove(Piece::PAWN, capture, Move{to - CAPTURE_DIR1, to, 0, MoveType::PROMOTION});
+        *moves++ = ExtMove(Piece::PAWN, capture, Move{to - CAPTURE_DIR1, to, 1, MoveType::PROMOTION});
+        *moves++ = ExtMove(Piece::PAWN, capture, Move{to - CAPTURE_DIR1, to, 2, MoveType::PROMOTION});
+      }
       *moves++ = ExtMove(Piece::PAWN, capture, Move{to - CAPTURE_DIR1, to, 3, MoveType::PROMOTION});
     }
     while (b1) {

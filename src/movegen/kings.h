@@ -94,7 +94,7 @@ ExtMove *compute_king_moves(const Position& pos, ExtMove *moves, Bitboard target
     Bitboard tos = kKingMoves[from] & target;
     if (MGT == MoveGenType::ALL_MOVES) {
       tos &= notfriends;
-    } else if (MGT == MoveGenType::CAPTURES) {
+    } else if (MGT == MoveGenType::CAPTURES || MGT == MoveGenType::CHECKS_AND_CAPTURES) {
       tos &= enemies;
     }
     while (tos) {
@@ -103,6 +103,7 @@ ExtMove *compute_king_moves(const Position& pos, ExtMove *moves, Bitboard target
     }
   }
 
+  // TODO: castling can be allowed when we're looking for checks.
   if (MGT == MoveGenType::ALL_MOVES) {
     CastlingRights cr = pos.currentState_.castlingRights;
     if (!inCheck) {

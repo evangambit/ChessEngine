@@ -34,6 +34,7 @@ std::string bstr(uint8_t b) {
 }
 
 Bitboard kKingDist[8][64];
+Bitboard kNearby[7][64];
 
 void initialize_geometry() {
   for (int dist = 0; dist < 8; ++dist) {
@@ -47,6 +48,23 @@ void initialize_geometry() {
         }
       }
       kKingDist[dist][i] = r;
+    }
+  }
+
+  for (int dist = 0; dist < 7; ++dist) {
+    for (int i = 0; i < 64; ++i) {
+      int kx = i % 8;
+      int ky = i / 8;
+      kNearby[dist][i] = 0;
+      for (int dx = -dist; dx <= dist; ++dx) {
+        for (int dy = -dist; dy <= dist; ++dy) {
+          if (kx + dx < 0) continue;
+          if (kx + dx > 7) continue;
+          if (ky + dy < 0) continue;
+          if (ky + dy > 7) continue;
+          kNearby[dist][i] |= bb((ky + dy) * 8 + (kx + dx));
+        }
+      }
     }
   }
 }

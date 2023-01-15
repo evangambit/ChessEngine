@@ -203,6 +203,8 @@ enum EF {
 
   IN_CHECK,
   KING_ON_BACK_RANK,
+  THREATS_NEAR_KING_2,
+  THREATS_NEAR_KING_3,
 
   PASSED_PAWNS,
   ISOLATED_PAWNS,
@@ -263,6 +265,8 @@ std::string EFSTR[] = {
   "YOUR_TURN",
   "IN_CHECK",
   "KING_ON_BACK_RANK",
+  "THREATS_NEAR_KING_2",
+  "THREATS_NEAR_KING_3",
   "PASSED_PAWNS",
   "ISOLATED_PAWNS",
   "DOUBLED_PAWNS",
@@ -361,8 +365,12 @@ struct Evaluator {
     features[EF::QUEENS] = std::popcount(whiteQueens) - std::popcount(blackQueens);
 
     features[EF::YOUR_TURN] = (pos.turn_ == Color::WHITE) * 2 - 1;
-    features[EF::IN_CHECK] = can_enemy_attack<Color::WHITE>(pos, whiteKingSq) - can_enemy_attack<Color::BLACK>(pos, blackKingSq);
+    bool isWhiteInCheck = can_enemy_attack<Color::WHITE>(pos, whiteKingSq);
+    bool isBlackInCheck = can_enemy_attack<Color::BLACK>(pos, blackKingSq);
+    features[EF::IN_CHECK] = isWhiteInCheck - isBlackInCheck;
     features[EF::KING_ON_BACK_RANK] = (whiteKingSq / 8 == 7) - (blackKingSq / 8 == 0);
+    features[EF::THREATS_NEAR_KING_2] = std::popcount(kNearby[2][whiteKingSq] & blackTargets & ~whiteTargets) - std::popcount(kNearby[2][blackKingSq] & whiteTargets & ~blackTargets);
+    features[EF::THREATS_NEAR_KING_3] = std::popcount(kNearby[3][whiteKingSq] & blackTargets & ~whiteTargets) - std::popcount(kNearby[2][blackKingSq] & whiteTargets & ~blackTargets);
 
     // Pawns
     const Bitboard blockadedBlackPawns = shift<Direction::NORTH>(whitePawns) & blackPawns;
@@ -482,6 +490,9 @@ struct Evaluator {
     r += features[EF::YOUR_TURN] * 20;
     r += features[EF::IN_CHECK] * -300;
     r += features[EF::KING_ON_BACK_RANK] * 50;
+
+    r += features[EF::THREATS_NEAR_KING_2] * -2;
+    r += features[EF::THREATS_NEAR_KING_3] * -2;
 
     // r += features[EF::PASSED_PAWNS] * 0;
     r += features[EF::ISOLATED_PAWNS] * -30;
@@ -623,9 +634,15 @@ std::string history_string(Position* pos) {
 std::unordered_map<uint64_t, CacheResult> gCache;
 
 constexpr int kSimplePieceValues[7] = {
-  // 0, 100, 300, 300, 500, 900, 1000,
   0, 100, 450, 500, 1000, 2000
 };
+
+constexpr int kQSimplePieceValues[7] = {
+  // Note "NO_PIECE" has a score of 200 since this
+  // encourages qsearch to value checks.
+  200, 100, 450, 500, 1000, 2000
+};
+
 
 struct RecommendedMoves {
   Move moves[2];
@@ -647,27 +664,27 @@ struct RecommendedMoves {
 };
 
 template<Color TURN>
-std::pair<Evaluation, Move> qsearch(Position *pos) {
+std::pair<Evaluation, Move> qsearch(Position *pos, int32_t depth) {
   constexpr Color opposingColor = opposite_color<TURN>();
   constexpr ColoredPiece moverKing = coloredPiece<TURN, Piece::KING>();
 
   ExtMove moves[kMaxNumMoves];
-  ExtMove *end = compute_moves<TURN, MoveGenType::CAPTURES>(*pos, moves);
+  ExtMove *end = compute_moves<TURN, MoveGenType::CHECKS_AND_CAPTURES>(*pos, moves);
 
   if (moves == end) {
-    if (TURN == Color::WHITE) {
-      return std::make_pair(gEvaluator.score(*pos), kNullMove);
-    } else {
-      return std::make_pair(-gEvaluator.score(*pos), kNullMove);
+    Evaluation e = gEvaluator.score(*pos);
+    if (TURN == Color::BLACK) {
+      e *= -1;
     }
+    return std::make_pair(e, kNullMove);
   }
 
   const Bitboard theirTargets = compute_my_targets<opposingColor>(*pos);
   const Bitboard theirHanging = ~theirTargets & pos->colorBitboards_[opposingColor];
 
   for (ExtMove *move = moves; move < end; ++move) {
-    move->score = kSimplePieceValues[move->capture] - kSimplePieceValues[move->piece];
-    move->score += kSimplePieceValues[move->piece] * ((theirHanging & bb(move->move.to)) > 0);
+    move->score = kQSimplePieceValues[move->capture] - kQSimplePieceValues[move->piece];
+    move->score += kQSimplePieceValues[move->piece] * ((theirHanging & bb(move->move.to)) > 0);
   }
 
   std::sort(moves, end, [](ExtMove a, ExtMove b) {
@@ -679,15 +696,25 @@ std::pair<Evaluation, Move> qsearch(Position *pos) {
     return std::make_pair(selfEval, kNullMove);
   }
 
-  make_move<TURN>(pos, moves[0].move);
+  std::pair<Evaluation, Move> bestChild(Evaluation(kMinEval), kNullMove);
+  for (ExtMove *move = moves; move < end; ++move) {
+    make_move<TURN>(pos, moves[0].move);
 
-  std::pair<Evaluation, Move> child = qsearch<opposingColor>(pos);
-  child.first *= -1;
+    std::pair<Evaluation, Move> child = qsearch<opposingColor>(pos, depth + 1);
+    child.first *= -1;
 
-  undo<TURN>(pos);
+    if (child.first > bestChild.first) {
+      bestChild = child;
+    }
 
-  if (child.first > selfEval) {
-    return std::make_pair(child.first, moves[0].move);
+    undo<TURN>(pos);
+
+    // Only looking at the best move seems to work fine.
+    break;
+  }
+
+  if (bestChild.first > selfEval) {
+    return std::make_pair(bestChild.first, moves[0].move);
   } else {
     return std::make_pair(selfEval, kNullMove);
   }
@@ -709,7 +736,7 @@ std::pair<Evaluation, Move> search(Position* pos, Depth depth, const Evaluation 
 
   if (depth <= 0) {
     ++leafCounter;
-    std::pair<Evaluation, Move> r = qsearch<TURN>(pos);
+    std::pair<Evaluation, Move> r = qsearch<TURN>(pos, 0);
     return r;
   }
   ++nodeCounter;
