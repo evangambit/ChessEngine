@@ -235,7 +235,6 @@ enum EF {
   PAWN_MAJOR_CAPTURES,
   PROTECTED_PAWNS,
   PROTECTED_PASSED_PAWNS,
-  PAWN_SPREAD,
 
   BISHOPS_DEVELOPED,
   BISHOP_PAIR,
@@ -296,7 +295,6 @@ std::string EFSTR[] = {
   "PAWN_MAJOR_CAPTURES",
   "PROTECTED_PAWNS",
   "PROTECTED_PASSED_PAWNS",
-  "PAWN_SPREAD",
   "BISHOPS_DEVELOPED",
   "BISHOP_PAIR",
   "BLOCKADED_BISHOPS",
@@ -466,14 +464,6 @@ struct Evaluator {
       features[EF::PAWN_MAJOR_CAPTURES] = std::popcount(ourPawnTargets & majorThem) * 3 - std::popcount(theirPawnTargets & majorUs);
       features[EF::PROTECTED_PAWNS] = std::popcount(ourPawns & ourPawnTargets) - std::popcount(theirPawns & theirPawnTargets);
       features[EF::PROTECTED_PASSED_PAWNS] = std::popcount(passedUsPawns & ourPawnTargets) * 2 - std::popcount(passedThemPawns & theirPawnTargets);
-
-      features[EF::PAWN_SPREAD] = 0;
-      if (filesWithOurPawns) {
-        features[EF::PAWN_SPREAD] += msb(filesWithOurPawns & 255) - lsb(filesWithOurPawns & 255);
-      }
-      if (filesWithTheirPawns) {
-        features[EF::PAWN_SPREAD] -= msb(filesWithTheirPawns & 255) - lsb(filesWithTheirPawns & 255);
-      }
     }
 
     {  // Bishops
@@ -639,7 +629,6 @@ struct Evaluator {
     r += features[EF::PAWN_MAJOR_CAPTURES] * 50;
     // r += features[EF::PROTECTED_PAWNS] * 10;
     r += features[EF::PROTECTED_PASSED_PAWNS] * 10;
-    // r += features[EF::PAWN_SPREAD] * 20;
 
     r += features[EF::BLOCKADED_BISHOPS] * -10;
     r += features[EF::SCARY_BISHOPS] * 30;
