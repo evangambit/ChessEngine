@@ -9,9 +9,8 @@
 namespace ChessEngine {
 
 enum MoveGenType {
-  CAPTURES = 1,
-  QUIET_MOVES = 2,
-  ALL_MOVES = 3,
+  CAPTURES,
+  ALL_MOVES,
 };
 
 typedef uint8_t CastlingRights;

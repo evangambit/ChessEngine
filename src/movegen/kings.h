@@ -91,13 +91,11 @@ ExtMove *compute_king_moves(const Position& pos, ExtMove *moves, Bitboard target
   Bitboard kings = pos.pieceBitboards_[cp];
   while (kings) {
     const Square from = pop_lsb(kings);
-    Bitboard tos;
+    Bitboard tos = kKingMoves[from] & target;
     if (MGT == MoveGenType::ALL_MOVES) {
-      tos = kKingMoves[from] & notfriends & target;
+      tos &= notfriends;
     } else if (MGT == MoveGenType::CAPTURES) {
-      tos = kKingMoves[from] & enemies & target;
-    } else if (MGT == MoveGenType::QUIET_MOVES) {
-      tos = kKingMoves[from] & notfriends & ~enemies & target;
+      tos &= enemies;
     }
     while (tos) {
       Square to = pop_lsb(tos);
@@ -105,7 +103,7 @@ ExtMove *compute_king_moves(const Position& pos, ExtMove *moves, Bitboard target
     }
   }
 
-  if (MGT & MoveGenType::QUIET_MOVES) {
+  if (MGT == MoveGenType::ALL_MOVES) {
     CastlingRights cr = pos.currentState_.castlingRights;
     if (!inCheck) {
       if (US == Color::WHITE) {

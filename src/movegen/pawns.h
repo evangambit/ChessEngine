@@ -45,7 +45,7 @@ ExtMove *compute_pawn_moves(const Position& pos, ExtMove *moves, Bitboard target
 
   Bitboard b1, b2, promoting;
 
-  if (MGT & MoveGenType::QUIET_MOVES) {
+  if (MGT == MoveGenType::ALL_MOVES) {
     b1 = shift<FORWARD>(pawns) & emptySquares;
     b2 = shift<FORWARD>(b1 & rowInFrontOfHome) & emptySquares;
 
@@ -72,7 +72,7 @@ ExtMove *compute_pawn_moves(const Position& pos, ExtMove *moves, Bitboard target
     }
   }
 
-  if (MGT & MoveGenType::CAPTURES) {
+  if (MGT == MoveGenType::CAPTURES || MGT == MoveGenType::ALL_MOVES) {
     b1 = shift<CAPTURE_DIR1>(pawns) & (enemies | epLoc);
     b1 &= target;
     promoting = b1 & promotionRow;

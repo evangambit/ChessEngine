@@ -303,8 +303,6 @@ ExtMove *compute_bishop_like_moves(const Position& pos, ExtMove *moves, Bitboard
 
     if (MGT == MoveGenType::CAPTURES) {
       tos &= enemies;
-    } else if (MGT == MoveGenType::QUIET_MOVES) {
-      tos &= ~enemies;
     }
 
     while (tos) {

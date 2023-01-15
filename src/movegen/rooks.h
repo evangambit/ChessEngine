@@ -95,8 +95,6 @@ ExtMove *compute_rook_like_moves(const Position& pos, ExtMove *moves, Bitboard t
 
     if (MGT == MoveGenType::CAPTURES) {
       tos &= enemies;
-    } else if (MGT == MoveGenType::QUIET_MOVES) {
-      tos &= ~enemies;
     }
 
     tos &= target;

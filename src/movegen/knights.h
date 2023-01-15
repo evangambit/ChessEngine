@@ -101,13 +101,11 @@ ExtMove *compute_knight_moves(const Position& pos, ExtMove *moves, Bitboard targ
   Bitboard knights = pos.pieceBitboards_[cp];
   while (knights) {
     const Square from = pop_lsb(knights);
-    Bitboard tos;
+    Bitboard tos = kKnightMoves[from] & target;
     if (MGT == MoveGenType::ALL_MOVES) {
-      tos = kKnightMoves[from] & notfriends & target;
+      tos &= notfriends;
     } else if (MGT == MoveGenType::CAPTURES) {
-      tos = kKnightMoves[from] & enemies & target;
-    } else if (MGT == MoveGenType::QUIET_MOVES) {
-      tos = kKnightMoves[from] & notfriends & ~enemies & target;
+      tos &= enemies;
     }
     while (tos) {
       Square to = pop_lsb(tos);
