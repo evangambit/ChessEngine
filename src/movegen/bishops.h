@@ -320,6 +320,8 @@ ExtMove *compute_bishop_like_moves(const Position& pos, ExtMove *moves, Bitboard
       tos |= diag::byte_to_southwest_diag(from, sliding_moves(fromByte, friendsByte, enemiesByte));
     }
 
+    tos &= target;
+
     if (MGT == MoveGenType::ALL_MOVES) {
       // no-op
     }

@@ -69,7 +69,7 @@ Bitboard compute_enemy_attackers(const Position& pos, const Square sq) {
     uint8_t enemiesByte = (enemies | friends) >> rankShift;
     uint8_t toByte = sliding_moves(fromByte, 0, enemiesByte);
     Bitboard to = Bitboard(toByte) << rankShift;
-    attackers |= ((to & enemyRooks) > 0);
+    attackers |= (to & enemyRooks);
   }
 
   {  // North/south attackers
@@ -79,20 +79,20 @@ Bitboard compute_enemy_attackers(const Position& pos, const Square sq) {
     uint8_t enemiesByte = (((((enemies | friends) & file) << columnShift) & kFiles[7]) * kRookMagic) >> 56;
     uint8_t toByte = sliding_moves(fromByte, 0, enemiesByte);
     Bitboard to = (((Bitboard(toByte & 254) * kRookMagic) & kFiles[0]) | (toByte & 1)) << x;
-    attackers |= ((to & enemyRooks) > 0);
+    attackers |= (to & enemyRooks);
   }
 
   {  // Southeast/Northwest diagonal.
     uint8_t enemiesByte = diag::southeast_diag_to_byte(sq, enemies | friends);
     uint8_t fromByte = diag::southeast_diag_to_byte(sq, loc);
     Bitboard to = diag::byte_to_southeast_diag(sq, sliding_moves(fromByte, 0, enemiesByte));
-    attackers |= ((to & enemyBishops) > 0);
+    attackers |= (to & enemyBishops);
   }
   {  // Southwest/Northeast diagonal.
     uint8_t enemiesByte = diag::southwest_diag_to_byte(sq, enemies | friends);
     uint8_t fromByte = diag::southwest_diag_to_byte(sq, loc);
     Bitboard to = diag::byte_to_southwest_diag(sq, sliding_moves(fromByte, 0, enemiesByte));
-    attackers |= ((to & enemyBishops) > 0);
+    attackers |= (to & enemyBishops);
   }
 
   return attackers;
@@ -124,15 +124,19 @@ ExtMove* compute_moves(const Position& pos, ExtMove *moves) {
 
   const Bitboard validKingSquares = ~compute_my_targets<opposite_color<US>()>(pos);
 
-  moves = compute_pawn_moves<US, MGT>(pos, moves, target);
-  moves = compute_knight_moves<US, MGT>(pos, moves, target);
   if (numCheckers > 0) {
+    moves = compute_pawn_moves<US, MoveGenType::ALL_MOVES>(pos, moves, target);
+    moves = compute_knight_moves<US, MoveGenType::ALL_MOVES>(pos, moves, target);
     moves = compute_king_moves<US, MGT, true>(pos, moves, validKingSquares);
+    moves = compute_bishop_like_moves<US, MoveGenType::ALL_MOVES>(pos, moves, target);
+    moves = compute_rook_like_moves<US, MoveGenType::ALL_MOVES>(pos, moves, target);
   } else {
+    moves = compute_pawn_moves<US, MGT>(pos, moves, target);
+    moves = compute_knight_moves<US, MGT>(pos, moves, target);
     moves = compute_king_moves<US, MGT, false>(pos, moves, validKingSquares);
+    moves = compute_bishop_like_moves<US, MGT>(pos, moves, target);
+    moves = compute_rook_like_moves<US, MGT>(pos, moves, target);
   }
-  moves = compute_bishop_like_moves<US, MGT>(pos, moves, target);
-  moves = compute_rook_like_moves<US, MGT>(pos, moves, target);
   return moves;
 }
 
