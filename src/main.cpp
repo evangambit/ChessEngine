@@ -309,19 +309,35 @@ int32_t kEarlyWeights[EF::NUM_EVAL_FEATURES] {
     50,  // KNIGHTS_CENTER_16
      0,  // KNIGHTS_CENTER_4
     30,  // KNIGHT_ON_ENEMY_SIDE
-     0,  // OUR_HANGING_PAWNS
-     0,  // OUR_HANGING_KNIGHTS
-     0,  // OUR_HANGING_BISHOPS
-     0,  // OUR_HANGING_ROOKS
-     0,  // OUR_HANGING_QUEENS
-     0,  // THEIR_HANGING_PAWNS
-     0,  // THEIR_HANGING_KNIGHTS
-     0,  // THEIR_HANGING_BISHOPS
-     0,  // THEIR_HANGING_ROOKS
-     0,  // THEIR_HANGING_QUEENS
+   -10,  // OUR_HANGING_PAWNS
+   -30,  // OUR_HANGING_KNIGHTS
+   -30,  // OUR_HANGING_BISHOPS
+   -50,  // OUR_HANGING_ROOKS
+   -90,  // OUR_HANGING_QUEENS
+   100,  // THEIR_HANGING_PAWNS
+   300,  // THEIR_HANGING_KNIGHTS
+   300,  // THEIR_HANGING_BISHOPS
+   500,  // THEIR_HANGING_ROOKS
+   900,  // THEIR_HANGING_QUEENS
      4,  // NUM_TARGET_SQUARES
      0,  // TIME
 };
+
+    // const Evaluation wScaleFactor = 10;
+    // const Evaluation bScaleFactor = -1;
+    // const Evaluation denominator = 10;
+
+    // r += features[EF::OUR_HANGING_PAWNS] * 100 * bScaleFactor / denominator;
+    // r += features[EF::OUR_HANGING_KNIGHTS] * 300 * bScaleFactor / denominator;
+    // r += features[EF::OUR_HANGING_BISHOPS] * 300 * bScaleFactor / denominator;
+    // r += features[EF::OUR_HANGING_ROOKS] * 500 * bScaleFactor / denominator;
+    // r += features[EF::OUR_HANGING_QUEENS] * 900 * bScaleFactor / denominator;
+
+    // r += features[EF::THEIR_HANGING_PAWNS] * 100 * wScaleFactor / denominator;
+    // r += features[EF::THEIR_HANGING_KNIGHTS] * 300 * wScaleFactor / denominator;
+    // r += features[EF::THEIR_HANGING_BISHOPS] * 300 * wScaleFactor / denominator;
+    // r += features[EF::THEIR_HANGING_ROOKS] * 500 * wScaleFactor / denominator;
+    // r += features[EF::THEIR_HANGING_QUEENS] * 900 * wScaleFactor / denominator;
 
 int32_t kLateWeights[EF::NUM_EVAL_FEATURES] {
    100,  // PAWNS
@@ -663,23 +679,6 @@ struct Evaluator {
     for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
       r += features[i] * kEarlyWeights[i];
     }
-
-    const Evaluation wScaleFactor = 10;
-    const Evaluation bScaleFactor = -1;
-    const Evaluation denominator = 10;
-
-    r += features[EF::OUR_HANGING_PAWNS] * 100 * bScaleFactor / denominator;
-    r += features[EF::OUR_HANGING_KNIGHTS] * 300 * bScaleFactor / denominator;
-    r += features[EF::OUR_HANGING_BISHOPS] * 300 * bScaleFactor / denominator;
-    r += features[EF::OUR_HANGING_ROOKS] * 500 * bScaleFactor / denominator;
-    r += features[EF::OUR_HANGING_QUEENS] * 900 * bScaleFactor / denominator;
-
-    r += features[EF::THEIR_HANGING_PAWNS] * 100 * wScaleFactor / denominator;
-    r += features[EF::THEIR_HANGING_KNIGHTS] * 300 * wScaleFactor / denominator;
-    r += features[EF::THEIR_HANGING_BISHOPS] * 300 * wScaleFactor / denominator;
-    r += features[EF::THEIR_HANGING_ROOKS] * 500 * wScaleFactor / denominator;
-    r += features[EF::THEIR_HANGING_QUEENS] * 900 * wScaleFactor / denominator;
-
     return r;
   }
 
