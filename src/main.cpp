@@ -37,8 +37,6 @@
 
 using namespace ChessEngine;
 
-// 1713 / 3056
-
 void test_moves() {
   ExtMove moves[kMaxNumMoves];
   ExtMove *end;
@@ -100,6 +98,8 @@ void test_moves() {
       throw std::runtime_error("test_moves error");
     }
   }
+
+  std::cout << "tested " << counter << " positions' move generations" << std::endl;
 }
 
 void test1() {
@@ -187,45 +187,6 @@ size_t nodeCounter = 0;
 
 constexpr Bitboard kCenter16 = (kFiles[2] | kFiles[3] | kFiles[4] | kFiles[5]) & (kRanks[2] | kRanks[3] | kRanks[4] | kRanks[5]);
 constexpr Bitboard kCenter4 = (kFiles[3] | kFiles[4]) & (kRanks[3] | kRanks[4]);
-
-std::vector<std::string> gEvalVecNames;
-
-class EvalVecRType {
- public:
-  Evaluation value;
-  EvalVecRType(Evaluation e) {
-    gEvalVecNames.clear();
-    value = e;
-    assert(e == 0);
-  }
-  std::vector<Evaluation> deltas;
-  std::vector<bool> isIncrement;
-
-  EvalVecRType operator+=(Evaluation delta) {
-    value += delta;
-    deltas.push_back(delta);
-    isIncrement.push_back(true);
-    return *this;
-  }
-  EvalVecRType operator-=(Evaluation delta) {
-    value -= delta;
-    deltas.push_back(delta);
-    isIncrement.push_back(false);
-    return *this;
-  }
-
-  std::string str() const {
-    std::string r = "";
-    assert(deltas.size() == gEvalVecNames.size() * 2);
-    assert(deltas.size() % 2 == 0);
-    for (size_t i = 0; i < deltas.size(); i += 2) {
-      assert(isIncrement[i]);
-      assert(!isIncrement[i + 1]);
-      r += gEvalVecNames[i/2] + " " + std::to_string(deltas[i] - deltas[i + 1]) + "\n";
-    }
-    return r;
-  }
-};
 
 inline Bitboard fatten(Bitboard b) {
   return shift<Direction::WEST>(b) | b | shift<Direction::EAST>(b);
