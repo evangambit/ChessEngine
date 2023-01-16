@@ -6,6 +6,9 @@
 //
 // To Generate train.txt
 // ./a.out mode printvec fens eval.txt > ./train.txt
+//
+// To evaluate changes
+// ./a.out mode evaluate fens eval.txt depth 2
 
 #include <cassert>
 #include <cstdint>
@@ -271,7 +274,8 @@ enum EF {
   NUM_EVAL_FEATURES,
 };
 
-int32_t kEarlyWeights[EF::NUM_EVAL_FEATURES] {
+const int32_t kEarlyBias = 20;
+const int32_t kEarlyWeights[EF::NUM_EVAL_FEATURES] {
   100,  // PAWNS
   189,  // KNIGHTS
   218,  // BISHOPS
@@ -323,7 +327,8 @@ int32_t kEarlyWeights[EF::NUM_EVAL_FEATURES] {
    -1,  // TIME
 };
 
-int32_t kLateWeights[EF::NUM_EVAL_FEATURES] {
+const int32_t kLateBias = 0;
+const int32_t kLateWeights[EF::NUM_EVAL_FEATURES] {
   103,  // PAWNS
   196,  // KNIGHTS
   226,  // BISHOPS
@@ -659,7 +664,7 @@ struct Evaluator {
 
   template<Color US>
   Evaluation early(const Position& pos) const {
-    int32_t r = 20;
+    int32_t r = kEarlyBias;
     for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
       r += features[i] * kEarlyWeights[i];
     }
@@ -669,7 +674,7 @@ struct Evaluator {
   template<Color US>
   Evaluation late(const Position& pos) const {
     constexpr Color THEM = opposite_color<US>();
-    int32_t r = 0;
+    int32_t r = kLateBias;
     for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
       r += features[i] * kLateWeights[i];
     }
@@ -1110,7 +1115,7 @@ void mymain(std::vector<std::string>& fens, const std::string& mode, double time
     for (auto line : fens) {
       gCache.clear();
       std::vector<std::string> parts = split(line, ':');
-      if (parts.size() != 2) {
+      if (parts.size() != 3) {
         throw std::runtime_error("Unrecognized line \"" + line + "\"");
       }
       std::string fen = parts[0];
