@@ -219,6 +219,7 @@ enum EF {
 
   IN_CHECK,
   KING_ON_BACK_RANK,
+  KING_ON_CENTER_FILE,
   KING_ACTIVE,
   THREATS_NEAR_KING_2,
   THREATS_NEAR_KING_3,
@@ -286,6 +287,7 @@ const int32_t kEarlyWeights[EF::NUM_EVAL_FEATURES] {
   649,  // QUEENS
   -35,  // IN_CHECK
     0,  // KING_ON_BACK_RANK
+  -40,  // KING_ON_CENTER_FILE
    18,  // KING_ACTIVE
    -1,  // THREATS_NEAR_KING_2
    -2,  // THREATS_NEAR_KING_3
@@ -341,6 +343,7 @@ const int32_t kLateWeights[EF::NUM_EVAL_FEATURES] {
   651,  // QUEENS
   -63,  // IN_CHECK
    -2,  // KING_ON_BACK_RANK
+    0,  // KING_ON_CENTER_FILE
    54,  // KING_ACTIVE
     0,  // THREATS_NEAR_KING_2
    -5,  // THREATS_NEAR_KING_3
@@ -396,6 +399,7 @@ std::string EFSTR[] = {
 
   "IN_CHECK",
   "KING_ON_BACK_RANK",
+  "KING_ON_CENTER_FILE",
   "KING_ACTIVE",
   "THREATS_NEAR_KING_2",
   "THREATS_NEAR_KING_3",
@@ -450,11 +454,6 @@ std::string EFSTR[] = {
 
   "NUM_EVAL_FEATURES",
 };
-
-// 5584 / 11387
-// 2677ms
-// leafCounter = 1579099
-// nodeCounter = 323425
 
 struct Evaluator {
   Evaluator() {}
@@ -536,6 +535,7 @@ struct Evaluator {
       features[EF::KING_ON_BACK_RANK] = (ourKingSq / 8 == 0) - (theirKingSq / 8 == 7);
       features[EF::KING_ACTIVE] = (ourKingSq / 8 > 2) - (theirKingSq / 8 < 5);
     }
+    features[EF::KING_ON_CENTER_FILE] = (ourKingSq % 8 == 3 || ourKingSq % 8 == 4) - (theirKingSq % 8 == 3 || theirKingSq % 8 == 4);
     features[EF::THREATS_NEAR_KING_2] = std::popcount(kNearby[2][ourKingSq] & themTargets & ~usTargets) - std::popcount(kNearby[2][theirKingSq] & usTargets & ~themTargets);
     features[EF::THREATS_NEAR_KING_3] = std::popcount(kNearby[3][ourKingSq] & themTargets & ~usTargets) - std::popcount(kNearby[2][theirKingSq] & usTargets & ~themTargets);
 
