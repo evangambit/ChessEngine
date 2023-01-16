@@ -10,6 +10,8 @@
 #include "movegen/bishops.h"
 #include "movegen/sliding.h"
 
+#include <bit>
+
 namespace ChessEngine {
 
 /**
