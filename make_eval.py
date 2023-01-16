@@ -19,7 +19,7 @@ kTableName = 'TrainData'
 python3 make_eval.py foo.pgn --stage 1
 python3 make_eval.py eval.txt --stage 2
 ./a.out mode printvec fens eval.txt > train.txt
-python3 make_eval.py train.txt traindata
+python3 make_eval.py train.txt traindata --stage 3
 zip traindata.zip -r traindata
 """
 
@@ -111,7 +111,7 @@ if args.stage == 2:
 if args.stage == 3:
   def process_position(lines):
     assert lines[0].startswith('FEN ')
-    fen = lines[0].split(' ')[1]
+    fen = ' '.join(lines[0].split(' ')[1:])
     assert lines[1].startswith('SCORE ')
     score = int(lines[1].split(' ')[1])
     x = np.zeros(len(lines) - 2, dtype=np.int8)

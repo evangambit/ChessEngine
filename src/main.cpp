@@ -1085,7 +1085,7 @@ void print_feature_vec(Position *pos) {
   if (pos->turn_ == Color::WHITE) {
     e = gEvaluator.score<Color::WHITE>(*pos);
   } else {
-    e = -gEvaluator.score<Color::BLACK>(*pos);
+    e = gEvaluator.score<Color::BLACK>(*pos);
   }
   std::cout << "FEN " << pos->fen() << std::endl;
   std::cout << "SCORE " << e << std::endl;
