@@ -1,11 +1,11 @@
- // Production:
- // g++ src/*.cpp -std=c++20 -O3 -DNDEBUG
- // 
- // Debug:
- // g++ src/*.cpp -std=c++20 -std=c++20 -rdynamic -g1
-
-// "./a.out fen r1b1k1nr/pppp1ppp/5q2/2b5/2B2B2/P1N1P3/1PP2PPP/R2QK1NR b KQkq - 0 8 depth 3"
-// Why do we sack a queen?
+// Production:
+// g++ src/*.cpp -std=c++20 -O3 -DNDEBUG
+// 
+// Debug:
+// g++ src/*.cpp -std=c++20 -std=c++20 -rdynamic -g1
+//
+// To Generate train.txt
+// ./a.out mode printvec fens eval.txt > ./train.txt
 
 #include <cassert>
 #include <cstdint>
@@ -1082,10 +1082,117 @@ void print_feature_vec(Position *pos) {
   } else {
     e = -gEvaluator.score<Color::BLACK>(*pos);
   }
-  std::cout << "FEN" << pos->fen() << std::endl;
+  std::cout << "FEN " << pos->fen() << std::endl;
   std::cout << "SCORE " << e << std::endl;
   for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
     std::cout << gEvaluator.features[i] << " " << EFSTR[i] << std::endl;
+  }
+}
+
+void mymain(std::vector<std::string>& fens, const std::string& mode, double timeLimitMs, Depth depth) {
+  if (mode == "printvec") {
+    for (auto fen : fens) {
+      Position pos(fen);
+      if (pos.turn_ == Color::WHITE) {
+        print_feature_vec<Color::WHITE>(&pos);
+      } else {
+        print_feature_vec<Color::BLACK>(&pos);
+      }
+    }
+    return;
+  }
+  else if (mode == "evaluate") {
+    const time_t t0 = clock();
+
+    size_t numCorrect = 0;
+    size_t total = 0;
+
+    for (auto line : fens) {
+      gCache.clear();
+      std::vector<std::string> parts = split(line, ':');
+      if (parts.size() != 2) {
+        throw std::runtime_error("Unrecognized line \"" + line + "\"");
+      }
+      std::string fen = parts[0];
+      std::string bestMove = parts[1];
+      Position pos(fen);
+      std::pair<Evaluation, Move> results;
+      for (size_t i = 1; i <= depth; ++i) {
+        results = search(&pos, i * kDepthScale);
+      }
+      numCorrect += (results.second.uci() == bestMove);
+      total += 1;
+      if (total % 10000 == 0) {
+        std::cout << numCorrect << " / " << total << std::endl;
+      }
+    }
+
+    std::cout << numCorrect << " / " << total << std::endl;
+
+    double duration = double(clock() - t0) / CLOCKS_PER_SEC;
+    std::cout << duration * 1000 << "ms" << std::endl;
+    std::cout << "nodeCounter = " << nodeCounter / 1000 << "k" << std::endl;
+    std::cout << "leafCounter = " << leafCounter / 1000 << "k" << std::endl;
+    return;
+  } else if (mode == "analyze") {
+    for (auto fen : fens) {
+      gCache.clear();
+      Position pos(fen);
+      std::pair<Evaluation, Move> results;
+      time_t tstart = clock();
+      for (size_t i = 1; i <= depth; ++i) {
+        results = search(&pos, i * kDepthScale);
+        if (fens.size() == 1) {
+          std::cout << i << " : " << results.second << " : " << results.first << " (" << double(clock() - tstart)/CLOCKS_PER_SEC << " secs)" << std::endl;
+        }
+        if (double(clock() - tstart)/CLOCKS_PER_SEC*1000 >= timeLimitMs) {
+          break;
+        }
+      }
+
+      auto it = gCache.find(pos.hash_);
+      size_t i = 0;
+      while (it != gCache.end()) {
+        if (++i > 10) {
+          break;
+        }
+        if (pos.turn_ == Color::BLACK) {
+          it->second.eval *= -1;
+        }
+        std::cout << it->second.bestMove.uci() << " (" << it->second.eval << ", " << unsigned(it->second.depth) << ")" << std::endl;
+        if (it->second.bestMove == kNullMove) {
+          break;
+        }
+        if (pos.turn_ == Color::WHITE) {
+          make_move<Color::WHITE>(&pos, it->second.bestMove);
+        } else {
+          make_move<Color::BLACK>(&pos, it->second.bestMove);
+        }
+        it = gCache.find(pos.hash_);
+      }
+
+    }
+  } else if (mode == "play") {
+    for (auto fen : fens) {
+      Position pos(fen);
+      while (true) {
+        gCache.clear();
+        std::pair<Evaluation, Move> results;
+        time_t tstart = clock();
+        for (size_t i = 1; i <= depth; ++i) {
+          results = search(&pos, i * kDepthScale);
+          if (double(clock() - tstart)/CLOCKS_PER_SEC*1000 >= timeLimitMs) {
+            break;
+          }
+        }
+        std::cout << results.second << " " << std::endl;
+        if (pos.turn_ == Color::WHITE) {
+          make_move<Color::WHITE>(&pos, results.second);
+        } else {
+          make_move<Color::BLACK>(&pos, results.second);
+        }
+      }
+    }
   }
 }
 
@@ -1107,11 +1214,11 @@ int main(int argc, char *argv[]) {
   // test_moves();
 
   Position pos = Position::init();
-  Depth depth = 99;
-  bool loop = false;
-  bool silent = false;
-  double timeLimitMs = 1000000000.0;
+  Depth depth = 10;
+  std::string mode = "analyze";
+  double timeLimitMs = 60000.0;
   std::string fenFile;
+  std::string fen;
 
   while (args.size() > 0) {
     if (args.size() >= 7 && args[0] == "fen") {
@@ -1119,7 +1226,6 @@ int main(int argc, char *argv[]) {
       args = std::vector<std::string>(args.begin() + 7, args.end());
 
       std::string fen = join(fenVec, " ");
-      pos = Position(fen);
     } else if (args.size() >= 2 && args[0] == "depth") {
       depth = std::stoi(args[1]);
       if (depth < 0) {
@@ -1134,19 +1240,9 @@ int main(int argc, char *argv[]) {
         exit(1);
       }
       args = std::vector<std::string>(args.begin() + 2, args.end());
-    } else if (args.size() >= 2 && args[0] == "loop") {
-      loop = (args[1][0] == '1');
+    } else if (args.size() >= 2 && args[0] == "mode") {
+      mode = args[1];
       args = std::vector<std::string>(args.begin() + 2, args.end());
-    } else if (args.size() >= 2 && args[0] == "silent") {
-      silent = (args[1] == "1");
-      args = std::vector<std::string>(args.begin() + 2, args.end());
-    } else if (args.size() >= 1 && args[0] == "evalvec") {
-      if (pos.turn_ == Color::WHITE) {
-        print_feature_vec<Color::WHITE>(&pos);
-      } else {
-        print_feature_vec<Color::BLACK>(&pos);
-      }
-      return 0;
     } else if (args.size() >= 2 && args[0] == "fens") {
       fenFile = args[1];
       args = std::vector<std::string>(args.begin() + 2, args.end());
@@ -1156,124 +1252,32 @@ int main(int argc, char *argv[]) {
     }
   }
 
+  if (mode != "evaluate" && mode != "analyze" && mode != "play" && mode != "printvec") {
+    throw std::runtime_error("Cannot recognize mode \"" + mode + "\"");
+  }
+  if (fenFile.size() == 0 && fen.size() == 0) {
+    fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+  }
+  if ((fenFile.size() != 0) == (fen.size() != 0)) {
+    throw std::runtime_error("Cannot provide fen and fens");
+  }
+  if (depth <= 0) {
+    throw std::runtime_error("invalid depth");
+  }
+
+  std::vector<std::string> fens;
+
   if (fenFile.size() > 0) {
     std::ifstream infile(fenFile);
     std::string line;
-    size_t a = 0;
-    size_t b = 0;
-    size_t totalTime = 0;
     while (std::getline(infile, line)) {
-      std::vector<std::string> parts = split(line, ':');
-      if (parts.size() != 2) {
-        throw std::runtime_error("bad fen file");
-      }
-      std::string fen = parts[0];
-      std::string bestMove = parts[1];
-      Position pos(fen);
-
-      const time_t t0 = clock();
-      std::pair<Evaluation, Move> results;
-      for (size_t i = 1; i <= depth; ++i) {
-        results = search(&pos, i * kDepthScale);
-        if (results.second.uci() == bestMove) {
-          break;
-        }
-      }
-      const time_t t1 = clock();
-
-      totalTime += t1 - t0;
-      if (results.second.uci() == bestMove) {
-        a += 1;
-      }
-      b += 1;
-      if (b % 1000 == 0) {
-        std::cout << a << " / " << b << std::endl;
-      }
+      fens.push_back(line);
     }
-    std::cout << a << " / " << b << std::endl;
-    std::cout << totalTime / 1000 << "ms" << std::endl;
-    std::cout << "leafCounter = " << leafCounter << std::endl;
-    std::cout << "nodeCounter = " << nodeCounter << std::endl;
-    return 0;
+  } else {
+    fens.push_back(fen);
   }
 
-  if (loop) {
-    if (depth <= 0) {
-      throw std::runtime_error("invalid depth");
-    }
-    while (true) {
-      gCache.clear();
-      std::pair<Evaluation, Move> results;
-      time_t tstart = clock();
-      for (size_t i = 1; i <= depth; ++i) {
-        results = search(&pos, i * kDepthScale);
-        if (double(clock() - tstart)/CLOCKS_PER_SEC*1000 > timeLimitMs) {
-          break;
-        }
-      }
-      if (results.second == kNullMove || results.first == kMaxEval || results.first == kMinEval) {
-        std::cout << std::endl;
-        return 0;
-      }
-      if (pos.turn_ == Color::WHITE) {
-        make_move<Color::WHITE>(&pos, results.second);
-      } else {
-        make_move<Color::BLACK>(&pos, results.second);
-      }
-      std::cout << results.second << " " << std::flush;
-    }
-  }
-
-  if (!silent) {
-    std::cout << "hash = " << pos.hash_ << std::endl;
-  }
-
-  time_t tstart = clock();
-  std::pair<Evaluation, Move> results;
-  for (size_t i = 0; i <= depth; ++i) {
-    time_t t0 = clock();
-    results = search(&pos, i * kDepthScale);
-    time_t t1 = clock();
-    if (!silent) {
-      std::cout << i << " : " << results.second << " : " << results.first << " (" << double(t1 - t0)/CLOCKS_PER_SEC << " secs)" << std::endl;
-    }
-    if (double(clock() - tstart)/CLOCKS_PER_SEC*1000 > timeLimitMs) {
-      break;
-    }
-  }
-  time_t tend = clock();
-  if (!silent) {
-    std::cout << "total time = " << double(tend - tstart)/CLOCKS_PER_SEC << " secs" << std::endl;
-    std::cout << "leafCounter = " << leafCounter << std::endl;
-    std::cout << "nodeCounter = " << nodeCounter << std::endl;
-    std::cout << "eval = " << results.first << std::endl;
-  }
-  std::cout << "bestMove = " << results.second << std::endl;
-
-  if (!silent) {
-    std::cout << "hash = " << pos.hash_ << std::endl;
-  }
-
-  auto it = gCache.find(pos.hash_);
-  size_t i = 0;
-  while (it != gCache.end()) {
-    if (++i > 10) {
-      break;
-    }
-    if (pos.turn_ == Color::BLACK) {
-      it->second.eval *= -1;
-    }
-    std::cout << it->second.bestMove.uci() << " (" << it->second.eval << ", " << unsigned(it->second.depth) << ")" << std::endl;
-    if (it->second.bestMove == kNullMove) {
-      break;
-    }
-    if (pos.turn_ == Color::WHITE) {
-      make_move<Color::WHITE>(&pos, it->second.bestMove);
-    } else {
-      make_move<Color::BLACK>(&pos, it->second.bestMove);
-    }
-    it = gCache.find(pos.hash_);
-  }
+  mymain(fens, mode, timeLimitMs, depth);
 
   return 0;
 }
