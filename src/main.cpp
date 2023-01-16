@@ -267,6 +267,9 @@ enum EF {
   THEIR_HANGING_ROOKS,
   THEIR_HANGING_QUEENS,
 
+  LONELY_KING_IN_CENTER,
+  LONELY_KING_AWAY_FROM_ENEMY_KING,
+
   NUM_TARGET_SQUARES,
 
   TIME,
@@ -323,6 +326,8 @@ const int32_t kEarlyWeights[EF::NUM_EVAL_FEATURES] {
    81,  // THEIR_HANGING_BISHOPS
    71,  // THEIR_HANGING_ROOKS
    20,  // THEIR_HANGING_QUEENS
+    0,  // LONELY_KING_IN_CENTER
+    0,  // LONELY_KING_AWAY_FROM_ENEMY_KING
     2,  // NUM_TARGET_SQUARES
    -1,  // TIME
 };
@@ -376,6 +381,8 @@ const int32_t kLateWeights[EF::NUM_EVAL_FEATURES] {
    73,  // THEIR_HANGING_BISHOPS
    82,  // THEIR_HANGING_ROOKS
    41,  // THEIR_HANGING_QUEENS
+    2,  // LONELY_KING_IN_CENTER
+   10,  // LONELY_KING_AWAY_FROM_ENEMY_KING
     2,  // NUM_TARGET_SQUARES
    -1,  // TIME
 };
@@ -645,6 +652,17 @@ struct Evaluator {
       features[EF::OUR_HANGING_QUEENS] = std::popcount(ourQueens & usHanging);
       features[EF::THEIR_HANGING_QUEENS] = std::popcount(theirQueens & themHanging);
 
+      const int wx = ourKingSq % 8;
+      const int wy = ourKingSq / 8;
+      const int bx = theirKingSq % 8;
+      const int by = theirKingSq / 8;
+      const int kingsDist = std::max(std::abs(wx - bx), std::abs(wy - by));
+      features[EF::LONELY_KING_IN_CENTER] = kDistToCorner[theirKingSq] * (std::popcount(pos.colorBitboards_[THEM]) == 1);
+      features[EF::LONELY_KING_IN_CENTER] -= kDistToCorner[ourKingSq] * (std::popcount(pos.colorBitboards_[US]) == 1);
+
+      features[EF::LONELY_KING_AWAY_FROM_ENEMY_KING] = (std::popcount(pos.colorBitboards_[THEM]) == 1) * kingsDist;
+      features[EF::LONELY_KING_AWAY_FROM_ENEMY_KING] -= (std::popcount(pos.colorBitboards_[US]) == 1) * kingsDist;
+
       features[EF::NUM_TARGET_SQUARES] = std::popcount(usTargets) * 2 - std::popcount(themTargets);
 
     }
@@ -678,21 +696,6 @@ struct Evaluator {
     for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
       r += features[i] * kLateWeights[i];
     }
-
-    const Square theirKingSq = lsb(pos.colorBitboards_[THEM]);
-    const Square ourKingSq = lsb(pos.colorBitboards_[US]);
-    const int wx = ourKingSq % 8;
-    const int wy = ourKingSq / 8;
-    const int bx = theirKingSq % 8;
-    const int by = theirKingSq / 8;
-    const int dist = std::max(std::abs(wx - bx), std::abs(wy - by));
-    // If them's king is the last them piece alive, us wants to drive it near the edge.
-    // If them's king is the last them piece alive, us wants to be near him.
-    r -= kDistToCorner[theirKingSq] * 2 * (std::popcount(pos.colorBitboards_[THEM]) == 1);
-    r -= (std::popcount(pos.colorBitboards_[THEM]) == 1) * dist * 10;
-    r += kDistToCorner[ourKingSq] * 2 * (std::popcount(pos.colorBitboards_[US]) == 1);
-    r += (std::popcount(pos.colorBitboards_[US]) == 1) * dist * 10;
-
     return r;
   }
   Evaluation features[NUM_EVAL_FEATURES];
@@ -1190,13 +1193,17 @@ void mymain(std::vector<std::string>& fens, const std::string& mode, double time
             break;
           }
         }
-        std::cout << results.second << " " << std::endl;
+        if (results.second == kNullMove) {
+          break;
+        }
+        std::cout << results.second << " " << std::flush;
         if (pos.turn_ == Color::WHITE) {
           make_move<Color::WHITE>(&pos, results.second);
         } else {
           make_move<Color::BLACK>(&pos, results.second);
         }
       }
+      std::cout << std::endl;
     }
   }
 }
