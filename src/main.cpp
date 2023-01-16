@@ -669,13 +669,12 @@ struct Evaluator {
 
     const int16_t usPiecesRemaining = std::popcount(pos.colorBitboards_[US] & ~ourPawns) + std::popcount(ourQueens) - 1;
     const int16_t themPiecesRemaining = std::popcount(pos.colorBitboards_[THEM] & ~theirPawns) + std::popcount(theirQueens) - 1;
+    const int32_t earliness = (usPiecesRemaining + themPiecesRemaining);
+    features[EF::TIME] = earliness;
 
     // Use larger integer to make arithmetic safe.
-    const int32_t earliness = (usPiecesRemaining + themPiecesRemaining);
     const int32_t early = this->early<US>(pos);
     const int32_t late = this->late<US>(pos);
-
-    features[EF::TIME] = earliness;
     
     return (early * earliness + late * (16 - earliness)) / 16;
   }
