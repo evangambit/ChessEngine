@@ -1236,8 +1236,7 @@ int main(int argc, char *argv[]) {
     if (args.size() >= 7 && args[0] == "fen") {
       std::vector<std::string> fenVec(args.begin() + 1, args.begin() + 7);
       args = std::vector<std::string>(args.begin() + 7, args.end());
-
-      std::string fen = join(fenVec, " ");
+      fen = join(fenVec, " ");
     } else if (args.size() >= 2 && args[0] == "depth") {
       depth = std::stoi(args[1]);
       if (depth < 0) {
