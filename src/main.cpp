@@ -766,7 +766,7 @@ std::pair<Evaluation, Move> qsearch(Position *pos, int32_t depth) {
 }
 
 template<Color TURN>
-std::pair<Evaluation, Move> search(Position* pos, Depth depth, const Evaluation bestSibling, RecommendedMoves recommendedMoves) {
+std::pair<Evaluation, Move> search(Position* pos, Depth depth, Evaluation alpha, const Evaluation beta, RecommendedMoves recommendedMoves) {
   constexpr Color opposingColor = opposite_color<TURN>();
   constexpr ColoredPiece moverKing = coloredPiece<TURN, Piece::KING>();
 
@@ -880,7 +880,7 @@ std::pair<Evaluation, Move> search(Position* pos, Depth depth, const Evaluation 
 
     ++numValidMoves;
 
-    std::pair<Evaluation, Move> a = search<opposingColor>(pos, depth - depthReduction, -r.first, recommendationsForChildren);
+    std::pair<Evaluation, Move> a = search<opposingColor>(pos, depth - depthReduction, -beta, -alpha, recommendationsForChildren);
     a.first *= -1;
     if (a.first > kMaxEval - 100) {
       a.first -= 1;
@@ -913,9 +913,10 @@ std::pair<Evaluation, Move> search(Position* pos, Depth depth, const Evaluation 
     pos->assert_valid_state("b " + extMove->uci());
     #endif
 
-    if (r.first >= bestSibling) {
+    if (r.first >= beta) {
       return r;
     }
+    alpha = std::max(alpha, r.first);
   }
 
   if (numValidMoves == 0) {
@@ -960,9 +961,9 @@ std::pair<Evaluation, Move> search(Position* pos, Depth depth, const Evaluation 
 // Gives scores from white's perspective
 std::pair<Evaluation, Move> search(Position* pos, Depth depth) {
   if (pos->turn_ == Color::WHITE) {
-    return search<Color::WHITE>(pos, depth, kMaxEval, RecommendedMoves());
+    return search<Color::WHITE>(pos, depth, kMinEval, kMaxEval, RecommendedMoves());
   } else {
-    std::pair<Evaluation, Move> r = search<Color::BLACK>(pos, depth, kMaxEval, RecommendedMoves());
+    std::pair<Evaluation, Move> r = search<Color::BLACK>(pos, depth, kMinEval, kMaxEval, RecommendedMoves());
     r.first *= -1;
     return r;
   }
