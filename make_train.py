@@ -36,6 +36,7 @@ def get_vec(fen):
 parser = argparse.ArgumentParser()
 parser.add_argument("pgnfiles", nargs='+')
 parser.add_argument("--stage", type=int, required=True)
+parser.add_argument("--recompute_all_features", type=int, default=0)
 args = parser.parse_args()
 
 assert args.stage in [1, 2]
@@ -44,12 +45,36 @@ conn = sqlite3.connect('train.sqlite3')
 c = conn.cursor()
 kTableName = 'TrainData'
 
+if args.recompute_all_features:
+  c.execute(f"SELECT fen FROM {kTableName}")
+  writesSinceCommit = 0
+  for fen0, moverScore in c:
+    fen, x = get_vec(fen)
+    assert fen == fen0, 'q search changed! Need to completely regenerate entire table :('
+    c.execute(f"UPDATE {kTableName} SET moverFeatures = ? WHERE fen = ?", (
+      bytes(list(x)),
+      fen,
+    ))
+    writesSinceCommit += 1
+    if writesSinceCommit >= 100:
+      conn.commit()
+      print('commit')
+
+  X = np.array(X)
+  Y = np.array(Y)
+  F = np.array(F)
+  np.save(os.path.join('traindata', 'x.npy'), X)
+  np.save(os.path.join('traindata', 'y.npy'), Y)
+  np.save(os.path.join('traindata', 'f.npy'), F)
+
+
 if args.stage == 1:
   c.execute(f"""CREATE TABLE IF NOT EXISTS {kTableName} (
     fen BLOB,             -- a quiet position
     moverScore INTEGER,
     moverFeatures BLOB    -- one byte per feature; from mover's perspective
   );""")
+  c.execute(f"""CREATE INDEX IF NOT EXISTS fenIndex ON {kTableName}(fen)""")
 
   fens = set()
   c.execute(f"SELECT fen FROM {kTableName}")
