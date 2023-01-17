@@ -40,6 +40,7 @@
 #include "utils.h"
 #include "Position.h"
 #include "movegen.h"
+#include "piece_maps.h"
 
 using namespace ChessEngine;
 
@@ -272,23 +273,24 @@ enum EF {
   LONELY_KING_AWAY_FROM_ENEMY_KING,
 
   NUM_TARGET_SQUARES,
-
   TIME,
+
+  PAWN_PM,
+  KNIGHT_PM,
+  BISHOP_PM,
+  ROOK_PM,
+  QUEEN_PM,
+  KING_PM,
+
   NUM_EVAL_FEATURES,
 };
 
+constexpr int32_t icky = 0;
 
-// 3707 / 10000
-// 3919 / 10636
-// 2001.08ms
-// nodeCounter = 335k
-// leafCounter = 1351k
-
-const int32_t kEarlyB0 = -9;
-const int32_t kEarlyW0[52] = { 112,442,496,589,972,-199,78,-116,-37,-30,1,-43,-35,-21,-25,12,54,-4,82,106,46,74,66,7,33,59,80,-30,42,-33,-51,127,45,39,116,46,5,29,14,-53,-31,-89,-26,4,148,153,64,83,-369,-1052,4,-2};
-const int32_t kLateB0 = -69;
-const int32_t kLateW0[52] = { 133,195,212,408,608,-78,-70,15,52,0,1,2,8,-16,-38,-12,-21,10,107,63,33,20,-56,3,10,24,24,5,1,51,-3,-65,1,62,-77,6,21,3,-57,-38,-91,-47,-32,34,32,-42,66,-60,51,32,6,-9};
-
+const float kEarlyB0 = 1;
+const float kEarlyW0[58] = { 28,247,262,329,566,-115,15,-22,-29,-18,1,-24,-13,-8,-19,6,11,3,53,57,24,42,39,5,20,19,44,-17,24,-15,-32,72,21,14,63,1,5,12,9,-23,-18,-47,-9,4,87,91,39,45,-242,-607,2,-1,1,1,1,0,1,1};
+const float kLateB0 = -45;
+const float kLateW0[58] = { 78,130,140,268,382,-49,-46,3,32,1,1,3,4,-13,-19,-5,-8,3,68,42,21,18,-36,5,5,25,21,1,1,31,-1,-38,3,45,-41,9,8,3,-32,-25,-50,-32,-28,19,20,-24,40,-11,32,20,4,-5,0,0,0,0,0,0};
 
 std::string EFSTR[] = {
   "PAWNS",
@@ -352,8 +354,15 @@ std::string EFSTR[] = {
   "LONELY_KING_AWAY_FROM_ENEMY_KING",
 
   "NUM_TARGET_SQUARES",
-
   "TIME",
+
+  "PAWN_PM",
+  "KNIGHT_PM",
+  "BISHOP_PM",
+  "ROOK_PM",
+  "QUEEN_PM",
+  "KING_PM",
+
   "NUM_EVAL_FEATURES",
 };
 
@@ -566,7 +575,29 @@ struct Evaluator {
       features[EF::LONELY_KING_AWAY_FROM_ENEMY_KING] -= (std::popcount(pos.colorBitboards_[US]) == 1) * kingsDist;
 
       features[EF::NUM_TARGET_SQUARES] = std::popcount(usTargets) * 2 - std::popcount(themTargets);
+    }
 
+    {  // Piece map values.
+      std::fill_n(&features[EF::PAWN_PM], 6, 0);
+      for (ColoredPiece cp = ColoredPiece::WHITE_PAWN; cp < ColoredPiece::NUM_COLORED_PIECES; cp = ColoredPiece(cp + 1)) {
+        Piece piece = cp2p(cp);
+        // std::cout << "cp " << unsigned(cp) << " : p " << unsigned(piece) << std::endl;
+        EF feature = EF(EF::PAWN_PM + piece - 1);
+        Bitboard bitmap = pos.pieceBitboards_[cp];
+        while (bitmap) {
+          int delta = kPieceMap[(cp - 1) * 64 + pop_lsb(bitmap)];
+          // std::cout << unsigned(cp) << " : " << delta << std::endl;
+          features[feature] += delta;
+        }
+      }
+      if (US == Color::BLACK) {
+        features[EF::PAWN_PM] *= -1;
+        features[EF::KNIGHT_PM] *= -1;
+        features[EF::BISHOP_PM] *= -1;
+        features[EF::ROOK_PM] *= -1;
+        features[EF::QUEEN_PM] *= -1;
+        features[EF::KING_PM] *= -1;
+      }
     }
 
     const int16_t ourPiecesRemaining = std::popcount(pos.colorBitboards_[US] & ~ourPawns) + std::popcount(ourQueens) - 1;
@@ -660,6 +691,7 @@ struct RecommendedMoves {
   }
 };
 
+// TODO: qsearch can leave you in check
 template<Color TURN>
 std::pair<Evaluation, Move> qsearch(Position *pos, int32_t depth) {
   constexpr Color opposingColor = opposite_color<TURN>();

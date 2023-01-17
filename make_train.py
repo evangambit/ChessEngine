@@ -14,8 +14,8 @@ from stockfish.models import StockfishException
 import numpy as np
 
 """
-python3 -i make_train.py lichess_db_standard_rated_2013-11.pgn --stage 1
-python3 -i make_train.py --stage 2
+python3 make_train.py --mode generate_positions lichess_db_standard_rated_2013-11.pgn
+python3 make_train.py --mode write_numpy
 zip traindata.zip -r traindata
 """
 
@@ -28,47 +28,45 @@ def get_vec(fen):
   originalFen = ' '.join(lines[1].split(' ')[1:])
   x = []
   for i, line in enumerate(lines[3:]):
-    val = int(line.split(' ')[0]) + 128
-    assert val >= 0 and val < 256
-    x.append(val)
+    x.append(int(line.split(' ')[0]))
   return originalFen, x
 
 parser = argparse.ArgumentParser()
-parser.add_argument("pgnfiles", nargs='+')
-parser.add_argument("--stage", type=int, required=True)
-parser.add_argument("--recompute_all_features", type=int, default=0)
+parser.add_argument("pgnfiles", nargs='*')
+parser.add_argument("--mode", type=str, required=True)
 args = parser.parse_args()
 
-assert args.stage in [1, 2]
+assert args.mode in ['generate_positions', 'update_features', 'write_numpy']
 
 conn = sqlite3.connect('train.sqlite3')
 c = conn.cursor()
 kTableName = 'TrainData'
 
-if args.recompute_all_features:
+if args.mode == 'update_features':
   c.execute(f"SELECT fen FROM {kTableName}")
+  fens = c.fetchall()
+  totalWrites = 0
   writesSinceCommit = 0
-  for fen0, moverScore in c:
-    fen, x = get_vec(fen)
+  for fen0, in fens:
+    fen, x = get_vec(fen0)
     assert fen == fen0, 'q search changed! Need to completely regenerate entire table :('
     c.execute(f"UPDATE {kTableName} SET moverFeatures = ? WHERE fen = ?", (
-      bytes(list(x)),
+      ' '.join(str(a) for a in x),
       fen,
     ))
     writesSinceCommit += 1
-    if writesSinceCommit >= 100:
+    totalWrites += 1
+    if writesSinceCommit >= 1000:
+      writesSinceCommit = 0
       conn.commit()
-      print('commit')
+      print('commit', totalWrites, len(fens))
 
-  X = np.array(X)
-  Y = np.array(Y)
-  F = np.array(F)
-  np.save(os.path.join('traindata', 'x.npy'), X)
-  np.save(os.path.join('traindata', 'y.npy'), Y)
-  np.save(os.path.join('traindata', 'f.npy'), F)
+  conn.commit()
 
+  exit(0)
 
-if args.stage == 1:
+if args.mode == 'generate_positions':
+  assert len(args.pgnfiles) > 0
   c.execute(f"""CREATE TABLE IF NOT EXISTS {kTableName} (
     fen BLOB,             -- a quiet position
     moverScore INTEGER,
@@ -124,7 +122,7 @@ if args.stage == 1:
           VALUES (?, ?, ?)""", (
           fen,
           evaluation['value'],
-          bytes(list(x)),
+          ' '.join(str(a) for a in x),
         ))
         writesSinceCommit += 1
         totalWrites += 1
@@ -136,14 +134,16 @@ if args.stage == 1:
         conn.commit()
 
       game = pgn.read_game(f)
+  exit(0)
 
-if args.stage == 2:
+if args.mode == 'write_numpy':
   c.execute(f"SELECT fen, moverScore, moverFeatures FROM {kTableName}")
   X, Y, F = [], [], []
   for fen, moverScore, moverFeatures in c:
     F.append(fen)
     Y.append(moverScore)
-    x = (np.array(list(moverFeatures)) - 128).astype(np.int8)
+
+    x = np.array([float(a) for a in moverFeatures.split(' ')], dtype=np.int32)
     X.append(x)
 
   X = np.array(X)
@@ -152,4 +152,5 @@ if args.stage == 2:
   np.save(os.path.join('traindata', 'x.npy'), X)
   np.save(os.path.join('traindata', 'y.npy'), Y)
   np.save(os.path.join('traindata', 'f.npy'), F)
+  exit(0)
 
