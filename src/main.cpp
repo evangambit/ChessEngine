@@ -244,7 +244,7 @@ struct RecommendedMoves {
 
 // TODO: qsearch can leave you in check
 template<Color TURN>
-std::pair<Evaluation, Move> qsearch(Position *pos, int32_t depth) {
+std::pair<Evaluation, Move> qsearch(Position *pos, int32_t depth, Evaluation alpha, Evaluation beta) {
   constexpr Color opposingColor = opposite_color<TURN>();
   constexpr ColoredPiece moverKing = coloredPiece<TURN, Piece::KING>();
 
@@ -268,52 +268,37 @@ std::pair<Evaluation, Move> qsearch(Position *pos, int32_t depth) {
     return a.score > b.score;
   });
 
-  Evaluation selfEval = gEvaluator.score<TURN>(*pos);
-  if (moves[0].score < 0) {
-    return std::make_pair(selfEval, kNullMove);
+  std::pair<Evaluation, Move> r(gEvaluator.score<TURN>(*pos), kNullMove);
+  if (r.first >= beta) {
+    return r;
   }
 
   std::pair<Evaluation, Move> bestChild(Evaluation(kMinEval), kNullMove);
   for (ExtMove *move = moves; move < end; ++move) {
+    if (move->score < 0) {
+      break;
+    }
+
     make_move<TURN>(pos, moves[0].move);
 
-    std::pair<Evaluation, Move> child = qsearch<opposingColor>(pos, depth + 1);
+    std::pair<Evaluation, Move> child = qsearch<opposingColor>(pos, depth + 1, -beta, -alpha);
     child.first *= -1;
 
-    if (child.first > bestChild.first) {
-      bestChild = child;
+    if (child.first > r.first) {
+      r.first = child.first;
+      r.second = move->move;
     }
 
     undo<TURN>(pos);
 
-    // Only looking at the best move seems to work fine.
-    break;
-  }
-
-  if (bestChild.first > selfEval) {
-    const auto r = std::make_pair(bestChild.first, moves[0].move);
-
-    auto it = gCache.find(pos->hash_);
-    if (it == gCache.end()) {
-      const CacheResult cr = CacheResult{
-        0,
-        r.first,
-        r.second,
-        #ifndef NDEBUG
-        pos->fen(),
-        #endif
-      };
-      if (it != gCache.end()) {
-        it->second = cr;
-      } else {
-        gCache.insert(std::make_pair(pos->hash_, cr));
-      }
+    if (r.first >= beta) {
+      return r;
     }
 
-    return r;
-  } else {
-    return std::make_pair(selfEval, kNullMove);
+    alpha = std::max(alpha, child.first);
   }
+
+  return r;
 }
 
 template<Color TURN>
@@ -329,7 +314,7 @@ std::pair<Evaluation, Move> search(Position* pos, Depth depth, Evaluation alpha,
 
   if (depth <= 0) {
     ++leafCounter;
-    std::pair<Evaluation, Move> r = qsearch<TURN>(pos, 0);
+    std::pair<Evaluation, Move> r = qsearch<TURN>(pos, 0, alpha, beta);
     return r;
   }
   ++nodeCounter;
@@ -555,7 +540,7 @@ void handler(int sig) {
 
 template<Color TURN>
 void print_feature_vec(Position *pos, const std::string& originalFen) {
-  std::pair<Evaluation, Move> r = qsearch<TURN>(pos, 0);
+  std::pair<Evaluation, Move> r = qsearch<TURN>(pos, 0, kMinEval, kMaxEval);
   if (r.second != kNullMove) {
     make_move<TURN>(pos, r.second);
     print_feature_vec<opposite_color<TURN>()>(pos, originalFen);
