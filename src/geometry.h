@@ -40,6 +40,9 @@ constexpr Bitboard kRanks[8] = {
   0xff00000000000000ULL,
 };
 
+constexpr Bitboard kCenter16 = (kFiles[2] | kFiles[3] | kFiles[4] | kFiles[5]) & (kRanks[2] | kRanks[3] | kRanks[4] | kRanks[5]);
+constexpr Bitboard kCenter4 = (kFiles[3] | kFiles[4]) & (kRanks[3] | kRanks[4]);
+
 const Bitboard kWhiteSquares = 0xaa55aa55aa55aa55;
 const Bitboard kBlackSquares = 0x55aa55aa55aa55aa;
 const Bitboard kWhiteSide = 0xffffffff00000000;
@@ -155,6 +158,10 @@ inline Square pop_lsb(Bitboard& b) {
   Square s = lsb(b);
   b &= b - 1;
   return s;
+}
+
+inline Bitboard fatten(Bitboard b) {
+  return shift<Direction::WEST>(b) | b | shift<Direction::EAST>(b);
 }
 
 }  // namespace ChessEngine
