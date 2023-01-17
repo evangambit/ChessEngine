@@ -274,121 +274,21 @@ enum EF {
   NUM_TARGET_SQUARES,
 
   TIME,
-
   NUM_EVAL_FEATURES,
 };
 
-const int32_t kEarlyBias = 20;
-const int32_t kEarlyWeights[EF::NUM_EVAL_FEATURES] {
-  100,  // PAWNS
-  189,  // KNIGHTS
-  218,  // BISHOPS
-  352,  // ROOKS
-  649,  // QUEENS
-  -35,  // IN_CHECK
-    0,  // KING_ON_BACK_RANK
-  -40,  // KING_ON_CENTER_FILE
-   18,  // KING_ACTIVE
-   -1,  // THREATS_NEAR_KING_2
-   -2,  // THREATS_NEAR_KING_3
-   -2,  // PASSED_PAWNS
-  -11,  // ISOLATED_PAWNS
-  -15,  // DOUBLED_PAWNS
-  -13,  // DOUBLE_ISOLATED_PAWNS
-    2,  // PAWNS_CENTER_16
-    6,  // PAWNS_CENTER_4
-   16,  // ADVANCED_PASSED_PAWNS_1
-   77,  // ADVANCED_PASSED_PAWNS_2
-   59,  // ADVANCED_PASSED_PAWNS_3
-   23,  // ADVANCED_PASSED_PAWNS_4
-   31,  // PAWN_MINOR_CAPTURES
-  -24,  // PAWN_MAJOR_CAPTURES
-    4,  // PROTECTED_PAWNS
-   -6,  // PROTECTED_PASSED_PAWNS
-   25,  // BISHOPS_DEVELOPED
-   44,  // BISHOP_PAIR
-  -11,  // BLOCKADED_BISHOPS
-   14,  // SCARY_BISHOPS
-   -3,  // SCARIER_BISHOPS
-  -22,  // BLOCKADED_ROOKS
-   15,  // SCARY_ROOKS
-   20,  // INFILTRATING_ROOKS
-   22,  // KNIGHTS_DEVELOPED
-   29,  // KNIGHT_MAJOR_CAPTURES
-   24,  // KNIGHTS_CENTER_16
-   10,  // KNIGHTS_CENTER_4
-   17,  // KNIGHT_ON_ENEMY_SIDE
-  -15,  // OUR_HANGING_PAWNS
-  -21,  // OUR_HANGING_KNIGHTS
-  -34,  // OUR_HANGING_BISHOPS
-  -68,  // OUR_HANGING_ROOKS
-   -7,  // OUR_HANGING_QUEENS
-   23,  // THEIR_HANGING_PAWNS
-   64,  // THEIR_HANGING_KNIGHTS
-   81,  // THEIR_HANGING_BISHOPS
-   71,  // THEIR_HANGING_ROOKS
-   20,  // THEIR_HANGING_QUEENS
-    0,  // LONELY_KING_IN_CENTER
-    0,  // LONELY_KING_AWAY_FROM_ENEMY_KING
-    2,  // NUM_TARGET_SQUARES
-   -1,  // TIME
-};
 
-const int32_t kLateBias = 0;
-const int32_t kLateWeights[EF::NUM_EVAL_FEATURES] {
-  103,  // PAWNS
-  196,  // KNIGHTS
-  226,  // BISHOPS
-  369,  // ROOKS
-  651,  // QUEENS
-  -63,  // IN_CHECK
-   -2,  // KING_ON_BACK_RANK
-    0,  // KING_ON_CENTER_FILE
-   54,  // KING_ACTIVE
-    0,  // THREATS_NEAR_KING_2
-   -5,  // THREATS_NEAR_KING_3
-   -2,  // PASSED_PAWNS
-   -6,  // ISOLATED_PAWNS
-  -21,  // DOUBLED_PAWNS
-  -11,  // DOUBLE_ISOLATED_PAWNS
-    0,  // PAWNS_CENTER_16
-    6,  // PAWNS_CENTER_4
-   10,  // ADVANCED_PASSED_PAWNS_1
-   85,  // ADVANCED_PASSED_PAWNS_2
-   59,  // ADVANCED_PASSED_PAWNS_3
-   24,  // ADVANCED_PASSED_PAWNS_4
-   32,  // PAWN_MINOR_CAPTURES
-  -17,  // PAWN_MAJOR_CAPTURES
-    4,  // PROTECTED_PAWNS
-    3,  // PROTECTED_PASSED_PAWNS
-   27,  // BISHOPS_DEVELOPED
-   44,  // BISHOP_PAIR
-  -11,  // BLOCKADED_BISHOPS
-   12,  // SCARY_BISHOPS
-   -3,  // SCARIER_BISHOPS
-  -22,  // BLOCKADED_ROOKS
-   33,  // SCARY_ROOKS
-   27,  // INFILTRATING_ROOKS
-   19,  // KNIGHTS_DEVELOPED
-   34,  // KNIGHT_MAJOR_CAPTURES
-   24,  // KNIGHTS_CENTER_16
-   11,  // KNIGHTS_CENTER_4
-   17,  // KNIGHT_ON_ENEMY_SIDE
-  -16,  // OUR_HANGING_PAWNS
-  -20,  // OUR_HANGING_KNIGHTS
-  -26,  // OUR_HANGING_BISHOPS
-  -47,  // OUR_HANGING_ROOKS
-  -26,  // OUR_HANGING_QUEENS
-   22,  // THEIR_HANGING_PAWNS
-   71,  // THEIR_HANGING_KNIGHTS
-   73,  // THEIR_HANGING_BISHOPS
-   82,  // THEIR_HANGING_ROOKS
-   41,  // THEIR_HANGING_QUEENS
-    2,  // LONELY_KING_IN_CENTER
-   10,  // LONELY_KING_AWAY_FROM_ENEMY_KING
-    2,  // NUM_TARGET_SQUARES
-   -1,  // TIME
-};
+// 3707 / 10000
+// 3919 / 10636
+// 2001.08ms
+// nodeCounter = 335k
+// leafCounter = 1351k
+
+const int32_t kEarlyB0 = -4;
+const int32_t kEarlyW0[52] = { 122,469,533,626,995,-150,71,-129,-95,-27,-4,-52,-36,-32,-26,10,57,10,30,133,60,87,110,9,9,55,74,-23,45,-35,-39,102,-6,39,91,46,-7,36,24,-51,-73,-122,4,20,171,184,118,-59,-329,-1174,2,0};
+const int32_t kLateB0 = -63;
+const int32_t kLateW0[52] = { 139,160,207,392,590,-49,-81,35,50,-1,0,5,8,24,-87,-8,-37,-1,102,42,22,9,-53,-6,7,41,9,-4,-19,41,-8,0,-20,50,-52,-4,46,0,-70,-13,-101,33,16,39,2,-74,22,74,39,55,6,-9};
+
 
 std::string EFSTR[] = {
   "PAWNS",
@@ -448,10 +348,12 @@ std::string EFSTR[] = {
   "THEIR_HANGING_ROOKS",
   "THEIR_HANGING_QUEENS",
 
+  "LONELY_KING_IN_CENTER",
+  "LONELY_KING_AWAY_FROM_ENEMY_KING",
+
   "NUM_TARGET_SQUARES",
 
   "TIME",
-
   "NUM_EVAL_FEATURES",
 };
 
@@ -681,18 +583,18 @@ struct Evaluator {
 
   template<Color US>
   Evaluation early(const Position& pos) const {
-    int32_t r = kEarlyBias;
+    int32_t r = kEarlyB0;
     for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
-      r += features[i] * kEarlyWeights[i];
+      r += features[i] * kEarlyW0[i];
     }
     return r;
   }
 
   template<Color US>
   Evaluation late(const Position& pos) const {
-    int32_t r = kLateBias;
+    int32_t r = kLateB0;
     for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
-      r += features[i] * kLateWeights[i];
+      r += features[i] * kLateW0[i];
     }
     return r;
   }
@@ -1073,21 +975,17 @@ void handler(int sig) {
 }
 
 template<Color TURN>
-void print_feature_vec(Position *pos) {
+void print_feature_vec(Position *pos, const std::string& originalFen) {
   std::pair<Evaluation, Move> r = qsearch<TURN>(pos, 0);
   if (r.second != kNullMove) {
     make_move<TURN>(pos, r.second);
-    print_feature_vec<opposite_color<TURN>()>(pos);
+    print_feature_vec<opposite_color<TURN>()>(pos, originalFen);
     undo<TURN>(pos);
     return;
   }
 
-  Evaluation e;
-  if (pos->turn_ == Color::WHITE) {
-    e = gEvaluator.score<Color::WHITE>(*pos);
-  } else {
-    e = gEvaluator.score<Color::BLACK>(*pos);
-  }
+  Evaluation e = gEvaluator.score<TURN>(*pos);
+  std::cout << "ORIGINAL_FEN " << originalFen << std::endl;
   std::cout << "FEN " << pos->fen() << std::endl;
   std::cout << "SCORE " << e << std::endl;
   for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
@@ -1100,9 +998,9 @@ void mymain(std::vector<std::string>& fens, const std::string& mode, double time
     for (auto fen : fens) {
       Position pos(fen);
       if (pos.turn_ == Color::WHITE) {
-        print_feature_vec<Color::WHITE>(&pos);
+        print_feature_vec<Color::WHITE>(&pos, fen);
       } else {
-        print_feature_vec<Color::BLACK>(&pos);
+        print_feature_vec<Color::BLACK>(&pos, fen);
       }
     }
     return;
