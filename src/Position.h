@@ -146,13 +146,14 @@ void undo(Position *pos) {
   pos->hashes_.pop_back();
 
   pos->update_hash_on_state_change(pos->currentState_, pos->states_.back());
+
+  pos->turn_ = MOVER_TURN;
   pos->hash_ ^= kZorbristTurn;
 
   const ExtMove extMove = pos->history_.back();
   pos->currentState_ = pos->states_.back();
   pos->history_.pop_back();
   pos->states_.pop_back();
-  pos->turn_ = MOVER_TURN;
   if (MOVER_TURN == Color::BLACK) {
     pos->wholeMoveCounter_ -= 1;
   }
@@ -237,6 +238,44 @@ void foo(Position *pos) {
 template<Color TURN>
 void bar(Position *pos) {
   pos->assert_valid_state();
+}
+
+template<Color TURN>
+void make_nullmove(Position *pos) {
+  pos->hashes_.push_back(pos->hash_);
+
+  pos->states_.push_back(pos->currentState_);
+
+  pos->history_.push_back(ExtMove(Piece::NO_PIECE, Piece::NO_PIECE, kNullMove));
+
+  pos->currentState_.epSquare = Square::NO_SQUARE;
+
+  if (TURN == Color::BLACK) {
+    pos->wholeMoveCounter_ += 1;
+  }
+  ++pos->currentState_.halfMoveCounter;
+  pos->turn_ = opposite_color<TURN>();
+  pos->hash_ ^= kZorbristTurn;
+
+  pos->update_hash_on_state_change(pos->states_.back(), pos->currentState_);
+}
+
+template<Color MOVER_TURN>
+void undo_nullmove(Position *pos) {
+  pos->hash_ = pos->hashes_.back();
+  pos->hashes_.pop_back();
+
+  pos->currentState_ = pos->states_.back();
+  pos->states_.pop_back();
+
+  assert(pos->history_.back().move == kNullMove);
+  pos->history_.pop_back();
+
+  if (MOVER_TURN == Color::BLACK) {
+    pos->wholeMoveCounter_ -= 1;
+  }
+
+  pos->turn_ = MOVER_TURN;
 }
 
 template<Color TURN>
@@ -381,9 +420,9 @@ void make_move(Position *pos, Move move) {
   ++pos->currentState_.halfMoveCounter;
   pos->currentState_.halfMoveCounter *= (movingPiece != coloredPiece<TURN, Piece::PAWN>());
   pos->turn_ = opposingColor;
+  pos->hash_ ^= kZorbristTurn;
 
   pos->update_hash_on_state_change(pos->states_.back(), pos->currentState_);
-  pos->hash_ ^= kZorbristTurn;
 
   bar<TURN>(pos);
 
