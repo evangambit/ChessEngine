@@ -15,11 +15,17 @@
 namespace ChessEngine {
 
 enum EF {
-  PAWNS,
-  KNIGHTS,
-  BISHOPS,
-  ROOKS,
-  QUEENS,
+  OUR_PAWNS,
+  OUR_KNIGHTS,
+  OUR_BISHOPS,
+  OUR_ROOKS,
+  OUR_QUEENS,
+
+  THEIR_PAWNS,
+  THEIR_KNIGHTS,
+  THEIR_BISHOPS,
+  THEIR_ROOKS,
+  THEIR_QUEENS,
 
   IN_CHECK,
   KING_ON_BACK_RANK,
@@ -88,17 +94,23 @@ enum EF {
   NUM_EVAL_FEATURES,
 };
 
-const float kEarlyB0 = 1;
-const float kEarlyW0[58] = { 28,247,262,329,566,-115,15,-22,-29,-18,1,-24,-13,-8,-19,6,11,3,53,57,24,42,39,5,20,19,44,-17,24,-15,-32,72,21,14,63,1,5,12,9,-23,-18,-47,-9,4,87,91,39,45,-242,-607,2,-1,1,1,1,0,1,1};
-const float kLateB0 = -45;
-const float kLateW0[58] = { 78,130,140,268,382,-49,-46,3,32,1,1,3,4,-13,-19,-5,-8,3,68,42,21,18,-36,5,5,25,21,1,1,31,-1,-38,3,45,-41,9,8,3,-32,-25,-50,-32,-28,19,20,-24,40,-11,32,20,4,-5,0,0,0,0,0,0};
+const int32_t kEarlyB0 = 1;
+const int32_t kEarlyW0[EF::NUM_EVAL_FEATURES] = { 28,247,262,329,566,-28,-247,-262,-329,-566,-115,15,-22,-29,-18,1,-24,-13,-8,-19,6,11,3,53,57,24,42,39,5,20,19,44,-17,24,-15,-32,72,21,14,63,1,5,12,9,-23,-18,-47,-9,4,87,91,39,45,-242,-607,2,-1,1,1,1,0,1,1};
+const int32_t kLateB0 = -45;
+const int32_t kLateW0[EF::NUM_EVAL_FEATURES] = { 78,130,140,268,382,-78,-130,-140,-268,-382,-49,-46,3,32,1,1,3,4,-13,-19,-5,-8,3,68,42,21,18,-36,5,5,25,21,1,1,31,-1,-38,3,45,-41,9,8,3,-32,-25,-50,-32,-28,19,20,-24,40,-11,32,20,4,-5,0,0,0,0,0,0};
 
 std::string EFSTR[] = {
-  "PAWNS",
-  "KNIGHTS",
-  "BISHOPS",
-  "ROOKS",
-  "QUEENS",
+  "OUR_PAWNS",
+  "OUR_KNIGHTS",
+  "OUR_BISHOPS",
+  "OUR_ROOKS",
+  "OUR_QUEENS",
+
+  "THEIR_PAWNS",
+  "THEIR_KNIGHTS",
+  "THEIR_BISHOPS",
+  "THEIR_ROOKS",
+  "THEIR_QUEENS",
 
   "IN_CHECK",
   "KING_ON_BACK_RANK",
@@ -225,11 +237,17 @@ struct Evaluator {
     const Bitboard usTargets = ourPawnTargets | ourKnightTargets | usBishopTargets | usRookTargets | usQueenTargets;
     const Bitboard themTargets = theirPawnTargets | theirKnightTargets | theirBishopTargets | theirRookTargets | theirQueenTargets;
 
-    features[EF::PAWNS] = std::popcount(ourPawns) - std::popcount(theirPawns);
-    features[EF::KNIGHTS] = std::popcount(ourKnights) - std::popcount(theirKnights);
-    features[EF::BISHOPS] = std::popcount(ourBishops) - std::popcount(theirBishops);
-    features[EF::ROOKS] = std::popcount(ourRooks) - std::popcount(theirRooks);
-    features[EF::QUEENS] = std::popcount(ourQueens) - std::popcount(theirQueens);
+    features[EF::OUR_PAWNS] = std::popcount(ourPawns);
+    features[EF::OUR_KNIGHTS] = std::popcount(ourKnights);
+    features[EF::OUR_BISHOPS] = std::popcount(ourBishops);
+    features[EF::OUR_ROOKS] = std::popcount(ourRooks);
+    features[EF::OUR_QUEENS] = std::popcount(ourQueens);
+
+    features[EF::THEIR_PAWNS] = std::popcount(theirPawns);
+    features[EF::THEIR_KNIGHTS] = std::popcount(theirKnights);
+    features[EF::THEIR_BISHOPS] = std::popcount(theirBishops);
+    features[EF::THEIR_ROOKS] = std::popcount(theirRooks);
+    features[EF::THEIR_QUEENS] = std::popcount(theirQueens);
 
     // Note that TURN (the side to move) often gets larger bonuses since they can take advantage of threats better.
 
