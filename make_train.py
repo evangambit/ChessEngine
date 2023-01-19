@@ -49,7 +49,13 @@ if args.mode == 'update_features':
   writesSinceCommit = 0
   for fen0, in fens:
     fen, x = get_vec(fen0)
-    assert fen == fen0, 'q search changed! Need to completely regenerate entire table :('
+    # assert fen == fen0, 'q search changed! Need to completely regenerate entire table :('
+    if fen != fen0:
+      c.execute(f"DELETE FROM {kTableName} WHERE fen = ?", (fen0,))
+      print('DELETE')
+      writesSinceCommit += 1
+      totalWrites += 1
+      continue
     c.execute(f"UPDATE {kTableName} SET moverFeatures = ? WHERE fen = ?", (
       ' '.join(str(a) for a in x),
       fen,
@@ -59,7 +65,7 @@ if args.mode == 'update_features':
     if writesSinceCommit >= 1000:
       writesSinceCommit = 0
       conn.commit()
-      print('commit', totalWrites, len(fens))
+      print('commit', totalWrites, len(fens), len(x))
 
   conn.commit()
 
@@ -129,7 +135,7 @@ if args.mode == 'generate_positions':
 
       if writesSinceCommit >= 40:
         dt = time.time() - tstart
-        print('commit %i; %.3f per sec' % (totalWrites, totalWrites / dt))
+        print('commit %i; %.3f per sec' % (totalWrites, totalWrites / dt), len(x))
         writesSinceCommit = 0
         conn.commit()
 
