@@ -44,6 +44,14 @@
 
 using namespace ChessEngine;
 
+std::string repeat(const std::string text, size_t n) {
+  std::string r = "";
+  for (size_t i = 0; i < n; ++i) {
+    r += text;
+  }
+  return r;
+}
+
 void test_moves() {
   ExtMove moves[kMaxNumMoves];
   ExtMove *end;
@@ -205,6 +213,7 @@ struct CacheResult {
   Depth depth;
   Evaluation eval;
   Move bestMove;
+  bool exhaustive;
   #ifndef NDEBUG
   std::string fen;
   #endif
@@ -270,12 +279,13 @@ std::pair<Evaluation, Move> qsearch(Position *pos, int32_t depth, Evaluation alp
 
   std::pair<Evaluation, Move> r(gEvaluator.score<TURN>(*pos), kNullMove);
   if (r.first >= beta) {
+    // Opponent will never allow this; stop analyzing it.
     return r;
   }
 
   std::pair<Evaluation, Move> bestChild(Evaluation(kMinEval), kNullMove);
   for (ExtMove *move = moves; move < end; ++move) {
-    if (move->score < 0) {
+    if (move->score <= 0) {
       break;
     }
 
@@ -337,11 +347,13 @@ std::pair<Evaluation, Move> search(Position* pos, Depth depth, Evaluation alpha,
   auto it = gCache.find(pos->hash_);
   {
     if (it != gCache.end()) {
-      if (it->second.depth >= depth) {
-        return std::make_pair(
-          it->second.eval,
-          it->second.bestMove
-        );
+      const int8_t deltaDepth = (depth - it->second.depth) / kDepthScale;
+      // TODO: check it->second.exhaustive?
+      if (it->second.depth >= depth
+        // It's unclear if this is helpful.
+        // || it->second.eval >= beta + 50 * deltaDepth
+        ) {
+        return std::make_pair(it->second.eval, it->second.bestMove);
       }
     }
   }
@@ -406,7 +418,6 @@ std::pair<Evaluation, Move> search(Position* pos, Depth depth, Evaluation alpha,
     #endif
 
     make_move<TURN>(pos, extMove->move);
-    Depth depthReduction = kDepthScale;
 
     // Don't move into check.
     if (can_enemy_attack<TURN>(*pos, lsb(pos->pieceBitboards_[moverKing]))) {
@@ -416,7 +427,7 @@ std::pair<Evaluation, Move> search(Position* pos, Depth depth, Evaluation alpha,
 
     ++numValidMoves;
 
-    std::pair<Evaluation, Move> a = search<opposingColor>(pos, depth - depthReduction, -beta, -alpha, recommendationsForChildren);
+    std::pair<Evaluation, Move> a = search<opposingColor>(pos, depth - kDepthScale, -beta, -alpha, recommendationsForChildren);
     a.first *= -1;
     if (a.first > kMaxEval - 100) {
       a.first -= 1;
@@ -450,6 +461,23 @@ std::pair<Evaluation, Move> search(Position* pos, Depth depth, Evaluation alpha,
     #endif
 
     if (r.first >= beta) {
+      it = gCache.find(pos->hash_);  // Need to re-search since the iterator may have changed when searching my children.
+      if (it == gCache.end() || depth > it->second.depth) {
+        const CacheResult cr = CacheResult{
+          depth,
+          r.first,
+          r.second,
+          false,
+          #ifndef NDEBUG
+          pos->fen(),
+          #endif
+        };
+        if (it != gCache.end()) {
+          it->second = cr;
+        } else {
+          gCache.insert(std::make_pair(pos->hash_, cr));
+        }
+      }
       return r;
     }
     alpha = std::max(alpha, r.first);
@@ -467,6 +495,7 @@ std::pair<Evaluation, Move> search(Position* pos, Depth depth, Evaluation alpha,
       depth,
       r.first,
       r.second,
+      true,
       #ifndef NDEBUG
       pos->fen(),
       #endif
@@ -606,6 +635,7 @@ void mymain(std::vector<std::string>& fens, const std::string& mode, double time
     for (auto fen : fens) {
       gCache.clear();
       Position pos(fen);
+      std::cout << pos.hash_ << std::endl;
       std::pair<Evaluation, Move> results;
       time_t tstart = clock();
       for (size_t i = 1; i <= depth; ++i) {
@@ -617,6 +647,7 @@ void mymain(std::vector<std::string>& fens, const std::string& mode, double time
           break;
         }
       }
+      std::cout << pos.hash_ << std::endl;
 
       auto it = gCache.find(pos.hash_);
       size_t i = 0;
@@ -691,6 +722,7 @@ int main(int argc, char *argv[]) {
   double timeLimitMs = 60000.0;
   std::string fenFile;
   std::string fen;
+  uint64_t limitfens = 999999999;
 
   while (args.size() > 0) {
     if (args.size() >= 7 && args[0] == "fen") {
@@ -716,6 +748,9 @@ int main(int argc, char *argv[]) {
       args = std::vector<std::string>(args.begin() + 2, args.end());
     } else if (args.size() >= 2 && args[0] == "fens") {
       fenFile = args[1];
+      args = std::vector<std::string>(args.begin() + 2, args.end());
+    } else if (args.size() >= 2 && args[0] == "limitfens") {
+      limitfens = std::stoi(args[1]);
       args = std::vector<std::string>(args.begin() + 2, args.end());
     } else {
       std::cout << "Cannot understand arguments" << std::endl;
@@ -743,6 +778,9 @@ int main(int argc, char *argv[]) {
     std::string line;
     while (std::getline(infile, line)) {
       fens.push_back(line);
+      if (fens.size() >= limitfens) {
+        break;
+      }
     }
   } else {
     fens.push_back(fen);
