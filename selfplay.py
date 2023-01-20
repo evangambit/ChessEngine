@@ -4,7 +4,7 @@ import chess
 import sys
 
 def f(player, fen):
-	command = [player, "mode", "analyze", "fen", *fen.split(' '), "time", "10"]
+	command = [player, "mode", "analyze", "fen", *fen.split(' '), "time", "20"]
 	output = subprocess.check_output(command).decode().strip()
 	return re.findall(r"\d+ : [^ ]+", output)[-1].split(' ')[-1]
 
