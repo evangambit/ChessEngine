@@ -203,7 +203,6 @@ size_t nodeCounter = 0;
 Evaluator gEvaluator;
 
 typedef int8_t Depth;
-constexpr Depth kDepthScale = 4;
 
 #ifndef NDEBUG
 std::vector<std::string> gStackDebug;
@@ -347,10 +346,10 @@ std::pair<Evaluation, Move> search(Position* pos, Depth depth, Evaluation alpha,
   auto it = gCache.find(pos->hash_);
   {
     if (it != gCache.end()) {
-      const int8_t deltaDepth = (depth - it->second.depth) / kDepthScale;
+      const int8_t deltaDepth = (depth - it->second.depth);
       // TODO: check it->second.exhaustive?
       if (it->second.depth >= depth
-        || it->second.eval >= beta + 50 * deltaDepth
+        || it->second.eval >= beta + 20 * deltaDepth
         ) {
         return std::make_pair(it->second.eval, it->second.bestMove);
       }
@@ -426,7 +425,7 @@ std::pair<Evaluation, Move> search(Position* pos, Depth depth, Evaluation alpha,
 
     ++numValidMoves;
 
-    std::pair<Evaluation, Move> a = search<opposingColor>(pos, depth - kDepthScale, -beta, -alpha, recommendationsForChildren);
+    std::pair<Evaluation, Move> a = search<opposingColor>(pos, depth - 1, -beta, -alpha, recommendationsForChildren);
     a.first *= -1;
     if (a.first > kMaxEval - 100) {
       a.first -= 1;
@@ -625,7 +624,7 @@ void mymain(std::vector<std::string>& fens, const std::string& mode, double time
       Position pos(fen);
       std::pair<Evaluation, Move> results;
       for (size_t i = 1; i <= depth; ++i) {
-        results = search(&pos, i * kDepthScale);
+        results = search(&pos, i);
       }
       numCorrect += (results.second.uci() == bestMove);
       total += 1;
@@ -649,7 +648,7 @@ void mymain(std::vector<std::string>& fens, const std::string& mode, double time
       std::pair<Evaluation, Move> results;
       time_t tstart = clock();
       for (size_t i = 1; i <= depth; ++i) {
-        results = search(&pos, i * kDepthScale);
+        results = search(&pos, i);
         if (fens.size() == 1) {
           std::cout << i << " : " << results.second << " : " << results.first << " (" << double(clock() - tstart)/CLOCKS_PER_SEC << " secs)" << std::endl;
         }
@@ -689,7 +688,7 @@ void mymain(std::vector<std::string>& fens, const std::string& mode, double time
         std::pair<Evaluation, Move> results;
         time_t tstart = clock();
         for (size_t i = 1; i <= depth; ++i) {
-          results = search(&pos, i * kDepthScale);
+          results = search(&pos, i);
           if (double(clock() - tstart)/CLOCKS_PER_SEC*1000 >= timeLimitMs) {
             break;
           }
