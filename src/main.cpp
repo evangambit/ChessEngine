@@ -568,32 +568,43 @@ void handler(int sig) {
 }
 
 template<Color TURN>
-void print_feature_vec(Position *pos, const std::string& originalFen) {
+void print_feature_vec(Position *pos, const std::string& originalFen, bool humanReadable) {
   std::pair<Evaluation, Move> r = qsearch<TURN>(pos, 0, kMinEval, kMaxEval);
   if (r.second != kNullMove) {
     make_move<TURN>(pos, r.second);
-    print_feature_vec<opposite_color<TURN>()>(pos, originalFen);
+    print_feature_vec<opposite_color<TURN>()>(pos, originalFen, humanReadable);
     undo<TURN>(pos);
     return;
   }
 
   Evaluation e = gEvaluator.score<TURN>(*pos);
-  std::cout << "ORIGINAL_FEN " << originalFen << std::endl;
-  std::cout << "FEN " << pos->fen() << std::endl;
-  std::cout << "SCORE " << e << std::endl;
-  for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
-    std::cout << gEvaluator.features[i] << " " << EFSTR[i] << std::endl;
+  if (humanReadable) {
+    std::cout << "ORIGINAL_FEN " << originalFen << std::endl;
+    std::cout << "FEN " << pos->fen() << std::endl;
+    std::cout << "SCORE " << e << std::endl;
+    for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
+      std::cout << gEvaluator.features[i] << " " << EFSTR[i] << std::endl;
+    }
+  } else {
+    std::cout << pos->fen() << std::endl;
+    for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
+      if (i != 0) {
+        std::cout << " ";
+      }
+      std::cout << gEvaluator.features[i];
+    }
+    std::cout << std::endl;
   }
 }
 
 void mymain(std::vector<std::string>& fens, const std::string& mode, double timeLimitMs, Depth depth) {
-  if (mode == "printvec") {
+  if (mode == "printvec" || mode == "printvec-cpu") {
     for (auto fen : fens) {
       Position pos(fen);
       if (pos.turn_ == Color::WHITE) {
-        print_feature_vec<Color::WHITE>(&pos, fen);
+        print_feature_vec<Color::WHITE>(&pos, fen, mode == "printvec");
       } else {
-        print_feature_vec<Color::BLACK>(&pos, fen);
+        print_feature_vec<Color::BLACK>(&pos, fen, mode == "printvec");
       }
     }
     return;
@@ -758,7 +769,7 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  if (mode != "evaluate" && mode != "analyze" && mode != "play" && mode != "printvec") {
+  if (mode != "evaluate" && mode != "analyze" && mode != "play" && mode != "printvec" && mode != "printvec-cpu") {
     throw std::runtime_error("Cannot recognize mode \"" + mode + "\"");
   }
   if (fenFile.size() == 0 && fen.size() == 0) {

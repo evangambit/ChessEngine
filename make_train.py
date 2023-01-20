@@ -14,22 +14,38 @@ from stockfish.models import StockfishException
 import numpy as np
 
 """
+To generate training data from scratch:
+
 python3 make_train.py --mode generate_positions lichess_db_standard_rated_2013-11.pgn
+python3 make_train.py --mode write_numpy
+zip traindata.zip -r traindata
+
+
+When your features have changed but you want to re-use your stockfish evaluations:
+
+python3 -i make_train.py --mode update_features
 python3 make_train.py --mode write_numpy
 zip traindata.zip -r traindata
 """
 
 def get_vec(fen):
-  command = ["./a.out", "mode", "printvec", "fen", *fen.split(' ')]
+  command = ["./a.out", "mode", "printvec-cpu", "fen", *fen.split(' ')]
   lines = subprocess.check_output(command).decode().strip().split('\n')
-  assert lines[0].startswith('ORIGINAL_FEN')
-  assert lines[1].startswith('FEN')
-  assert lines[2].startswith('SCORE')
-  originalFen = ' '.join(lines[1].split(' ')[1:])
-  x = []
-  for i, line in enumerate(lines[3:]):
-    x.append(int(line.split(' ')[0]))
-  return originalFen, x
+  assert len(lines) == 2
+  fen = lines[0]
+  x = [int(val) for val in lines[1].split(' ')]
+  return fen, x
+
+def get_vecs(fens):
+  filename = '/tmp/fens.txt'
+  with open(filename, 'w+') as f:
+    f.write('\n'.join(fens))
+  command = ["./a.out", "mode", "printvec-cpu", "fens", filename]
+  lines = subprocess.check_output(command).decode().strip().split('\n')
+  assert len(lines) == len(fens) * 2
+  for i in range(0, len(lines), 2):
+    x = [int(val) for val in lines[i + 1].split(' ')]
+    yield lines[i + 0], x
 
 parser = argparse.ArgumentParser()
 parser.add_argument("pgnfiles", nargs='*')
@@ -44,31 +60,25 @@ kTableName = 'TrainData'
 
 if args.mode == 'update_features':
   c.execute(f"SELECT fen FROM {kTableName}")
-  fens = c.fetchall()
-  totalWrites = 0
+  fens = [fen for fen, in c.fetchall()]
   writesSinceCommit = 0
-  for fen0, in fens:
-    fen, x = get_vec(fen0)
-    # assert fen == fen0, 'q search changed! Need to completely regenerate entire table :('
-    if fen != fen0:
-      c.execute(f"DELETE FROM {kTableName} WHERE fen = ?", (fen0,))
+  totalWrites = 0
+  for i, (fen, x) in enumerate(get_vecs(fens)):
+    if fen == fens[i]:
+      c.execute(f"UPDATE {kTableName} SET moverFeatures = ? WHERE fen = ?", (
+        ' '.join(str(a) for a in x),
+        fen,
+      ))
+    else:
+      c.execute(f"DELETE FROM {kTableName} WHERE fen = ?", (fens[i],))
       print('DELETE')
-      writesSinceCommit += 1
-      totalWrites += 1
-      continue
-    c.execute(f"UPDATE {kTableName} SET moverFeatures = ? WHERE fen = ?", (
-      ' '.join(str(a) for a in x),
-      fen,
-    ))
     writesSinceCommit += 1
     totalWrites += 1
     if writesSinceCommit >= 1000:
-      writesSinceCommit = 0
       conn.commit()
       print('commit', totalWrites, len(fens), len(x))
-
+      writesSinceCommit = 0
   conn.commit()
-
   exit(0)
 
 if args.mode == 'generate_positions':
