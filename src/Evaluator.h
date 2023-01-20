@@ -418,14 +418,16 @@ struct Evaluator {
 
     const int16_t ourPiecesRemaining = std::popcount(pos.colorBitboards_[US] & ~ourPawns) + std::popcount(ourQueens) - 1;
     const int16_t theirPiecesRemaining = std::popcount(pos.colorBitboards_[THEM] & ~theirPawns) + std::popcount(theirQueens) - 1;
-    const int32_t earliness = (ourPiecesRemaining + theirPiecesRemaining);
-    features[EF::TIME] = earliness;
+    const int32_t time = 16 - (ourPiecesRemaining + theirPiecesRemaining);
+
+    // TODO: should be time
+    features[EF::TIME] = 16 - time;
 
     // Use larger integer to make arithmetic safe.
     const int32_t early = this->early<US>(pos);
     const int32_t late = this->late<US>(pos);
-    
-    return (early * earliness + late * (16 - earliness)) / 16;
+
+    return (early * (16 - time) + late * time) / 16;
   }
 
   template<Color US>
