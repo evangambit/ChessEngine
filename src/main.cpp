@@ -566,13 +566,15 @@ void handler(int sig) {
 }
 
 template<Color TURN>
-void print_feature_vec(Position *pos, const std::string& originalFen, bool humanReadable) {
-  std::pair<Evaluation, Move> r = qsearch<TURN>(pos, 0, kMinEval, kMaxEval);
-  if (r.second != kNullMove) {
-    make_move<TURN>(pos, r.second);
-    print_feature_vec<opposite_color<TURN>()>(pos, originalFen, humanReadable);
-    undo<TURN>(pos);
-    return;
+void print_feature_vec(Position *pos, const std::string& originalFen, bool humanReadable, bool makeQuiet) {
+  if (makeQuiet) {
+    std::pair<Evaluation, Move> r = qsearch<TURN>(pos, 0, kMinEval, kMaxEval);
+    if (r.second != kNullMove) {
+      make_move<TURN>(pos, r.second);
+      print_feature_vec<opposite_color<TURN>()>(pos, originalFen, humanReadable, makeQuiet);
+      undo<TURN>(pos);
+      return;
+    }
   }
 
   Evaluation e = gEvaluator.score<TURN>(*pos);
@@ -595,14 +597,39 @@ void print_feature_vec(Position *pos, const std::string& originalFen, bool human
   }
 }
 
-void mymain(std::vector<std::string>& fens, const std::string& mode, double timeLimitMs, Depth depth) {
+bool is_uci(const std::string& text) {
+  if (text.size() < 4) {
+    return false;
+  }
+  if (text.size() > 5) {
+    return false;
+  }
+  if (text[0] < 'a' | text[0] > 'h') {
+    return false;
+  }
+  if (text[1] < '1' | text[1] > '8') {
+    return false;
+  }
+  if (text[2] < 'a' | text[2] > 'h') {
+    return false;
+  }
+  if (text[3] < '1' | text[3] > '8') {
+    return false;
+  }
+  if (text.size() == 4) {
+    return true;
+  }
+  return text[4] == 'n' || text[4] == 'b' || text[4] == 'r' || text[4] == 'q';
+}
+
+void mymain(std::vector<std::string>& fens, const std::string& mode, double timeLimitMs, Depth depth, bool makeQuiet) {
   if (mode == "printvec" || mode == "printvec-cpu") {
     for (auto fen : fens) {
       Position pos(fen);
       if (pos.turn_ == Color::WHITE) {
-        print_feature_vec<Color::WHITE>(&pos, fen, mode == "printvec");
+        print_feature_vec<Color::WHITE>(&pos, fen, mode == "printvec", makeQuiet);
       } else {
-        print_feature_vec<Color::BLACK>(&pos, fen, mode == "printvec");
+        print_feature_vec<Color::BLACK>(&pos, fen, mode == "printvec", makeQuiet);
       }
     }
     return;
@@ -732,6 +759,8 @@ int main(int argc, char *argv[]) {
   std::string fenFile;
   std::string fen;
   uint64_t limitfens = 999999999;
+  bool makeQuiet = false;
+  std::vector<std::string> uciMoves;
 
   while (args.size() > 0) {
     if (args.size() >= 7 && args[0] == "fen") {
@@ -760,6 +789,19 @@ int main(int argc, char *argv[]) {
       args = std::vector<std::string>(args.begin() + 2, args.end());
     } else if (args.size() >= 2 && args[0] == "limitfens") {
       limitfens = std::stoi(args[1]);
+      args = std::vector<std::string>(args.begin() + 2, args.end());
+    } else if (args.size() >= 1 && args[0] == "moves") {
+      size_t i = 0;
+      while (++i < args.size() && is_uci(args[i])) {
+        uciMoves.push_back(args[i]);
+      }
+      args = std::vector<std::string>(args.begin() + uciMoves.size() + 1, args.end());
+    } else if (args.size() >= 2 && args[0] == "makequiet") {
+      if (args[1] != "0" && args[1] != "1") {
+        std::cout << "makequiet must be \"0\" or \"1\" but is \"" << args[1] << "\"" << std::endl;
+        return 1;
+      }
+      makeQuiet = (args[1] == "1");
       args = std::vector<std::string>(args.begin() + 2, args.end());
     } else {
       std::cout << "Cannot understand arguments" << std::endl;
@@ -795,7 +837,11 @@ int main(int argc, char *argv[]) {
     fens.push_back(fen);
   }
 
-  mymain(fens, mode, timeLimitMs, depth);
+  if (uciMoves.size() != 0 && fens.size() != 1) {
+    throw std::runtime_error("cannot provide moves if there is more than one fen");
+  }
+
+  mymain(fens, mode, timeLimitMs, depth, makeQuiet);
 
   return 0;
 }
