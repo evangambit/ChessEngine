@@ -29,18 +29,20 @@ zip traindata.zip -r traindata
 """
 
 def get_vec(fen):
-  command = ["./a.out", "mode", "printvec-cpu", "fen", *fen.split(' ')]
+  q = "1" if args.type == "tactics" else "0"
+  command = ["./a.out", "mode", "printvec-cpu", "fen", *fen.split(' '), "makequiet", q]
   lines = subprocess.check_output(command).decode().strip().split('\n')
-  assert len(lines) == 2
+  assert len(lines) == 2, lines
   fen = lines[0]
   x = [int(val) for val in lines[1].split(' ')]
   return fen, x
 
 def get_vecs(fens):
+  q = "1" if args.type == "tactics" else "0"
   filename = '/tmp/fens.txt'
   with open(filename, 'w+') as f:
     f.write('\n'.join(fens))
-  command = ["./a.out", "mode", "printvec-cpu", "fens", filename]
+  command = ["./a.out", "mode", "printvec-cpu", "fens", filename, "makequiet", q]
   lines = subprocess.check_output(command).decode().strip().split('\n')
   assert len(lines) == len(fens) * 2
   for i in range(0, len(lines), 2):
@@ -50,13 +52,20 @@ def get_vecs(fens):
 parser = argparse.ArgumentParser()
 parser.add_argument("pgnfiles", nargs='*')
 parser.add_argument("--mode", type=str, required=True)
+parser.add_argument("--type", type=str, required=True)
 args = parser.parse_args()
+
+assert args.type in ["quiet", "any", "tactics"]
 
 assert args.mode in ['generate_positions', 'update_features', 'write_numpy']
 
-conn = sqlite3.connect('train.sqlite3')
+conn = sqlite3.connect("db.sqlite3")
 c = conn.cursor()
-kTableName = 'TrainData'
+kTableName = {
+  "quiet": "QuietTable",
+  "any": "AnyTable",
+  "tactics": "TacticsTable"
+}[args.type]
 
 if args.mode == 'update_features':
   c.execute(f"SELECT fen FROM {kTableName}")
@@ -84,7 +93,9 @@ if args.mode == 'update_features':
 if args.mode == 'generate_positions':
   assert len(args.pgnfiles) > 0
   c.execute(f"""CREATE TABLE IF NOT EXISTS {kTableName} (
-    fen BLOB,             -- a quiet position
+    fen BLOB,
+    bestMove BLOB,
+    delta INTEGER,
     moverScore INTEGER,
     moverFeatures BLOB    -- one byte per feature; from mover's perspective
   );""")
@@ -95,7 +106,7 @@ if args.mode == 'generate_positions':
   for fen, in c:
     fens.add(fen)
 
-  kDepth = 10
+  kDepth = 12
   stockfish = Stockfish(path="/usr/local/bin/stockfish", depth=kDepth)
 
   totalWrites = 0
@@ -113,7 +124,6 @@ if args.mode == 'generate_positions':
         board = node.board()
         fen = board.fen()
 
-        # Makes fen quiet.
         fen, x = get_vec(fen)
 
         if fen in fens:
@@ -121,23 +131,38 @@ if args.mode == 'generate_positions':
         fens.add(fen)
 
         try:
-          stockfish.set_fen_position(fen)
-          # stockfish.get_best_move_time
-          evaluation = stockfish.get_evaluation()  # From white's perspective
+          stockfish.set_fen_position(board.fen())
+          moves = stockfish.get_top_moves(2)
+          if len(moves) != 2:
+            continue
+          if moves[0]['Mate'] is not None:
+            continue
+          if moves[1]['Mate'] is not None:
+            continue
+          bestmove = moves[0]['Move']
+          if abs(moves[0]['Centipawn']) > 300:
+            # Ignore positions with crazy centipawn points.
+            continue
+          scoreDelta = abs(moves[0]['Centipawn'] - moves[1]['Centipawn'])
+          if scoreDelta < 100 and args.type == 'tactics':
+            continue
+          if ' b ' in fen:
+            evaluation = -moves[0]['Centipawn']
+          else:
+            evaluation = moves[0]['Centipawn']
+
         except StockfishException:
           fens.remove(fen)
           stockfish = Stockfish(path="/usr/local/bin/stockfish", depth=kDepth)
           continue
-        if evaluation['type'] != 'cp':
-          continue  # todo?
-        if ' b ' in fen:
-          evaluation['value'] *= -1
 
         c.execute(f"""INSERT INTO {kTableName}
-          (fen, moverScore, moverFeatures) 
-          VALUES (?, ?, ?)""", (
+          (fen, bestMove, delta, moverScore, moverFeatures) 
+          VALUES (?, ?, ?, ?, ?)""", (
           fen,
-          evaluation['value'],
+          bestmove,
+          scoreDelta,
+          evaluation,
           ' '.join(str(a) for a in x),
         ))
         writesSinceCommit += 1
@@ -165,8 +190,17 @@ if args.mode == 'write_numpy':
   X = np.array(X)
   Y = np.array(Y)
   F = np.array(F)
-  np.save(os.path.join('traindata', 'x.npy'), X)
-  np.save(os.path.join('traindata', 'y.npy'), Y)
-  np.save(os.path.join('traindata', 'f.npy'), F)
+  if args.type == "quiet":
+    np.save(os.path.join('traindata', 'x.quiet.npy'), X)
+    np.save(os.path.join('traindata', 'y.quiet.npy'), Y)
+    np.save(os.path.join('traindata', 'f.quiet.npy'), F)
+  elif args.type == "any":
+    np.save(os.path.join('traindata', 'x.any.npy'), X)
+    np.save(os.path.join('traindata', 'y.any.npy'), Y)
+    np.save(os.path.join('traindata', 'f.any.npy'), F)
+  elif args.type == "tactics":
+    np.save(os.path.join('traindata', 'x.tactics.npy'), X)
+    np.save(os.path.join('traindata', 'y.tactics.npy'), Y)
+    np.save(os.path.join('traindata', 'f.tactics.npy'), F)
   exit(0)
 

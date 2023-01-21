@@ -349,7 +349,7 @@ std::pair<Evaluation, Move> search(Position* pos, Depth depth, Evaluation alpha,
       const int8_t deltaDepth = (depth - it->second.depth);
       // TODO: check it->second.exhaustive?
       if (it->second.depth >= depth
-        || it->second.eval >= beta + 30 * deltaDepth
+        || it->second.eval >= beta + 70 * deltaDepth
         ) {
         return std::make_pair(it->second.eval, it->second.bestMove);
       }
