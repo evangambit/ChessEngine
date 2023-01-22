@@ -24,6 +24,8 @@ Bitboard compute_rooklike_targets(const Position& pos, Bitboard rookLikePieces, 
 
     Bitboard tos = kEmptyBitboard;
 
+    // TODO: "& rank" should be unnecessary.
+
     {  // Compute east/west moves.
       const unsigned rankShift = y * 8;
       uint8_t fromByte = fromLoc >> rankShift;
@@ -58,12 +60,15 @@ Bitboard compute_rook_targets(const Position& pos, const Bitboard bishopLikePiec
 
 // Computes moves for rook and rook-like moves for queen.
 template<Color US, MoveGenType MGT>
-ExtMove *compute_rook_like_moves(const Position& pos, ExtMove *moves, Bitboard target) {
+ExtMove *compute_rook_like_moves(const Position& pos, ExtMove *moves, Bitboard target, const PinMasks& pm) {
   constexpr ColoredPiece myRookPiece = (US == Color::WHITE ? ColoredPiece::WHITE_ROOK : ColoredPiece::BLACK_ROOK);
   constexpr ColoredPiece myQueenPiece = (US == Color::WHITE ? ColoredPiece::WHITE_QUEEN : ColoredPiece::BLACK_QUEEN);
   const Bitboard friends = pos.colorBitboards_[US];
   const Bitboard enemies = pos.colorBitboards_[opposite_color<US>()];
   Bitboard rookLikePieces = pos.pieceBitboards_[myRookPiece] | pos.pieceBitboards_[myQueenPiece];
+
+  // TODO: horizontal/vertical pins
+  rookLikePieces &= ~(pm.northeast | pm.northwest);
 
   Bitboard checkMask;
   if (MGT == MoveGenType::CHECKS_AND_CAPTURES) {

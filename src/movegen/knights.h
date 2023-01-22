@@ -94,7 +94,7 @@ Bitboard compute_knight_targets(const Position& pos) {
 }
 
 template<Color US, MoveGenType MGT>
-ExtMove *compute_knight_moves(const Position& pos, ExtMove *moves, Bitboard target) {
+ExtMove *compute_knight_moves(const Position& pos, ExtMove *moves, Bitboard target, const PinMasks& pm) {
   constexpr ColoredPiece cp = (US == Color::WHITE ? ColoredPiece::WHITE_KNIGHT : ColoredPiece::BLACK_KNIGHT);
   const Bitboard enemies = pos.colorBitboards_[opposite_color<US>()];
   const Bitboard notfriends = ~pos.colorBitboards_[US];
@@ -108,7 +108,7 @@ ExtMove *compute_knight_moves(const Position& pos, ExtMove *moves, Bitboard targ
     target &= enemies | (checkMask & notfriends);
   }
 
-  Bitboard knights = pos.pieceBitboards_[cp];
+  Bitboard knights = pos.pieceBitboards_[cp] & ~pm.all;
   while (knights) {
     const Square from = pop_lsb(knights);
     Bitboard tos = kKnightMoves[from] & target;

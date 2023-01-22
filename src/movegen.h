@@ -98,6 +98,59 @@ Bitboard compute_enemy_attackers(const Position& pos, const Square sq) {
   return attackers;
 }
 
+template<Color US>
+PinMasks compute_pin_masks(const Position& pos) {
+  constexpr Color THEM = opposite_color<US>();
+
+  const Bitboard ourPieces = pos.colorBitboards_[US];
+  const Bitboard occ = pos.colorBitboards_[US] | pos.colorBitboards_[THEM];
+  const Bitboard ourKings = pos.pieceBitboards_[coloredPiece<US, Piece::KING>()];
+  const Square ourKingSq = lsb(ourKings);
+  const unsigned y = ourKingSq / 8;
+  const unsigned x = ourKingSq % 8;
+
+  const Bitboard enemyRooks = pos.pieceBitboards_[coloredPiece<THEM, Piece::ROOK>()] | pos.pieceBitboards_[coloredPiece<THEM, Piece::QUEEN>()];
+  const Bitboard enemyBishops = pos.pieceBitboards_[coloredPiece<THEM, Piece::BISHOP>()] | pos.pieceBitboards_[coloredPiece<THEM, Piece::QUEEN>()];
+
+  PinMasks r;
+
+  {  // Compute east/west moves.
+    const Bitboard rank = kRanks[y];
+    const unsigned rankShift = y * 8;
+    uint8_t kingByte = ourKings >> rankShift;
+    uint8_t occByte = occ >> rankShift;
+    uint8_t enemiesByte = enemyRooks >> rankShift;
+    r.horizontal = Bitboard(sliding_pinmask(kingByte, occByte, enemiesByte)) << rankShift;
+  }
+
+  {  // Compute north/south moves.
+    const Bitboard file = kFiles[x];
+    const unsigned columnShift = 7 - x;
+    uint8_t kingByte = (((ourKings << columnShift) & kFiles[7]) * kRookMagic) >> 56;
+    uint8_t occByte = (((occ << columnShift) & kFiles[7]) * kRookMagic) >> 56;
+    uint8_t enemiesByte = (((enemyRooks << columnShift) & kFiles[7]) * kRookMagic) >> 56;
+    uint8_t toByte = sliding_pinmask(kingByte, occByte, enemiesByte);
+    r.vertical = (((Bitboard(toByte & 254) * kRookMagic) & kFiles[0]) | (toByte & 1)) << x;
+  }
+
+  {  // Southeast/Northwest diagonal.
+    uint8_t occByte = diag::southeast_diag_to_byte(ourKingSq, occ);
+    uint8_t kingByte = diag::southeast_diag_to_byte(ourKingSq, ourKings);
+    uint8_t enemiesByte = diag::southeast_diag_to_byte(ourKingSq, enemyBishops);
+    r.northwest = diag::byte_to_southeast_diag(ourKingSq, sliding_pinmask(kingByte, occByte, enemiesByte));
+  }
+  {  // Southwest/Northeast diagonal.
+    uint8_t occByte = diag::southwest_diag_to_byte(ourKingSq, occ);
+    uint8_t kingByte = diag::southwest_diag_to_byte(ourKingSq, ourKings);
+    uint8_t enemiesByte = diag::southwest_diag_to_byte(ourKingSq, enemyBishops);
+    r.northeast = diag::byte_to_southwest_diag(ourKingSq, sliding_pinmask(kingByte, occByte, enemiesByte));
+  }
+
+  r.all = r.horizontal | r.vertical | r.northwest | r.northeast;
+
+  return r;
+}
+
 // We take the liberty of ignoring MGT if you're in check.
 template<Color US, MoveGenType MGT>
 ExtMove* compute_moves(const Position& pos, ExtMove *moves) {
@@ -111,6 +164,7 @@ ExtMove* compute_moves(const Position& pos, ExtMove *moves) {
   }
   const Square ourKing = lsb(ourKings);
   Bitboard checkers = compute_enemy_attackers<US>(pos, ourKing);
+  const PinMasks pm = compute_pin_masks<US>(pos);
 
   const unsigned numCheckers = std::popcount(checkers);
 
@@ -126,17 +180,17 @@ ExtMove* compute_moves(const Position& pos, ExtMove *moves) {
   const Bitboard validKingSquares = ~compute_my_targets<opposite_color<US>()>(pos);
 
   if (numCheckers > 0) {
-    moves = compute_pawn_moves<US, MoveGenType::ALL_MOVES>(pos, moves, target);
-    moves = compute_knight_moves<US, MoveGenType::ALL_MOVES>(pos, moves, target);
+    moves = compute_pawn_moves<US, MoveGenType::ALL_MOVES>(pos, moves, target, pm);
+    moves = compute_knight_moves<US, MoveGenType::ALL_MOVES>(pos, moves, target, pm);
     moves = compute_king_moves<US, MGT, true>(pos, moves, validKingSquares);
-    moves = compute_bishop_like_moves<US, MoveGenType::ALL_MOVES>(pos, moves, target);
-    moves = compute_rook_like_moves<US, MoveGenType::ALL_MOVES>(pos, moves, target);
+    moves = compute_bishop_like_moves<US, MoveGenType::ALL_MOVES>(pos, moves, target, pm);
+    moves = compute_rook_like_moves<US, MoveGenType::ALL_MOVES>(pos, moves, target, pm);
   } else {
-    moves = compute_pawn_moves<US, MGT>(pos, moves, target);
-    moves = compute_knight_moves<US, MGT>(pos, moves, target);
+    moves = compute_pawn_moves<US, MGT>(pos, moves, target, pm);
+    moves = compute_knight_moves<US, MGT>(pos, moves, target, pm);
     moves = compute_king_moves<US, MGT, false>(pos, moves, validKingSquares);
-    moves = compute_bishop_like_moves<US, MGT>(pos, moves, target);
-    moves = compute_rook_like_moves<US, MGT>(pos, moves, target);
+    moves = compute_bishop_like_moves<US, MGT>(pos, moves, target, pm);
+    moves = compute_rook_like_moves<US, MGT>(pos, moves, target, pm);
   }
   return moves;
 }
@@ -150,6 +204,17 @@ ExtMove* compute_legal_moves(Position *pos, ExtMove *moves) {
     Square sq = lsb(pos->pieceBitboards_[coloredPiece<US,Piece::KING>()]);
     if (can_enemy_attack<US>(*pos, sq) == 0) {
       (*moves++) = *move;
+    // } else {
+    //   undo<US>(pos);
+    //   PinMasks pm = compute_pin_masks<US>(*pos);
+    //   std::cout << bstr(pm.horizontal) << std::endl;
+    //   std::cout << bstr(pm.vertical) << std::endl;
+    //   std::cout << bstr(pm.northeast) << std::endl;
+    //   std::cout << bstr(pm.northwest) << std::endl;
+    //   std::cout << *pos << std::endl;
+    //   std::cout << pos->fen() << std::endl;
+    //   std::cout << *move << std::endl;
+    //   throw std::runtime_error("");
     }
     undo<US>(pos);
   }

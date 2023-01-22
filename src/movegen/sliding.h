@@ -378,12 +378,13 @@ void initialize_sliding() {
             kPinLookup[idx] |= between;
           }
         }
+
       }
     }
   }
 }
 
-inline uint8_t sliding_pinner(uint8_t loc, uint8_t occ, uint8_t pinners) {
+inline uint8_t sliding_pinmask(uint8_t loc, uint8_t occ, uint8_t pinners) {
   assert(std::popcount(loc) == 1);
   return kPinLookup[65536*lsb(loc)+256*occ+pinners];
 }

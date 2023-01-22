@@ -12,6 +12,14 @@ namespace ChessEngine {
 typedef uint64_t Bitboard;
 typedef uint64_t Location;
 
+struct PinMasks {
+  Bitboard horizontal;
+  Bitboard vertical;
+  Bitboard northeast;
+  Bitboard northwest;
+  Bitboard all;
+};
+
 std::string bstr(Bitboard b);
 
 std::string bstr(uint8_t b);
@@ -69,10 +77,10 @@ enum Direction : int8_t {
   EAST  =  1,
   NORTH = -8,
 
-  NORTH_EAST = 9,
-  NORTH_WEST = 7,
-  SOUTH_EAST = -7,
-  SOUTH_WEST = -9,
+  NORTH_WEST = -9,
+  NORTH_EAST = -7,
+  SOUTH_WEST = 7,
+  SOUTH_EAST = 9,
 };
 
 constexpr Direction opposite_dir(Direction dir) {

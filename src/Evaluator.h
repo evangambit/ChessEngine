@@ -234,6 +234,7 @@ struct Evaluator {
     constexpr Direction kForward = (US == Color::WHITE ? Direction::NORTH : Direction::SOUTH);
     constexpr Direction kBackward = opposite_dir(kForward);
 
+    // TODO: include king targets here?
     const Bitboard usTargets = ourPawnTargets | ourKnightTargets | usBishopTargets | usRookTargets | usQueenTargets;
     const Bitboard themTargets = theirPawnTargets | theirKnightTargets | theirBishopTargets | theirRookTargets | theirQueenTargets;
 

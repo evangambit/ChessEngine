@@ -272,12 +272,15 @@ Bitboard compute_bishop_targets(const Position& pos, const Bitboard bishopLikePi
 }
 
 template<Color US, MoveGenType MGT>
-ExtMove *compute_bishop_like_moves(const Position& pos, ExtMove *moves, Bitboard target) {
+ExtMove *compute_bishop_like_moves(const Position& pos, ExtMove *moves, Bitboard target, const PinMasks& pm) {
   constexpr ColoredPiece myBishopPiece = (US == Color::WHITE ? ColoredPiece::WHITE_BISHOP : ColoredPiece::BLACK_BISHOP);
   constexpr ColoredPiece myQueenPiece = (US == Color::WHITE ? ColoredPiece::WHITE_QUEEN : ColoredPiece::BLACK_QUEEN);
   const Bitboard friends = pos.colorBitboards_[US];
   const Bitboard enemies = pos.colorBitboards_[opposite_color<US>()];
   Bitboard bishopLikePieces = pos.pieceBitboards_[myBishopPiece] | pos.pieceBitboards_[myQueenPiece];
+
+  // TODO: diagonal pins.
+  bishopLikePieces &= ~(pm.horizontal | pm.vertical);
 
   Bitboard checkMask;
   if (MGT == MoveGenType::CHECKS_AND_CAPTURES) {

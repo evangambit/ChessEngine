@@ -587,7 +587,7 @@ void print_feature_vec(Position *pos, const std::string& originalFen, bool human
     std::cout << "FEN " << pos->fen() << std::endl;
     std::cout << "SCORE " << e << std::endl;
     for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
-      std::cout << gEvaluator.features[i] << " " << EFSTR[i] << std::endl;
+      std::cout << gEvaluator.features[i] << " " << EFSTR[i] << " " << kEarlyW0[i] << " " << kLateW0[i] << std::endl;
     }
   } else {
     std::cout << pos->fen() << std::endl;
