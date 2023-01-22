@@ -96,11 +96,7 @@ constexpr ColoredPiece coloredPiece() {
 
 template<Color color>
 constexpr ColoredPiece coloredPiece(Piece piece) {
-  if (piece == Piece::NO_PIECE) {
-    // TODO: make this faster.
-    return ColoredPiece::NO_COLORED_PIECE;
-  }
-  return ColoredPiece((color - 1) * 6 + piece);
+  return ColoredPiece(((color - 1) * 6 + piece) * (piece != Piece::NO_PIECE));
 }
 
 constexpr ColoredPiece compute_colored_piece(Piece piece, Color color) {
