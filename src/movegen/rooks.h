@@ -24,12 +24,10 @@ Bitboard compute_rooklike_targets(const Position& pos, Bitboard rookLikePieces, 
 
     Bitboard tos = kEmptyBitboard;
 
-    // TODO: "& rank" should be unnecessary.
-
     {  // Compute east/west moves.
       const unsigned rankShift = y * 8;
       uint8_t fromByte = fromLoc >> rankShift;
-      uint8_t enemiesByte = (occupied & rank) >> rankShift;
+      uint8_t enemiesByte = occupied >> rankShift;
       r |= Bitboard(sliding_moves(fromByte, enemiesByte)) << rankShift;
     }
 
