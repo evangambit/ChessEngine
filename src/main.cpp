@@ -71,7 +71,7 @@ void test_moves() {
       throw std::runtime_error("parts.size() != 2");
     }
     Position pos(parts[0]);
-    const std::vector<std::string> expected = split(parts[1], ' ');
+    std::vector<std::string> expected = split(parts[1], ' ');
 
     const size_t h0 = pos.hash_;
 
@@ -91,8 +91,10 @@ void test_moves() {
     std::sort(moves, end, [](ExtMove a, ExtMove b) {
       return a.uci() < b.uci();
     });
+    std::sort(expected.begin(), expected.end());
 
     if (n != expected.size()) {
+
       std::cout << "counter: " << counter << std::endl;
       std::cout << pos << std::endl;
       std::cout << parts[0] << std::endl;

@@ -28,14 +28,14 @@ Bitboard compute_rooklike_targets(const Position& pos, Bitboard rookLikePieces, 
       const unsigned rankShift = y * 8;
       uint8_t fromByte = fromLoc >> rankShift;
       uint8_t enemiesByte = (occupied & rank) >> rankShift;
-      r |= Bitboard(sliding_moves(fromByte, 0, enemiesByte)) << rankShift;
+      r |= Bitboard(sliding_moves(fromByte, enemiesByte)) << rankShift;
     }
 
     {  // Compute north/south moves.
       const unsigned columnShift = 7 - x;
       uint8_t fromByte = (((fromLoc << columnShift) & kFiles[7]) * kRookMagic) >> 56;
       uint8_t enemiesByte = (((occupied << columnShift) & kFiles[7]) * kRookMagic) >> 56;
-      uint8_t toByte = sliding_moves(fromByte, 0, enemiesByte);
+      uint8_t toByte = sliding_moves(fromByte, enemiesByte);
       r |= (((Bitboard(toByte & 254) * kRookMagic) & kFiles[0]) | (toByte & 1)) << x;
     }
 
@@ -76,14 +76,14 @@ ExtMove *compute_rook_like_moves(const Position& pos, ExtMove *moves, Bitboard t
       const unsigned rankShift = y * 8;
       uint8_t fromByte = enemyKing >> rankShift;
       uint8_t occupied = (((enemies & ~enemyKing) | friends) & rank) >> rankShift;
-      checkMask |= Bitboard(sliding_moves(fromByte, 0, occupied)) << rankShift;
+      checkMask |= Bitboard(sliding_moves(fromByte, occupied)) << rankShift;
     }
     {  // North/south
       const unsigned x = enemyKingSq % 8;
       const unsigned columnShift = 7 - x;
       uint8_t fromByte = (((enemyKing << columnShift) & kFiles[7]) * kRookMagic) >> 56;
       uint8_t occupied = (((((enemies & ~enemyKing) | friends) << columnShift) & kFiles[7]) * kRookMagic) >> 56;
-      uint8_t toByte = sliding_moves(fromByte, 0, occupied);
+      uint8_t toByte = sliding_moves(fromByte, occupied);
       checkMask |= (((Bitboard(toByte & 254) * kRookMagic) & kFiles[0]) | (toByte & 1)) << x;    }
   } else {
     checkMask = kUniverse;
@@ -103,19 +103,16 @@ ExtMove *compute_rook_like_moves(const Position& pos, ExtMove *moves, Bitboard t
     {  // Compute east/west moves.
       const unsigned rankShift = y * 8;
       uint8_t fromByte = fromLoc >> rankShift;
-      uint8_t friendsByte = (friends & ~fromLoc & rank) >> rankShift;
-      uint8_t enemiesByte = (enemies & rank) >> rankShift;
-
-      tos |= Bitboard(sliding_moves(fromByte, friendsByte, enemiesByte)) << rankShift;
+      uint8_t occByte = ((enemies | (friends & ~fromLoc)) & rank) >> rankShift;
+      tos |= (Bitboard(sliding_moves(fromByte, occByte)) << rankShift) & ~friends;
     }
 
     {  // Compute north/south moves.
       const unsigned columnShift = 7 - x;
       uint8_t fromByte = (((fromLoc << columnShift) & kFiles[7]) * kRookMagic) >> 56;
-      uint8_t friendsByte = ((((friends & ~fromLoc) << columnShift) & kFiles[7]) * kRookMagic) >> 56;
-      uint8_t enemiesByte = (((enemies << columnShift) & kFiles[7]) * kRookMagic) >> 56;
-      uint8_t toByte = sliding_moves(fromByte, friendsByte, enemiesByte);
-      tos |= (((Bitboard(toByte & 254) * kRookMagic) & kFiles[0]) | (toByte & 1)) << x;
+      uint8_t occByte = ((((enemies | (friends & ~fromLoc)) << columnShift) & kFiles[7]) * kRookMagic) >> 56;
+      uint8_t toByte = sliding_moves(fromByte, occByte);
+      tos |= ((((Bitboard(toByte & 254) * kRookMagic) & kFiles[0]) | (toByte & 1)) << x) & ~friends;
     }
 
     if (MGT == MoveGenType::CAPTURES) {

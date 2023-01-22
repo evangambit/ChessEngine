@@ -10,37 +10,37 @@ namespace {
 
 // Code for generating:
 // for (int i = 0; i < 8; ++i) {
-// const uint8_t piece = 1 << i;
-// for (int j = 0; j < 256; ++j) {
-//   const uint8_t obstacles = j;
-//   if (piece & obstacles) {
-//     // Invalid state.
-//     std::cout << "0,";
-//   } else {
-//     uint8_t r = 0;
-//     for (int k = i + 1; k < 8; ++k) {
-//       if (obstacles & (1 << k)) {
-//         break;
+//   const uint8_t piece = 1 << i;
+//   for (int j = 0; j < 256; ++j) {
+//     const uint8_t obstacles = j;
+//     if (piece & obstacles) {
+//       // Invalid state.
+//       std::cout << "0,";
+//     } else {
+//       uint8_t r = 0;
+//       for (int k = i + 1; k < 8; ++k) {
+//         if (obstacles & (1 << k)) {
+//           break;
+//         }
+//         r |= 1 << k;
 //       }
-//       r |= 1 << k;
-//     }
-//     for (int k = i - 1; k >= 0; --k) {
-//       if (obstacles & (1 << k)) {
-//         break;
+//       for (int k = i - 1; k >= 0; --k) {
+//         if (obstacles & (1 << k)) {
+//           break;
+//         }
+//         r |= 1 << k;
 //       }
-//       r |= 1 << k;
+//       std::cout << unsigned(r) << ",";
 //     }
-//     std::cout << unsigned(r) << ",";
+//     if (j % 8 == 7) {
+//       std::cout << std::endl;
+//     } else {
+//       std::cout << " ";
+//     }
 //   }
-//   if (j % 8 == 7) {
-//     std::cout << std::endl;
-//   } else {
-//     std::cout << " ";
-//   }
-// }
 // }
 
-constexpr uint8_t kSlideLookup[2048] = {
+uint8_t kSlideLookup[2048] = {
   254, 0, 0, 0, 2, 0, 0, 0,
   6, 0, 0, 0, 2, 0, 0, 0,
   14, 0, 0, 0, 2, 0, 0, 0,
@@ -308,28 +308,40 @@ uint8_t kPinLookup[8*256*256];
 
 }  // namespace
 
-// TODO: this function should only need two parameters.
-uint8_t sliding_moves(uint8_t loc, uint8_t friends, uint8_t enemies) {
+uint8_t sliding_moves(uint8_t loc, uint8_t occ) {
   assert(std::popcount(loc) == 1);
-  uint8_t left = loc - 1;
-  // Move enemies away from me by one and treat them as friends.
-  friends |= (
-    (enemies & left) >> 1
-  ) | (
-    (enemies & ~left) << 1
-  );
-
-  // Now we have 256 configurations of friends and 8 configurations of loc for a
-  // total of 2048 -- easily cached in an array.
-
-  // TODO: ideally we can reduce this to 64:
-  // (idx(loc) - msb(obstaclesLeftOfLoc)) gives 8 values
-  // (lsb(obstaclesRightOfLoc) - idx(loc)) gives 8 values
-
-  return kSlideLookup[256 * lsb(loc) + friends];
+  return kSlideLookup[256 * lsb(loc) + occ];
 }
 
 void initialize_sliding() {
+  for (int i = 0; i < 8; ++i) {
+    const uint8_t piece = 1 << i;
+    for (int j = 0; j < 256; ++j) {
+      const uint8_t obstacles = j;
+      const int idx = i * 256 + j;
+      kSlideLookup[idx] = 0;
+      if (piece & obstacles) {
+        // Invalid state.
+        continue;
+      } else {
+        uint8_t r = 0;
+        for (int k = i + 1; k < 8; ++k) {
+          r |= 1 << k;
+          if (obstacles & (1 << k)) {
+            break;
+          }
+        }
+        for (int k = i - 1; k >= 0; --k) {
+          r |= 1 << k;
+          if (obstacles & (1 << k)) {
+            break;
+          }
+        }
+        kSlideLookup[idx] = r;
+      }
+    }
+  }
+
   for (unsigned i = 0; i < 8; ++i) {
     for (unsigned occ = 0; occ < 256; ++occ) {
       for (unsigned pinners = 0; pinners < 256; ++pinners) {

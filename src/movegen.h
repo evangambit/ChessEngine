@@ -66,8 +66,8 @@ Bitboard compute_enemy_attackers(const Position& pos, const Square sq) {
     const uint8_t y = sq / 8;
     const unsigned rankShift = y * 8;
     uint8_t fromByte = loc >> rankShift;
-    uint8_t enemiesByte = (enemies | friends) >> rankShift;
-    uint8_t toByte = sliding_moves(fromByte, 0, enemiesByte);
+    uint8_t occ = (enemies | friends) >> rankShift;
+    uint8_t toByte = sliding_moves(fromByte, occ);
     Bitboard to = Bitboard(toByte) << rankShift;
     attackers |= (to & enemyRooks);
   }
@@ -76,22 +76,22 @@ Bitboard compute_enemy_attackers(const Position& pos, const Square sq) {
     const uint8_t x = (sq % 8);
     const unsigned columnShift = 7 - x;
     uint8_t fromByte = (((loc << columnShift) & kFiles[7]) * kRookMagic) >> 56;
-    uint8_t enemiesByte = (((((enemies | friends) & file) << columnShift) & kFiles[7]) * kRookMagic) >> 56;
-    uint8_t toByte = sliding_moves(fromByte, 0, enemiesByte);
+    uint8_t occ = (((((enemies | friends) & file) << columnShift) & kFiles[7]) * kRookMagic) >> 56;
+    uint8_t toByte = sliding_moves(fromByte, occ);
     Bitboard to = (((Bitboard(toByte & 254) * kRookMagic) & kFiles[0]) | (toByte & 1)) << x;
     attackers |= (to & enemyRooks);
   }
 
   {  // Southeast/Northwest diagonal.
-    uint8_t enemiesByte = diag::southeast_diag_to_byte(sq, enemies | friends);
+    uint8_t occ = diag::southeast_diag_to_byte(sq, enemies | friends);
     uint8_t fromByte = diag::southeast_diag_to_byte(sq, loc);
-    Bitboard to = diag::byte_to_southeast_diag(sq, sliding_moves(fromByte, 0, enemiesByte));
+    Bitboard to = diag::byte_to_southeast_diag(sq, sliding_moves(fromByte, occ));
     attackers |= (to & enemyBishops);
   }
   {  // Southwest/Northeast diagonal.
-    uint8_t enemiesByte = diag::southwest_diag_to_byte(sq, enemies | friends);
+    uint8_t occ = diag::southwest_diag_to_byte(sq, enemies | friends);
     uint8_t fromByte = diag::southwest_diag_to_byte(sq, loc);
-    Bitboard to = diag::byte_to_southwest_diag(sq, sliding_moves(fromByte, 0, enemiesByte));
+    Bitboard to = diag::byte_to_southwest_diag(sq, sliding_moves(fromByte, occ));
     attackers |= (to & enemyBishops);
   }
 

@@ -248,12 +248,12 @@ Bitboard compute_bishoplike_targets(const Position& pos, Bitboard bishopLikePiec
     {  // Southeast/Northwest diagonal.
       uint8_t enemiesByte = diag::southeast_diag_to_byte(from, occupied);
       uint8_t fromByte = diag::southeast_diag_to_byte(from, fromLoc);
-      r |= diag::byte_to_southeast_diag(from, sliding_moves(fromByte, 0, enemiesByte));
+      r |= diag::byte_to_southeast_diag(from, sliding_moves(fromByte, enemiesByte));
     }
     {  // Southwest/Northeast diagonal.
       uint8_t enemiesByte = diag::southwest_diag_to_byte(from, occupied);
       uint8_t fromByte = diag::southwest_diag_to_byte(from, fromLoc);
-      r |= diag::byte_to_southwest_diag(from, sliding_moves(fromByte, 0, enemiesByte));
+      r |= diag::byte_to_southwest_diag(from, sliding_moves(fromByte, enemiesByte));
     }
 
   }
@@ -287,12 +287,12 @@ ExtMove *compute_bishop_like_moves(const Position& pos, ExtMove *moves, Bitboard
     {  // Southeast/Northwest diagonal.
       uint8_t occupied = diag::southeast_diag_to_byte(enemyKingSq, friends | enemies & ~enemyKing);
       uint8_t fromByte = diag::southeast_diag_to_byte(enemyKingSq, enemyKing);
-      checkMask |= diag::byte_to_southeast_diag(enemyKingSq, sliding_moves(fromByte, 0, occupied));
+      checkMask |= diag::byte_to_southeast_diag(enemyKingSq, sliding_moves(fromByte, occupied));
     }
     {  // Southwest/Northeast diagonal.
       uint8_t occupied = diag::southwest_diag_to_byte(enemyKingSq, friends | enemies & ~enemyKing);
       uint8_t fromByte = diag::southwest_diag_to_byte(enemyKingSq, enemyKing);
-      checkMask |= diag::byte_to_southwest_diag(enemyKingSq, sliding_moves(fromByte, 0, occupied));
+      checkMask |= diag::byte_to_southwest_diag(enemyKingSq, sliding_moves(fromByte, occupied));
     }
   } else {
     checkMask = kUniverse;
@@ -308,16 +308,14 @@ ExtMove *compute_bishop_like_moves(const Position& pos, ExtMove *moves, Bitboard
     Bitboard tos = kEmptyBitboard;
 
     {  // Southeast/Northwest diagonal.
-      uint8_t friendsByte = diag::southeast_diag_to_byte(from, friends & ~fromLoc);
-      uint8_t enemiesByte = diag::southeast_diag_to_byte(from, enemies);
+      uint8_t occ = diag::southeast_diag_to_byte(from, enemies | (friends & ~fromLoc));
       uint8_t fromByte = diag::southeast_diag_to_byte(from, fromLoc);
-      tos |= diag::byte_to_southeast_diag(from, sliding_moves(fromByte, friendsByte, enemiesByte));
+      tos |= diag::byte_to_southeast_diag(from, sliding_moves(fromByte, occ)) & ~friends;
     }
     {  // Southwest/Northeast diagonal.
-      uint8_t friendsByte = diag::southwest_diag_to_byte(from, friends & ~fromLoc);
-      uint8_t enemiesByte = diag::southwest_diag_to_byte(from, enemies);
+      uint8_t occ = diag::southwest_diag_to_byte(from, enemies | (friends & ~fromLoc));
       uint8_t fromByte = diag::southwest_diag_to_byte(from, fromLoc);
-      tos |= diag::byte_to_southwest_diag(from, sliding_moves(fromByte, friendsByte, enemiesByte));
+      tos |= diag::byte_to_southwest_diag(from, sliding_moves(fromByte, occ)) & ~friends;
     }
 
     tos &= target;
