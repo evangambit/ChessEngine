@@ -675,7 +675,6 @@ void mymain(std::vector<std::string>& fens, const std::string& mode, double time
     for (auto fen : fens) {
       gCache.clear();
       Position pos(fen);
-      std::cout << pos.hash_ << std::endl;
       std::pair<Evaluation, Move> results;
       time_t tstart = clock();
       for (size_t i = 1; i <= depth; ++i) {
@@ -687,7 +686,6 @@ void mymain(std::vector<std::string>& fens, const std::string& mode, double time
           break;
         }
       }
-      std::cout << pos.hash_ << std::endl;
 
       auto it = gCache.find(pos.hash_);
       size_t i = 0;
