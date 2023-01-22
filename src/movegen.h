@@ -62,8 +62,6 @@ Bitboard compute_enemy_attackers(const Position& pos, const Square sq) {
 
   attackers |= compute_enemy_pawn_attackers<US>(pos, loc);
 
-  // TODO: complete this for sliding pieces.
-
   {  // Compute east/west moves.
     const uint8_t y = sq / 8;
     const unsigned rankShift = y * 8;
@@ -103,9 +101,10 @@ Bitboard compute_enemy_attackers(const Position& pos, const Square sq) {
 // We take the liberty of ignoring MGT if you're in check.
 template<Color US, MoveGenType MGT>
 ExtMove* compute_moves(const Position& pos, ExtMove *moves) {
+  constexpr Color enemyColor = opposite_color<US>();
   assert(US == pos.turn_);
   const Bitboard ourKings = pos.pieceBitboards_[coloredPiece<US, Piece::KING>()];
-  const Bitboard theirKings = pos.pieceBitboards_[coloredPiece<opposite_color<US>(), Piece::KING>()];
+  const Bitboard theirKings = pos.pieceBitboards_[coloredPiece<enemyColor, Piece::KING>()];
   if (std::popcount(ourKings | theirKings) != 2) {
     // Game over, no legal moves.
     return moves;

@@ -299,8 +299,16 @@ constexpr uint8_t kSlideLookup[2048] = {
   0, 0, 0, 0, 0, 0, 0, 0,
 };
 
+// 65536*kingLoc+256*occ+pinners
+// Given a king, some occupied squares, and some pinners, returns all squares
+// between a pinner (inclusive) and the king (exclusive). These are squares
+// that it is legal for the pinned piece to move to.
+// NOTE: pinners and king *also* count as occupied squares.
+uint8_t kPinLookup[8*256*256];
+
 }  // namespace
 
+// TODO: this function should only need two parameters.
 uint8_t sliding_moves(uint8_t loc, uint8_t friends, uint8_t enemies) {
   assert(std::popcount(loc) == 1);
   uint8_t left = loc - 1;
@@ -319,6 +327,53 @@ uint8_t sliding_moves(uint8_t loc, uint8_t friends, uint8_t enemies) {
   // (lsb(obstaclesRightOfLoc) - idx(loc)) gives 8 values
 
   return kSlideLookup[256 * lsb(loc) + friends];
+}
+
+void initialize_sliding() {
+  for (unsigned i = 0; i < 8; ++i) {
+    for (unsigned occ = 0; occ < 256; ++occ) {
+      for (unsigned pinners = 0; pinners < 256; ++pinners) {
+
+        int idx = 65536*i+256*occ+pinners;
+        uint8_t king = 1 << i;
+        kPinLookup[idx] = 0;
+
+        // Ignore positions with no pinners or no occupied squares (besides the king).
+        if (pinners == 0) continue;
+        if ((occ & ~(king | pinners)) == 0) continue;
+
+        // Ignore positions where the king or pinners are not occupied squares.
+        if ((occ & king) != king) continue;
+        if ((occ & pinners) != pinners) continue;
+
+        // This should never happen.
+        if (king & pinners) continue;
+
+        uint8_t leftPinners = pinners & (king - 1);
+        if (leftPinners) {
+          // There is a pinner to our left.
+          uint8_t between = (king - 1) & ~(uint8_t(1 << msb(leftPinners)) - 1);
+          if (std::popcount(between & occ) == 2) {
+            kPinLookup[idx] |= between;
+          }
+        }
+
+        uint8_t rightPinners = pinners & ~(king * 2 - 1);
+        if (rightPinners) {
+          // There is a pinner to our right.
+          uint8_t between = ((1 << lsb(rightPinners)) * 2 - 1) & ~(king * 2 - 1);
+          if (std::popcount(between & occ) == 2) {
+            kPinLookup[idx] |= between;
+          }
+        }
+      }
+    }
+  }
+}
+
+inline uint8_t sliding_pinner(uint8_t loc, uint8_t occ, uint8_t pinners) {
+  assert(std::popcount(loc) == 1);
+  return kPinLookup[65536*lsb(loc)+256*occ+pinners];
 }
 
 }  // namespace ChessEngine

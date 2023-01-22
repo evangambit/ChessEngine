@@ -40,6 +40,7 @@
 #include "utils.h"
 #include "Position.h"
 #include "movegen.h"
+#include "movegen/sliding.h"
 #include "Evaluator.h"
 
 using namespace ChessEngine;
@@ -66,7 +67,9 @@ void test_moves() {
     //   continue;
     // }
     std::vector<std::string> parts = split(line, ':');
-    assert(parts.size() == 2);
+    if (parts.size() != 2) {
+      throw std::runtime_error("parts.size() != 2");
+    }
     Position pos(parts[0]);
     const std::vector<std::string> expected = split(parts[1], ' ');
 
@@ -347,13 +350,8 @@ std::pair<Evaluation, Move> search(Position* pos, Depth depth, Evaluation alpha,
   {
     if (it != gCache.end()) {
       const int8_t deltaDepth = (depth - it->second.depth);
-      // TODO: check it->second.exhaustive?
       if (it->second.depth >= depth
-        //  50; 0.515 0.009 57.076
-        //  70; 0.513 0.009 58.595
-        // 100; 0.514 0.009 49.635
-        // 140; 0.511 0.009 49.239
-        || it->second.eval >= beta + 200 * deltaDepth
+        || it->second.eval >= beta + 100 * deltaDepth
         ) {
         return std::make_pair(it->second.eval, it->second.bestMove);
       }
@@ -747,6 +745,7 @@ int main(int argc, char *argv[]) {
 
   initialize_geometry();
   initialize_zorbrist();
+  initialize_sliding();
 
   std::vector<std::string> args;
   for (size_t i = 1; i < argc; ++i) {
