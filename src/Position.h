@@ -327,19 +327,12 @@ void make_move(Position *pos, Move move) {
   pos->currentState_.castlingRights &= ~four_corners_to_byte(f);
   pos->currentState_.castlingRights &= ~four_corners_to_byte(t);
 
-  // TODO: remove if statements
   if (TURN == Color::WHITE) {
-    if (movingPiece == coloredPiece<TURN, Piece::PAWN>() && move.from - move.to == 16) {
-      pos->currentState_.epSquare = Square(move.to + 8);
-    } else {
-      pos->currentState_.epSquare = Square::NO_SQUARE;
-    }
+    bool cond = (movingPiece == coloredPiece<TURN, Piece::PAWN>() && move.from - move.to == 16);
+    pos->currentState_.epSquare = Square(cond * (move.to + 8) + (1 - cond) * Square::NO_SQUARE);
   } else {
-    if (movingPiece == coloredPiece<TURN, Piece::PAWN>() && move.to - move.from == 16) {
-      pos->currentState_.epSquare = Square(move.to - 8);
-    } else {
-      pos->currentState_.epSquare = Square::NO_SQUARE;
-    }
+    bool cond = (movingPiece == coloredPiece<TURN, Piece::PAWN>() && move.to - move.from == 16);
+    pos->currentState_.epSquare = Square(cond * (move.to - 8) + (1 - cond) * Square::NO_SQUARE);
   }
 
   // Remove castling rights if a king moves. both lines are equivalent but the
