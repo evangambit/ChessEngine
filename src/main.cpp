@@ -337,23 +337,21 @@ std::pair<Evaluation, Move> search(Position* pos, Depth depth, Evaluation alpha,
     return std::make_pair(0, kNullMove);
   }
 
-  size_t repeatCounter = 0;
-  for (size_t i = pos->hashes_.size() - 2; i < pos->hashes_.size(); i -= 2) {
+  for (size_t i = 0; i < pos->hashes_.size(); ++i) {
     // TODO: stop looking when we hit a pawn move or capture.
+    // TODO: handle 3 move draw for moves before the root.
     if (pos->hashes_[i] == pos->hash_) {
-      repeatCounter += 1;
+      return std::make_pair(0, kNullMove);
     }
-  }
-  if (repeatCounter == 3) {
-    return std::make_pair(0, kNullMove);
   }
 
   auto it = gCache.find(pos->hash_);
   {
     if (it != gCache.end()) {
       const int8_t deltaDepth = (depth - it->second.depth);
-      if (it->second.depth >= depth
-        || it->second.eval >= beta + 100 * deltaDepth
+      if (it->second.depth == depth
+        && pos->currentState_.halfMoveCounter < 40
+        // || it->second.eval >= beta + 100 * deltaDepth
         ) {
         return std::make_pair(it->second.eval, it->second.bestMove);
       }
@@ -688,9 +686,10 @@ void mymain(std::vector<std::string>& fens, const std::string& mode, double time
       }
 
       auto it = gCache.find(pos.hash_);
+      std::vector<uint64_t> oldHashes = {pos.hash_};
       size_t i = 0;
       while (it != gCache.end()) {
-        if (++i > 10) {
+        if (++i > 40) {
           break;
         }
         if (pos.turn_ == Color::BLACK) {
@@ -705,7 +704,17 @@ void mymain(std::vector<std::string>& fens, const std::string& mode, double time
         } else {
           make_move<Color::BLACK>(&pos, it->second.bestMove);
         }
+        if (std::find(oldHashes.begin(), oldHashes.end(), pos.hash_) != oldHashes.end()) {
+          oldHashes.push_back(pos.hash_);
+          std::cout << "loop" << std::endl;
+          break;
+        }
+        oldHashes.push_back(pos.hash_);
         it = gCache.find(pos.hash_);
+      }
+
+      for (size_t i = 0; i < oldHashes.size(); ++i) {
+        std::cout << oldHashes[i] << std::endl;
       }
 
     }
