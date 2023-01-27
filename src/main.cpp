@@ -584,8 +584,11 @@ void print_feature_vec(Position *pos, const std::string& originalFen, bool human
     std::cout << "ORIGINAL_FEN " << originalFen << std::endl;
     std::cout << "FEN " << pos->fen() << std::endl;
     std::cout << "SCORE " << e << std::endl;
+    const int32_t t = gEvaluator.features[EF::TIME];
     for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
-      std::cout << gEvaluator.features[i] << " " << EFSTR[i] << " " << kEarlyW0[i] << " " << kLateW0[i] << std::endl;
+      const int32_t x = gEvaluator.features[i];
+      const int32_t s = (kEarlyW0[i] * x * t + kLateW0[i] * x * (16 - t)) / 16;
+      std::cout << gEvaluator.features[i] << " " << std::setfill(' ') << std::setw(4) << s << " " << EFSTR[i] << std::endl;
     }
   } else {
     std::cout << pos->fen() << std::endl;
@@ -712,11 +715,6 @@ void mymain(std::vector<std::string>& fens, const std::string& mode, double time
         oldHashes.push_back(pos.hash_);
         it = gCache.find(pos.hash_);
       }
-
-      for (size_t i = 0; i < oldHashes.size(); ++i) {
-        std::cout << oldHashes[i] << std::endl;
-      }
-
     }
   } else if (mode == "play") {
     for (auto fen : fens) {
@@ -851,6 +849,10 @@ int main(int argc, char *argv[]) {
 
   if (uciMoves.size() != 0 && fens.size() != 1) {
     throw std::runtime_error("cannot provide moves if there is more than one fen");
+  }
+
+  if (uciMoves.size() > 0) {
+    
   }
 
   mymain(fens, mode, timeLimitMs, depth, makeQuiet);

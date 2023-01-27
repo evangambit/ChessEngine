@@ -12,14 +12,14 @@ def lpad(t, n, c=' '):
 
 def thread_main(inputs):
 	fen, bestmove, scoreDelta = inputs
-	command = [sys.argv[1], "mode", "analyze", "fen", *fen.split(' '), "time", "30"]
+	command = [sys.argv[1], "mode", "analyze", "fen", *fen.split(' '), "time", "100"]
 	output = subprocess.check_output(command).decode().strip()
 	result = re.findall(r"\d+ : [^ ]+", output)[-1].split(' ')[-1]
 	return 0 if result == bestmove else scoreDelta
 
 if __name__ == '__main__':
 	conn = sqlite3.connect("db.sqlite3")
-	c = conn.execute("SELECT fen, bestmove, delta FROM TacticsTable LIMIT 500")
+	c = conn.execute("SELECT fen, bestmove, delta FROM TacticsTable LIMIT 1000")
 	A = c.fetchall()
 	t0 = time.time()
 	with Pool(4) as p:

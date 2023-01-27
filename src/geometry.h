@@ -7,6 +7,8 @@
 
 #include <string>
 
+#include "utils.h"
+
 namespace ChessEngine {
 
 typedef uint64_t Bitboard;
@@ -106,15 +108,22 @@ constexpr Direction opposite_dir(Direction dir) {
 
 Location square2location(Square sq);
 
+int8_t king_dist(Square sq1, Square sq2);
+
 constexpr Location bb(unsigned sq) {
   return Location(1) << sq;
 }
+
+constexpr Bitboard kRookFiles = kFiles[0] | kFiles[7];
 
 extern Bitboard kKingDist[8][64];
 extern Bitboard kNearby[7][64];
 
 // Used to figure out which squares can be moved to to stop a check.
 extern Bitboard kSquaresBetween[64][64];
+
+extern Bitboard kSquareRuleYourTurn[Color::NUM_COLORS][64];
+extern Bitboard kSquareRuleTheirTurn[Color::NUM_COLORS][64];
 
 void initialize_geometry();
 

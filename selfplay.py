@@ -7,7 +7,7 @@ from scipy import stats
 from multiprocessing import Pool
 
 def f(player, fen, moves):
-	command = [player, "mode", "analyze", "fen", *fen.split(' '), "time", "30", "moves", *moves]
+	command = [player, "mode", "analyze", "fen", *fen.split(' '), "time", "10", "moves", *moves]
 	output = subprocess.check_output(command).decode().strip()
 	return re.findall(r"\d+ : [^ ]+", output)[-1].split(' ')[-1]
 
@@ -27,13 +27,10 @@ def play(fen0, player1, player2):
 
 	if board.is_checkmate():
 		if waiter == player1:
-			print(' 1', board.fen())
 			return 1
 		else:
-			print('-1', board.fen())
 			return -1
 	else:
-		print(' 0', board.fen())
 		return 0
 
 
@@ -89,17 +86,17 @@ fens = [
 ]
 
 def thread_main(fen):
-	a, b = 0, 0
-	a += play(fen, sys.argv[1], sys.argv[2])
-	a -= play(fen, sys.argv[2], sys.argv[1])
-	return a, b
+	return [
+		play(fen, sys.argv[1], sys.argv[2]),
+		-play(fen, sys.argv[2], sys.argv[1]),
+	]
 
 if __name__ == '__main__':
-	with Pool(5) as p:
+	with Pool(2) as p:
 		r = p.map(thread_main, fens)
 	r = np.array(r, dtype=np.float64).reshape(-1)
 
 	t = r.mean() / (r.std(ddof=1) / np.sqrt(r.shape[0]))
 
-	print(r.sum(), r.shape[0])
-	print(stats.t.cdf(0.5, 1))
+	print(int(r.sum()), r.shape[0])
+	print(stats.t.cdf(t, 1))

@@ -16,8 +16,12 @@ import numpy as np
 """
 To generate training data from scratch:
 
-python3 make_train.py --mode generate_positions lichess_db_standard_rated_2013-11.pgn
-python3 make_train.py --mode write_numpy
+python3 make_train.py --mode generate_positions --type quiet lichess_db_standard_rated_2013-11.pgn
+python3 make_train.py --mode generate_positions --type endgame
+
+python3 make_train.py --mode write_numpy --type quiet
+python3 make_train.py --mode write_numpy --type endgame
+
 zip traindata.zip -r traindata
 
 
@@ -27,6 +31,76 @@ python3 -i make_train.py --mode update_features
 python3 make_train.py --mode write_numpy
 zip traindata.zip -r traindata
 """
+
+def pgn_iterator(noise):
+  assert len(args.pgnfiles) > 0
+  for filename in args.pgnfiles:
+    f = open(filename, 'r')
+    game = pgn.read_game(f)
+    while game is not None:
+      for node in game.mainline():
+        if random.randint(1, 50) != 1:
+          continue
+        board = node.board()
+        for _ in range(noise):
+          moves = list(board.legal_moves)
+          if len(moves) == 0:
+            break
+          random.shuffle(moves)
+          board.push(moves[0])
+        if len(list(board.legal_moves)) == 0:
+          continue
+        yield board.fen()
+      game = pgn.read_game(f)
+
+def endgame_iterator():
+  endgameTypes = [
+    # Types of end games by remaining pieces.
+    ((0,0,0,0, 0,1), (0,0,0,0, 0,1)),  # KvK
+    ((0,1,0,0, 0,1), (0,0,0,0, 0,1)),  # KNvK
+    ((0,1,0,0, 0,1), (0,1,0,0, 0,1)),  # NvN
+    ((0,1,1,0, 0,1), (0,1,0,0, 0,1)),  # NBvN
+    ((0,1,1,0, 0,1), (0,1,1,0, 0,1)),  # NBvNB
+    ((0,0,0,1, 0,1), (0,1,0,0, 0,1)),  # RvN
+    ((0,0,0,1, 0,1), (0,0,1,0, 0,1)),  # RvB
+    ((0,0,0,1, 0,1), (0,0,0,1, 0,1)),  # RvR
+    ((0,0,0,1, 0,1), (0,1,1,0, 0,1)),  # RvBN
+  ]
+  while True:
+    kind = random.choice(endgameTypes)
+    if random.randint(0, 1) == 0:
+      white, black = kind
+    else:
+      black, white = kind
+    white, black = list(white), list(black)
+
+    # Randomize number of pawns
+    white[0] = random.randint(1, 4)
+    black[0] = random.randint(1, 4)
+
+    board = chess.Board('8/8/8/8/8/8/8/8 w - - 0 1')
+
+    for color, array in enumerate([white, black]):
+      for i, n in enumerate(array):
+        for _ in range(n):
+          sq = chess.Square(random.randint(0, 63))
+          piece = chess.Piece(i + 1, color)
+          board.set_piece_at(sq, piece)
+
+    fen = board.fen()
+    if random.randint(0, 1) == 0:
+      fen = fen.replace(' w ', ' b ')
+
+    if not board.is_valid():
+      continue
+
+    if board.is_insufficient_material():
+      continue
+
+    if board.is_game_over():
+      continue
+
+    yield fen
 
 def get_vec(fen):
   q = "1" if args.type == "tactics" else "0"
@@ -53,18 +127,24 @@ parser = argparse.ArgumentParser()
 parser.add_argument("pgnfiles", nargs='*')
 parser.add_argument("--mode", type=str, required=True)
 parser.add_argument("--type", type=str, required=True)
+parser.add_argument("--noise", type=int, default=0)
 args = parser.parse_args()
 
-assert args.type in ["quiet", "any", "tactics"]
-
+assert args.type in ["quiet", "any", "tactics", "endgame"]
 assert args.mode in ['generate_positions', 'update_features', 'write_numpy']
+assert args.noise >= 0
+
+if args.type == "endgame":
+  assert len(args.pgnfiles) == 0
+  assert args.noise == 0
 
 conn = sqlite3.connect("db.sqlite3")
 c = conn.cursor()
 kTableName = {
   "quiet": "QuietTable",
   "any": "AnyTable",
-  "tactics": "TacticsTable"
+  "tactics": "TacticsTable",
+  "endgame": "EndgameTable",
 }[args.type]
 
 if args.mode == 'update_features':
@@ -91,7 +171,6 @@ if args.mode == 'update_features':
   exit(0)
 
 if args.mode == 'generate_positions':
-  assert len(args.pgnfiles) > 0
   c.execute(f"""CREATE TABLE IF NOT EXISTS {kTableName} (
     fen BLOB,
     bestMove BLOB,
@@ -109,72 +188,84 @@ if args.mode == 'generate_positions':
   kDepth = 12
   stockfish = Stockfish(path="/usr/local/bin/stockfish", depth=kDepth)
 
+  iterator = None
+  if args.type == 'endgame':
+    iterator = endgame_iterator()
+  else:
+    iterator = pgn_iterator(args.noise)
+
   totalWrites = 0
   writesSinceCommit = 0
 
   tstart = time.time()
-  for filename in args.pgnfiles:
-    f = open(filename, 'r')
+  for fen in iterator:
+    fen, x = get_vec(fen)
 
-    game = pgn.read_game(f)
-    while game is not None:
-      for node in game.mainline():
-        if random.randint(1, 50) != 1:
-          continue
-        board = node.board()
-        fen = board.fen()
+    if fen in fens:
+      continue
 
-        fen, x = get_vec(fen)
+    fens.add(fen)
 
-        if fen in fens:
-          continue
-        fens.add(fen)
+    try:
+      stockfish.set_fen_position(fen)
+      moves = stockfish.get_top_moves(2)
+    except StockfishException:
+      print('reboot')
+      # Restart stockfish.
+      fens.remove(fen)
+      stockfish = Stockfish(path="/usr/local/bin/stockfish", depth=kDepth)
+      continue
 
-        try:
-          stockfish.set_fen_position(board.fen())
-          moves = stockfish.get_top_moves(2)
-          if len(moves) != 2:
-            continue
-          if moves[0]['Mate'] is not None:
-            continue
-          if moves[1]['Mate'] is not None:
-            continue
-          bestmove = moves[0]['Move']
-          if abs(moves[0]['Centipawn']) > 300:
-            # Ignore positions with crazy centipawn points.
-            continue
-          scoreDelta = abs(moves[0]['Centipawn'] - moves[1]['Centipawn'])
-          if scoreDelta < 100 and args.type == 'tactics':
-            continue
-          if ' b ' in fen:
-            evaluation = -moves[0]['Centipawn']
-          else:
-            evaluation = moves[0]['Centipawn']
+    if len(moves) != 2:
+      continue
 
-        except StockfishException:
-          fens.remove(fen)
-          stockfish = Stockfish(path="/usr/local/bin/stockfish", depth=kDepth)
-          continue
+    bestmove = moves[0]['Move']
 
-        c.execute(f"""INSERT INTO {kTableName}
-          (fen, bestMove, delta, moverScore, moverFeatures) 
-          VALUES (?, ?, ?, ?, ?)""", (
-          fen,
-          bestmove,
-          scoreDelta,
-          evaluation,
-          ' '.join(str(a) for a in x),
-        ))
-        writesSinceCommit += 1
-        totalWrites += 1
+    if ' b ' in fen:
+      for move in moves:
+        if move['Centipawn'] is not None:
+          move['Centipawn'] *= -1
+        if move['Mate'] is not None:
+          move['Mate'] *= -1
 
-      if writesSinceCommit >= 40:
-        dt = time.time() - tstart
-        print('commit %i; %.3f per sec' % (totalWrites, totalWrites / dt), len(x))
-        writesSinceCommit = 0
-        conn.commit()
+    for move in moves:
+      if move['Mate'] is not None:
+        if move['Mate'] > 0:
+          move['Centipawn'] = 500
+        else:
+          move['Centipawn'] = -500
+      move['Centipawn'] = max(-500, min(500, move['Centipawn']))
 
-      game = pgn.read_game(f)
+    scoreDelta = abs(moves[0]['Centipawn'] - moves[1]['Centipawn'])
+    evaluation = moves[0]['Centipawn']
+
+    assert evaluation is not None
+    assert scoreDelta is not None
+
+    if args.type == 'tactics' and scoreDelta < 100:
+      continue
+
+    scoreDelta = min(500, scoreDelta)
+
+    c.execute(f"""INSERT INTO {kTableName}
+      (fen, bestMove, delta, moverScore, moverFeatures) 
+      VALUES (?, ?, ?, ?, ?)""", (
+      fen,
+      bestmove,
+      scoreDelta,
+      evaluation,
+      ' '.join(str(a) for a in x),
+    ))
+    writesSinceCommit += 1
+    totalWrites += 1
+
+    if writesSinceCommit >= 40:
+      dt = time.time() - tstart
+      print('commit %i; %.3f per sec' % (totalWrites, totalWrites / dt), len(x))
+      writesSinceCommit = 0
+      conn.commit()
+
+  game = pgn.read_game(f)
   exit(0)
 
 if args.mode == 'write_numpy':
@@ -190,17 +281,9 @@ if args.mode == 'write_numpy':
   X = np.array(X)
   Y = np.array(Y)
   F = np.array(F)
-  if args.type == "quiet":
-    np.save(os.path.join('traindata', 'x.quiet.npy'), X)
-    np.save(os.path.join('traindata', 'y.quiet.npy'), Y)
-    np.save(os.path.join('traindata', 'f.quiet.npy'), F)
-  elif args.type == "any":
-    np.save(os.path.join('traindata', 'x.any.npy'), X)
-    np.save(os.path.join('traindata', 'y.any.npy'), Y)
-    np.save(os.path.join('traindata', 'f.any.npy'), F)
-  elif args.type == "tactics":
-    np.save(os.path.join('traindata', 'x.tactics.npy'), X)
-    np.save(os.path.join('traindata', 'y.tactics.npy'), Y)
-    np.save(os.path.join('traindata', 'f.tactics.npy'), F)
+  print(X.shape, Y.shape, F.shape)
+  np.save(os.path.join('traindata', f'x.{args.type}.npy'), X)
+  np.save(os.path.join('traindata', f'y.{args.type}.npy'), Y)
+  np.save(os.path.join('traindata', f'f.{args.type}.npy'), F)
   exit(0)
 

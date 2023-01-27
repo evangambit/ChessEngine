@@ -91,13 +91,19 @@ enum EF {
   QUEEN_PM,
   KING_PM,
 
+  KPVK_OPPOSITION,
+  KPVK_IN_FRONT_OF_PAWN,
+  KPVK_OFFENSIVE_KEY_SQUARES,
+  KPVK_DEFENSIVE_KEY_SQUARES,
+  SQUARE_RULE,
+
   NUM_EVAL_FEATURES,
 };
 
-const int32_t kEarlyB0 = -30;
-const int32_t kEarlyW0[63] = { 43,209,223,319,729,-49,-176,-186,-281,-672,-164,8,-7,18,-32,1,-10,-13,-16,2,2,16,0,64,57,16,30,37,2,17,13,28,-10,9,-4,-19,87,48,10,55,-3,1,11,16,-15,-8,-7,-13,-3,82,49,27,33,-429,-501,3,-16,0,1,0,0,0,1};
+const int32_t kEarlyB0 = 7;
+const int32_t kEarlyW0[68] = { 46,128,145,209,421,-46,-127,-148,-211,-434,-108,13,-6,-41,-28,1,-10,-10,-17,-12,2,15,0,65,58,18,24,21,2,10,11,14,-10,1,4,-17,93,50,10,44,-5,-1,13,12,-6,0,-23,-2,1,80,87,110,204,-364,-478,3,-3,0,1,0,0,1,1,0,0,0,0,0};
 const int32_t kLateB0 = -13;
-const int32_t kLateW0[63] = { 118,267,284,469,696,-120,-163,-185,-372,-474,-28,-36,7,27,8,-1,-2,-2,-14,-27,-9,-11,0,82,50,25,13,-55,-3,5,30,57,-16,18,32,-11,-29,0,48,7,35,21,14,-26,-35,-41,-62,-37,25,1,25,65,47,35,-5,2,-52,0,-1,0,0,1,0};
+const int32_t kLateW0[68] = { 115,177,200,351,508,-115,-177,-192,-357,-508,-3,-48,8,41,7,-3,-1,-4,-15,-25,-14,-7,0,73,42,23,27,34,-6,6,32,61,-9,43,32,-7,11,-10,35,51,35,27,15,-25,-15,-39,-9,-88,43,40,65,206,353,37,-9,3,-6,0,0,0,0,0,0,-6,-54,237,-265,184};
 
 std::string EFSTR[] = {
   "OUR_PAWNS",
@@ -175,6 +181,12 @@ std::string EFSTR[] = {
   "ROOK_PM",
   "QUEEN_PM",
   "KING_PM",
+
+  "KPVK_OPPOSITION",
+  "KPVK_IN_FRONT_OF_PAWN",
+  "KPVK_OFFENSIVE_KEY_SQUARES",
+  "KPVK_DEFENSIVE_KEY_SQUARES",
+  "SQUARE_RULE",
 
   "NUM_EVAL_FEATURES",
 };
@@ -274,6 +286,7 @@ struct Evaluator {
     const Bitboard outBlockadedPawns = shift<kBackward>(theirPawns) & ourPawns;
     const Bitboard ourProtectedPawns = ourPawns & ourPawnTargets;
     const Bitboard theirProtectedPawns = theirPawns & theirPawnTargets;
+    Bitboard ourPassedPawns, theirPassedPawns;
     {
       Bitboard ourFilled, theirFilled;
       Bitboard filesWithOurPawns, filesWithTheirPawns;
@@ -292,8 +305,8 @@ struct Evaluator {
       const Bitboard fatThemPawns = fatten(theirFilled);
       const Bitboard filesWithoutUsPawns = ~filesWithOurPawns;
       const Bitboard filesWithoutThemPawns = ~filesWithTheirPawns;
-      const Bitboard ourPassedPawns = ourPawns & ~shift<kBackward>(fatten(theirFilled));
-      const Bitboard theirPassedPawns = theirPawns & ~shift<kForward>(fatten(ourFilled));
+      ourPassedPawns = ourPawns & ~shift<kBackward>(fatten(theirFilled));
+      theirPassedPawns = theirPawns & ~shift<kForward>(fatten(ourFilled));
       const Bitboard ourIsolatedPawns = ourPawns & ~shift<Direction::WEST>(filesWithOurPawns) & ~shift<Direction::EAST>(filesWithOurPawns);
       const Bitboard theirIsolatedPawns = theirPawns & ~shift<Direction::WEST>(filesWithTheirPawns) & ~shift<Direction::EAST>(filesWithTheirPawns);
       const Bitboard ourDoubledPawns = ourPawns & shift<kForward>(ourFilled);
@@ -415,6 +428,41 @@ struct Evaluator {
         features[EF::QUEEN_PM] *= -1;
         features[EF::KING_PM] *= -1;
       }
+    }
+
+    const bool isKingPawnEndgame = (ourKings == ourPieces) && (theirKings == theirPieces);
+    features[EF::KPVK_OPPOSITION] = -((shift<kForward>(shift<kForward>(ourKings)) & theirKings) > 0) * isKingPawnEndgame;
+    features[EF::KPVK_IN_FRONT_OF_PAWN] = 0;
+    features[EF::KPVK_OFFENSIVE_KEY_SQUARES] = 0;
+    features[EF::KPVK_DEFENSIVE_KEY_SQUARES] = 0;
+
+    features[EF::SQUARE_RULE] = 0;
+    features[EF::SQUARE_RULE] += ((kSquareRuleTheirTurn[US][theirKingSq] & ourPassedPawns) > 0) * isKingPawnEndgame;
+    features[EF::SQUARE_RULE] -= ((kSquareRuleYourTurn[THEM][ourKingSq] & theirPassedPawns) > 0) * isKingPawnEndgame;
+
+    {  // If we have the pawn in a KPVK engame.
+      bool isKPVK = isKingPawnEndgame && (std::popcount(ourPawns) == 1) && (theirPawns == 0);
+
+      const Bitboard inFrontOfPawn = shift<kForward>(ourPawns);
+      const Bitboard keySquares = fatten(shift<kForward>(inFrontOfPawn & ~kRookFiles));
+      const Bitboard inFront = (US == Color::WHITE ? (ourPawns - 1) : ~(ourPawns - 1));
+      const Square promoSq = Square(US == Color::WHITE ? lsb(ourPawns) % 8 : lsb(ourPawns) % 8 + 56);
+
+      features[EF::KPVK_IN_FRONT_OF_PAWN] += ((ourKings & inFront) > 0) * isKPVK;
+      features[EF::KPVK_OFFENSIVE_KEY_SQUARES] += ((ourKings & keySquares) > 0) * isKPVK;
+      features[EF::KPVK_DEFENSIVE_KEY_SQUARES] += ((theirKings & inFrontOfPawn) > 0) * isKPVK;
+    }
+    {  // If they have the pawn in a KPVK engame. Note we add a '+1' penalty for square rule
+      bool isKPVK = isKingPawnEndgame && (std::popcount(theirPawns) == 1) && (ourPawns == 0);
+
+      const Bitboard inFrontOfPawn = shift<kBackward>(theirPawns);
+      const Bitboard keySquares = fatten(shift<kBackward>(inFrontOfPawn & ~kRookFiles));
+      const Bitboard inFront = (US == Color::WHITE ? ~(theirPawns - 1) : (theirPawns - 1));
+      const Square promoSq = Square(US == Color::WHITE ? lsb(theirPawns) % 8 + 56 : lsb(theirPawns) % 8);
+
+      features[EF::KPVK_IN_FRONT_OF_PAWN] -= ((theirKings & inFront) > 0) * isKPVK;
+      features[EF::KPVK_OFFENSIVE_KEY_SQUARES] -= ((theirKings & keySquares) > 0) * isKPVK;
+      features[EF::KPVK_DEFENSIVE_KEY_SQUARES] -= ((ourKings & inFrontOfPawn) > 0) * isKPVK;
     }
 
     const int16_t ourPiecesRemaining = std::popcount(pos.colorBitboards_[US] & ~ourPawns) + std::popcount(ourQueens) - 1;

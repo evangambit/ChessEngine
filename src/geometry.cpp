@@ -33,9 +33,17 @@ std::string bstr(uint8_t b) {
   return r;
 }
 
+int8_t king_dist(Square sq1, Square sq2) {
+  int8_t a = sq1;
+  int8_t b = sq2;
+  return std::max(std::abs(a % 8 - b % 8), std::abs(a / 8 - b / 8));
+}
+
 Bitboard kKingDist[8][64];
 Bitboard kNearby[7][64];
 Bitboard kSquaresBetween[64][64];
+Bitboard kSquareRuleYourTurn[Color::NUM_COLORS][64];
+Bitboard kSquareRuleTheirTurn[Color::NUM_COLORS][64];
 
 void initialize_geometry() {
   for (int dist = 0; dist < 8; ++dist) {
@@ -97,6 +105,23 @@ void initialize_geometry() {
       } else if ((std::abs(ax - bx) == 1 && std::abs(ay - by) == 2) || (std::abs(ax - bx) == 2 && std::abs(ay - by) == 1)) {
         // Knight move
 
+      }
+    }
+  }
+
+  for (Color color = Color::WHITE; color <= Color::BLACK; color = Color(color + 1)) {
+    for (int i = 0; i < 64; ++i) {
+      kSquareRuleYourTurn[color][i] = kEmptyBitboard;
+      for (int j = 8; j < 56; ++j) {
+        const Square kingSq = Square(i);
+        const Square pawnSq = Square(j);
+        const Square promoSq = Square(color == Color::WHITE ? pawnSq % 8 : pawnSq % 8 + 56);
+        if (king_dist(pawnSq, promoSq) < king_dist(kingSq, promoSq)) {
+          kSquareRuleTheirTurn[color][i] |= bb(j);
+        }
+        if (king_dist(pawnSq, promoSq) < king_dist(kingSq, promoSq) - 1) {
+          kSquareRuleYourTurn[color][i] |= bb(j);
+        }
       }
     }
   }
