@@ -16,8 +16,7 @@ def play(fen0, player1, player2):
 	moves = []
 	mover, waiter = player1, player2
 	while not board.can_claim_draw() and not board.is_stalemate() and not board.is_checkmate():
-		fen = board.fen()
-		move = f(mover, fen, moves)
+		move = f(mover, fen0, moves)
 		moves.append(move)
 		if move == 'a8a8':
 			print(board)
@@ -86,10 +85,11 @@ fens = [
 ]
 
 def thread_main(fen):
-	return [
+	r = [
 		play(fen, sys.argv[1], sys.argv[2]),
 		-play(fen, sys.argv[2], sys.argv[1]),
 	]
+	return r
 
 if __name__ == '__main__':
 	with Pool(2) as p:
