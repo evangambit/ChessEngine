@@ -762,7 +762,6 @@ int main(int argc, char *argv[]) {
   // test1();
   // test_moves();
 
-  Position pos = Position::init();
   Depth depth = 10;
   std::string mode = "analyze";
   double timeLimitMs = 60000.0;
@@ -852,7 +851,32 @@ int main(int argc, char *argv[]) {
   }
 
   if (uciMoves.size() > 0) {
-    
+    ExtMove moves[256];
+    ExtMove *end;
+    Position pos(fens[0]);
+    for (size_t i = 0; i < uciMoves.size(); ++i) {
+      if (pos.turn_ == Color::WHITE) {
+        end = compute_legal_moves<Color::WHITE>(&pos, moves);
+      } else {
+        end = compute_legal_moves<Color::BLACK>(&pos, moves);
+      }
+      ExtMove *move;
+      for (move = moves; move < end; ++move) {
+        if (move->move.uci() == uciMoves[i]) {
+          break;
+        }
+      }
+      if (move->move.uci() != uciMoves[i]) {
+        throw std::runtime_error("Unrecognized uci move \"" + uciMoves[i] + "\"");
+        exit(1);
+      }
+      if (pos.turn_ == Color::WHITE) {
+        make_move<Color::WHITE>(&pos, move->move);
+      } else {
+        make_move<Color::BLACK>(&pos, move->move);
+      }
+    }
+    fens[0] = pos.fen();
   }
 
   mymain(fens, mode, timeLimitMs, depth, makeQuiet);
