@@ -327,6 +327,7 @@ void make_move(Position *pos, Move move) {
   pos->currentState_.castlingRights &= ~four_corners_to_byte(f);
   pos->currentState_.castlingRights &= ~four_corners_to_byte(t);
 
+  const Square epSquare = pos->currentState_.epSquare;
   if (TURN == Color::WHITE) {
     bool cond = (movingPiece == coloredPiece<TURN, Piece::PAWN>() && move.from - move.to == 16);
     pos->currentState_.epSquare = Square(cond * (move.to + 8) + (1 - cond) * Square::NO_SQUARE);
@@ -386,6 +387,7 @@ void make_move(Position *pos, Move move) {
     pos->hash_ ^= kZorbristNumbers[myRookPiece][rookDestination] * hasCapturedPiece;
   }
 
+  // if (move.to == epSquare && movingPiece == coloredPiece<TURN, Piece::PAWN>()) {
   if (move.moveType == MoveType::EN_PASSANT) {
     // TODO: get rid of if statement
     if (TURN == Color::BLACK) {
@@ -400,10 +402,11 @@ void make_move(Position *pos, Move move) {
 
     constexpr ColoredPiece opposingPawn = coloredPiece<opposingColor, Piece::PAWN>();
 
-    assert(pos->tiles_[lsb(enpassantLocBB)] == opposingPawn);
+    assert(pos->tiles_[enpassantLoc] == opposingPawn);
 
     pos->pieceBitboards_[opposingPawn] &= ~enpassantLocBB;
     pos->colorBitboards_[opposingColor] &= ~enpassantLocBB;
+    pos->tiles_[enpassantLoc] = ColoredPiece::NO_COLORED_PIECE;
     pos->hash_ ^= kZorbristNumbers[opposingPawn][enpassantLoc];
   }
 

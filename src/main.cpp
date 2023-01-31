@@ -345,13 +345,15 @@ std::pair<Evaluation, Move> search(Position* pos, Depth depth, Evaluation alpha,
     }
   }
 
+  
+  //  30  3/30
   auto it = gCache.find(pos->hash_);
   {
     if (it != gCache.end()) {
       const int8_t deltaDepth = (depth - it->second.depth);
       if (it->second.depth == depth
         && pos->currentState_.halfMoveCounter < 40
-        // || it->second.eval >= beta + 100 * deltaDepth
+        // || it->second.eval >= beta + 60 * deltaDepth
         ) {
         return std::make_pair(it->second.eval, it->second.bestMove);
       }
@@ -744,6 +746,31 @@ void mymain(std::vector<std::string>& fens, const std::string& mode, double time
   }
 }
 
+void make_uci_move(Position *pos, std::string uciMove) {
+  ExtMove moves[256];
+  ExtMove *end;
+  if (pos->turn_ == Color::WHITE) {
+    end = compute_legal_moves<Color::WHITE>(pos, moves);
+  } else {
+    end = compute_legal_moves<Color::BLACK>(pos, moves);
+  }
+  ExtMove *move;
+  for (move = moves; move < end; ++move) {
+    if (move->move.uci() == uciMove) {
+      break;
+    }
+  }
+  if (move->move.uci() != uciMove) {
+    throw std::runtime_error("Unrecognized uci move \"" + uciMove + "\"");
+    exit(1);
+  }
+  if (pos->turn_ == Color::WHITE) {
+    make_move<Color::WHITE>(pos, move->move);
+  } else {
+    make_move<Color::BLACK>(pos, move->move);
+  }
+}
+
 int main(int argc, char *argv[]) {
   signal(SIGSEGV, handler);
   #ifndef NDEBUG
@@ -851,30 +878,31 @@ int main(int argc, char *argv[]) {
   }
 
   if (uciMoves.size() > 0) {
-    ExtMove moves[256];
-    ExtMove *end;
     Position pos(fens[0]);
+    // ExtMove moves[256];
+    // ExtMove *end;
     for (size_t i = 0; i < uciMoves.size(); ++i) {
-      if (pos.turn_ == Color::WHITE) {
-        end = compute_legal_moves<Color::WHITE>(&pos, moves);
-      } else {
-        end = compute_legal_moves<Color::BLACK>(&pos, moves);
-      }
-      ExtMove *move;
-      for (move = moves; move < end; ++move) {
-        if (move->move.uci() == uciMoves[i]) {
-          break;
-        }
-      }
-      if (move->move.uci() != uciMoves[i]) {
-        throw std::runtime_error("Unrecognized uci move \"" + uciMoves[i] + "\"");
-        exit(1);
-      }
-      if (pos.turn_ == Color::WHITE) {
-        make_move<Color::WHITE>(&pos, move->move);
-      } else {
-        make_move<Color::BLACK>(&pos, move->move);
-      }
+      make_uci_move(&pos, uciMoves[i]);
+    //   if (pos.turn_ == Color::WHITE) {
+    //     end = compute_legal_moves<Color::WHITE>(&pos, moves);
+    //   } else {
+    //     end = compute_legal_moves<Color::BLACK>(&pos, moves);
+    //   }
+    //   ExtMove *move;
+    //   for (move = moves; move < end; ++move) {
+    //     if (move->move.uci() == uciMoves[i]) {
+    //       break;
+    //     }
+    //   }
+    //   if (move->move.uci() != uciMoves[i]) {
+    //     throw std::runtime_error("Unrecognized uci move \"" + uciMoves[i] + "\"");
+    //     exit(1);
+    //   }
+    //   if (pos.turn_ == Color::WHITE) {
+    //     make_move<Color::WHITE>(&pos, move->move);
+    //   } else {
+    //     make_move<Color::BLACK>(&pos, move->move);
+    //   }
     }
     fens[0] = pos.fen();
   }

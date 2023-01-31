@@ -7,21 +7,28 @@ from scipy import stats
 from multiprocessing import Pool
 
 def f(player, fen, moves):
-	command = [player, "mode", "analyze", "fen", *fen.split(' '), "time", "10", "moves", *moves]
+	command = [player, "mode", "analyze", "fen", *fen.split(' '), "time", "2", "moves", *moves]
 	output = subprocess.check_output(command).decode().strip()
-	return re.findall(r"\d+ : [^ ]+", output)[-1].split(' ')[-1]
+	return re.findall(r"\d+ : [^ ]+", output)[-1].split(' ')[-1], command
 
 def play(fen0, player1, player2):
 	board = chess.Board(fen0)
 	moves = []
 	mover, waiter = player1, player2
 	while not board.can_claim_draw() and not board.is_stalemate() and not board.is_checkmate():
-		move = f(mover, fen0, moves)
+		move, cmd = f(mover, fen0, moves)
 		moves.append(move)
 		if move == 'a8a8':
 			print(board)
 			break
-		board.push_uci(move)
+		try:
+			board.push_uci(move)
+		except (ValueError) as e:
+			print(fen0, moves)
+			print(board.fen())
+			print(board)
+			print(' '.join(cmd))
+			raise e
 		mover, waiter = waiter, mover
 
 	if board.is_checkmate():
