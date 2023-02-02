@@ -4,6 +4,8 @@
 #include "../Position.h"
 #include "../utils.h"
 
+#include <bit>
+
 namespace ChessEngine {
 
 namespace {

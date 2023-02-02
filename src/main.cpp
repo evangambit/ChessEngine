@@ -789,7 +789,7 @@ int main(int argc, char *argv[]) {
   // test1();
   // test_moves();
 
-  Depth depth = 10;
+  Depth depth = 50;
   std::string mode = "analyze";
   double timeLimitMs = 60000.0;
   std::string fenFile;

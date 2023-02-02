@@ -164,6 +164,7 @@ void undo(Position *pos) {
   const ColoredPiece promoPiece = move.moveType == MoveType::PROMOTION ? coloredPiece<MOVER_TURN>(Piece(move.promotion + 2)) : movingPiece;
   const Location f = square2location(move.from);
   const Location t = square2location(move.to);
+  const Square epSquare = pos->currentState_.epSquare;
 
   pos->pieceBitboards_[movingPiece] |= f;
   pos->pieceBitboards_[promoPiece] &= ~t;
@@ -204,11 +205,11 @@ void undo(Position *pos) {
     pos->hash_ ^= kZorbristNumbers[myRookPiece][rookDestination] * hasCapturedPiece;
   }
 
-  if (move.moveType == MoveType::EN_PASSANT) {
+  if (move.to == epSquare && movingPiece == coloredPiece<MOVER_TURN, Piece::PAWN>()) {
     // TODO: get rid of if statement
     if (MOVER_TURN == Color::BLACK) {
-      assert(move.from / 8 == 5);
-      assert(move.to / 8 == 6);
+      assert(move.from / 8 == 4);
+      assert(move.to / 8 == 5);
     } else {
       assert(move.from / 8 == 3);
       assert(move.to / 8 == 2);
@@ -220,10 +221,9 @@ void undo(Position *pos) {
 
     constexpr ColoredPiece opposingPawn = coloredPiece<opposingColor, Piece::PAWN>();
 
-    assert(pos->tiles_[lsb(enpassantLocBB)] == opposingPawn);
-
     pos->pieceBitboards_[opposingPawn] |= enpassantLocBB;
     pos->colorBitboards_[opposingColor] |= enpassantLocBB;
+    pos->tiles_[enpassantLoc] = opposingPawn;
     pos->hash_ ^= kZorbristNumbers[opposingPawn][enpassantLoc];
   }
 
@@ -387,12 +387,11 @@ void make_move(Position *pos, Move move) {
     pos->hash_ ^= kZorbristNumbers[myRookPiece][rookDestination] * hasCapturedPiece;
   }
 
-  // if (move.to == epSquare && movingPiece == coloredPiece<TURN, Piece::PAWN>()) {
-  if (move.moveType == MoveType::EN_PASSANT) {
+  if (move.to == epSquare && movingPiece == coloredPiece<TURN, Piece::PAWN>()) {
     // TODO: get rid of if statement
     if (TURN == Color::BLACK) {
-      assert(move.from / 8 == 5);
-      assert(move.to / 8 == 6);
+      assert(move.from / 8 == 4);
+      assert(move.to / 8 == 5);
     } else {
       assert(move.from / 8 == 3);
       assert(move.to / 8 == 2);

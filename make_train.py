@@ -16,11 +16,9 @@ import numpy as np
 """
 To generate training data from scratch:
 
-python3 make_train.py --mode generate_positions --type quiet lichess_db_standard_rated_2013-11.pgn
-python3 make_train.py --mode generate_positions --type endgame
+python3 make_train.py --mode generate_positions --type any --quiet 1 lichess_elite_2022-05.pgn
 
-python3 make_train.py --mode write_numpy --type quiet
-python3 make_train.py --mode write_numpy --type endgame
+python3 -i make_train.py --mode write_numpy --type any --quiet 1 lichess_elite_2022-05.pgn
 
 zip traindata.zip -r traindata
 
@@ -103,8 +101,7 @@ def endgame_iterator():
     yield fen
 
 def get_vec(fen):
-  q = "1" if args.type == "tactics" else "0"
-  command = ["./a.out", "mode", "printvec-cpu", "fen", *fen.split(' '), "makequiet", q]
+  command = ["./a.out", "mode", "printvec-cpu", "fen", *fen.split(' '), "makequiet", str(args.quiet)]
   lines = subprocess.check_output(command).decode().strip().split('\n')
   assert len(lines) == 2, lines
   fen = lines[0]
@@ -112,11 +109,10 @@ def get_vec(fen):
   return fen, x
 
 def get_vecs(fens):
-  q = "1" if args.type == "tactics" else "0"
   filename = '/tmp/fens.txt'
   with open(filename, 'w+') as f:
     f.write('\n'.join(fens))
-  command = ["./a.out", "mode", "printvec-cpu", "fens", filename, "makequiet", q]
+  command = ["./a.out", "mode", "printvec-cpu", "fens", filename, "makequiet", str(args.quiet)]
   lines = subprocess.check_output(command).decode().strip().split('\n')
   assert len(lines) == len(fens) * 2
   for i in range(0, len(lines), 2):
@@ -127,10 +123,14 @@ parser = argparse.ArgumentParser()
 parser.add_argument("pgnfiles", nargs='*')
 parser.add_argument("--mode", type=str, required=True)
 parser.add_argument("--type", type=str, required=True)
+parser.add_argument("--quiet", type=int, required=True)
 parser.add_argument("--noise", type=int, default=0)
+parser.add_argument("--depth", type=int, default=10)
+parser.add_argument("--stockpath", default="/usr/local/bin/stockfish", type=str)
 args = parser.parse_args()
 
-assert args.type in ["quiet", "any", "tactics", "endgame"]
+assert args.type in ["any", "tactics", "endgame"]
+assert args.quiet in [0, 1]
 assert args.mode in ['generate_positions', 'update_features', 'write_numpy']
 assert args.noise >= 0
 
@@ -140,12 +140,7 @@ if args.type == "endgame":
 
 conn = sqlite3.connect("db.sqlite3")
 c = conn.cursor()
-kTableName = {
-  "quiet": "QuietTable",
-  "any": "AnyTable",
-  "tactics": "TacticsTable",
-  "endgame": "EndgameTable",
-}[args.type]
+kTableName = f"{args.type}_d{args.depth}_q{args.quiet}_n{args.noise}"
 
 if args.mode == 'update_features':
   c.execute(f"SELECT fen FROM {kTableName}")
@@ -185,8 +180,7 @@ if args.mode == 'generate_positions':
   for fen, in c:
     fens.add(fen)
 
-  kDepth = 12
-  stockfish = Stockfish(path="/usr/local/bin/stockfish", depth=kDepth)
+  stockfish = Stockfish(path=args.stockpath, depth=args.depth)
 
   iterator = None
   if args.type == 'endgame':
@@ -213,7 +207,7 @@ if args.mode == 'generate_positions':
       print('reboot')
       # Restart stockfish.
       fens.remove(fen)
-      stockfish = Stockfish(path="/usr/local/bin/stockfish", depth=kDepth)
+      stockfish = Stockfish(path=args.stockpath, depth=args.depth)
       continue
 
     if len(moves) != 2:

@@ -14,6 +14,14 @@
 
 namespace ChessEngine {
 
+/*
+
+Add a feature for how many friendly pawns are on your bishop's color
+
+Add a feature for the mobility of each piece
+
+*/
+
 enum EF {
   OUR_PAWNS,
   OUR_KNIGHTS,
@@ -100,10 +108,12 @@ enum EF {
   NUM_EVAL_FEATURES,
 };
 
-const int32_t kEarlyB0 = -4;
-const int32_t kEarlyW0[68] = { 38,117,128,184,351,-40,-118,-128,-187,-356,-116,15,-8,-12,-30,1,-9,-9,-16,0,4,14,0,64,55,17,21,21,2,16,10,24,-9,2,4,-16,81,42,6,44,0,0,13,12,-10,-7,-16,13,2,83,87,119,165,-441,-474,3,-2,0,1,0,0,1,1,0,0,0,0,0};
-const int32_t kLateB0 = -12;
-const int32_t kLateW0[68] = { 117,193,215,382,567,-116,-190,-208,-384,-566,-5,-47,10,40,9,-3,0,-6,-19,-22,-13,-7,0,80,43,22,30,44,-5,4,32,53,-10,52,16,-11,7,-7,47,61,30,21,15,-22,-11,-37,0,-97,41,41,66,177,352,44,-12,3,-6,0,0,0,0,0,0,-17,-73,267,-270,194};
+const int32_t kEarlyB0 = -5;
+const int32_t kEarlyW0[68] = { 20,62,80,109,247,-15,-64,-79,-99,-254,-112,16,-12,-20,-32,-1,-12,-8,-17,4,3,14,0,46,40,11,-20,30,0,18,16,8,-12,4,15,-18,89,38,15,52,0,-2,13,18,-8,-7,-14,-3,-6,90,103,-41,-58,-347,-326,1,0,0,1,1,0,0,1,0,0,0,0,0};
+const int32_t kLateB0 = -13;
+const int32_t kLateW0[68] = { 97,145,164,300,423,-94,-142,-163,-312,-427,-15,-41,9,24,11,-3,-1,-1,-12,-25,-12,-8,0,61,33,18,-4,40,-4,4,32,50,-14,48,24,-11,-21,-16,55,51,31,18,13,-20,-12,-28,1,-75,40,47,88,79,226,41,-12,2,-2,0,0,0,0,1,0,23,-79,194,-327,127};
+const int32_t kClippedB0 = 10;
+const int32_t kClippedW0[68] = { 44,193,189,297,629,-50,-207,-206,-315,-658,-3,-6,4,22,-2,0,3,-5,-4,-4,1,0,0,49,21,9,97,-31,2,0,-4,17,4,-1,-17,-1,10,19,-7,-9,-1,3,0,-3,-3,-6,-18,15,6,-11,-42,484,894,-11,-22,2,4,0,0,0,0,0,0,-15,176,51,186,139};
 
 std::string EFSTR[] = {
   "OUR_PAWNS",
@@ -475,8 +485,9 @@ struct Evaluator {
     // Use larger integer to make arithmetic safe.
     const int32_t early = this->early<US>(pos);
     const int32_t late = this->late<US>(pos);
+    const int32_t clipped = this->clipped<US>(pos);
 
-    return (early * (16 - time) + late * time) / 16;
+    return (early * (16 - time) + late * time) / 16 + clipped;
   }
 
   template<Color US>
@@ -495,6 +506,15 @@ struct Evaluator {
       r += features[i] * kLateW0[i];
     }
     return r;
+  }
+
+  template<Color US>
+  Evaluation clipped(const Position& pos) const {
+    int32_t r = kClippedB0;
+    for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
+      r += features[i] * kClippedW0[i];
+    }
+    return std::max(-100, std::min(100, r));
   }
 
   // template<Color US>
