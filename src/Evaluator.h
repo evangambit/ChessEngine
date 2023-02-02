@@ -105,15 +105,22 @@ enum EF {
   KPVK_DEFENSIVE_KEY_SQUARES,
   SQUARE_RULE,
 
+  ADVANCED_PAWNS_1,
+  ADVANCED_PAWNS_2,
+  OPEN_ROOKS,
+  ROOKS_ON_THEIR_SIDE,
+  KING_CASTLED,
+  CASTLING_RIGHTS,
+
   NUM_EVAL_FEATURES,
 };
 
-const int32_t kEarlyB0 = 1;
-const int32_t kEarlyW0[68] = { 15,77,98,116,304,-16,-79,-98,-107,-301,-178,13,-9,-13,-37,1,-14,-9,-16,11,0,15,0,43,46,8,-16,48,0,11,23,8,-12,3,17,-17,98,40,16,58,0,1,11,19,-17,-13,2,-29,-3,58,70,97,-98,-332,-375,1,1,0,1,1,0,1,1,0,0,0,0,0};
-const int32_t kLateB0 = -20;
-const int32_t kLateW0[68] = { 96,152,169,312,418,-95,-141,-166,-313,-401,-2,-32,3,21,7,0,-3,0,-22,-14,-10,-13,0,54,34,20,-12,18,-5,6,35,58,-15,31,36,-11,-13,-8,56,36,27,19,10,-21,-26,-34,-43,-66,31,2,35,127,27,36,1,2,-2,0,0,0,0,1,0,5,-78,235,-328,146};
-const int32_t kClippedB0 = 5;
-const int32_t kClippedW0[68] = { 45,206,196,313,677,-48,-209,-201,-322,-695,6,-8,3,17,1,-1,6,-5,2,-12,1,2,0,41,20,9,96,-34,3,0,-10,18,2,4,-21,-2,9,13,-7,-10,-1,2,1,-2,5,2,-2,35,-1,14,-21,-73,981,-21,-25,2,-2,0,0,0,0,0,0,15,187,-29,283,123};
+const int32_t kEarlyB0 = 5;
+const int32_t kEarlyW0[74] = { 21,112,125,139,345,-24,-112,-124,-126,-334,-161,8,-11,-14,-31,0,-13,-12,-10,11,1,24,0,29,27,8,-11,69,1,12,7,6,-11,-2,17,9,96,-15,2,61,-3,2,-4,20,-20,-8,3,-30,-1,35,39,47,18,-312,-407,0,3,-3,22,24,27,21,25,0,0,0,0,0,18,18,27,-16,9,4};
+const int32_t kLateB0 = -21;
+const int32_t kLateW0[74] = { 93,160,177,290,447,-92,-148,-173,-290,-424,-16,-34,3,18,5,1,1,0,-24,-11,-12,-13,0,16,10,18,-18,-23,-1,4,30,59,-14,17,41,10,-26,-3,49,16,17,21,2,-19,-29,-35,-53,-62,26,-8,21,78,84,32,7,1,1,7,6,2,-3,-2,-2,13,55,158,-352,136,14,14,1,17,22,0};
+const int32_t kClippedB0 = 9;
+const int32_t kClippedW0[74] = { 40,203,194,310,673,-44,-210,-201,-322,-698,0,-11,5,17,1,-1,5,-4,-1,-12,3,-2,0,36,15,10,96,-32,3,1,-7,17,1,10,-24,4,6,6,-8,-13,-4,1,3,-2,10,1,0,29,-2,22,-7,-23,-35,-6,-41,1,0,0,-2,-1,-1,1,3,11,-19,87,270,137,4,4,-7,11,-11,-3};
 
 std::string EFSTR[] = {
   "OUR_PAWNS",
@@ -121,25 +128,21 @@ std::string EFSTR[] = {
   "OUR_BISHOPS",
   "OUR_ROOKS",
   "OUR_QUEENS",
-
   "THEIR_PAWNS",
   "THEIR_KNIGHTS",
   "THEIR_BISHOPS",
   "THEIR_ROOKS",
   "THEIR_QUEENS",
-
   "IN_CHECK",
   "KING_ON_BACK_RANK",
   "KING_ON_CENTER_FILE",
   "KING_ACTIVE",
   "THREATS_NEAR_KING_2",
   "THREATS_NEAR_KING_3",
-
   "PASSED_PAWNS",
   "ISOLATED_PAWNS",
   "DOUBLED_PAWNS",
   "DOUBLE_ISOLATED_PAWNS",
-
   "PAWNS_CENTER_16",
   "PAWNS_CENTER_4",
   "ADVANCED_PASSED_PAWNS_1",
@@ -150,54 +153,50 @@ std::string EFSTR[] = {
   "PAWN_MAJOR_CAPTURES",
   "PROTECTED_PAWNS",
   "PROTECTED_PASSED_PAWNS",
-
   "BISHOPS_DEVELOPED",
   "BISHOP_PAIR",
   "BLOCKADED_BISHOPS",
   "SCARY_BISHOPS",
   "SCARIER_BISHOPS",
-
   "BLOCKADED_ROOKS",
   "SCARY_ROOKS",
   "INFILTRATING_ROOKS",
-
   "KNIGHTS_DEVELOPED",
   "KNIGHT_MAJOR_CAPTURES",
   "KNIGHTS_CENTER_16",
   "KNIGHTS_CENTER_4",
   "KNIGHT_ON_ENEMY_SIDE",
-
   "OUR_HANGING_PAWNS",
   "OUR_HANGING_KNIGHTS",
   "OUR_HANGING_BISHOPS",
   "OUR_HANGING_ROOKS",
   "OUR_HANGING_QUEENS",
-
   "THEIR_HANGING_PAWNS",
   "THEIR_HANGING_KNIGHTS",
   "THEIR_HANGING_BISHOPS",
   "THEIR_HANGING_ROOKS",
   "THEIR_HANGING_QUEENS",
-
   "LONELY_KING_IN_CENTER",
   "LONELY_KING_AWAY_FROM_ENEMY_KING",
-
   "NUM_TARGET_SQUARES",
   "TIME",
-
   "PAWN_PM",
   "KNIGHT_PM",
   "BISHOP_PM",
   "ROOK_PM",
   "QUEEN_PM",
   "KING_PM",
-
   "KPVK_OPPOSITION",
   "KPVK_IN_FRONT_OF_PAWN",
   "KPVK_OFFENSIVE_KEY_SQUARES",
   "KPVK_DEFENSIVE_KEY_SQUARES",
   "SQUARE_RULE",
-
+  "ADVANCED_PAWNS_1",
+  "ADVANCED_PAWNS_2",
+  "OPEN_ROOKS",
+  "ROOKS_ON_THEIR_SIDE",
+  "KING_CASTLED",
+  "CASTLING_RIGHTS",
   "NUM_EVAL_FEATURES",
 };
 
@@ -232,9 +231,9 @@ struct Evaluator {
     const Bitboard theirKings = pos.pieceBitboards_[coloredPiece<THEM, Piece::KING>()];
 
     const Bitboard ourRoyalty = ourQueens | ourKings;
-    const Bitboard theiryRoyalty = theirQueens | theirKings;
+    const Bitboard theirRoyalty = theirQueens | theirKings;
     const Bitboard ourMajors = ourRooks | ourRoyalty;
-    const Bitboard theirMajors = theirRooks | theiryRoyalty;
+    const Bitboard theirMajors = theirRooks | theirRoyalty;
     const Bitboard ourMinors = ourKnights | ourBishops;
     const Bitboard theirMinors = theirKnights | theirBishops;
     const Bitboard ourPieces = ourMajors | ourMinors;
@@ -246,7 +245,7 @@ struct Evaluator {
     const Bitboard theirKnightTargets = compute_knight_targets<THEM>(pos);
     const Bitboard usBishopTargets = compute_bishoplike_targets<US>(pos, ourBishops);
     const Bitboard theirBishopTargets = compute_bishoplike_targets<THEM>(pos, theirBishops);
-    const Bitboard usRookTargets = compute_rooklike_targets<US>(pos, ourRooks);
+    const Bitboard ourRookTargets = compute_rooklike_targets<US>(pos, ourRooks);
     const Bitboard theirRookTargets = compute_rooklike_targets<THEM>(pos, theirRooks);
     const Bitboard usQueenTargets = compute_bishoplike_targets<US>(pos, ourQueens) | compute_rooklike_targets<US>(pos, ourQueens);
     const Bitboard theirQueenTargets = compute_bishoplike_targets<THEM>(pos, theirQueens) | compute_rooklike_targets<THEM>(pos, theirQueens);
@@ -255,9 +254,12 @@ struct Evaluator {
     constexpr Bitboard kTheirSide = (US == Color::WHITE ? kBlackSide : kWhiteSide);
     constexpr Direction kForward = (US == Color::WHITE ? Direction::NORTH : Direction::SOUTH);
     constexpr Direction kBackward = opposite_dir(kForward);
+    constexpr Bitboard kOurBackRanks = (US == Color::WHITE ? kRanks[6] | kRanks[7] : kRanks[1] | kRanks[0]);
+    constexpr Bitboard kTheirBackRanks = (US == Color::WHITE ? kRanks[1] | kRanks[0] : kRanks[6] | kRanks[7]);
+    constexpr Bitboard kHappyKingSquares = bb(62) | bb(58) | bb(57) | bb(6) | bb(1) | bb(2);
 
     // TODO: include king targets here?
-    const Bitboard usTargets = ourPawnTargets | ourKnightTargets | usBishopTargets | usRookTargets | usQueenTargets;
+    const Bitboard usTargets = ourPawnTargets | ourKnightTargets | usBishopTargets | ourRookTargets | usQueenTargets;
     const Bitboard themTargets = theirPawnTargets | theirKnightTargets | theirBishopTargets | theirRookTargets | theirQueenTargets;
 
     features[EF::OUR_PAWNS] = std::popcount(ourPawns);
@@ -297,6 +299,7 @@ struct Evaluator {
     const Bitboard ourProtectedPawns = ourPawns & ourPawnTargets;
     const Bitboard theirProtectedPawns = theirPawns & theirPawnTargets;
     Bitboard ourPassedPawns, theirPassedPawns;
+    Bitboard filesWithoutOurPawns, filesWithoutTheirPawns;
     {
       Bitboard ourFilled, theirFilled;
       Bitboard filesWithOurPawns, filesWithTheirPawns;
@@ -313,8 +316,8 @@ struct Evaluator {
       }
       const Bitboard fatUsPawns = fatten(ourFilled);
       const Bitboard fatThemPawns = fatten(theirFilled);
-      const Bitboard filesWithoutUsPawns = ~filesWithOurPawns;
-      const Bitboard filesWithoutThemPawns = ~filesWithTheirPawns;
+      filesWithoutOurPawns = ~filesWithOurPawns;
+      filesWithoutTheirPawns = ~filesWithTheirPawns;
       ourPassedPawns = ourPawns & ~shift<kBackward>(fatten(theirFilled));
       theirPassedPawns = theirPawns & ~shift<kForward>(fatten(ourFilled));
       const Bitboard ourIsolatedPawns = ourPawns & ~shift<Direction::WEST>(filesWithOurPawns) & ~shift<Direction::EAST>(filesWithOurPawns);
@@ -331,6 +334,8 @@ struct Evaluator {
       features[EF::ISOLATED_PAWNS] = std::popcount(ourIsolatedPawns) - std::popcount(theirIsolatedPawns);
       features[EF::DOUBLED_PAWNS] = std::popcount(ourDoubledPawns) - std::popcount(theirDoubledPawns);
       features[EF::DOUBLE_ISOLATED_PAWNS] = std::popcount(ourDoubledPawns & ourIsolatedPawns) - std::popcount(theirDoubledPawns & theirIsolatedPawns);
+      features[EF::ADVANCED_PAWNS_1] = std::popcount(ourPawns & shift<kBackward>(kTheirBackRanks)) - std::popcount(theirPawns & shift<kForward>(kOurBackRanks));
+      features[EF::ADVANCED_PAWNS_2] = std::popcount(ourPawns & shift<kBackward>(kTheirBackRanks)) - std::popcount(theirPawns & shift<kForward>(kOurBackRanks));
 
       if (US == Color::WHITE) {
         features[EF::ADVANCED_PASSED_PAWNS_2] = std::popcount(ourPassedPawns & kRanks[1]) * 2 - std::popcount(theirPassedPawns & kRanks[6]);
@@ -359,7 +364,7 @@ struct Evaluator {
       features[EF::BISHOP_PAIR] = (std::popcount(ourBishops) >= 2) - (std::popcount(theirBishops) >= 2);
       features[EF::BLOCKADED_BISHOPS] = std::popcount(ourBishopTargetsIgnoringNonBlockades & (outBlockadedPawns | theirProtectedPawns)) - std::popcount(theirBishopTargetsIgnoringNonBlockades & (theirBlockadedPawns | ourProtectedPawns));
       features[EF::SCARY_BISHOPS] = std::popcount(ourBishopTargetsIgnoringNonBlockades & theirMajors) - std::popcount(theirBishopTargetsIgnoringNonBlockades & ourMajors);
-      features[EF::SCARIER_BISHOPS] = std::popcount(ourBishopTargetsIgnoringNonBlockades & theiryRoyalty) - std::popcount(theirBishopTargetsIgnoringNonBlockades & ourRoyalty);
+      features[EF::SCARIER_BISHOPS] = std::popcount(ourBishopTargetsIgnoringNonBlockades & theirRoyalty) - std::popcount(theirBishopTargetsIgnoringNonBlockades & ourRoyalty);
 
       // const Bitboard ourPawnsOnUs = kUsSquares & ourPawns;
       // const Bitboard ourPawnsOnThem = kThemSquares & ourPawns;
@@ -367,13 +372,13 @@ struct Evaluator {
       // const Bitboard theirPawnsOnThem = kThemSquares & theirPawns;
     }
 
-    constexpr Bitboard kOurBackRanks = (US == Color::WHITE ? kRanks[6] | kRanks[7] : kRanks[1] | kRanks[0]);
-    constexpr Bitboard kTheirBackRanks = (US == Color::WHITE ? kRanks[1] | kRanks[0] : kRanks[6] | kRanks[7]);
-
     {  // Rooks
-      features[EF::BLOCKADED_ROOKS] = std::popcount(usRookTargets & ourPawns) - std::popcount(theirRookTargets & theirPawns);
-      features[EF::SCARY_ROOKS] = std::popcount(usRookTargets & theiryRoyalty) - std::popcount(theirRookTargets & ourRoyalty);
+      const Bitboard openFiles = filesWithoutOurPawns & filesWithoutTheirPawns;
+      features[EF::BLOCKADED_ROOKS] = std::popcount(ourRooks & filesWithoutOurPawns) - std::popcount(theirRooks & filesWithoutTheirPawns);
+      features[EF::SCARY_ROOKS] = std::popcount(ourRookTargets & theirRoyalty) - std::popcount(theirRookTargets & ourRoyalty);
       features[EF::INFILTRATING_ROOKS] = std::popcount(ourRooks & kTheirBackRanks) - std::popcount(theirRooks & kOurBackRanks);
+      features[EF::OPEN_ROOKS] = std::popcount(ourRooks & openFiles) - std::popcount(theirRooks & openFiles);
+      features[EF::ROOKS_ON_THEIR_SIDE] = std::popcount(ourRooks & kTheirSide) - std::popcount(theirRooks & kOurSide);
     }
 
     {  // Knights
@@ -405,6 +410,8 @@ struct Evaluator {
       features[EF::OUR_HANGING_QUEENS] = std::popcount(ourQueens & usHanging);
       features[EF::THEIR_HANGING_QUEENS] = std::popcount(theirQueens & themHanging);
 
+  // KING_CASTLED,
+
       const int wx = ourKingSq % 8;
       const int wy = ourKingSq / 8;
       const int bx = theirKingSq % 8;
@@ -415,6 +422,13 @@ struct Evaluator {
 
       features[EF::LONELY_KING_AWAY_FROM_ENEMY_KING] = (std::popcount(pos.colorBitboards_[THEM]) == 1) * kingsDist;
       features[EF::LONELY_KING_AWAY_FROM_ENEMY_KING] -= (std::popcount(pos.colorBitboards_[US]) == 1) * kingsDist;
+
+      const CastlingRights cr = pos.currentState_.castlingRights;
+      features[EF::CASTLING_RIGHTS] = ((cr & kCastlingRights_WhiteKing) > 0);
+      features[EF::CASTLING_RIGHTS] += ((cr & kCastlingRights_WhiteQueen) > 0);
+      features[EF::CASTLING_RIGHTS] -= ((cr & kCastlingRights_BlackKing) > 0);
+      features[EF::CASTLING_RIGHTS] -= ((cr & kCastlingRights_BlackQueen) > 0);
+      features[EF::KING_CASTLED] = std::popcount(ourKings & kHappyKingSquares) - std::popcount(theirKings & kHappyKingSquares);
 
       features[EF::NUM_TARGET_SQUARES] = std::popcount(usTargets) * 2 - std::popcount(themTargets);
     }
