@@ -255,9 +255,34 @@ struct RecommendedMoves {
   }
 };
 
+template<Color PERSPECTIVE>
+struct SearchResult {
+  SearchResult(Evaluation score, Move move) : score(score), move(move) {}
+  Evaluation score;
+  Move move;
+};
+
+template<Color COLOR>
+SearchResult<opposite_color<COLOR>()> flip(SearchResult<COLOR> r) {
+  return SearchResult<opposite_color<COLOR>()>(r.score * -1, r.move);
+}
+
+template<Color COLOR>
+SearchResult<Color::WHITE> to_white(SearchResult<COLOR> r);
+
+template<>
+SearchResult<Color::WHITE> to_white(SearchResult<Color::WHITE> r) {
+  return r;
+}
+
+template<>
+SearchResult<Color::WHITE> to_white(SearchResult<Color::BLACK> r) {
+  return flip(r);
+}
+
 // TODO: qsearch can leave you in check
 template<Color TURN>
-std::pair<Evaluation, Move> qsearch(Position *pos, int32_t depth, Evaluation alpha, Evaluation beta) {
+SearchResult<TURN> qsearch(Position *pos, int32_t depth, Evaluation alpha, Evaluation beta) {
   constexpr Color opposingColor = opposite_color<TURN>();
   constexpr ColoredPiece moverKing = coloredPiece<TURN, Piece::KING>();
 
@@ -266,7 +291,7 @@ std::pair<Evaluation, Move> qsearch(Position *pos, int32_t depth, Evaluation alp
 
   if (moves == end) {
     Evaluation e = gEvaluator.score<TURN>(*pos);
-    return std::make_pair(e, kNullMove);
+    return SearchResult<TURN>(e, kNullMove);
   }
 
   const Bitboard theirTargets = compute_my_targets<opposingColor>(*pos);
@@ -281,13 +306,12 @@ std::pair<Evaluation, Move> qsearch(Position *pos, int32_t depth, Evaluation alp
     return a.score > b.score;
   });
 
-  std::pair<Evaluation, Move> r(gEvaluator.score<TURN>(*pos), kNullMove);
-  if (r.first >= beta) {
+  SearchResult<TURN> r(gEvaluator.score<TURN>(*pos), kNullMove);
+  if (r.score >= beta) {
     // Opponent will never allow this; stop analyzing it.
     return r;
   }
 
-  std::pair<Evaluation, Move> bestChild(Evaluation(kMinEval), kNullMove);
   for (ExtMove *move = moves; move < end; ++move) {
     if (move->score <= 0) {
       break;
@@ -295,36 +319,23 @@ std::pair<Evaluation, Move> qsearch(Position *pos, int32_t depth, Evaluation alp
 
     make_move<TURN>(pos, moves[0].move);
 
-    std::pair<Evaluation, Move> child = qsearch<opposingColor>(pos, depth + 1, -beta, -alpha);
-    child.first *= -1;
+    SearchResult<TURN> child = flip(qsearch<opposingColor>(pos, depth + 1, -beta, -alpha));
 
-    if (child.first > r.first) {
-      r.first = child.first;
-      r.second = move->move;
+    if (child.score > r.score) {
+      r.score = child.score;
+      r.move = move->move;
     }
 
     undo<TURN>(pos);
 
-    if (r.first >= beta) {
+    if (r.score >= beta) {
       return r;
     }
 
-    alpha = std::max(alpha, child.first);
+    alpha = std::max(alpha, child.score);
   }
 
   return r;
-}
-
-template<Color PERSPECTIVE>
-struct SearchResult {
-  SearchResult(Evaluation score, Move move) : score(score), move(move) {}
-  Evaluation score;
-  Move move;
-};
-
-template<Color COLOR>
-SearchResult<opposite_color<COLOR>()> flip(SearchResult<COLOR> r) {
-  return SearchResult<opposite_color<COLOR>()>(r.score * -1, r.move);
 }
 
 template<Color TURN>
@@ -340,8 +351,7 @@ SearchResult<TURN> search(Position* pos, const Depth depth, Evaluation alpha, co
 
   if (depth <= 0) {
     ++leafCounter;
-    std::pair<Evaluation, Move> r = qsearch<TURN>(pos, 0, alpha, beta);
-    return SearchResult<TURN>(r.first, r.second);
+    return qsearch<TURN>(pos, 0, alpha, beta);
   }
   ++nodeCounter;
 
@@ -441,8 +451,7 @@ SearchResult<TURN> search(Position* pos, const Depth depth, Evaluation alpha, co
 
     ++numValidMoves;
 
-    SearchResult<opposite_color<TURN>()> foo = search<opposingColor>(pos, depth - 1, -beta, -alpha, recommendationsForChildren);
-    SearchResult<TURN> a = flip(foo);
+    SearchResult<TURN> a = flip(search<opposingColor>(pos, depth - 1, -beta, -alpha, recommendationsForChildren));
     if (a.score > kMaxEval - 100) {
       a.score -= 1;
     }
@@ -529,8 +538,7 @@ SearchResult<Color::WHITE> search(Position* pos, Depth depth) {
   if (pos->turn_ == Color::WHITE) {
     return search<Color::WHITE>(pos, depth, kMinEval, kMaxEval, RecommendedMoves());
   } else {
-    SearchResult<Color::BLACK> r = search<Color::BLACK>(pos, depth, kMinEval, kMaxEval, RecommendedMoves());
-    return flip(r);
+    return flip(search<Color::BLACK>(pos, depth, kMinEval, kMaxEval, RecommendedMoves()));
   }
 }
 
@@ -575,9 +583,9 @@ void handler(int sig) {
 template<Color TURN>
 void print_feature_vec(Position *pos, const std::string& originalFen, bool humanReadable, bool makeQuiet) {
   if (makeQuiet) {
-    std::pair<Evaluation, Move> r = qsearch<TURN>(pos, 0, kMinEval, kMaxEval);
-    if (r.second != kNullMove) {
-      make_move<TURN>(pos, r.second);
+    SearchResult<Color::WHITE> r = to_white(qsearch<TURN>(pos, 0, kMinEval, kMaxEval));
+    if (r.move != kNullMove) {
+      make_move<TURN>(pos, r.move);
       print_feature_vec<opposite_color<TURN>()>(pos, originalFen, humanReadable, makeQuiet);
       undo<TURN>(pos);
       return;
