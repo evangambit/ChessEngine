@@ -289,9 +289,10 @@ SearchResult<TURN> qsearch(Position *pos, int32_t depth, Evaluation alpha, Evalu
   ExtMove moves[kMaxNumMoves];
   ExtMove *end = compute_moves<TURN, MoveGenType::CHECKS_AND_CAPTURES>(*pos, moves);
 
-  if (moves == end) {
-    Evaluation e = gEvaluator.score<TURN>(*pos);
-    return SearchResult<TURN>(e, kNullMove);
+  // If we can stand pat for a bet cutoff, or if we have no moves, return.
+  SearchResult<TURN> r(gEvaluator.score<TURN>(*pos), kNullMove);
+  if (moves == end || r.score >= beta) {
+    return r;
   }
 
   const Bitboard theirTargets = compute_my_targets<opposingColor>(*pos);
@@ -305,12 +306,6 @@ SearchResult<TURN> qsearch(Position *pos, int32_t depth, Evaluation alpha, Evalu
   std::sort(moves, end, [](ExtMove a, ExtMove b) {
     return a.score > b.score;
   });
-
-  SearchResult<TURN> r(gEvaluator.score<TURN>(*pos), kNullMove);
-  if (r.score >= beta) {
-    // Opponent will never allow this; stop analyzing it.
-    return r;
-  }
 
   for (ExtMove *move = moves; move < end; ++move) {
     if (move->score <= 0) {
