@@ -315,13 +315,25 @@ std::pair<Evaluation, Move> qsearch(Position *pos, int32_t depth, Evaluation alp
   return r;
 }
 
+template<Color PERSPECTIVE>
+struct SearchResult {
+  SearchResult(Evaluation score, Move move) : score(score), move(move) {}
+  Evaluation score;
+  Move move;
+};
+
+template<Color COLOR>
+SearchResult<opposite_color<COLOR>()> flip(SearchResult<COLOR> r) {
+  return SearchResult<opposite_color<COLOR>()>(r.score * -1, r.move);
+}
+
 template<Color TURN>
-std::pair<Evaluation, Move> search(Position* pos, const Depth depth, Evaluation alpha, const Evaluation beta, RecommendedMoves recommendedMoves) {
+SearchResult<TURN> search(Position* pos, const Depth depth, Evaluation alpha, const Evaluation beta, RecommendedMoves recommendedMoves) {
   constexpr Color opposingColor = opposite_color<TURN>();
   constexpr ColoredPiece moverKing = coloredPiece<TURN, Piece::KING>();
 
   if (std::popcount(pos->pieceBitboards_[coloredPiece<TURN, Piece::KING>()]) == 0) {
-    return std::make_pair(kMinEval, kNullMove);
+    return SearchResult<TURN>(kMinEval, kNullMove);
   }
 
   const bool inCheck = can_enemy_attack<TURN>(*pos, lsb(pos->pieceBitboards_[moverKing]));
@@ -329,19 +341,19 @@ std::pair<Evaluation, Move> search(Position* pos, const Depth depth, Evaluation 
   if (depth <= 0) {
     ++leafCounter;
     std::pair<Evaluation, Move> r = qsearch<TURN>(pos, 0, alpha, beta);
-    return r;
+    return SearchResult<TURN>(r.first, r.second);
   }
   ++nodeCounter;
 
   if (pos->currentState_.halfMoveCounter >= 50) {
-    return std::make_pair(0, kNullMove);
+    return SearchResult<TURN>(Evaluation(0), kNullMove);
   }
 
   for (size_t i = 0; i < pos->hashes_.size(); ++i) {
     // TODO: stop looking when we hit a pawn move or capture.
     // TODO: handle 3 move draw for moves before the root.
     if (pos->hashes_[i] == pos->hash_) {
-      return std::make_pair(0, kNullMove);
+      return SearchResult<TURN>(Evaluation(0), kNullMove);
     }
   }
 
@@ -355,7 +367,7 @@ std::pair<Evaluation, Move> search(Position* pos, const Depth depth, Evaluation 
         && pos->currentState_.halfMoveCounter < 40
         || (it->second.eval >= beta + 50 * deltaDepth)
         ) {
-        return std::make_pair(it->second.eval, it->second.bestMove);
+        return SearchResult<TURN>(it->second.eval, it->second.bestMove);
       }
     }
   }
@@ -366,7 +378,7 @@ std::pair<Evaluation, Move> search(Position* pos, const Depth depth, Evaluation 
   std::string fen0 = pos->fen();
   #endif
 
-  std::pair<Evaluation, Move> r(
+  SearchResult<TURN> r(
     kMinEval + 1,
     kNullMove
   );
@@ -378,7 +390,7 @@ std::pair<Evaluation, Move> search(Position* pos, const Depth depth, Evaluation 
     if (inCheck) {
       return r;
     } else {
-      return std::make_pair(0, kNullMove);
+      return SearchResult<TURN>(Evaluation(0), kNullMove);
     }
   }
 
@@ -429,19 +441,19 @@ std::pair<Evaluation, Move> search(Position* pos, const Depth depth, Evaluation 
 
     ++numValidMoves;
 
-    std::pair<Evaluation, Move> a = search<opposingColor>(pos, depth - 1, -beta, -alpha, recommendationsForChildren);
-    a.first *= -1;
-    if (a.first > kMaxEval - 100) {
-      a.first -= 1;
+    SearchResult<opposite_color<TURN>()> foo = search<opposingColor>(pos, depth - 1, -beta, -alpha, recommendationsForChildren);
+    SearchResult<TURN> a = flip(foo);
+    if (a.score > kMaxEval - 100) {
+      a.score -= 1;
     }
-    if (a.first < kMinEval + 100) {
-      a.first += 1;
+    if (a.score < kMinEval + 100) {
+      a.score += 1;
     }
 
-    if (a.first > r.first) {
-      r.first = a.first;
-      r.second = extMove->move;
-      recommendationsForChildren.add(a.second);
+    if (a.score > r.score) {
+      r.score = a.score;
+      r.move = extMove->move;
+      recommendationsForChildren.add(a.move);
     }
     undo<TURN>(pos);
 
@@ -462,13 +474,13 @@ std::pair<Evaluation, Move> search(Position* pos, const Depth depth, Evaluation 
     pos->assert_valid_state("b " + extMove->uci());
     #endif
 
-    if (r.first >= beta) {
+    if (r.score >= beta) {
       it = gCache.find(pos->hash_);  // Need to re-search since the iterator may have changed when searching my children.
       if (it == gCache.end() || depth > it->second.depth) {
         const CacheResult cr = CacheResult{
           depth,
-          r.first,
-          r.second,
+          r.score,
+          r.move,
           false,
           #ifndef NDEBUG
           pos->fen(),
@@ -482,12 +494,12 @@ std::pair<Evaluation, Move> search(Position* pos, const Depth depth, Evaluation 
       }
       return r;
     }
-    alpha = std::max(alpha, r.first);
+    alpha = std::max(alpha, r.score);
   }
 
   if (numValidMoves == 0) {
-    r.first = inCheck ? kMinEval + 1 : 0;
-    r.second = kNullMove;
+    r.score = inCheck ? kMinEval + 1 : 0;
+    r.move = kNullMove;
   }
 
 
@@ -495,8 +507,8 @@ std::pair<Evaluation, Move> search(Position* pos, const Depth depth, Evaluation 
   if (it == gCache.end() || depth > it->second.depth) {
     const CacheResult cr = CacheResult{
       depth,
-      r.first,
-      r.second,
+      r.score,
+      r.move,
       true,
       #ifndef NDEBUG
       pos->fen(),
@@ -509,25 +521,16 @@ std::pair<Evaluation, Move> search(Position* pos, const Depth depth, Evaluation 
     }
   }
 
-  if (numValidMoves == 0) {
-    if (inCheck) {
-      return std::make_pair(kMinEval + 1, kNullMove);
-    } else {
-      return std::make_pair(0, kNullMove);
-    }
-  }
-
   return r;
 }
 
 // Gives scores from white's perspective
-std::pair<Evaluation, Move> search(Position* pos, Depth depth) {
+SearchResult<Color::WHITE> search(Position* pos, Depth depth) {
   if (pos->turn_ == Color::WHITE) {
     return search<Color::WHITE>(pos, depth, kMinEval, kMaxEval, RecommendedMoves());
   } else {
-    std::pair<Evaluation, Move> r = search<Color::BLACK>(pos, depth, kMinEval, kMaxEval, RecommendedMoves());
-    r.first *= -1;
-    return r;
+    SearchResult<Color::BLACK> r = search<Color::BLACK>(pos, depth, kMinEval, kMaxEval, RecommendedMoves());
+    return flip(r);
   }
 }
 
@@ -656,11 +659,11 @@ void mymain(std::vector<std::string>& fens, const std::string& mode, double time
       std::string fen = parts[0];
       std::string bestMove = parts[1];
       Position pos(fen);
-      std::pair<Evaluation, Move> results;
+      SearchResult<Color::WHITE> results(Evaluation(0), kNullMove);
       for (size_t i = 1; i <= depth; ++i) {
         results = search(&pos, i);
       }
-      numCorrect += (results.second.uci() == bestMove);
+      numCorrect += (results.move.uci() == bestMove);
       total += 1;
       if (total % 10000 == 0) {
         std::cout << numCorrect << " / " << total << std::endl;
@@ -678,12 +681,12 @@ void mymain(std::vector<std::string>& fens, const std::string& mode, double time
     for (auto fen : fens) {
       gCache.clear();
       Position pos(fen);
-      std::pair<Evaluation, Move> results;
+      SearchResult<Color::WHITE> results(Evaluation(0), kNullMove);
       time_t tstart = clock();
       for (size_t i = 1; i <= depth; ++i) {
         results = search(&pos, i);
         if (fens.size() == 1) {
-          std::cout << i << " : " << results.second << " : " << results.first << " (" << double(clock() - tstart)/CLOCKS_PER_SEC << " secs)" << std::endl;
+          std::cout << i << " : " << results.move << " : " << results.score << " (" << double(clock() - tstart)/CLOCKS_PER_SEC << " secs)" << std::endl;
         }
         if (double(clock() - tstart)/CLOCKS_PER_SEC*1000 >= timeLimitMs) {
           break;
@@ -723,7 +726,7 @@ void mymain(std::vector<std::string>& fens, const std::string& mode, double time
       Position pos(fen);
       while (true) {
         gCache.clear();
-        std::pair<Evaluation, Move> results;
+        SearchResult<Color::WHITE> results(Evaluation(0), kNullMove);
         time_t tstart = clock();
         for (size_t i = 1; i <= depth; ++i) {
           results = search(&pos, i);
@@ -731,14 +734,14 @@ void mymain(std::vector<std::string>& fens, const std::string& mode, double time
             break;
           }
         }
-        if (results.second == kNullMove) {
+        if (results.move == kNullMove) {
           break;
         }
-        std::cout << results.second << " " << std::flush;
+        std::cout << results.move << " " << std::flush;
         if (pos.turn_ == Color::WHITE) {
-          make_move<Color::WHITE>(&pos, results.second);
+          make_move<Color::WHITE>(&pos, results.move);
         } else {
-          make_move<Color::BLACK>(&pos, results.second);
+          make_move<Color::BLACK>(&pos, results.move);
         }
       }
       std::cout << std::endl;
