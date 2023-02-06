@@ -45,7 +45,7 @@
 
 using namespace ChessEngine;
 
-#define GENERATE_MOVE_ORDERING_DATA 1
+#define GENERATE_MOVE_ORDERING_DATA 0
 
 std::string repeat(const std::string text, size_t n) {
   std::string r = "";
@@ -336,15 +336,15 @@ SearchResult<TURN> qsearch(Position *pos, int32_t depth, Evaluation alpha, Evalu
 }
 
 constexpr Evaluation kMovePieceBonus[7] = {
-  0, 17, 19, 12, 13, 12, 11};
+  0, 22, 17, 14, 13, 14, 15};
 constexpr Evaluation kMovePieceBonus_Capture[7] = {
-  0, 295, 101, 100, 67, 43, 18};
+  0, 187, 21, 4, -11, -40, 16};
 constexpr Evaluation kMovePieceBonus_WeAreHanging[7] = {
-  0, -20, 5, 2, -8, -22, 75};
+  0, -7, 17, 9, -16, -21, 52};
 constexpr Evaluation kCapturePieceBonus[7] = {
-0, -80, 51, 120, 150, 383, 999}; // todo: 999 should be zero?
+0, -174, -37, 30, 69, 290, 999}; // todo: 999 should be zero?
 constexpr Evaluation kCapturePieceBonus_Hanging[7] = {
-  0, -179, 13, 117, 65, 120, 18};
+  0, -214, 57, 99, 88, 110, 16};
 
 template<Color TURN>
 SearchResult<TURN> search(Position* pos, const Depth depth, Evaluation alpha, const Evaluation beta, RecommendedMoves recommendedMoves) {
@@ -448,19 +448,19 @@ SearchResult<TURN> search(Position* pos, const Depth depth, Evaluation alpha, co
     move->score += kCapturePieceBonus[move->capture];
     move->score += kCapturePieceBonus_Hanging[move->capture * areTheyHanging];
 
-    move->score += areWeHanging * 33;
-    move->score += areTheyHanging * 154;
-    // move->score += (move->move == lastFoundBestMove) * (depth == 1) * -17;
-    move->score += (move->move == lastFoundBestMove) * (depth == 2) * 99;
-    move->score += (move->move == lastFoundBestMove) * (depth >= 3) * 117;
-    // move->score += (kNullMove == lastFoundBestMove) * -4;  // unnecessary
+    move->score += areWeHanging * 34;
+    move->score += areTheyHanging * 155;
+    // move->score += (move->move == lastFoundBestMove) * (depth == 1) * 0;
+    move->score += (move->move == lastFoundBestMove) * (depth == 2) * 41;
+    move->score += (move->move == lastFoundBestMove) * (depth >= 3) * 123;
+    // move->score += (kNullMove == lastFoundBestMove) * -5;  // unnecessary
 
-    move->score += (move->move == recommendedMoves.moves[0]) * 14;
-    move->score += (kNullMove == recommendedMoves.moves[0]) * 6;
-    move->score += (move->move == recommendedMoves.moves[1]) * 33;
-    move->score += (kNullMove == recommendedMoves.moves[1]) * -1;
-    move->score += (move->move.to == lastMove.to) * 44;
-    // move->score += depth * 1;
+    move->score += (move->move == recommendedMoves.moves[0]) * 24;
+    // move->score += (kNullMove == recommendedMoves.moves[0]) * 4;
+    move->score += (move->move == recommendedMoves.moves[1]) * 39;
+    // move->score += (kNullMove == recommendedMoves.moves[1]) * -1;
+    move->score += (move->move.to == lastMove.to) * 57;
+    move->score += isCapture * 177;
   }
 
   #if GENERATE_MOVE_ORDERING_DATA
@@ -535,6 +535,8 @@ SearchResult<TURN> search(Position* pos, const Depth depth, Evaluation alpha, co
       features.push_back(recommendedMoves.moves[1] == move->move);
       features.push_back(recommendedMoves.moves[1] == kNullMove);
       features.push_back(move->move.to == lastMove.to);
+      features.push_back(isCapture);
+
       features.push_back(depth);
 
       std::cout << move->move.uci();
