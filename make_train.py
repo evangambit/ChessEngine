@@ -171,7 +171,7 @@ if args.mode == 'generate_positions':
     bestMove BLOB,
     delta INTEGER,
     moverScore INTEGER,
-    moverFeatures BLOB    -- one byte per feature; from mover's perspective
+    moverFeatures BLOB    -- from mover's perspective
   );""")
   c.execute(f"""CREATE INDEX IF NOT EXISTS fenIndex ON {kTableName}(fen)""")
 

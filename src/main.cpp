@@ -45,7 +45,7 @@
 
 using namespace ChessEngine;
 
-#define GENERATE_MOVE_ORDERING_DATA 0
+#define GENERATE_MOVE_ORDERING_DATA 1
 
 std::string repeat(const std::string text, size_t n) {
   std::string r = "";
@@ -335,6 +335,17 @@ SearchResult<TURN> qsearch(Position *pos, int32_t depth, Evaluation alpha, Evalu
   return r;
 }
 
+constexpr Evaluation kMovePieceBonus[7] = {
+  0, 17, 19, 12, 13, 12, 11};
+constexpr Evaluation kMovePieceBonus_Capture[7] = {
+  0, 295, 101, 100, 67, 43, 18};
+constexpr Evaluation kMovePieceBonus_WeAreHanging[7] = {
+  0, -20, 5, 2, -8, -22, 75};
+constexpr Evaluation kCapturePieceBonus[7] = {
+0, -80, 51, 120, 150, 383, 999}; // todo: 999 should be zero?
+constexpr Evaluation kCapturePieceBonus_Hanging[7] = {
+  0, -179, 13, 117, 65, 120, 18};
+
 template<Color TURN>
 SearchResult<TURN> search(Position* pos, const Depth depth, Evaluation alpha, const Evaluation beta, RecommendedMoves recommendedMoves) {
   constexpr Color opposingColor = opposite_color<TURN>();
@@ -401,8 +412,14 @@ SearchResult<TURN> search(Position* pos, const Depth depth, Evaluation alpha, co
     }
   }
 
-  const Bitboard myTargets = compute_my_targets<opposingColor>(*pos);
-  const Bitboard theirHanging = ~myTargets & pos->colorBitboards_[opposingColor];
+  // const Bitboard myTargets = compute_my_targets<opposingColor>(*pos);
+  // const Bitboard theirHanging = ~myTargets & pos->colorBitboards_[opposingColor];
+
+  const Bitboard ourTargets = compute_my_targets<TURN>(*pos);
+  const Bitboard theirTargets = compute_my_targets<opposingColor>(*pos);
+  const Bitboard theirHanging = ourTargets & pos->colorBitboards_[opposingColor] & ~theirTargets;
+  const Bitboard ourHanging = theirTargets & pos->colorBitboards_[TURN] & ~ourTargets;
+
   const Move lastLastMove = pos->history_.size() > 2 ? pos->history_[pos->history_.size() - 3].move : kNullMove;
   const Move lastMove = pos->history_.size() > 0 ? pos->history_.back().move : kNullMove;
 
@@ -410,86 +427,124 @@ SearchResult<TURN> search(Position* pos, const Depth depth, Evaluation alpha, co
     move->score = 0;
 
     // When a lower piece captures a higher one, add the difference in value.
-    move->score += kSimplePieceValues[move->capture] - kSimplePieceValues[move->piece];
+    // move->score += kSimplePieceValues[move->capture] - kSimplePieceValues[move->piece];
 
-    // Refund the moving piece's value if the captured piece is hanging.
-    move->score += ((bb(move->move.to) & theirHanging) > 0) * kSimplePieceValues[move->piece];
+    // // Refund the moving piece's value if the captured piece is hanging.
+    // bool isCapturedPieceHanging = ((bb(move->move.to) & theirHanging) > 0);
+    // move->score += isCapturedPieceHanging * kSimplePieceValues[move->piece];
 
-    move->score += (move->move == lastFoundBestMove) * 10000;
-    move->score += recommendedMoves.score(move->move) * 2000;
+    // move->score += (move->move == lastFoundBestMove) * 10000;
+    // move->score += recommendedMoves.score(move->move) * 2000;
 
-    move->score += (move->move.to == lastMove.to) * 250;
+    // move->score += (move->move.to == lastMove.to) * 250;
+
+    const bool isCapture = (move->capture != Piece::NO_PIECE);
+    const bool areWeHanging = ((bb(move->move.from) & ourHanging) > 0);
+    const bool areTheyHanging = isCapture && ((bb(move->move.to) & theirHanging) > 0);
+
+    move->score += kMovePieceBonus[move->piece];
+    move->score += kMovePieceBonus_Capture[move->piece * (move->capture != Piece::NO_PIECE)];
+    move->score += kMovePieceBonus_WeAreHanging[move->piece * areWeHanging];
+    move->score += kCapturePieceBonus[move->capture];
+    move->score += kCapturePieceBonus_Hanging[move->capture * areTheyHanging];
+
+    move->score += areWeHanging * 33;
+    move->score += areTheyHanging * 154;
+    // move->score += (move->move == lastFoundBestMove) * (depth == 1) * -17;
+    move->score += (move->move == lastFoundBestMove) * (depth == 2) * 99;
+    move->score += (move->move == lastFoundBestMove) * (depth >= 3) * 117;
+    // move->score += (kNullMove == lastFoundBestMove) * -4;  // unnecessary
+
+    move->score += (move->move == recommendedMoves.moves[0]) * 14;
+    move->score += (kNullMove == recommendedMoves.moves[0]) * 6;
+    move->score += (move->move == recommendedMoves.moves[1]) * 33;
+    move->score += (kNullMove == recommendedMoves.moves[1]) * -1;
+    move->score += (move->move.to == lastMove.to) * 44;
+    // move->score += depth * 1;
   }
 
   #if GENERATE_MOVE_ORDERING_DATA
-  {
-    const Bitboard ourTargets = compute_my_targets<opposingColor>(*pos);
+  size_t foo = rand() % 50000;
+  if (foo == 0 || (depth > 1 && foo < 5) || (depth > 2 && foo < 25)) {
+    const Bitboard ourTargets = compute_my_targets<TURN>(*pos);
     const Bitboard theirTargets = compute_my_targets<opposingColor>(*pos);
 
     const Bitboard theirHanging = ourTargets & pos->colorBitboards_[opposingColor] & ~theirTargets;
-    const Bitboard ourHanging = theirTargets & pos->colorBitboards_[opposingColor] & ~myTargets;
+    const Bitboard ourHanging = theirTargets & pos->colorBitboards_[TURN] & ~ourTargets;
 
-    if (rand() % 200000 == 0) {
-      std::cout << "<movedata>" << std::endl;
-      std::cout << pos->fen() << std::endl;
-      for (ExtMove *move = moves; move < end; ++move) {
+    std::cout << "<movedata>" << std::endl;
+    std::cout << pos->fen() << std::endl;
+    for (ExtMove *move = moves; move < end; ++move) {
 
-        const bool isCapture = (move->capture != Piece::NO_PIECE);
-        const bool areWeHanging = ((bb(move->move.from) & ourHanging) > 0);
-        const bool areTheyHanging = isCapture && ((bb(move->move.to) & theirHanging) > 0);
+      const bool isCapture = (move->capture != Piece::NO_PIECE);
+      const bool areWeHanging = ((bb(move->move.from) & ourHanging) > 0);
+      const bool areTheyHanging = isCapture && ((bb(move->move.to) & theirHanging) > 0);
 
-        std::vector<int> features;
-        features.push_back(move->piece == Piece::PAWN);
-        features.push_back(move->piece == Piece::KNIGHT);
-        features.push_back(move->piece == Piece::BISHOP);
-        features.push_back(move->piece == Piece::ROOK);
-        features.push_back(move->piece == Piece::QUEEN);
-        features.push_back(move->piece == Piece::KING);
+      std::vector<int> features;
+      // [  13.,   12.,    5.,    6.,    6.,    3.],
+      features.push_back(move->piece == Piece::PAWN);
+      features.push_back(move->piece == Piece::KNIGHT);
+      features.push_back(move->piece == Piece::BISHOP);
+      features.push_back(move->piece == Piece::ROOK);
+      features.push_back(move->piece == Piece::QUEEN);
+      features.push_back(move->piece == Piece::KING);
 
-        features.push_back((move->piece == Piece::PAWN) && isCapture);
-        features.push_back((move->piece == Piece::KNIGHT) && isCapture);
-        features.push_back((move->piece == Piece::BISHOP) && isCapture);
-        features.push_back((move->piece == Piece::ROOK) && isCapture);
-        features.push_back((move->piece == Piece::QUEEN) && isCapture);
-        features.push_back((move->piece == Piece::KING) && isCapture);
+      // [ 270.,   94.,   83.,   70.,   42.,   46.],
+      features.push_back((move->piece == Piece::PAWN) && isCapture);
+      features.push_back((move->piece == Piece::KNIGHT) && isCapture);
+      features.push_back((move->piece == Piece::BISHOP) && isCapture);
+      features.push_back((move->piece == Piece::ROOK) && isCapture);
+      features.push_back((move->piece == Piece::QUEEN) && isCapture);
+      features.push_back((move->piece == Piece::KING) && isCapture);
 
-        features.push_back((move->piece == Piece::PAWN) && areWeHanging);
-        features.push_back((move->piece == Piece::KNIGHT) && areWeHanging);
-        features.push_back((move->piece == Piece::BISHOP) && areWeHanging);
-        features.push_back((move->piece == Piece::ROOK) && areWeHanging);
-        features.push_back((move->piece == Piece::QUEEN) && areWeHanging);
-        features.push_back((move->piece == Piece::KING) && areWeHanging);
+      // [ -14.,   11.,    4.,  -11.,  -11.,   46.],
+      features.push_back((move->piece == Piece::PAWN) && areWeHanging);
+      features.push_back((move->piece == Piece::KNIGHT) && areWeHanging);
+      features.push_back((move->piece == Piece::BISHOP) && areWeHanging);
+      features.push_back((move->piece == Piece::ROOK) && areWeHanging);
+      features.push_back((move->piece == Piece::QUEEN) && areWeHanging);
+      features.push_back((move->piece == Piece::KING) && areWeHanging);
 
-        features.push_back(move->capture == Piece::PAWN);
-        features.push_back(move->capture == Piece::KNIGHT);
-        features.push_back(move->capture == Piece::BISHOP);
-        features.push_back(move->capture == Piece::ROOK);
-        features.push_back(move->capture == Piece::QUEEN);
-        features.push_back(move->capture == Piece::KING);
+      // [ -71.,   60.,  104.,  165.,  347.,   -0.],
+      features.push_back(move->capture == Piece::PAWN);
+      features.push_back(move->capture == Piece::KNIGHT);
+      features.push_back(move->capture == Piece::BISHOP);
+      features.push_back(move->capture == Piece::ROOK);
+      features.push_back(move->capture == Piece::QUEEN);
+      features.push_back(move->capture == Piece::KING);
 
-        features.push_back((move->piece == Piece::PAWN) * areTheyHanging);
-        features.push_back((move->piece == Piece::KNIGHT) * areTheyHanging);
-        features.push_back((move->piece == Piece::BISHOP) * areTheyHanging);
-        features.push_back((move->piece == Piece::ROOK) * areTheyHanging);
-        features.push_back((move->piece == Piece::QUEEN) * areTheyHanging);
-        features.push_back((move->piece == Piece::KING) * areTheyHanging);
+      // [-197.,   14.,  118.,   71.,  139.,   46.],
+      features.push_back((move->piece == Piece::PAWN) * areTheyHanging);
+      features.push_back((move->piece == Piece::KNIGHT) * areTheyHanging);
+      features.push_back((move->piece == Piece::BISHOP) * areTheyHanging);
+      features.push_back((move->piece == Piece::ROOK) * areTheyHanging);
+      features.push_back((move->piece == Piece::QUEEN) * areTheyHanging);
+      features.push_back((move->piece == Piece::KING) * areTheyHanging);
 
-        features.push_back(areWeHanging);
-        features.push_back(areTheyHanging);
-        features.push_back(move->move == lastFoundBestMove);
-        features.push_back(move->move == recommendedMoves.moves[0]);
-        features.push_back(move->move == recommendedMoves.moves[1]);
+      // [  25.,  190.,   -0.,   51.,  124.,   -2.]
+      features.push_back(areWeHanging);
+      features.push_back(areTheyHanging);
+      features.push_back((move->move == lastFoundBestMove) * (depth == 1));
+      features.push_back((move->move == lastFoundBestMove) * (depth == 2));
+      features.push_back((move->move == lastFoundBestMove) * (depth >= 3));
+      features.push_back(lastFoundBestMove == kNullMove);
 
-        features.push_back(move->move.to == lastMove.to);
+      // [  14.,    2.,   45.,    2.,   69.,    1.]
+      features.push_back(recommendedMoves.moves[0] == move->move);
+      features.push_back(recommendedMoves.moves[0] == kNullMove);
+      features.push_back(recommendedMoves.moves[1] == move->move);
+      features.push_back(recommendedMoves.moves[1] == kNullMove);
+      features.push_back(move->move.to == lastMove.to);
+      features.push_back(depth);
 
-        std::cout << move->move.uci();
-        for (size_t i = 0; i < features.size(); ++i) {
-          std::cout << " " << features[i];
-        }
-        std::cout << std::endl;
+      std::cout << move->move.uci();
+      for (size_t i = 0; i < features.size(); ++i) {
+        std::cout << " " << features[i];
       }
-      std::cout << "</movedata>" << std::endl;
+      std::cout << std::endl;
     }
+    std::cout << "</movedata>" << std::endl;
+    exit(0);
   }
   #endif
 
