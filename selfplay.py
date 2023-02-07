@@ -8,7 +8,7 @@ from scipy import stats
 from multiprocessing import Pool
 
 def f(player, fen, moves):
-	command = [player, "mode", "analyze", "fen", *fen.split(' '), "time", "3", "moves", *moves]
+	command = [player, "mode", "analyze", "fen", *fen.split(' '), "time", "6", "moves", *moves]
 	output = subprocess.check_output(command).decode().strip()
 	return re.findall(r"\d+ : [^ ]+", output)[-1].split(' ')[-1], command
 
@@ -57,7 +57,7 @@ def thread_main(fen):
 	return r
 
 if __name__ == '__main__':
-	fens = [play_random(chess.Board(), 4) for _ in range(400)]
+	fens = [play_random(chess.Board(), 4) for _ in range(200)]
 	with Pool(2) as p:
 		r = p.map(thread_main, fens)
 	r = np.array(r, dtype=np.float64).reshape(-1)

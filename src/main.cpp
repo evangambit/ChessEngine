@@ -336,15 +336,15 @@ SearchResult<TURN> qsearch(Position *pos, int32_t depth, Evaluation alpha, Evalu
 }
 
 constexpr Evaluation kMovePieceBonus[7] = {
-  0, 22, 17, 14, 13, 14, 15};
+  0, 181,   34, -115, -120, -170,  203};
 constexpr Evaluation kMovePieceBonus_Capture[7] = {
-  0, 187, 21, 4, -11, -40, 16};
+  0, 677,   93,  109,  103, -174,   50};
 constexpr Evaluation kMovePieceBonus_WeAreHanging[7] = {
-  0, -7, 17, 9, -16, -21, 52};
+  0, -92,  196,  203, -135, -142,  348};
 constexpr Evaluation kCapturePieceBonus[7] = {
-0, -174, -37, 30, 69, 290, 999}; // todo: 999 should be zero?
+  0, -526,   85,  158,  382,  756,  9999}; // todo: 999 should be zero?
 constexpr Evaluation kCapturePieceBonus_Hanging[7] = {
-  0, -214, 57, 99, 88, 110, 16};
+  0, -863,  208,  304,  368,  633,   50};
 
 template<Color TURN>
 SearchResult<TURN> search(Position* pos, const Depth depth, Evaluation alpha, const Evaluation beta, RecommendedMoves recommendedMoves) {
@@ -448,19 +448,23 @@ SearchResult<TURN> search(Position* pos, const Depth depth, Evaluation alpha, co
     move->score += kCapturePieceBonus[move->capture];
     move->score += kCapturePieceBonus_Hanging[move->capture * areTheyHanging];
 
-    move->score += areWeHanging * 34;
-    move->score += areTheyHanging * 155;
+   // [ 378,  700,    0,  367,  620, -137],
+   // [ 388,  104,  447,    3,  182,  857]], dtype=int16)
+
+
+    move->score += areWeHanging * 378;
+    move->score += areTheyHanging * 700;
     // move->score += (move->move == lastFoundBestMove) * (depth == 1) * 0;
-    move->score += (move->move == lastFoundBestMove) * (depth == 2) * 41;
-    move->score += (move->move == lastFoundBestMove) * (depth >= 3) * 123;
+    move->score += (move->move == lastFoundBestMove) * (depth == 2) * 367;
+    move->score += (move->move == lastFoundBestMove) * (depth >= 3) * 620;
     // move->score += (kNullMove == lastFoundBestMove) * -5;  // unnecessary
 
-    move->score += (move->move == recommendedMoves.moves[0]) * 24;
+    move->score += (move->move == recommendedMoves.moves[0]) * 388;
     // move->score += (kNullMove == recommendedMoves.moves[0]) * 4;
-    move->score += (move->move == recommendedMoves.moves[1]) * 39;
+    move->score += (move->move == recommendedMoves.moves[1]) * 447;
     // move->score += (kNullMove == recommendedMoves.moves[1]) * -1;
-    move->score += (move->move.to == lastMove.to) * 57;
-    move->score += isCapture * 177;
+    move->score += (move->move.to == lastMove.to) * 183;
+    move->score += isCapture * 857;
   }
 
   #if GENERATE_MOVE_ORDERING_DATA
