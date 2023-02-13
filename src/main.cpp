@@ -357,11 +357,12 @@ SearchResult<TURN> search(Position* pos, const Depth depth, Evaluation alpha, co
 
   const bool inCheck = can_enemy_attack<TURN>(*pos, lsb(pos->pieceBitboards_[moverKing]));
 
+  ++gNodeCounter;
+
   if (depth <= 0) {
     ++leafCounter;
     return qsearch<TURN>(pos, 0, alpha, beta);
   }
-  ++gNodeCounter;
 
   if (pos->currentState_.halfMoveCounter >= 50) {
     return SearchResult<TURN>(Evaluation(0), kNullMove);
