@@ -205,7 +205,7 @@ void test1() {
 */
 
 size_t leafCounter = 0;
-size_t nodeCounter = 0;
+size_t gNodeCounter = 0;
 
 Evaluator gEvaluator;
 
@@ -361,7 +361,7 @@ SearchResult<TURN> search(Position* pos, const Depth depth, Evaluation alpha, co
     ++leafCounter;
     return qsearch<TURN>(pos, 0, alpha, beta);
   }
-  ++nodeCounter;
+  ++gNodeCounter;
 
   if (pos->currentState_.halfMoveCounter >= 50) {
     return SearchResult<TURN>(Evaluation(0), kNullMove);
@@ -813,7 +813,7 @@ void mymain(std::vector<std::string>& fens, const std::string& mode, double time
 
     double duration = double(clock() - t0) / CLOCKS_PER_SEC;
     std::cout << duration * 1000 << "ms" << std::endl;
-    std::cout << "nodeCounter = " << nodeCounter / 1000 << "k" << std::endl;
+    std::cout << "nodeCounter = " << gNodeCounter / 1000 << "k" << std::endl;
     std::cout << "leafCounter = " << leafCounter / 1000 << "k" << std::endl;
     return;
   } else if (mode == "analyze") {
@@ -825,7 +825,8 @@ void mymain(std::vector<std::string>& fens, const std::string& mode, double time
       for (size_t i = 1; i <= depth; ++i) {
         results = search(&pos, i);
         if (fens.size() == 1) {
-          std::cout << i << " : " << results.move << " : " << results.score << " (" << double(clock() - tstart)/CLOCKS_PER_SEC << " secs)" << std::endl;
+          const double secs = double(clock() - tstart)/CLOCKS_PER_SEC;
+          std::cout << i << " : " << results.move << " : " << results.score << " (" << secs << " secs, " << gNodeCounter / secs / 1000 << " kNodes/sec)" << std::endl;
         }
         if (double(clock() - tstart)/CLOCKS_PER_SEC*1000 >= timeLimitMs) {
           break;
