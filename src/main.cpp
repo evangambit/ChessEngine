@@ -285,6 +285,8 @@ SearchResult<Color::WHITE> to_white(SearchResult<Color::BLACK> r) {
 // TODO: qsearch can leave you in check
 template<Color TURN>
 SearchResult<TURN> qsearch(Position *pos, int32_t depth, Evaluation alpha, Evaluation beta) {
+  ++gNodeCounter;
+
   constexpr Color opposingColor = opposite_color<TURN>();
   constexpr ColoredPiece moverKing = coloredPiece<TURN, Piece::KING>();
 
@@ -348,6 +350,9 @@ constexpr Evaluation kCapturePieceBonus_Hanging[7] = {
 
 template<Color TURN>
 SearchResult<TURN> search(Position* pos, const Depth depth, Evaluation alpha, const Evaluation beta, RecommendedMoves recommendedMoves) {
+
+  ++gNodeCounter;
+
   constexpr Color opposingColor = opposite_color<TURN>();
   constexpr ColoredPiece moverKing = coloredPiece<TURN, Piece::KING>();
 
@@ -356,8 +361,6 @@ SearchResult<TURN> search(Position* pos, const Depth depth, Evaluation alpha, co
   }
 
   const bool inCheck = can_enemy_attack<TURN>(*pos, lsb(pos->pieceBitboards_[moverKing]));
-
-  ++gNodeCounter;
 
   if (depth <= 0) {
     ++leafCounter;
