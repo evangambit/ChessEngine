@@ -387,7 +387,7 @@ struct Evaluator {
       } else {
         features[EF::KNIGHTS_DEVELOPED] = std::popcount(theirKnights & (bb(57) | bb(62))) - std::popcount(ourKnights & (bb( 1) | bb( 6)));
       }
-      features[EF::KNIGHT_MAJOR_CAPTURES] = std::popcount(compute_knight_targets<US>(pos) & theirMajors) * 2 - std::popcount(compute_knight_targets<THEM>(pos) & ourMajors);
+      features[EF::KNIGHT_MAJOR_CAPTURES] = std::popcount(ourKnightTargets & theirMajors) * 2 - std::popcount(theirKnightTargets & ourMajors);
       features[EF::KNIGHTS_CENTER_16] = std::popcount(ourKnights & kCenter16) - std::popcount(theirKnights & kCenter16);
       features[EF::KNIGHTS_CENTER_4] = std::popcount(ourKnights & kCenter4) - std::popcount(theirKnights & kCenter4);
       features[EF::KNIGHT_ON_ENEMY_SIDE] = std::popcount(ourKnights & kTheirSide) * 2 - std::popcount(theirKnights & kOurSide);
