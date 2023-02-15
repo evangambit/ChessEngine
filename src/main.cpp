@@ -360,8 +360,6 @@ SearchResult<TURN> search(Position* pos, const Depth depth, Evaluation alpha, co
     return SearchResult<TURN>(kMinEval, kNullMove);
   }
 
-  const bool inCheck = can_enemy_attack<TURN>(*pos, lsb(pos->pieceBitboards_[moverKing]));
-
   if (depth <= 0) {
     ++leafCounter;
     return qsearch<TURN>(pos, 0, alpha, beta);
@@ -407,6 +405,7 @@ SearchResult<TURN> search(Position* pos, const Depth depth, Evaluation alpha, co
 
   ExtMove moves[kMaxNumMoves];
   ExtMove *end = compute_moves<TURN, MoveGenType::ALL_MOVES>(*pos, moves);
+  const bool inCheck = can_enemy_attack<TURN>(*pos, lsb(pos->pieceBitboards_[moverKing]));
 
   if (end - moves == 0) {
     if (inCheck) {
