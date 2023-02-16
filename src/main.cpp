@@ -397,7 +397,7 @@ SearchResult<TURN> search(Position* pos, const Depth depth, Evaluation alpha, co
   //  30  3/30
   auto it = gCache.find(pos->hash_);
   {
-    const Evaluation deltaPerDepth = 50;
+    const Evaluation deltaPerDepth = 100;
     if (it != gCache.end()) {
       const int8_t deltaDepth = std::max(depth - it->second.depth, 0);
       if (it->second.eval >= beta + deltaPerDepth * deltaDepth) {
