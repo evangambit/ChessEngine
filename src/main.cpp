@@ -287,16 +287,32 @@ template<Color TURN>
 SearchResult<TURN> qsearch(Position *pos, int32_t depth, Evaluation alpha, Evaluation beta) {
   ++gNodeCounter;
 
+  for (size_t i = 0; i < pos->hashes_.size(); ++i) {
+    // TODO: stop looking when we hit a pawn move or capture.
+    // TODO: handle 3 move draw for moves before the root.
+    if (pos->hashes_[i] == pos->hash_) {
+      return SearchResult<TURN>(Evaluation(0), kNullMove);
+    }
+  }
+
+  // const bool inCheck = can_enemy_attack<TURN>(*pos, lsb(pos->pieceBitboards_[moverKing]));
+
   constexpr Color opposingColor = opposite_color<TURN>();
   constexpr ColoredPiece moverKing = coloredPiece<TURN, Piece::KING>();
 
   ExtMove moves[kMaxNumMoves];
   ExtMove *end = compute_moves<TURN, MoveGenType::CHECKS_AND_CAPTURES>(*pos, moves);
 
-  // If we can stand pat for a bet cutoff, or if we have no moves, return.
+  // If we can stand pat for a beta cutoff, or if we have no moves, return.
   SearchResult<TURN> r(gEvaluator.score<TURN>(*pos), kNullMove);
   if (moves == end || r.score >= beta) {
     return r;
+  }
+
+  const bool inCheck = can_enemy_attack<TURN>(*pos, lsb(pos->pieceBitboards_[moverKing]));
+  if (inCheck) {
+    // Cannot stand pat if you're in check.
+    r.score = kMinEval + 1;
   }
 
   const Bitboard theirTargets = compute_my_targets<opposingColor>(*pos);
@@ -312,7 +328,7 @@ SearchResult<TURN> qsearch(Position *pos, int32_t depth, Evaluation alpha, Evalu
   });
 
   for (ExtMove *move = moves; move < end; ++move) {
-    if (move->score <= 0) {
+    if (move->score <= 0 && r.score > kMinEval + 1) {
       break;
     }
 
@@ -774,60 +790,24 @@ bool is_uci(const std::string& text) {
   return text[4] == 'n' || text[4] == 'b' || text[4] == 'r' || text[4] == 'q';
 }
 
-void mymain(std::vector<std::string>& fens, const std::string& mode, double timeLimitMs, Depth depth, bool makeQuiet) {
+void mymain(std::vector<Position>& positions, const std::string& mode, double timeLimitMs, Depth depth, bool makeQuiet) {
   if (mode == "printvec" || mode == "printvec-cpu") {
-    for (auto fen : fens) {
-      Position pos(fen);
+    for (auto pos : positions) {
       if (pos.turn_ == Color::WHITE) {
-        print_feature_vec<Color::WHITE>(&pos, fen, mode == "printvec", makeQuiet);
+        print_feature_vec<Color::WHITE>(&pos, pos.fen(), mode == "printvec", makeQuiet);
       } else {
-        print_feature_vec<Color::BLACK>(&pos, fen, mode == "printvec", makeQuiet);
+        print_feature_vec<Color::BLACK>(&pos, pos.fen(), mode == "printvec", makeQuiet);
       }
     }
-    return;
-  }
-  else if (mode == "evaluate") {
-    const time_t t0 = clock();
-
-    size_t numCorrect = 0;
-    size_t total = 0;
-
-    for (auto line : fens) {
-      gCache.clear();
-      std::vector<std::string> parts = split(line, ':');
-      if (parts.size() != 3) {
-        throw std::runtime_error("Unrecognized line \"" + line + "\"");
-      }
-      std::string fen = parts[0];
-      std::string bestMove = parts[1];
-      Position pos(fen);
-      SearchResult<Color::WHITE> results(Evaluation(0), kNullMove);
-      for (size_t i = 1; i <= depth; ++i) {
-        results = search(&pos, i);
-      }
-      numCorrect += (results.move.uci() == bestMove);
-      total += 1;
-      if (total % 10000 == 0) {
-        std::cout << numCorrect << " / " << total << std::endl;
-      }
-    }
-
-    std::cout << numCorrect << " / " << total << std::endl;
-
-    double duration = double(clock() - t0) / CLOCKS_PER_SEC;
-    std::cout << duration * 1000 << "ms" << std::endl;
-    std::cout << "nodeCounter = " << gNodeCounter / 1000 << "k" << std::endl;
-    std::cout << "leafCounter = " << leafCounter / 1000 << "k" << std::endl;
     return;
   } else if (mode == "analyze") {
-    for (auto fen : fens) {
+    for (auto pos : positions) {
       gCache.clear();
-      Position pos(fen);
       SearchResult<Color::WHITE> results(Evaluation(0), kNullMove);
       time_t tstart = clock();
       for (size_t i = 1; i <= depth; ++i) {
         results = search(&pos, i);
-        if (fens.size() == 1) {
+        if (positions.size() == 1) {
           const double secs = double(clock() - tstart)/CLOCKS_PER_SEC;
           std::cout << i << " : " << results.move << " : " << results.score << " (" << secs << " secs, " << gNodeCounter / secs / 1000 << " kNodes/sec)" << std::endl;
         }
@@ -865,8 +845,7 @@ void mymain(std::vector<std::string>& fens, const std::string& mode, double time
       }
     }
   } else if (mode == "play") {
-    for (auto fen : fens) {
-      Position pos(fen);
+    for (auto pos : positions) {
       while (true) {
         gCache.clear();
         SearchResult<Color::WHITE> results(Evaluation(0), kNullMove);
@@ -1004,56 +983,32 @@ int main(int argc, char *argv[]) {
     throw std::runtime_error("invalid depth");
   }
 
-  std::vector<std::string> fens;
+  std::vector<Position> positions;
 
   if (fenFile.size() > 0) {
     std::ifstream infile(fenFile);
     std::string line;
     while (std::getline(infile, line)) {
-      fens.push_back(line);
-      if (fens.size() >= limitfens) {
+      positions.push_back(Position(line));
+      if (positions.size() >= limitfens) {
         break;
       }
     }
   } else {
-    fens.push_back(fen);
+    positions.push_back(Position(fen));
   }
 
-  if (uciMoves.size() != 0 && fens.size() != 1) {
+  if (uciMoves.size() != 0 && positions.size() != 1) {
     throw std::runtime_error("cannot provide moves if there is more than one fen");
   }
 
   if (uciMoves.size() > 0) {
-    Position pos(fens[0]);
-    // ExtMove moves[256];
-    // ExtMove *end;
     for (size_t i = 0; i < uciMoves.size(); ++i) {
-      make_uci_move(&pos, uciMoves[i]);
-    //   if (pos.turn_ == Color::WHITE) {
-    //     end = compute_legal_moves<Color::WHITE>(&pos, moves);
-    //   } else {
-    //     end = compute_legal_moves<Color::BLACK>(&pos, moves);
-    //   }
-    //   ExtMove *move;
-    //   for (move = moves; move < end; ++move) {
-    //     if (move->move.uci() == uciMoves[i]) {
-    //       break;
-    //     }
-    //   }
-    //   if (move->move.uci() != uciMoves[i]) {
-    //     throw std::runtime_error("Unrecognized uci move \"" + uciMoves[i] + "\"");
-    //     exit(1);
-    //   }
-    //   if (pos.turn_ == Color::WHITE) {
-    //     make_move<Color::WHITE>(&pos, move->move);
-    //   } else {
-    //     make_move<Color::BLACK>(&pos, move->move);
-    //   }
+      make_uci_move(&positions[0], uciMoves[i]);
     }
-    fens[0] = pos.fen();
   }
 
-  mymain(fens, mode, timeLimitMs, depth, makeQuiet);
+  mymain(positions, mode, timeLimitMs, depth, makeQuiet);
 
   return 0;
 }
