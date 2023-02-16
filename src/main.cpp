@@ -397,13 +397,22 @@ SearchResult<TURN> search(Position* pos, const Depth depth, Evaluation alpha, co
   //  30  3/30
   auto it = gCache.find(pos->hash_);
   {
+    const Evaluation deltaPerDepth = 50;
     if (it != gCache.end()) {
-      const int8_t deltaDepth = (depth - it->second.depth);
-      if (it->second.depth == depth
-        && pos->currentState_.halfMoveCounter < 40
-        || (it->second.eval >= beta + 50 * deltaDepth)
-        ) {
+      const int8_t deltaDepth = std::max(depth - it->second.depth, 0);
+      if (it->second.eval >= beta + deltaPerDepth * deltaDepth) {
         return SearchResult<TURN>(it->second.eval, it->second.bestMove);
+      }
+      if (it->second.eval <= alpha - deltaPerDepth * deltaDepth) {
+        return SearchResult<TURN>(it->second.eval, it->second.bestMove);
+      }
+    } else {
+      SearchResult<TURN> r = qsearch<TURN>(pos, 0, alpha, beta);
+      if (r.score >= beta + deltaPerDepth * depth) {
+        return r;
+      }
+      if (r.score <= alpha - deltaPerDepth * depth) {
+        return r;
       }
     }
   }
