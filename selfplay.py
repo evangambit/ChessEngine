@@ -20,15 +20,17 @@ def play(fen0, player1, player2):
 		move, cmd = f(mover, fen0, moves)
 		moves.append(move)
 		if move == 'a8a8':
+			print('a8a8', ' '.join(cmd))
 			print(board)
 			print(board.fen())
 			break
 		try:
 			board.push_uci(move)
 		except (ValueError) as e:
+			print('error', ' '.join(cmd))
 			print(fen0, moves)
-			print(board.fen())
 			print(board)
+			print(board.fen())
 			print(' '.join(cmd))
 			raise e
 		mover, waiter = waiter, mover
@@ -57,7 +59,7 @@ def thread_main(fen):
 	return r
 
 if __name__ == '__main__':
-	fens = [play_random(chess.Board(), 4) for _ in range(20)]
+	fens = [play_random(chess.Board(), 4) for _ in range(100)]
 	with Pool(2) as p:
 		r = p.map(thread_main, fens)
 	r = np.array(r, dtype=np.float64).reshape(-1)
