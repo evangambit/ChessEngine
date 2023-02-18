@@ -381,7 +381,7 @@ SearchResult<TURN> search(Position* pos, const Depth depth, Evaluation alpha, co
     return qsearch<TURN>(pos, 0, alpha, beta);
   }
 
-  if (pos->currentState_.halfMoveCounter >= 50) {
+  if (pos->currentState_.halfMoveCounter >= 100) {
     return SearchResult<TURN>(Evaluation(0), kNullMove);
   }
 
@@ -394,9 +394,8 @@ SearchResult<TURN> search(Position* pos, const Depth depth, Evaluation alpha, co
   }
 
   
-  //  30  3/30
   auto it = gCache.find(pos->hash_);
-  {
+  {  // Ignore moves that easily caused a cutoff last search.
     const Evaluation deltaPerDepth = 100;
     if (it != gCache.end()) {
       const int8_t deltaDepth = std::max(depth - it->second.depth, 0);
