@@ -42,7 +42,8 @@ enum EF {
   THREATS_NEAR_KING_2,
   THREATS_NEAR_KING_3,
 
-  PASSED_PAWNS,
+  OUR_PASSED_PAWNS,
+  THEIR_PASSED_PAWNS,
   ISOLATED_PAWNS,
   DOUBLED_PAWNS,
   DOUBLE_ISOLATED_PAWNS,
@@ -116,11 +117,23 @@ enum EF {
 };
 
 const int32_t kEarlyB0 = 2;
-const int32_t kEarlyW0[74] = { 16,112,123,133,347,-21,-113,-122,-118,-334,-164,9,-11,-11,-31,0,-11,-13,-11,12,2,23,0,25,21,8,-12,59,0,13,9,11,-11,0,15,9,89,-8,4,57,-1,1,-2,21,-20,-8,-8,-31,-2,40,33,47,40,-348,-370,0,4,-3,22,23,22,20,23,0,0,0,0,0,20,20,28,-11,9,1};
+const int32_t kEarlyW0[EF::NUM_EVAL_FEATURES] = {
+  16,112,123,133,347,
+  -21,-113,-122,-118,-334,
+  -164,9,-11,-11,-31,0,
+  -22,11,-13,-11,12,2,23,0,25,21,8,-12,59,0,13,9,11,-11,0,15,9,89,-8,4,57,-1,1,-2,21,-20,-8,-8,-31,-2,40,33,47,40,-348,-370,0,4,-3,22,23,22,20,23,0,0,0,0,0,20,20,28,-11,9,1};
 const int32_t kLateB0 = -20;
-const int32_t kLateW0[74] = { 92,155,175,292,449,-92,-144,-173,-290,-423,-25,-33,4,18,6,1,1,-1,-23,-11,-12,-13,0,17,11,18,-20,-33,-1,3,29,56,-14,16,41,9,-36,-4,51,4,20,20,5,-19,-31,-32,-48,-52,27,-7,21,76,82,40,-1,1,2,6,5,2,-2,-2,-2,4,-98,256,-272,168,14,14,4,18,22,-1};
+const int32_t kLateW0[EF::NUM_EVAL_FEATURES] = {
+  92,155,175,292,449,
+  -92,-144,-173,-290,-423,
+  -25,-33,4,18,6,1,
+  2,-1,-1,-23,-11,-12,-13,0,17,11,18,-20,-33,-1,3,29,56,-14,16,41,9,-36,-4,51,4,20,20,5,-19,-31,-32,-48,-52,27,-7,21,76,82,40,-1,1,2,6,5,2,-2,-2,-2,4,-98,256,-272,168,14,14,4,18,22,-1};
 const int32_t kClippedB0 = 7;
-const int32_t kClippedW0[74] = { 41,200,193,306,665,-44,-209,-202,-321,-695,8,-12,5,17,1,-1,3,-3,0,-14,2,-1,0,36,17,9,92,-19,3,2,-9,15,1,8,-21,6,15,6,-9,-6,-5,2,1,-2,11,1,0,29,-4,21,-2,-26,-53,-30,-20,1,1,1,-2,-1,0,2,3,12,220,-46,70,99,4,4,-9,8,-10,-1};
+const int32_t kClippedW0[EF::NUM_EVAL_FEATURES] = {
+  41,200,193,306,665,
+  -44,-209,-202,-321,-695,
+  8,-12,5,17,1,-1,
+  6,-3,-3,0,-14,2,-1,0,36,17,9,92,-19,3,2,-9,15,1,8,-21,6,15,6,-9,-6,-5,2,1,-2,11,1,0,29,-4,21,-2,-26,-53,-30,-20,1,1,1,-2,-1,0,2,3,12,220,-46,70,99,4,4,-9,8,-10,-1};
 
 std::string EFSTR[] = {
   "OUR_PAWNS",
@@ -139,7 +152,8 @@ std::string EFSTR[] = {
   "KING_ACTIVE",
   "THREATS_NEAR_KING_2",
   "THREATS_NEAR_KING_3",
-  "PASSED_PAWNS",
+  "OUR_PASSED_PAWNS",
+  "THEIR_PASSED_PAWNS",
   "ISOLATED_PAWNS",
   "DOUBLED_PAWNS",
   "DOUBLE_ISOLATED_PAWNS",
@@ -330,7 +344,8 @@ struct Evaluator {
       features[EF::PAWNS_CENTER_16] = std::popcount(ourPawns & kCenter16) - std::popcount(theirPawns & kCenter16);
       features[EF::PAWNS_CENTER_16] = std::popcount(ourPawns & kCenter16) - std::popcount(theirPawns & kCenter16);
       features[EF::PAWNS_CENTER_4] = std::popcount(ourPawns & kCenter4) - std::popcount(theirPawns & kCenter4);
-      features[EF::PASSED_PAWNS] = std::popcount(ourPassedPawns) * 2 - std::popcount(theirPassedPawns);
+      features[EF::OUR_PASSED_PAWNS] = std::popcount(ourPassedPawns);
+      features[EF::THEIR_PASSED_PAWNS] = std::popcount(theirPassedPawns);
       features[EF::ISOLATED_PAWNS] = std::popcount(ourIsolatedPawns) - std::popcount(theirIsolatedPawns);
       features[EF::DOUBLED_PAWNS] = std::popcount(ourDoubledPawns) - std::popcount(theirDoubledPawns);
       features[EF::DOUBLE_ISOLATED_PAWNS] = std::popcount(ourDoubledPawns & ourIsolatedPawns) - std::popcount(theirDoubledPawns & theirIsolatedPawns);
