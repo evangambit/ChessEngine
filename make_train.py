@@ -16,18 +16,19 @@ import numpy as np
 """
 To generate training data from scratch:
 
-python3 make_train.py --mode generate_positions --type any --quiet 1 lichess_elite_2022-05.pgn
+$ python3 make_train.py --mode generate --type any --quiet 1 lichess_elite_2022-05.pgn
 
 python3 -i make_train.py --mode write_numpy --type any --quiet 1 lichess_elite_2022-05.pgn
 
 zip traindata.zip -r traindata
 
 
-When your features have changed but you want to re-use your stockfish evaluations:
 
-python3 -i make_train.py --mode update_features
-python3 make_train.py --mode write_numpy
-zip traindata.zip -r traindata
+
+Tactics
+
+$ python3 make_train.py --mode generate --type tactics --quiet 0 lichess_elite_2022-05.pgn
+
 """
 
 def pgn_iterator(noise):
@@ -121,18 +122,19 @@ def get_vecs(fens):
 
 parser = argparse.ArgumentParser()
 parser.add_argument("pgnfiles", nargs='*')
-parser.add_argument("--mode", type=str, required=True)
-parser.add_argument("--type", type=str, required=True)
-parser.add_argument("--quiet", type=int, required=True)
-parser.add_argument("--noise", type=int, default=0)
-parser.add_argument("--depth", type=int, default=10)
+parser.add_argument("--mode", type=str, required=True, help="{generate, update_features, write_numpy}")
+parser.add_argument("--type", type=str, required=True, help="{any, tactics, endgame}")
+parser.add_argument("--quiet", type=int, required=True, help="{0, 1}")
+parser.add_argument("--noise", type=int, default=0, help="{0, 1, 2, ..}")
+parser.add_argument("--depth", type=int, default=10, help="{1, 2, ..}")
 parser.add_argument("--stockpath", default="/usr/local/bin/stockfish", type=str)
 args = parser.parse_args()
 
 assert args.type in ["any", "tactics", "endgame"]
 assert args.quiet in [0, 1]
-assert args.mode in ['generate_positions', 'update_features', 'write_numpy']
+assert args.mode in ['generate', 'update_features', 'write_numpy']
 assert args.noise >= 0
+assert args.depth > 1
 
 if args.type == "endgame":
   assert len(args.pgnfiles) == 0
@@ -165,7 +167,7 @@ if args.mode == 'update_features':
   conn.commit()
   exit(0)
 
-if args.mode == 'generate_positions':
+if args.mode == 'generate':
   c.execute(f"""CREATE TABLE IF NOT EXISTS {kTableName} (
     fen BLOB,
     bestMove BLOB,
@@ -272,7 +274,7 @@ if args.mode == 'write_numpy':
     x = np.array([float(a) for a in moverFeatures.split(' ')], dtype=np.int32)
     X.append(x)
 
-  X = np.array(X)
+  X = np.array(X).astype(np.int16)
   Y = np.array(Y)
   F = np.array(F)
   print(X.shape, Y.shape, F.shape)
