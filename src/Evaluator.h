@@ -112,6 +112,10 @@ enum EF {
   KING_CASTLED,
   CASTLING_RIGHTS,
 
+  KING_IN_FRONT_OF_PASSED_PAWN,
+  KING_IN_FRONT_OF_PASSED_PAWN2,
+  BONUS,
+
   NUM_EVAL_FEATURES,
 };
 
@@ -121,21 +125,21 @@ const int32_t kEarlyW0[EF::NUM_EVAL_FEATURES] = {
   -21,-113,-122,-118,-334,
   -164,9,-11,-11,-31,0,
   -22,11,-13,-11,12,
-  2,23,25,21,8,-12,59,0,13,9,11,-11,0,15,9,89,-8,4,57,-1,1,-2,21,-20,-8,-8,-31,-2,40,33,47,40,-348,-370,0,4,-3,22,23,22,20,23,0,0,0,0,0,20,20,28,-11,9,1};
+  2,23,25,21,8,-12,59,0,13,9,11,-11,0,15,9,89,-8,4,57,-1,1,-2,21,-20,-8,-8,-31,-2,40,33,47,40,-348,-370,0,4,-3,22,23,22,20,23,0,0,0,0,0,20,20,28,-11,9,1,0,0,0};
 const int32_t kLateB0 = -20;
 const int32_t kLateW0[EF::NUM_EVAL_FEATURES] = {
   92,155,175,292,449,
   -92,-144,-173,-290,-423,
   -25,-33,4,18,6,1,
   2,-1,-1,-23,-11,
-  -12,-13,17,11,18,-20,-33,-1,3,29,56,-14,16,41,9,-36,-4,51,4,20,20,5,-19,-31,-32,-48,-52,27,-7,21,76,82,40,-1,1,2,6,5,2,-2,-2,-2,4,-98,256,-272,168,14,14,4,18,22,-1};
+  -12,-13,17,11,18,-20,-33,-1,3,29,56,-14,16,41,9,-36,-4,51,4,20,20,5,-19,-31,-32,-48,-52,27,-7,21,76,82,40,-1,1,2,6,5,2,-2,-2,-2,4,-98,256,-272,168,14,14,4,18,22,-1,0,0,0};
 const int32_t kClippedB0 = 7;
 const int32_t kClippedW0[EF::NUM_EVAL_FEATURES] = {
   41,200,193,306,665,
   -44,-209,-202,-321,-695,
   8,-12,5,17,1,-1,
   6,-3,-3,0,-14,
-  2,-1,36,17,9,92,-19,3,2,-9,15,1,8,-21,6,15,6,-9,-6,-5,2,1,-2,11,1,0,29,-4,21,-2,-26,-53,-30,-20,1,1,1,-2,-1,0,2,3,12,220,-46,70,99,4,4,-9,8,-10,-1};
+  2,-1,36,17,9,92,-19,3,2,-9,15,1,8,-21,6,15,6,-9,-6,-5,2,1,-2,11,1,0,29,-4,21,-2,-26,-53,-30,-20,1,1,1,-2,-1,0,2,3,12,220,-46,70,99,4,4,-9,8,-10,-1,0,0,0};
 
 std::string EFSTR[] = {
   "OUR_PAWNS",
@@ -212,6 +216,9 @@ std::string EFSTR[] = {
   "ROOKS_ON_THEIR_SIDE",
   "KING_CASTLED",
   "CASTLING_RIGHTS",
+  "KING_IN_FRONT_OF_PASSED_PAWN",
+  "KING_IN_FRONT_OF_PASSED_PAWN2",
+  "BONUS",
   "NUM_EVAL_FEATURES",
 };
 
@@ -250,8 +257,8 @@ struct Evaluator {
     const bool isThreeManEndgame = std::popcount(ourMen | theirMen) == 3;
     bool isDraw = false;
     isDraw |= (ourMen == ourKings) && (theirMen == theirKings);
-    isDraw |= (ourMen == (ourKings | ourKnights)) || (theirMen == (theirKings | theirKnights)) && isThreeManEndgame;
-    isDraw |= (ourMen == (ourKings | ourBishops)) || (theirMen == (theirKings | theirBishops)) && isThreeManEndgame;
+    isDraw |= ((ourMen | theirMen) == (ourKings | ourKnights | theirKings | theirKnights)) && isThreeManEndgame;
+    isDraw |= ((ourMen | theirMen) == (ourKings | ourBishops | theirKings | theirBishops)) && isThreeManEndgame;
     if (isDraw) {
       return 0;
     }
@@ -287,6 +294,8 @@ struct Evaluator {
     // TODO: include king targets here?
     const Bitboard usTargets = ourPawnTargets | ourKnightTargets | usBishopTargets | ourRookTargets | usQueenTargets;
     const Bitboard themTargets = theirPawnTargets | theirKnightTargets | theirBishopTargets | theirRookTargets | theirQueenTargets;
+
+    Evaluation bonus = 0;
 
     features[EF::OUR_PAWNS] = std::popcount(ourPawns);
     features[EF::OUR_KNIGHTS] = std::popcount(ourKnights);
@@ -340,8 +349,8 @@ struct Evaluator {
         filesWithOurPawns = northFill(ourFilled);
         filesWithTheirPawns = southFill(theirFilled);
       }
-      const Bitboard fatUsPawns = fatten(ourFilled);
-      const Bitboard fatThemPawns = fatten(theirFilled);
+      const Bitboard aheadOfOurPawnsFat = fatten(ourFilled);
+      const Bitboard aheadOfTheirPawnsFat = fatten(theirFilled);
       filesWithoutOurPawns = ~filesWithOurPawns;
       filesWithoutTheirPawns = ~filesWithTheirPawns;
       ourPassedPawns = ourPawns & ~shift<kBackward>(fatten(theirFilled));
@@ -514,6 +523,37 @@ struct Evaluator {
       features[EF::KPVK_DEFENSIVE_KEY_SQUARES] -= ((ourKings & inFrontOfPawn) > 0) * isKPVK;
     }
 
+    Bitboard aheadOfOurPassedPawnsFat, aheadOfTheirPassedPawnsFat;
+    if (US == Color::WHITE) {
+      aheadOfOurPassedPawnsFat = fatten(northFill(ourPassedPawns));
+      aheadOfTheirPassedPawnsFat = fatten(southFill(theirPassedPawns));
+    } else {
+      aheadOfOurPassedPawnsFat = fatten(southFill(ourPassedPawns));
+      aheadOfTheirPassedPawnsFat = fatten(northFill(theirPassedPawns));
+    }
+
+    // We split these into two features, the idea being that being ahead of your pawns while your opponent's
+    // queen is on the board is dangerous, but being ahead of your opponent's passed pawns is not.
+    features[EF::KING_IN_FRONT_OF_PASSED_PAWN] = ((ourKings & aheadOfOurPassedPawnsFat) > 0 && theirQueens == 0);
+    features[EF::KING_IN_FRONT_OF_PASSED_PAWN] -= ((theirKings & aheadOfTheirPassedPawnsFat) > 0 && ourQueens == 0);
+    features[EF::KING_IN_FRONT_OF_PASSED_PAWN2] = (ourKings & aheadOfTheirPassedPawnsFat) > 0;
+    features[EF::KING_IN_FRONT_OF_PASSED_PAWN2] -= (theirKings & aheadOfOurPassedPawnsFat) > 0;
+
+    const bool isOurKingLonely = (ourMen == ourKings);
+    const bool isTheirKingLonely = (theirMen == theirKings);
+
+    // Winning end game bonuses.
+    features[EF::BONUS] = 0;
+    // +50 for each pawn if we're against a lonely king.
+    features[EF::BONUS] += isTheirKingLonely * 50 * std::popcount(ourPawns);
+    features[EF::BONUS] -= isOurKingLonely * 50 * std::popcount(theirPawns);
+    // +100 for each rook if we're against a lonely king.
+    features[EF::BONUS] += isTheirKingLonely * 50 * std::popcount(ourRooks);
+    features[EF::BONUS] -= isOurKingLonely * 50 * std::popcount(theirRooks);
+    // +150 for each queen if we're against a lonely king.
+    features[EF::BONUS] += isTheirKingLonely * 150 * std::popcount(ourQueens);
+    features[EF::BONUS] -= isOurKingLonely * 150 * std::popcount(theirQueens);
+
     const int16_t ourPiecesRemaining = std::popcount(pos.colorBitboards_[US] & ~ourPawns) + std::popcount(ourQueens) - 1;
     const int16_t theirPiecesRemaining = std::popcount(pos.colorBitboards_[THEM] & ~theirPawns) + std::popcount(theirQueens) - 1;
     const int32_t time = 16 - (ourPiecesRemaining + theirPiecesRemaining);
@@ -526,7 +566,7 @@ struct Evaluator {
     const int32_t late = this->late<US>(pos);
     const int32_t clipped = this->clipped<US>(pos);
 
-    return (early * (16 - time) + late * time) / 16 + clipped;
+    return (early * (16 - time) + late * time) / 16 + clipped + features[EF::BONUS];
   }
 
   template<Color US>
