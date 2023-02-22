@@ -250,8 +250,8 @@ struct Evaluator {
     const bool isThreeManEndgame = std::popcount(ourMen | theirMen) == 3;
     bool isDraw = false;
     isDraw |= (ourMen == ourKings) && (theirMen == theirKings);
-    isDraw |= (ourMen == (ourKings | ourKnights)) && (theirMen == (theirKings | theirKnights));
-    isDraw |= (ourMen == (ourKings | ourBishops)) && (theirMen == (theirKings | theirBishops));
+    isDraw |= (ourMen == (ourKings | ourKnights)) || (theirMen == (theirKings | theirKnights)) && isThreeManEndgame;
+    isDraw |= (ourMen == (ourKings | ourBishops)) || (theirMen == (theirKings | theirBishops)) && isThreeManEndgame;
     if (isDraw) {
       return 0;
     }
