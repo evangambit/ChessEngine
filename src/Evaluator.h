@@ -245,6 +245,17 @@ struct Evaluator {
     const Bitboard theirQueens = pos.pieceBitboards_[coloredPiece<THEM, Piece::QUEEN>()];
     const Bitboard theirKings = pos.pieceBitboards_[coloredPiece<THEM, Piece::KING>()];
 
+    const Bitboard ourMen = pos.colorBitboards_[US];
+    const Bitboard theirMen = pos.colorBitboards_[THEM];
+    const bool isThreeManEndgame = std::popcount(ourMen | theirMen) == 3;
+    bool isDraw = false;
+    isDraw |= (ourMen == ourKings) && (theirMen == theirKings);
+    isDraw |= (ourMen == (ourKings | ourKnights)) && (theirMen == (theirKings | theirKnights));
+    isDraw |= (ourMen == (ourKings | ourBishops)) && (theirMen == (theirKings | theirBishops));
+    if (isDraw) {
+      return 0;
+    }
+
     const Bitboard ourRoyalty = ourQueens | ourKings;
     const Bitboard theirRoyalty = theirQueens | theirKings;
     const Bitboard ourMajors = ourRooks | ourRoyalty;
