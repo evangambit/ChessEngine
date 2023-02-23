@@ -78,8 +78,8 @@ constexpr Bitboard kKingMoves[64] = {
 }  // namespace
 
 template<Color US>
-Bitboard compute_king_targets(const Position& pos) {
-  return kKingMoves[lsb(pos.pieceBitboards_[coloredPiece<US, Piece::KING>()])];
+Bitboard compute_king_targets(const Position& pos, Square sq) {
+  return kKingMoves[sq];
 }
 
 template<Color US, MoveGenType MGT, bool inCheck>

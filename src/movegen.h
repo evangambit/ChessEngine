@@ -38,7 +38,8 @@ Bitboard compute_my_targets(const Position& pos) {
   r |= compute_bishoplike_targets<US>(pos, bishopLikePieces);
   const Bitboard rookLikePieces = pos.pieceBitboards_[coloredPiece<US, Piece::ROOK>()] | pos.pieceBitboards_[coloredPiece<US, Piece::QUEEN>()];
   r |= compute_rooklike_targets<US>(pos, rookLikePieces);
-  r |= compute_king_targets<US>(pos);
+  const Square kingSq = lsb(pos.pieceBitboards_[coloredPiece<US, Piece::KING>()]);
+  r |= compute_king_targets<US>(pos, kingSq);
   return r;
 }
 
