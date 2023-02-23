@@ -145,19 +145,34 @@ c = conn.cursor()
 kTableName = f"{args.type}_d{args.depth}_q{args.quiet}_n{args.noise}"
 
 if args.mode == 'update_features':
-  c.execute(f"SELECT fen FROM {kTableName}")
-  fens = [fen for fen, in c.fetchall()]
+  c.execute(f"SELECT fen, bestMove, delta, moverScore FROM {kTableName}")
+  A = {}
+  for fen, bestmove, delta, moverScore in c:
+    A[fen] = (bestmove, delta, moverScore)
+
+  c.execute(f"""DROP TABLE IF EXISTS tmpTable""")
+  c.execute(f"""CREATE TABLE tmpTable (
+    fen BLOB,
+    bestMove BLOB,
+    delta INTEGER,
+    moverScore INTEGER,
+    moverFeatures BLOB    -- from mover's perspective
+  );""")
+  fens = list(A.keys())
   writesSinceCommit = 0
   totalWrites = 0
-  for i, (fen, x) in enumerate(get_vecs(fens)):
-    if fen == fens[i]:
-      c.execute(f"UPDATE {kTableName} SET moverFeatures = ? WHERE fen = ?", (
-        ' '.join(str(a) for a in x),
-        fen,
-      ))
-    else:
-      c.execute(f"DELETE FROM {kTableName} WHERE fen = ?", (fens[i],))
-      print('DELETE')
+  for fen, x in get_vecs(fens):
+    if fen not in A:
+      print('x')
+      continue
+    c.execute(f"""INSERT INTO tmpTable
+      (fen, bestMove, delta, moverScore, moverFeatures) 
+      VALUES (?, ?, ?, ?, ?)""", (
+      fen,
+      *A[fen],
+      ' '.join(str(a) for a in x),
+    ))
+
     writesSinceCommit += 1
     totalWrites += 1
     if writesSinceCommit >= 1000:
@@ -165,6 +180,8 @@ if args.mode == 'update_features':
       print('commit', totalWrites, len(fens), len(x))
       writesSinceCommit = 0
   conn.commit()
+  c.execute(f"""DROP TABLE IF EXISTS {kTableName}""")
+  c.execute(f"""ALTER TABLE tmpTable RENAME TO {kTableName}""")
   exit(0)
 
 if args.mode == 'generate':
@@ -175,7 +192,6 @@ if args.mode == 'generate':
     moverScore INTEGER,
     moverFeatures BLOB    -- from mover's perspective
   );""")
-  c.execute(f"""CREATE INDEX IF NOT EXISTS fenIndex ON {kTableName}(fen)""")
 
   fens = set()
   c.execute(f"SELECT fen FROM {kTableName}")

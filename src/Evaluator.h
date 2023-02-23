@@ -119,27 +119,54 @@ enum EF {
   NUM_EVAL_FEATURES,
 };
 
-const int32_t kEarlyB0 = 2;
+const int32_t kEarlyB0 = 9;
 const int32_t kEarlyW0[EF::NUM_EVAL_FEATURES] = {
-  16,112,123,133,347,
-  -21,-113,-122,-118,-334,
-  -164,9,-11,-11,-31,0,
-  -22,11,-13,-11,12,
-  2,23,25,21,8,-12,59,0,13,9,11,-11,0,15,9,89,-8,4,57,-1,1,-2,21,-20,-8,-8,-31,-2,40,33,47,40,-348,-370,0,4,-3,22,23,22,20,23,0,0,0,0,0,20,20,28,-11,9,1,0,0,0};
-const int32_t kLateB0 = -20;
+  26, 131, 136, 148, 333, -32,
+-124,-132,-132,-330,-229,  15,
+  -8,   4, -39,   0, -37,  18,
+ -10, -14,   3,   4,  21,   2,
+   6,   5,  24,  23,  -1,  14,
+   4,  12, -10,   7,  -3,   9,
+  77,   4, -11,  42,  -3,  -2,
+   0,  13, -15,  -5, -22, -30,
+  -3,  49,  31,  40, -16,-144,
+-116,   1,   4,  -3,  21,  21,
+  20,  20,  26,   0,   0,   0,
+   0,   0,  35,  50,  31, -11,
+  -1,  -1,-129, -61,  -4,
+};
+const int32_t kLateB0 = -15;
 const int32_t kLateW0[EF::NUM_EVAL_FEATURES] = {
-  92,155,175,292,449,
-  -92,-144,-173,-290,-423,
-  -25,-33,4,18,6,1,
-  2,-1,-1,-23,-11,
-  -12,-13,17,11,18,-20,-33,-1,3,29,56,-14,16,41,9,-36,-4,51,4,20,20,5,-19,-31,-32,-48,-52,27,-7,21,76,82,40,-1,1,2,6,5,2,-2,-2,-2,4,-98,256,-272,168,14,14,4,18,22,-1,0,0,0};
-const int32_t kClippedB0 = 7;
+  83, 159, 182, 315, 519, -81,
+-149,-183,-307,-468,  19, -29,
+   7,   5,   7,   1,  16, -16,
+  -5, -21,  -6,  -7, -10,  -5,
+  25,  22,  26,  11,  -3,   5,
+  32,  47, -12,  27,  30,  10,
+  -3,  -6,  35,  25,  23,  23,
+   4, -28, -22, -22,  -8,  38,
+  40,  -5,  -2,  47,  73,  28,
+   2,   0,   4,   4,   4,   5,
+   1,  -2,  -2,   7, -52, 233,
+-219, 148,  65,  22,   5,  12,
+  22,  -6,  59,  45,  -1,
+};
+const int32_t kClippedB0 = 27;
 const int32_t kClippedW0[EF::NUM_EVAL_FEATURES] = {
-  41,200,193,306,665,
-  -44,-209,-202,-321,-695,
-  8,-12,5,17,1,-1,
-  6,-3,-3,0,-14,
-  2,-1,36,17,9,92,-19,3,2,-9,15,1,8,-21,6,15,6,-9,-6,-5,2,1,-2,11,1,0,29,-4,21,-2,-26,-53,-30,-20,1,1,1,-2,-1,0,2,3,12,220,-46,70,99,4,4,-9,8,-10,-1,0,0,0};
+  37, 192, 188, 299, 642, -43,
+-202,-194,-310,-661, -18, -14,
+   2,  25,  -1,  -1,   6,  -6,
+  -3,   4, -14,  -2,   0, -38,
+  21,  10,   3,   5,   5,   0,
+  -3,  21,  -1,  -1,  -1,   7,
+  10,  12,  10,   2,  -2,   1,
+   1,  -8,  -6,  -6,  -3,  -1,
+   7,   4,  19, -20, -52,  16,
+  16,   2,  -5,   2,  -2,   0,
+  -3,   5,   1,  29,  15,   0,
+  15, 125, 118,   3, -12,  10,
+  -4,   4,  19,   9,  15,
+};
 
 std::string EFSTR[] = {
   "OUR_PAWNS",
@@ -371,7 +398,7 @@ struct Evaluator {
       features[EF::ISOLATED_PAWNS] = std::popcount(ourIsolatedPawns) - std::popcount(theirIsolatedPawns);
       features[EF::DOUBLED_PAWNS] = std::popcount(ourDoubledPawns) - std::popcount(theirDoubledPawns);
       features[EF::DOUBLE_ISOLATED_PAWNS] = std::popcount(ourDoubledPawns & ourIsolatedPawns) - std::popcount(theirDoubledPawns & theirIsolatedPawns);
-      features[EF::ADVANCED_PAWNS_1] = std::popcount(ourPawns & shift<kBackward>(kTheirBackRanks)) - std::popcount(theirPawns & shift<kForward>(kOurBackRanks));
+      features[EF::ADVANCED_PAWNS_1] = std::popcount(ourPawns & kTheirBackRanks) - std::popcount(theirPawns & kOurBackRanks);
       features[EF::ADVANCED_PAWNS_2] = std::popcount(ourPawns & shift<kBackward>(kTheirBackRanks)) - std::popcount(theirPawns & shift<kForward>(kOurBackRanks));
 
       if (US == Color::WHITE) {
