@@ -413,7 +413,7 @@ void make_move(Position *pos, Move move) {
     pos->wholeMoveCounter_ += 1;
   }
   ++pos->currentState_.halfMoveCounter;
-  pos->currentState_.halfMoveCounter *= (movingPiece != coloredPiece<TURN, Piece::PAWN>());
+  pos->currentState_.halfMoveCounter *= (movingPiece != coloredPiece<TURN, Piece::PAWN>() && capturedPiece != ColoredPiece::NO_COLORED_PIECE);
   pos->turn_ = opposingColor;
   pos->hash_ ^= kZorbristTurn;
 
