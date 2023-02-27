@@ -29,7 +29,7 @@ def pgn_iterator():
       game = pgn.read_game(f)
 
 def get_vec(fen):
-  command = ["./a.out", "fen", *fen.split(' ')]
+  command = ["./a.out", "fen", *fen.split(' '), "makequiet", "0"]
   lines = subprocess.check_output(command).decode().strip().split('\n')
   if '</movedata>' not in lines:
     return None, None
@@ -127,8 +127,8 @@ if args.mode == 'write_numpy':
   Y = np.array(Y)
   N = np.array(N)
 
-  depth = X[:,-1]
-  X = X[:,:-1].copy()
+  depth = X[:,-6].copy()
+  X = X.copy()
 
   print(X.shape, Y.shape, N.shape)
   np.save(os.path.join('traindata', 'x.moveorder.npy'), X)
@@ -140,8 +140,10 @@ if args.mode == 'write_numpy':
   from sklearn.linear_model import LogisticRegression
 
   regr = LogisticRegression().fit(X, Y)
+  w = (regr.coef_.squeeze() * 400).astype(np.int64)
 
-  print(np.round(regr.coef_ * 500).reshape(-1, 6))
+  print(w.reshape(-1, 6))
+  # print(w[-5:])
 
 
   exit(0)

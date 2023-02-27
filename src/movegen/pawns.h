@@ -87,6 +87,10 @@ ExtMove *compute_pawn_moves(const Position& pos, ExtMove *moves, Bitboard target
     }
   }
 
+  // TODO: if a pawn checks the king, en passant may be a legal move, despite not belonging to target
+  // Example: "8/p3Q3/1q6/1k2p3/2Pp4/3K4/5P2/8 b - c3 0 50"
+  // We currently don't think d4c3 is a legal move :(
+
   if (MGT == MoveGenType::CAPTURES || MGT == MoveGenType::ALL_MOVES || MGT == MoveGenType::CHECKS_AND_CAPTURES) {
     b1 = shift<CAPTURE_NE>(pawns & ~(pm.vertical | pm.northwest)) & (enemies | epLoc);
     b1 &= target;

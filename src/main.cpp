@@ -359,21 +359,22 @@ SearchResult<TURN> qsearch(Position *pos, int32_t depth, Evaluation alpha, Evalu
 }
 
 constexpr Evaluation kMovePieceBonus[7] = {
-  0, 181,   34, -115, -120, -170,  203};
+  0,  -107, -128, -272, -186, -267, -124 };
 constexpr Evaluation kMovePieceBonus_Capture[7] = {
-  0, 677,   93,  109,  103, -174,   50};
+  0,  547,    6,  120,   30, -184,   -1 };
 constexpr Evaluation kMovePieceBonus_WeAreHanging[7] = {
-  0, -92,  196,  203, -135, -142,  348};
+  0, -81,  124,  145,  -68, -194,  334 };
 constexpr Evaluation kCapturePieceBonus[7] = {
-  0, -526,   85,  158,  382,  756,  9999}; // todo: 999 should be zero?
+  0, -423,   -5,   51,  278,  617,  9999 }; // todo: 999 should be zero?
 constexpr Evaluation kCapturePieceBonus_Hanging[7] = {
-  0, -863,  208,  304,  368,  633,   50};
+  0, -543,  142,  221,  254,  533,   -1};
 
-uint32_t gButterlyBoard[64][64];
+uint32_t gHistoryHeuristicTable[Color::NUM_COLORS][64][64];
 
 void reset_stuff() {
   gCache.clear();
-  std::fill_n(gButterlyBoard[0], 64 * 64, 0);
+  std::fill_n(gHistoryHeuristicTable[Color::WHITE][0], 64 * 64, 0);
+  std::fill_n(gHistoryHeuristicTable[Color::BLACK][0], 64 * 64, 0);
 }
 
 template<Color TURN>
@@ -475,19 +476,26 @@ SearchResult<TURN> search(
     move->score += kCapturePieceBonus[move->capture];
     move->score += kCapturePieceBonus_Hanging[move->capture * areTheyHanging];
 
-    move->score += areWeHanging * 378;
-    move->score += areTheyHanging * 700;
-    // move->score += (move->move == lastFoundBestMove) * (depth == 1) * 0;
-    move->score += (move->move == lastFoundBestMove) * (depth == 2) * 367;
-    move->score += (move->move == lastFoundBestMove) * (depth >= 3) * 620;
-    // move->score += (kNullMove == lastFoundBestMove) * -5;  // unnecessary
+    move->score += areWeHanging * 258;
+    move->score += areTheyHanging * 607;
+    move->score += (move->move == lastFoundBestMove) * (depth == 1) * 592;
+    move->score += (move->move == lastFoundBestMove) * (depth == 2) * 420;
+    move->score += (move->move == lastFoundBestMove) * (depth >= 3) * 465;
+    // move->score += (kNullMove == lastFoundBestMove) * -67;  // unnecessary
 
-    move->score += (move->move == recommendedMoves.moves[0]) * 388;
-    // move->score += (kNullMove == recommendedMoves.moves[0]) * 4;
-    move->score += (move->move == recommendedMoves.moves[1]) * 447;
-    // move->score += (kNullMove == recommendedMoves.moves[1]) * -1;
-    move->score += (move->move.to == lastMove.to) * 183;
-    move->score += isCapture * 857;
+    move->score += (move->move == recommendedMoves.moves[0]) * 237;
+    // move->score += (kNullMove == recommendedMoves.moves[0]) * 65;
+    move->score += (move->move == recommendedMoves.moves[1]) * 300;
+    // move->score += (kNullMove == recommendedMoves.moves[1]) * 44;
+    move->score += (move->move.to == lastMove.to) * 250;
+    move->score += isCapture * 518;
+
+    const int32_t history = gHistoryHeuristicTable[TURN][move->move.from][move->move.to];
+    move->score += (history > 0) * 87;
+    move->score += (history > 4) * 66;
+    move->score += (history > 16) * 98;
+    move->score += (history > 64) * 126;
+    move->score += (history > 256) * 153;
   }
 
   #if GENERATE_MOVE_ORDERING_DATA
@@ -508,7 +516,7 @@ SearchResult<TURN> search(
       const bool areTheyHanging = isCapture && ((bb(move->move.to) & theirHanging) > 0);
 
       std::vector<int> features;
-      // [  13.,   12.,    5.,    6.,    6.,    3.],
+      // [-107 -128 -272 -186 -267 -124]
       features.push_back(move->piece == Piece::PAWN);
       features.push_back(move->piece == Piece::KNIGHT);
       features.push_back(move->piece == Piece::BISHOP);
@@ -516,7 +524,7 @@ SearchResult<TURN> search(
       features.push_back(move->piece == Piece::QUEEN);
       features.push_back(move->piece == Piece::KING);
 
-      // [ 270.,   94.,   83.,   70.,   42.,   46.],
+      //  [ 547    6  120   30 -184   -1]
       features.push_back((move->piece == Piece::PAWN) && isCapture);
       features.push_back((move->piece == Piece::KNIGHT) && isCapture);
       features.push_back((move->piece == Piece::BISHOP) && isCapture);
@@ -524,7 +532,7 @@ SearchResult<TURN> search(
       features.push_back((move->piece == Piece::QUEEN) && isCapture);
       features.push_back((move->piece == Piece::KING) && isCapture);
 
-      // [ -14.,   11.,    4.,  -11.,  -11.,   46.],
+      // [ -81  124  145  -68 -194  334]
       features.push_back((move->piece == Piece::PAWN) && areWeHanging);
       features.push_back((move->piece == Piece::KNIGHT) && areWeHanging);
       features.push_back((move->piece == Piece::BISHOP) && areWeHanging);
@@ -532,7 +540,7 @@ SearchResult<TURN> search(
       features.push_back((move->piece == Piece::QUEEN) && areWeHanging);
       features.push_back((move->piece == Piece::KING) && areWeHanging);
 
-      // [ -71.,   60.,  104.,  165.,  347.,   -0.],
+      // [-423   -5   51  278  617    0]
       features.push_back(move->capture == Piece::PAWN);
       features.push_back(move->capture == Piece::KNIGHT);
       features.push_back(move->capture == Piece::BISHOP);
@@ -540,7 +548,7 @@ SearchResult<TURN> search(
       features.push_back(move->capture == Piece::QUEEN);
       features.push_back(move->capture == Piece::KING);
 
-      // [-197.,   14.,  118.,   71.,  139.,   46.],
+      // [-543  142  221  254  533   -1]
       features.push_back((move->piece == Piece::PAWN) * areTheyHanging);
       features.push_back((move->piece == Piece::KNIGHT) * areTheyHanging);
       features.push_back((move->piece == Piece::BISHOP) * areTheyHanging);
@@ -548,7 +556,7 @@ SearchResult<TURN> search(
       features.push_back((move->piece == Piece::QUEEN) * areTheyHanging);
       features.push_back((move->piece == Piece::KING) * areTheyHanging);
 
-      // [  25.,  190.,   -0.,   51.,  124.,   -2.]
+      // [ 258  607  592  420  465  -67]
       features.push_back(areWeHanging);
       features.push_back(areTheyHanging);
       features.push_back((move->move == lastFoundBestMove) * (depth == 1));
@@ -556,7 +564,7 @@ SearchResult<TURN> search(
       features.push_back((move->move == lastFoundBestMove) * (depth >= 3));
       features.push_back(lastFoundBestMove == kNullMove);
 
-      // [  14.,    2.,   45.,    2.,   69.,    1.]
+      // [ 237   65  300   44  250  518]
       features.push_back(recommendedMoves.moves[0] == move->move);
       features.push_back(recommendedMoves.moves[0] == kNullMove);
       features.push_back(recommendedMoves.moves[1] == move->move);
@@ -564,7 +572,14 @@ SearchResult<TURN> search(
       features.push_back(move->move.to == lastMove.to);
       features.push_back(isCapture);
 
+      // [  -6   87   66   98  126  153]
       features.push_back(depth);
+
+      features.push_back(gHistoryHeuristicTable[TURN][move->move.from][move->move.to] > 0);
+      features.push_back(gHistoryHeuristicTable[TURN][move->move.from][move->move.to] > 4);
+      features.push_back(gHistoryHeuristicTable[TURN][move->move.from][move->move.to] > 16);
+      features.push_back(gHistoryHeuristicTable[TURN][move->move.from][move->move.to] > 64);
+      features.push_back(gHistoryHeuristicTable[TURN][move->move.from][move->move.to] > 256);
 
       std::cout << move->move.uci();
       for (size_t i = 0; i < features.size(); ++i) {
@@ -641,6 +656,7 @@ SearchResult<TURN> search(
 
     if (r.score >= beta) {
       nodeType = NodeTypeBetaCut;
+      gHistoryHeuristicTable[TURN][r.move.from][r.move.to] += depth * depth;
       break;
     }
     alpha = std::max(alpha, r.score);
