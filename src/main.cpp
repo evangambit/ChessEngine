@@ -215,11 +215,17 @@ typedef int8_t Depth;
 std::vector<std::string> gStackDebug;
 #endif
 
+enum NodeType {
+  NodeTypeAlphaCut,
+  NodeTypeBetaCut,
+  NodeTypeExact,
+};
+
 struct CacheResult {
   Depth depth;
   Evaluation eval;
   Move bestMove;
-  bool exhaustive;
+  NodeType exhaustive;
   #ifndef NDEBUG
   std::string fen;
   #endif
@@ -236,7 +242,6 @@ constexpr int kQSimplePieceValues[7] = {
   // encourages qsearch to value checks.
   200, 100, 450, 500, 1000, 2000
 };
-
 
 struct RecommendedMoves {
   Move moves[2];
@@ -364,8 +369,18 @@ constexpr Evaluation kCapturePieceBonus[7] = {
 constexpr Evaluation kCapturePieceBonus_Hanging[7] = {
   0, -863,  208,  304,  368,  633,   50};
 
+uint32_t gButterlyBoard[64][64];
+
+void reset_stuff() {
+  gCache.clear();
+  std::fill_n(gButterlyBoard[0], 64 * 64, 0);
+}
+
 template<Color TURN>
-SearchResult<TURN> search(Position* pos, const Depth depth, Evaluation alpha, const Evaluation beta, RecommendedMoves recommendedMoves) {
+SearchResult<TURN> search(
+  Position* pos, const Depth depth,
+  Evaluation alpha, const Evaluation beta,
+  RecommendedMoves recommendedMoves) {
 
   ++gNodeCounter;
 
@@ -439,9 +454,6 @@ SearchResult<TURN> search(Position* pos, const Depth depth, Evaluation alpha, co
     }
   }
 
-  // const Bitboard myTargets = compute_my_targets<opposingColor>(*pos);
-  // const Bitboard theirHanging = ~myTargets & pos->colorBitboards_[opposingColor];
-
   const Bitboard ourTargets = compute_my_targets<TURN>(*pos);
   const Bitboard theirTargets = compute_my_targets<opposingColor>(*pos);
   const Bitboard theirHanging = ourTargets & pos->colorBitboards_[opposingColor] & ~theirTargets;
@@ -453,18 +465,6 @@ SearchResult<TURN> search(Position* pos, const Depth depth, Evaluation alpha, co
   for (ExtMove *move = moves; move < end; ++move) {
     move->score = 0;
 
-    // When a lower piece captures a higher one, add the difference in value.
-    // move->score += kSimplePieceValues[move->capture] - kSimplePieceValues[move->piece];
-
-    // // Refund the moving piece's value if the captured piece is hanging.
-    // bool isCapturedPieceHanging = ((bb(move->move.to) & theirHanging) > 0);
-    // move->score += isCapturedPieceHanging * kSimplePieceValues[move->piece];
-
-    // move->score += (move->move == lastFoundBestMove) * 10000;
-    // move->score += recommendedMoves.score(move->move) * 2000;
-
-    // move->score += (move->move.to == lastMove.to) * 250;
-
     const bool isCapture = (move->capture != Piece::NO_PIECE);
     const bool areWeHanging = ((bb(move->move.from) & ourHanging) > 0);
     const bool areTheyHanging = isCapture && ((bb(move->move.to) & theirHanging) > 0);
@@ -474,10 +474,6 @@ SearchResult<TURN> search(Position* pos, const Depth depth, Evaluation alpha, co
     move->score += kMovePieceBonus_WeAreHanging[move->piece * areWeHanging];
     move->score += kCapturePieceBonus[move->capture];
     move->score += kCapturePieceBonus_Hanging[move->capture * areTheyHanging];
-
-   // [ 378,  700,    0,  367,  620, -137],
-   // [ 388,  104,  447,    3,  182,  857]], dtype=int16)
-
 
     move->score += areWeHanging * 378;
     move->score += areTheyHanging * 700;
@@ -587,6 +583,8 @@ SearchResult<TURN> search(Position* pos, const Depth depth, Evaluation alpha, co
 
   RecommendedMoves recommendationsForChildren;
 
+  NodeType nodeType = NodeTypeExact;
+
   size_t numValidMoves = 0;
   for (ExtMove *extMove = moves; extMove < end; ++extMove) {
 
@@ -642,26 +640,14 @@ SearchResult<TURN> search(Position* pos, const Depth depth, Evaluation alpha, co
     #endif
 
     if (r.score >= beta) {
-      it = gCache.find(pos->hash_);  // Need to re-search since the iterator may have changed when searching my children.
-      if (it == gCache.end() || depth > it->second.depth) {
-        const CacheResult cr = CacheResult{
-          depth,
-          r.score,
-          r.move,
-          false,
-          #ifndef NDEBUG
-          pos->fen(),
-          #endif
-        };
-        if (it != gCache.end()) {
-          it->second = cr;
-        } else {
-          gCache.insert(std::make_pair(pos->hash_, cr));
-        }
-      }
-      return r;
+      nodeType = NodeTypeBetaCut;
+      break;
     }
     alpha = std::max(alpha, r.score);
+  }
+
+  if (r.score >= alpha) {
+    nodeType = NodeTypeBetaCut;
   }
 
   if (numValidMoves == 0) {
@@ -676,7 +662,7 @@ SearchResult<TURN> search(Position* pos, const Depth depth, Evaluation alpha, co
       depth,
       r.score,
       r.move,
-      true,
+      nodeType,
       #ifndef NDEBUG
       pos->fen(),
       #endif
@@ -810,7 +796,7 @@ void mymain(std::vector<Position>& positions, const std::string& mode, double ti
     return;
   } else if (mode == "analyze") {
     for (auto pos : positions) {
-      gCache.clear();
+      reset_stuff();
       SearchResult<Color::WHITE> results(Evaluation(0), kNullMove);
       time_t tstart = clock();
       for (size_t i = 1; i <= depth; ++i) {
@@ -855,7 +841,7 @@ void mymain(std::vector<Position>& positions, const std::string& mode, double ti
   } else if (mode == "play") {
     for (auto pos : positions) {
       while (true) {
-        gCache.clear();
+        reset_stuff();
         SearchResult<Color::WHITE> results(Evaluation(0), kNullMove);
         time_t tstart = clock();
         for (size_t i = 1; i <= depth; ++i) {
