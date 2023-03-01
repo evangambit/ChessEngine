@@ -300,13 +300,15 @@ SearchResult<TURN> qsearch(Position *pos, int32_t depth, Evaluation alpha, Evalu
     }
   }
 
-  // const bool inCheck = can_enemy_attack<TURN>(*pos, lsb(pos->pieceBitboards_[moverKing]));
-
   constexpr Color opposingColor = opposite_color<TURN>();
   constexpr ColoredPiece moverKing = coloredPiece<TURN, Piece::KING>();
+  const bool inCheck = can_enemy_attack<TURN>(*pos, lsb(pos->pieceBitboards_[moverKing]));
 
   ExtMove moves[kMaxNumMoves];
   ExtMove *end = compute_moves<TURN, MoveGenType::CHECKS_AND_CAPTURES>(*pos, moves);
+  if (moves == end && inCheck) {
+    return SearchResult<TURN>(kMinEval + 1, kNullMove);
+  }
 
   // If we can stand pat for a beta cutoff, or if we have no moves, return.
   SearchResult<TURN> r(gEvaluator.score<TURN>(*pos), kNullMove);
@@ -314,18 +316,17 @@ SearchResult<TURN> qsearch(Position *pos, int32_t depth, Evaluation alpha, Evalu
     return r;
   }
 
-  const bool inCheck = can_enemy_attack<TURN>(*pos, lsb(pos->pieceBitboards_[moverKing]));
   if (inCheck) {
     // Cannot stand pat if you're in check.
     r.score = kMinEval + 1;
   }
 
   const Bitboard theirTargets = compute_my_targets<opposingColor>(*pos);
-  const Bitboard theirHanging = ~theirTargets & pos->colorBitboards_[opposingColor];
+  const Bitboard theirUnprotected = ~theirTargets;
 
   for (ExtMove *move = moves; move < end; ++move) {
     move->score = kQSimplePieceValues[move->capture] - kQSimplePieceValues[move->piece];
-    move->score += kQSimplePieceValues[move->piece] * ((theirHanging & bb(move->move.to)) > 0);
+    move->score += kQSimplePieceValues[move->piece] * ((theirUnprotected & bb(move->move.to)) > 0);
   }
 
   std::sort(moves, end, [](ExtMove a, ExtMove b) {
@@ -349,7 +350,7 @@ SearchResult<TURN> qsearch(Position *pos, int32_t depth, Evaluation alpha, Evalu
     undo<TURN>(pos);
 
     if (r.score >= beta) {
-      return r;
+      break;
     }
 
     alpha = std::max(alpha, child.score);
