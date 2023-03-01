@@ -292,6 +292,7 @@ template<Color TURN>
 SearchResult<TURN> qsearch(Position *pos, int32_t depth, Evaluation alpha, Evaluation beta) {
   ++gNodeCounter;
 
+
   for (size_t i = 0; i < pos->hashes_.size(); ++i) {
     // TODO: stop looking when we hit a pawn move or capture.
     // TODO: handle 3 move draw for moves before the root.
@@ -300,14 +301,23 @@ SearchResult<TURN> qsearch(Position *pos, int32_t depth, Evaluation alpha, Evalu
     }
   }
 
+  if (std::popcount(pos->pieceBitboards_[coloredPiece<TURN, Piece::KING>()]) == 0) {
+    return SearchResult<TURN>(kMinEval + 1, kNullMove);
+  }
+
+  if (depth > 4) {
+    return SearchResult<TURN>(gEvaluator.score<TURN>(*pos), kNullMove);
+  }
+
   constexpr Color opposingColor = opposite_color<TURN>();
   constexpr ColoredPiece moverKing = coloredPiece<TURN, Piece::KING>();
   const bool inCheck = can_enemy_attack<TURN>(*pos, lsb(pos->pieceBitboards_[moverKing]));
 
   ExtMove moves[kMaxNumMoves];
   ExtMove *end = compute_moves<TURN, MoveGenType::CHECKS_AND_CAPTURES>(*pos, moves);
+
   if (moves == end && inCheck) {
-    return SearchResult<TURN>(kMinEval + 1, kNullMove);
+    return SearchResult<TURN>(kMinEval + 2, kNullMove);
   }
 
   // If we can stand pat for a beta cutoff, or if we have no moves, return.

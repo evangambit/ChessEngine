@@ -183,7 +183,7 @@ ExtMove* compute_moves(const Position& pos, ExtMove *moves) {
   if (numCheckers > 0) {
     moves = compute_pawn_moves<US, MoveGenType::ALL_MOVES>(pos, moves, target, pm);
     moves = compute_knight_moves<US, MoveGenType::ALL_MOVES>(pos, moves, target, pm);
-    moves = compute_king_moves<US, MGT, true>(pos, moves, validKingSquares);
+    moves = compute_king_moves<US, MoveGenType::ALL_MOVES, true>(pos, moves, validKingSquares);
     moves = compute_bishop_like_moves<US, MoveGenType::ALL_MOVES>(pos, moves, target, pm);
     moves = compute_rook_like_moves<US, MoveGenType::ALL_MOVES>(pos, moves, target, pm);
   } else {
