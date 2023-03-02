@@ -44,6 +44,17 @@ Bitboard compute_my_targets(const Position& pos) {
 }
 
 template<Color US>
+Bitboard compute_my_targets_except_king(const Position& pos) {
+  Bitboard r = compute_pawn_targets<US>(pos);
+  r |= compute_knight_targets<US>(pos);
+  const Bitboard bishopLikePieces = pos.pieceBitboards_[coloredPiece<US, Piece::BISHOP>()] | pos.pieceBitboards_[coloredPiece<US, Piece::QUEEN>()];
+  r |= compute_bishoplike_targets<US>(pos, bishopLikePieces);
+  const Bitboard rookLikePieces = pos.pieceBitboards_[coloredPiece<US, Piece::ROOK>()] | pos.pieceBitboards_[coloredPiece<US, Piece::QUEEN>()];
+  r |= compute_rooklike_targets<US>(pos, rookLikePieces);
+  return r;
+}
+
+template<Color US>
 Bitboard compute_enemy_attackers(const Position& pos, const Square sq) {
   constexpr Color enemyColor = opposite_color<US>();
 
@@ -180,6 +191,8 @@ ExtMove* compute_moves(const Position& pos, ExtMove *moves) {
 
   const Bitboard validKingSquares = ~compute_my_targets<opposite_color<US>()>(pos);
 
+  // TODO: if MGT == CHECKS_AND_CAPTURES we won't consider moves where the queen moves like
+  // a bishop and checks like a rook (or vice versa).
   if (numCheckers > 0) {
     moves = compute_pawn_moves<US, MoveGenType::ALL_MOVES>(pos, moves, target, pm);
     moves = compute_knight_moves<US, MoveGenType::ALL_MOVES>(pos, moves, target, pm);

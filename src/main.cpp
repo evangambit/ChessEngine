@@ -234,13 +234,13 @@ struct CacheResult {
 std::unordered_map<uint64_t, CacheResult> gCache;
 
 constexpr int kSimplePieceValues[7] = {
-  0, 100, 450, 500, 1000, 2000
+  0, 100, 450, 500, 1000, 2000, 9999
 };
 
 constexpr int kQSimplePieceValues[7] = {
   // Note "NO_PIECE" has a score of 200 since this
   // encourages qsearch to value checks.
-  200, 100, 450, 500, 1000, 2000
+  200, 100, 450, 500, 1000, 2000, 9999
 };
 
 struct RecommendedMoves {
@@ -306,7 +306,8 @@ SearchResult<TURN> qsearch(Position *pos, int32_t depth, Evaluation alpha, Evalu
   }
 
   if (depth > 4) {
-    return SearchResult<TURN>(gEvaluator.score<TURN>(*pos), kNullMove);
+    Evaluation e = gEvaluator.score<TURN>(*pos);
+    return SearchResult<TURN>(e, kNullMove);
   }
 
   constexpr Color opposingColor = opposite_color<TURN>();
@@ -331,7 +332,7 @@ SearchResult<TURN> qsearch(Position *pos, int32_t depth, Evaluation alpha, Evalu
     r.score = kMinEval + 1;
   }
 
-  const Bitboard theirTargets = compute_my_targets<opposingColor>(*pos);
+  const Bitboard theirTargets = compute_my_targets_except_king<opposingColor>(*pos);
   const Bitboard theirUnprotected = ~theirTargets;
 
   for (ExtMove *move = moves; move < end; ++move) {
@@ -344,11 +345,11 @@ SearchResult<TURN> qsearch(Position *pos, int32_t depth, Evaluation alpha, Evalu
   });
 
   for (ExtMove *move = moves; move < end; ++move) {
-    if (move->score <= 0 && r.score > kMinEval + 1) {
+    if (move->score < 0 && r.score > kMinEval + 1) {
       break;
     }
 
-    make_move<TURN>(pos, moves[0].move);
+    make_move<TURN>(pos, move->move);
 
     SearchResult<TURN> child = flip(qsearch<opposingColor>(pos, depth + 1, -beta, -alpha));
 
@@ -755,9 +756,13 @@ template<Color TURN>
 void print_feature_vec(Position *pos, const std::string& originalFen, bool humanReadable, bool makeQuiet) {
   if (makeQuiet) {
     SearchResult<Color::WHITE> r = to_white(qsearch<TURN>(pos, 0, kMinEval, kMaxEval));
+    if (r.score > kMaxEval - 100 || r.score < kMinEval + 100) {
+      std::cout << "PRINT FEATURE VEC FAIL (MATE)" << std::endl;
+      return;
+    }
     if (r.move != kNullMove) {
       make_move<TURN>(pos, r.move);
-      print_feature_vec<opposite_color<TURN>()>(pos, originalFen, humanReadable, makeQuiet);
+      print_feature_vec<opposite_color<TURN>()>(pos, originalFen, humanReadable, false);
       undo<TURN>(pos);
       return;
     }
