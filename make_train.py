@@ -5,6 +5,8 @@ import random
 import subprocess
 import sqlite3
 
+from multiprocessing import Process, Queue
+ 
 import chess
 from chess import pgn
 
@@ -30,6 +32,100 @@ Tactics
 $ python3 make_train.py --mode generate --type tactics --quiet 0 lichess_elite_2022-05.pgn
 
 """
+
+def sql_inserter(resultQueue, args):
+  conn = sqlite3.connect("db.sqlite3")
+  c = conn.cursor()
+  c.execute(f"""CREATE TABLE IF NOT EXISTS {get_table_name(args)} (
+    fen BLOB,
+    bestMove BLOB,
+    delta INTEGER,
+    moverScore INTEGER,
+    moverFeatures BLOB    -- from mover's perspective
+  );""")
+
+  fens = set()
+  c.execute(f"SELECT fen FROM {get_table_name(args)}")
+  for fen, in c:
+    fens.add(fen)
+
+  t0 = time.time()
+  numInserted = 0
+
+  while True:
+    result = resultQueue.get()
+
+    if result["fen"] in fens:
+      continue
+    fens.add(result["fen"])
+
+    c.execute(f"""INSERT INTO {get_table_name(args)}
+      (fen, bestMove, delta, moverScore, moverFeatures) 
+      VALUES (?, ?, ?, ?, ?)""", (
+      result["fen"],
+      result["bestmove"],
+      result["scoreDelta"],
+      result["evaluation"],
+      ' '.join(str(a) for a in result["features"]),
+    ))
+
+    numInserted += 1
+    if numInserted % 500 == 0:
+      print('%.1f inserts/sec' % (numInserted / (time.time() - t0)), len(fens))
+      conn.commit()
+
+def analyzer(fenQueue, resultQueue, args):
+    stockfish = Stockfish(path=args.stockpath, depth=args.depth)
+    while True:
+        fen = fenQueue.get()
+
+        fen, features = get_vec(fen, args)
+
+        try:
+          stockfish.set_fen_position(fen)
+          moves = stockfish.get_top_moves(2)
+        except StockfishException:
+          print('reboot')
+          # Restart stockfish.
+          stockfish = Stockfish(path=args.stockpath, depth=args.depth)
+          continue
+
+        if len(moves) != 2:
+          continue
+
+        bestmove = moves[0]['Move']
+
+        if ' b ' in fen:
+          for move in moves:
+            if move['Centipawn'] is not None:
+              move['Centipawn'] *= -1
+            if move['Mate'] is not None:
+              move['Mate'] *= -1
+
+        for move in moves:
+          if move['Mate'] is not None:
+            if move['Mate'] > 0:
+              move['Centipawn'] = 500
+            else:
+              move['Centipawn'] = -500
+          move['Centipawn'] = max(-500, min(500, move['Centipawn']))
+
+        scoreDelta = abs(moves[0]['Centipawn'] - moves[1]['Centipawn'])
+        evaluation = moves[0]['Centipawn']
+
+        assert evaluation is not None
+        assert scoreDelta is not None
+
+        if args.type == 'tactics' and scoreDelta < 100:
+          continue
+
+        resultQueue.put({
+          "fen": fen,
+          "bestmove": bestmove,
+          "scoreDelta": scoreDelta,
+          "evaluation": evaluation,
+          "features": features,
+        })
 
 def pgn_iterator(noise):
   assert len(args.pgnfiles) > 0
@@ -101,7 +197,7 @@ def endgame_iterator():
 
     yield fen
 
-def get_vec(fen):
+def get_vec(fen, args):
   command = ["./a.out", "mode", "printvec-cpu", "fen", *fen.split(' '), "makequiet", str(args.quiet)]
   lines = subprocess.check_output(command).decode().strip().split('\n')
   assert len(lines) == 2, lines
@@ -109,193 +205,123 @@ def get_vec(fen):
   x = [int(val) for val in lines[1].split(' ')]
   return fen, x
 
-def get_vecs(fens):
+def get_vecs(fens, args):
   filename = '/tmp/fens.txt'
   with open(filename, 'w+') as f:
     f.write('\n'.join(fens))
   command = ["./a.out", "mode", "printvec-cpu", "fens", filename, "makequiet", str(args.quiet)]
   lines = subprocess.check_output(command).decode().strip().split('\n')
-  assert len(lines) == len(fens) * 2
+  lines = [line for line in lines if line != 'PRINT FEATURE VEC FAIL (MATE)']
   for i in range(0, len(lines), 2):
     x = [int(val) for val in lines[i + 1].split(' ')]
     yield lines[i + 0], x
 
-parser = argparse.ArgumentParser()
-parser.add_argument("pgnfiles", nargs='*')
-parser.add_argument("--mode", type=str, required=True, help="{generate, update_features, write_numpy}")
-parser.add_argument("--type", type=str, required=True, help="{any, tactics, endgame}")
-parser.add_argument("--quiet", type=int, required=True, help="{0, 1}")
-parser.add_argument("--noise", type=int, default=0, help="{0, 1, 2, ..}")
-parser.add_argument("--depth", type=int, default=10, help="{1, 2, ..}")
-parser.add_argument("--stockpath", default="/usr/local/bin/stockfish", type=str)
-args = parser.parse_args()
+def get_table_name(args):
+  return f"{args.type}_d{args.depth}_q{args.quiet}_n{args.noise}"
 
-assert args.type in ["any", "tactics", "endgame"]
-assert args.quiet in [0, 1]
-assert args.mode in ['generate', 'update_features', 'write_numpy']
-assert args.noise >= 0
-assert args.depth > 1
+if __name__ == '__main__':
 
-if args.type == "endgame":
-  assert len(args.pgnfiles) == 0
-  assert args.noise == 0
+  parser = argparse.ArgumentParser()
+  parser.add_argument("pgnfiles", nargs='*')
+  parser.add_argument("--mode", type=str, required=True, help="{generate, update_features, write_numpy}")
+  parser.add_argument("--type", type=str, required=True, help="{any, tactics, endgame}")
+  parser.add_argument("--quiet", type=int, required=True, help="{0, 1}")
+  parser.add_argument("--noise", type=int, default=0, help="{0, 1, 2, ..}")
+  parser.add_argument("--depth", type=int, default=10, help="{1, 2, ..}")
+  parser.add_argument("--stockpath", default="/usr/local/bin/stockfish", type=str)
+  args = parser.parse_args()
 
-conn = sqlite3.connect("db.sqlite3")
-c = conn.cursor()
-kTableName = f"{args.type}_d{args.depth}_q{args.quiet}_n{args.noise}"
+  assert args.type in ["any", "tactics", "endgame"]
+  assert args.quiet in [0, 1]
+  assert args.mode in ['generate', 'update_features', 'write_numpy']
+  assert args.noise >= 0
+  assert args.depth > 1
 
-if args.mode == 'update_features':
-  c.execute(f"SELECT fen, bestMove, delta, moverScore FROM {kTableName}")
-  A = {}
-  for fen, bestmove, delta, moverScore in c:
-    A[fen] = (bestmove, delta, moverScore)
+  if args.type == "endgame":
+    assert len(args.pgnfiles) == 0
+    assert args.noise == 0
 
-  c.execute(f"""DROP TABLE IF EXISTS tmpTable""")
-  c.execute(f"""CREATE TABLE tmpTable (
-    fen BLOB,
-    bestMove BLOB,
-    delta INTEGER,
-    moverScore INTEGER,
-    moverFeatures BLOB    -- from mover's perspective
-  );""")
-  fens = list(A.keys())
-  writesSinceCommit = 0
-  totalWrites = 0
-  for fen, x in get_vecs(fens):
-    if fen not in A:
-      print('x')
-      continue
-    c.execute(f"""INSERT INTO tmpTable
-      (fen, bestMove, delta, moverScore, moverFeatures) 
-      VALUES (?, ?, ?, ?, ?)""", (
-      fen,
-      *A[fen],
-      ' '.join(str(a) for a in x),
-    ))
+  if args.mode == 'update_features':
+    conn = sqlite3.connect("db.sqlite3")
+    c = conn.cursor()
+    c.execute(f"SELECT fen, bestMove, delta, moverScore FROM {get_table_name(args)}")
+    A = {}
+    for fen, bestmove, delta, moverScore in c:
+      A[fen] = (bestmove, delta, moverScore)
 
-    writesSinceCommit += 1
-    totalWrites += 1
-    if writesSinceCommit >= 1000:
-      conn.commit()
-      print('commit', totalWrites, len(fens), len(x))
-      writesSinceCommit = 0
-  conn.commit()
-  c.execute(f"""DROP TABLE IF EXISTS {kTableName}""")
-  c.execute(f"""ALTER TABLE tmpTable RENAME TO {kTableName}""")
-  exit(0)
+    c.execute(f"""DROP TABLE IF EXISTS tmpTable""")
+    c.execute(f"""CREATE TABLE tmpTable (
+      fen BLOB,
+      bestMove BLOB,
+      delta INTEGER,
+      moverScore INTEGER,
+      moverFeatures BLOB    -- from mover's perspective
+    );""")
+    fens = list(A.keys())
+    writesSinceCommit = 0
+    totalWrites = 0
+    for fen, x in get_vecs(fens, args):
+      if fen not in A:
+        print('x')
+        continue
+      c.execute(f"""INSERT INTO tmpTable
+        (fen, bestMove, delta, moverScore, moverFeatures) 
+        VALUES (?, ?, ?, ?, ?)""", (
+        fen,
+        *A[fen],
+        ' '.join(str(a) for a in x),
+      ))
 
-if args.mode == 'generate':
-  c.execute(f"""CREATE TABLE IF NOT EXISTS {kTableName} (
-    fen BLOB,
-    bestMove BLOB,
-    delta INTEGER,
-    moverScore INTEGER,
-    moverFeatures BLOB    -- from mover's perspective
-  );""")
+      writesSinceCommit += 1
+      totalWrites += 1
+      if writesSinceCommit >= 1000:
+        conn.commit()
+        print('commit', totalWrites, len(fens), len(x))
+        writesSinceCommit = 0
+    conn.commit()
+    c.execute(f"""DROP TABLE IF EXISTS {get_table_name(args)}""")
+    c.execute(f"""ALTER TABLE tmpTable RENAME TO {get_table_name(args)}""")
+    exit(0)
 
-  fens = set()
-  c.execute(f"SELECT fen FROM {kTableName}")
-  for fen, in c:
-    fens.add(fen)
+  if args.mode == 'generate':
+    # generate work
+    fenQueue = Queue()
+    resultQueue = Queue()
 
-  stockfish = Stockfish(path=args.stockpath, depth=args.depth)
+    analyzers = [Process(target=analyzer, args=(fenQueue, resultQueue, args)) for _ in range(10)]
+    for p in analyzers:
+      p.start()
 
-  iterator = None
-  if args.type == 'endgame':
-    iterator = endgame_iterator()
-  else:
-    iterator = pgn_iterator(args.noise)
+    sqlThread = Process(target=sql_inserter, args=(resultQueue, args))
+    sqlThread.start()
 
-  totalWrites = 0
-  writesSinceCommit = 0
+    iterator = None
+    if args.type == 'endgame':
+      iterator = endgame_iterator()
+    else:
+      iterator = pgn_iterator(args.noise)
 
-  tstart = time.time()
-  for fen in iterator:
-    fen, x = get_vec(fen)
+    for fen in iterator:
+      fenQueue.put(fen)
 
-    if fen in fens:
-      continue
+  if args.mode == 'write_numpy':
+    conn = sqlite3.connect("db.sqlite3")
+    c = conn.cursor()
+    c.execute(f"SELECT fen, moverScore, moverFeatures FROM {get_table_name(args)}")
+    X, Y, F = [], [], []
+    for fen, moverScore, moverFeatures in c:
+      F.append(fen)
+      Y.append(moverScore)
 
-    fens.add(fen)
+      x = np.array([float(a) for a in moverFeatures.split(' ')], dtype=np.int32)
+      X.append(x)
 
-    try:
-      stockfish.set_fen_position(fen)
-      moves = stockfish.get_top_moves(2)
-    except StockfishException:
-      print('reboot')
-      # Restart stockfish.
-      fens.remove(fen)
-      stockfish = Stockfish(path=args.stockpath, depth=args.depth)
-      continue
-
-    if len(moves) != 2:
-      continue
-
-    bestmove = moves[0]['Move']
-
-    if ' b ' in fen:
-      for move in moves:
-        if move['Centipawn'] is not None:
-          move['Centipawn'] *= -1
-        if move['Mate'] is not None:
-          move['Mate'] *= -1
-
-    for move in moves:
-      if move['Mate'] is not None:
-        if move['Mate'] > 0:
-          move['Centipawn'] = 500
-        else:
-          move['Centipawn'] = -500
-      move['Centipawn'] = max(-500, min(500, move['Centipawn']))
-
-    scoreDelta = abs(moves[0]['Centipawn'] - moves[1]['Centipawn'])
-    evaluation = moves[0]['Centipawn']
-
-    assert evaluation is not None
-    assert scoreDelta is not None
-
-    if args.type == 'tactics' and scoreDelta < 100:
-      continue
-
-    scoreDelta = min(500, scoreDelta)
-
-    c.execute(f"""INSERT INTO {kTableName}
-      (fen, bestMove, delta, moverScore, moverFeatures) 
-      VALUES (?, ?, ?, ?, ?)""", (
-      fen,
-      bestmove,
-      scoreDelta,
-      evaluation,
-      ' '.join(str(a) for a in x),
-    ))
-    writesSinceCommit += 1
-    totalWrites += 1
-
-    if writesSinceCommit >= 40:
-      dt = time.time() - tstart
-      print('commit %i; %.3f per sec' % (totalWrites, totalWrites / dt), len(x))
-      writesSinceCommit = 0
-      conn.commit()
-
-  game = pgn.read_game(f)
-  exit(0)
-
-if args.mode == 'write_numpy':
-  c.execute(f"SELECT fen, moverScore, moverFeatures FROM {kTableName}")
-  X, Y, F = [], [], []
-  for fen, moverScore, moverFeatures in c:
-    F.append(fen)
-    Y.append(moverScore)
-
-    x = np.array([float(a) for a in moverFeatures.split(' ')], dtype=np.int32)
-    X.append(x)
-
-  X = np.array(X).astype(np.int16)
-  Y = np.array(Y)
-  F = np.array(F)
-  print(X.shape, Y.shape, F.shape)
-  np.save(os.path.join('traindata', f'x.{args.type}.npy'), X)
-  np.save(os.path.join('traindata', f'y.{args.type}.npy'), Y)
-  np.save(os.path.join('traindata', f'f.{args.type}.npy'), F)
-  exit(0)
+    X = np.array(X).astype(np.int16)
+    Y = np.array(Y)
+    F = np.array(F)
+    print(X.shape, Y.shape, F.shape)
+    np.save(os.path.join('traindata', f'x.{args.type}.npy'), X)
+    np.save(os.path.join('traindata', f'y.{args.type}.npy'), Y)
+    np.save(os.path.join('traindata', f'f.{args.type}.npy'), F)
+    exit(0)
 
