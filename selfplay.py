@@ -23,6 +23,7 @@ def play(fen0, player1, player2):
 			print('a8a8', ' '.join(cmd))
 			print(board)
 			print(board.fen())
+			print('')
 			break
 		try:
 			board.push_uci(move)
@@ -31,9 +32,16 @@ def play(fen0, player1, player2):
 			print(fen0, moves)
 			print(board)
 			print(board.fen())
-			print(' '.join(cmd))
+			print('')
 			raise e
 		mover, waiter = waiter, mover
+		if len(moves) > 250:
+			print('long', ' '.join(cmd))
+			print(fen0, moves)
+			print(board)
+			print(board.fen())
+			print('')
+			break
 
 	if board.is_checkmate():
 		if waiter == player1:
