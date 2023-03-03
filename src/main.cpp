@@ -305,7 +305,7 @@ SearchResult<TURN> qsearch(Position *pos, int32_t depth, Evaluation alpha, Evalu
     return SearchResult<TURN>(kMinEval + 1, kNullMove);
   }
 
-  if (depth > 4) {
+  if (depth > 8) {
     Evaluation e = gEvaluator.score<TURN>(*pos);
     return SearchResult<TURN>(e, kNullMove);
   }

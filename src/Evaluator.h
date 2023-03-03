@@ -114,59 +114,71 @@ enum EF {
 
   KING_IN_FRONT_OF_PASSED_PAWN,
   KING_IN_FRONT_OF_PASSED_PAWN2,
-  BONUS,
+
+  PAWN_V_LONELY_KING,
+  KNIGHTS_V_LONELY_KING,
+  BISHOPS_V_LONELY_KING,
+  ROOK_V_LONELY_KING,
+  QUEEN_V_LONELY_KING,
+
+  OUR_MATERIAL_THREATS,
+  THEIR_MATERIAL_THREATS,
 
   NUM_EVAL_FEATURES,
 };
 
-const int32_t kEarlyB0 = 9;
-const int32_t kEarlyW0[EF::NUM_EVAL_FEATURES] = {
-  26, 131, 136, 148, 333, -32,
--124,-132,-132,-330,-229,  15,
-  -8,   4, -39,   0, -37,  18,
- -10, -14,   3,   4,  21,   2,
-   6,   5,  24,  23,  -1,  14,
-   4,  12, -10,   7,  -3,   9,
-  77,   4, -11,  42,  -3,  -2,
-   0,  13, -15,  -5, -22, -30,
-  -3,  49,  31,  40, -16,-144,
--116,   1,   4,  -3,  21,  21,
-  20,  20,  26,   0,   0,   0,
-   0,   0,  35,  50,  31, -11,
-  -1,  -1,-129, -61,  -4,
+const int32_t kEarlyB0 = 2;
+const int32_t kEarlyW0[83] = {
+  66, 385, 385, 438, 651, -73,
+-371,-371,-422,-650, -32,   0,
+ -32, -11, -53,  -2, -32,  14,
+ -26,  -5,  29,   9,  26,  60,
+  12,  24,  38,  66,   6,  22,
+  30,  70, -15,  23,  -5,  26,
+ 144,  15,  22,  62,  25,   5,
+  21,   4, -57, -43, -84, -20,
+  14, 156, 135, -32, -13,  28,
+  64,   4, -54,   7,   0,   6,
+   4,  -4,  34,   1,   4,  -1,
+   3,  -3, -45,  85,  36,  36,
+  -3,   0,-125,-105, 106,-572,
+ 186,-143,  -7,  60, -30,
 };
-const int32_t kLateB0 = -15;
-const int32_t kLateW0[EF::NUM_EVAL_FEATURES] = {
-  83, 159, 182, 315, 519, -81,
--149,-183,-307,-468,  19, -29,
-   7,   5,   7,   1,  16, -16,
-  -5, -21,  -6,  -7, -10,  -5,
-  25,  22,  26,  11,  -3,   5,
-  32,  47, -12,  27,  30,  10,
-  -3,  -6,  35,  25,  23,  23,
-   4, -28, -22, -22,  -8,  38,
-  40,  -5,  -2,  47,  73,  28,
-   2,   0,   4,   4,   4,   5,
-   1,  -2,  -2,   7, -52, 233,
--219, 148,  65,  22,   5,  12,
-  22,  -6,  59,  45,  -1,
+const int32_t kLateB0 = -9;
+const int32_t kLateW0[83] = {
+ 144, 437, 473, 753,1642,-150,
+-311,-350,-636,-1222, -81, -29,
+  12,  21,  11,   1,  18, -28,
+  -2, -19, -41, -12,  -6, -53,
+  67,  37, -31, -24,   0,   8,
+  30,  56, -12,  16,  36,  26,
+ -66,   7,  51, -16,  17,  13,
+   5, -57, -74, -84, -30,  -9,
+  71, 165, 189, 373,1230,  23,
+ -36,   3,   6,  -6,   2,   2,
+  -2,  -1,  -4,  82, -33, 343,
+-152, 344, 269,  30, -23,   6,
+   9,  -7,  77,  94,  43,-249,
+-383,-171,  -2, 189, -68,
 };
-const int32_t kClippedB0 = 27;
-const int32_t kClippedW0[EF::NUM_EVAL_FEATURES] = {
-  37, 192, 188, 299, 642, -43,
--202,-194,-310,-661, -18, -14,
-   2,  25,  -1,  -1,   6,  -6,
-  -3,   4, -14,  -2,   0, -38,
-  21,  10,   3,   5,   5,   0,
-  -3,  21,  -1,  -1,  -1,   7,
-  10,  12,  10,   2,  -2,   1,
-   1,  -8,  -6,  -6,  -3,  -1,
-   7,   4,  19, -20, -52,  16,
-  16,   2,  -5,   2,  -2,   0,
-  -3,   5,   1,  29,  15,   0,
-  15, 125, 118,   3, -12,  10,
-  -4,   4,  19,   9,  15,
+const int32_t kClippedB0 = 0;
+const int32_t kClippedW0[83] = {
+ -18, -17, -20, -26,  -1, -15,
+ -24, -28, -25, -35, -25,  36,
+  -9,  70, -15, -13,  -4, -28,
+ -34,  48, -35,  89, -23, -69,
+ -51, -39,  23,   6,  11,  11,
+ -54,  24,  -3,  18,   6,  16,
+ -48,  18, -24,  34,  -9,  18,
+ -40, -22, -16,  -8, -78,   9,
+ -11, -14, -19, -24,  -6,   0,
+  28,  -5, -11,   6,  -2,  -6,
+   7,  -3,  11, 240,  54, 125,
+-100, 184,  -8, -27,  -6,  25,
+ -25,  -1,  59, -59,  69,  75,
+   9,   6,  -9, -11, -26,
 };
+
 
 std::string EFSTR[] = {
   "OUR_PAWNS",
@@ -245,8 +257,13 @@ std::string EFSTR[] = {
   "CASTLING_RIGHTS",
   "KING_IN_FRONT_OF_PASSED_PAWN",
   "KING_IN_FRONT_OF_PASSED_PAWN2",
-  "BONUS",
-  "NUM_EVAL_FEATURES",
+  "PAWN_V_LONELY_KING",
+  "KNIGHTS_V_LONELY_KING",
+  "BISHOPS_V_LONELY_KING",
+  "ROOK_V_LONELY_KING",
+  "QUEEN_V_LONELY_KING",
+  "OUR_MATERIAL_THREATS",
+  "THEIR_MATERIAL_THREATS",
 };
 
 struct Evaluator {
@@ -322,8 +339,6 @@ struct Evaluator {
 
     const Bitboard usTargets = ourPawnTargets | ourKnightTargets | usBishopTargets | ourRookTargets | usQueenTargets | usKingTargets;
     const Bitboard themTargets = theirPawnTargets | theirKnightTargets | theirBishopTargets | theirRookTargets | theirQueenTargets | theirKingTargets;
-
-    Evaluation bonus = 0;
 
     features[EF::OUR_PAWNS] = std::popcount(ourPawns);
     features[EF::OUR_KNIGHTS] = std::popcount(ourKnights);
@@ -570,31 +585,49 @@ struct Evaluator {
     const bool isOurKingLonely = (ourMen == ourKings);
     const bool isTheirKingLonely = (theirMen == theirKings);
 
-    // Winning end game bonuses.
-    features[EF::BONUS] = 0;
-    // +50 for each pawn if we're against a lonely king.
-    features[EF::BONUS] += isTheirKingLonely * 50 * std::popcount(ourPawns);
-    features[EF::BONUS] -= isOurKingLonely * 50 * std::popcount(theirPawns);
-    // +100 for each rook if we're against a lonely king.
-    features[EF::BONUS] += isTheirKingLonely * 50 * std::popcount(ourRooks);
-    features[EF::BONUS] -= isOurKingLonely * 50 * std::popcount(theirRooks);
-    // +150 for each queen if we're against a lonely king.
-    features[EF::BONUS] += isTheirKingLonely * 150 * std::popcount(ourQueens);
-    features[EF::BONUS] -= isOurKingLonely * 150 * std::popcount(theirQueens);
+    // Bonus vs lonely king.
+    features[EF::PAWN_V_LONELY_KING] = isTheirKingLonely * std::popcount(ourPawns);
+    features[EF::PAWN_V_LONELY_KING] -= isOurKingLonely * std::popcount(theirPawns);
+    features[EF::KNIGHTS_V_LONELY_KING] = isTheirKingLonely * std::popcount(ourKnights);
+    features[EF::KNIGHTS_V_LONELY_KING] -= isOurKingLonely * std::popcount(theirKnights);
+    features[EF::BISHOPS_V_LONELY_KING] = isTheirKingLonely * std::popcount(ourBishops);
+    features[EF::BISHOPS_V_LONELY_KING] -= isOurKingLonely * std::popcount(theirBishops);
+    features[EF::ROOK_V_LONELY_KING] = isTheirKingLonely * std::popcount(ourRooks);
+    features[EF::ROOK_V_LONELY_KING] -= isOurKingLonely * std::popcount(theirRooks);
+    features[EF::QUEEN_V_LONELY_KING] = isTheirKingLonely * std::popcount(ourQueens);
+    features[EF::QUEEN_V_LONELY_KING] -= isOurKingLonely * std::popcount(theirQueens);
 
-    const int16_t ourPiecesRemaining = std::popcount(pos.colorBitboards_[US] & ~ourPawns) + std::popcount(ourQueens) - 1;
-    const int16_t theirPiecesRemaining = std::popcount(pos.colorBitboards_[THEM] & ~theirPawns) + std::popcount(theirQueens) - 1;
-    const int32_t time = 16 - (ourPiecesRemaining + theirPiecesRemaining);
+    {
+      Bitboard ourMaterialThreats = 0;
+      ourMaterialThreats |= ourPawnTargets & theirPieces;
+      ourMaterialThreats |= ourKnightTargets & theirMajors;
+      ourMaterialThreats |= usBishopTargets & theirMajors;
+      ourMaterialThreats |= ourRookTargets & theirRoyalty;
+      ourMaterialThreats |= usQueenTargets & theirKings;
 
-    // TODO: should be time
-    features[EF::TIME] = 16 - time;
+      Bitboard theirMaterialThreats = 0;
+      theirMaterialThreats |= theirPawnTargets & ourPieces;
+      theirMaterialThreats |= theirKnightTargets & ourMajors;
+      theirMaterialThreats |= theirBishopTargets & ourMajors;
+      theirMaterialThreats |= theirRookTargets & ourRoyalty;
+      theirMaterialThreats |= theirQueenTargets & ourKings;
+
+      features[EF::OUR_MATERIAL_THREATS] = std::popcount(ourMaterialThreats);
+      features[EF::THEIR_MATERIAL_THREATS] = std::popcount(theirMaterialThreats);
+    }
+
+    const int16_t ourPiecesRemaining = std::popcount(pos.colorBitboards_[US] & ~ourPawns) + std::popcount(ourQueens) * 2 - 1;
+    const int16_t theirPiecesRemaining = std::popcount(pos.colorBitboards_[THEM] & ~theirPawns) + std::popcount(theirQueens) * 2 - 1;
+    const int32_t time = 18 - (ourPiecesRemaining + theirPiecesRemaining);
+
+    features[EF::TIME] = time;
 
     // Use larger integer to make arithmetic safe.
     const int32_t early = this->early<US>(pos);
     const int32_t late = this->late<US>(pos);
     const int32_t clipped = this->clipped<US>(pos);
 
-    return (early * (16 - time) + late * time) / 16 + clipped + features[EF::BONUS];
+    return (early * (18 - time) + late * time) / 18 + clipped;
   }
 
   template<Color US>

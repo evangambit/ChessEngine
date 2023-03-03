@@ -68,7 +68,7 @@ def thread_main(fen):
 
 if __name__ == '__main__':
 	fens = [play_random(chess.Board(), 4) for _ in range(100)]
-	with Pool(2) as p:
+	with Pool(12) as p:
 		r = p.map(thread_main, fens)
 	r = np.array(r, dtype=np.float64).reshape(-1)
 

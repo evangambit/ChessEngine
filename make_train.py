@@ -18,11 +18,11 @@ import numpy as np
 """
 To generate training data from scratch:
 
-$ python3 make_train.py --mode generate --type any --quiet 1 lichess_elite_2022-05.pgn
+$ python3 -i make_train.py --mode generate --type any --quiet 1 --noise 2 ~/Downloads/lichess_elite_2022-07.pgn
 
-python3 -i make_train.py --mode write_numpy --type any --quiet 1 lichess_elite_2022-05.pgn
+$ python3 -i make_train.py --mode write_numpy --type any --quiet 1 --noise 2 ~/Downloads/lichess_elite_2022-07.pgn
 
-zip traindata.zip -r traindata
+$ python3 train.py
 
 
 
@@ -50,6 +50,7 @@ def sql_inserter(resultQueue, args):
     fens.add(fen)
 
   t0 = time.time()
+  tlast = time.time()
   numInserted = 0
 
   while True:
@@ -71,7 +72,11 @@ def sql_inserter(resultQueue, args):
 
     numInserted += 1
     if numInserted % 500 == 0:
-      print('%.1f inserts/sec' % (numInserted / (time.time() - t0)), len(fens))
+      print('%.1f inserts/sec (%.1f avg)' % (
+        500 / (time.time() - tlast),
+        numInserted / (time.time() - t0)
+      ), len(fens))
+      tlast = time.time()
       conn.commit()
 
 def analyzer(fenQueue, resultQueue, args):
@@ -80,6 +85,8 @@ def analyzer(fenQueue, resultQueue, args):
         fen = fenQueue.get()
 
         fen, features = get_vec(fen, args)
+        if fen is None:
+          continue
 
         try:
           stockfish.set_fen_position(fen)
@@ -200,6 +207,8 @@ def endgame_iterator():
 def get_vec(fen, args):
   command = ["./a.out", "mode", "printvec-cpu", "fen", *fen.split(' '), "makequiet", str(args.quiet)]
   lines = subprocess.check_output(command).decode().strip().split('\n')
+  if lines == ['PRINT FEATURE VEC FAIL (MATE)']:
+    return None, None
   assert len(lines) == 2, lines
   fen = lines[0]
   x = [int(val) for val in lines[1].split(' ')]
