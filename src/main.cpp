@@ -302,7 +302,7 @@ SearchResult<TURN> qsearch(Position *pos, int32_t depth, Evaluation alpha, Evalu
   }
 
   if (std::popcount(pos->pieceBitboards_[coloredPiece<TURN, Piece::KING>()]) == 0) {
-    return SearchResult<TURN>(kMinEval + 1, kNullMove);
+    return SearchResult<TURN>(kMissingKing, kNullMove);
   }
 
   if (depth > 8) {
@@ -318,7 +318,7 @@ SearchResult<TURN> qsearch(Position *pos, int32_t depth, Evaluation alpha, Evalu
   ExtMove *end = compute_moves<TURN, MoveGenType::CHECKS_AND_CAPTURES>(*pos, moves);
 
   if (moves == end && inCheck) {
-    return SearchResult<TURN>(kMinEval + 2, kNullMove);
+    return SearchResult<TURN>(kCheckmate, kNullMove);
   }
 
   // If we can stand pat for a beta cutoff, or if we have no moves, return.
@@ -329,7 +329,7 @@ SearchResult<TURN> qsearch(Position *pos, int32_t depth, Evaluation alpha, Evalu
 
   if (inCheck) {
     // Cannot stand pat if you're in check.
-    r.score = kMinEval + 1;
+    r.score = kCheckmate;
   }
 
   const Bitboard theirTargets = compute_my_targets_except_king<opposingColor>(*pos);
@@ -345,7 +345,7 @@ SearchResult<TURN> qsearch(Position *pos, int32_t depth, Evaluation alpha, Evalu
   });
 
   for (ExtMove *move = moves; move < end; ++move) {
-    if (move->score < 0 && r.score > kMinEval + 1) {
+    if (move->score < 0 && r.score > kLongestForcedMate) {
       break;
     }
 
@@ -401,7 +401,7 @@ SearchResult<TURN> search(
   constexpr ColoredPiece moverKing = coloredPiece<TURN, Piece::KING>();
 
   if (std::popcount(pos->pieceBitboards_[coloredPiece<TURN, Piece::KING>()]) == 0) {
-    return SearchResult<TURN>(kMinEval, kNullMove);
+    return SearchResult<TURN>(kMissingKing, kNullMove);
   }
 
   if (depth <= 0) {
@@ -635,10 +635,10 @@ SearchResult<TURN> search(
     ++numValidMoves;
 
     SearchResult<TURN> a = flip(search<opposingColor>(pos, depth - 1, -beta, -alpha, recommendationsForChildren));
-    if (a.score > kMaxEval - 100) {
+    if (a.score > -kLongestForcedMate) {
       a.score -= 1;
     }
-    if (a.score < kMinEval + 100) {
+    if (a.score < kLongestForcedMate) {
       a.score += 1;
     }
 
@@ -679,7 +679,7 @@ SearchResult<TURN> search(
   }
 
   if (numValidMoves == 0) {
-    r.score = inCheck ? kMinEval + 1 : 0;
+    r.score = inCheck ? kCheckmate : 0;
     r.move = kNullMove;
   }
 

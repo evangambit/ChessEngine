@@ -20,6 +20,10 @@ typedef int16_t Evaluation;
 constexpr Evaluation kMinEval = -32767;
 constexpr Evaluation kMaxEval = 32767;
 
+constexpr Evaluation kMissingKing = kMinEval + 1;
+constexpr Evaluation kCheckmate = kMinEval + 2;
+constexpr Evaluation kLongestForcedMate = kMinEval + 100;
+
 // Current record is 218 but we're conservative
 // https://chess.stackexchange.com/questions/4490/maximum-possible-movement-in-a-turn
 constexpr int kMaxNumMoves = 256;
