@@ -124,11 +124,13 @@ enum EF {
   OUR_MATERIAL_THREATS,
   THEIR_MATERIAL_THREATS,
 
+  LONELY_KING_ON_EDGE,
+
   NUM_EVAL_FEATURES,
 };
 
 const int32_t kEarlyB0 = 2;
-const int32_t kEarlyW0[83] = {
+const int32_t kEarlyW0[84] = {
   66, 385, 385, 438, 651, -73,
 -371,-371,-422,-650, -32,   0,
  -32, -11, -53,  -2, -32,  14,
@@ -142,10 +144,10 @@ const int32_t kEarlyW0[83] = {
    4,  -4,  34,   1,   4,  -1,
    3,  -3, -45,  85,  36,  36,
   -3,   0,-125,-105, 106,-572,
- 186,-143,  -7,  60, -30,
+ 186,-143,  -7,  60, -30,   0,
 };
 const int32_t kLateB0 = -9;
-const int32_t kLateW0[83] = {
+const int32_t kLateW0[84] = {
  144, 437, 473, 753,1642,-150,
 -311,-350,-636,-1222, -81, -29,
   12,  21,  11,   1,  18, -28,
@@ -159,10 +161,10 @@ const int32_t kLateW0[83] = {
   -2,  -1,  -4,  82, -33, 343,
 -152, 344, 269,  30, -23,   6,
    9,  -7,  77,  94,  43,-249,
--383,-171,  -2, 189, -68,
+-383,-171,  -2, 189, -68, -90,
 };
 const int32_t kClippedB0 = 0;
-const int32_t kClippedW0[83] = {
+const int32_t kClippedW0[84] = {
  -18, -17, -20, -26,  -1, -15,
  -24, -28, -25, -35, -25,  36,
   -9,  70, -15, -13,  -4, -28,
@@ -176,7 +178,7 @@ const int32_t kClippedW0[83] = {
    7,  -3,  11, 240,  54, 125,
 -100, 184,  -8, -27,  -6,  25,
  -25,  -1,  59, -59,  69,  75,
-   9,   6,  -9, -11, -26,
+   9,   6,  -9, -11, -26,   0,
 };
 
 
@@ -264,6 +266,7 @@ std::string EFSTR[] = {
   "QUEEN_V_LONELY_KING",
   "OUR_MATERIAL_THREATS",
   "THEIR_MATERIAL_THREATS",
+  "LONELY_KING_ON_EDGE",
 };
 
 struct Evaluator {
@@ -596,6 +599,9 @@ struct Evaluator {
     features[EF::ROOK_V_LONELY_KING] -= isOurKingLonely * std::popcount(theirRooks);
     features[EF::QUEEN_V_LONELY_KING] = isTheirKingLonely * std::popcount(ourQueens);
     features[EF::QUEEN_V_LONELY_KING] -= isOurKingLonely * std::popcount(theirQueens);
+
+    features[EF::LONELY_KING_ON_EDGE] = kDistToEdge[theirKingSq] * isTheirKingLonely;
+    features[EF::LONELY_KING_ON_EDGE] -= kDistToEdge[ourKingSq] * isOurKingLonely;
 
     {
       Bitboard ourMaterialThreats = 0;
