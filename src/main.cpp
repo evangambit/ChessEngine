@@ -718,8 +718,8 @@ SearchResult<TURN> search(
   return r;
 }
 
-// Gives scores from white's perspective
-SearchResult<Color::WHITE> search(Position* pos, Depth depth, SearchResult<Color::WHITE> lastResult) {
+template<Color TURN>
+SearchResult<TURN> search_with_aspiration_window(Position* pos, Depth depth, SearchResult<TURN> lastResult) {
   // TODO: the aspiration window technique used here should probably be implemented for internal nodes too.
   // Even just using this at the root node gives my engine a +0.25 (n=100) score against itself.
   // Table of historical experiments (program with window vs program without)
@@ -729,19 +729,19 @@ SearchResult<Color::WHITE> search(Position* pos, Depth depth, SearchResult<Color
   //      25  |  +0.14 (n=100)
   // TODO: only widen the bounds on the side that fails?
   constexpr Evaluation kBuffer = 50;
+  SearchResult<TURN> r = search<TURN>(pos, depth, lastResult.score - kBuffer, lastResult.score + kBuffer, RecommendedMoves());
+  if (r.score > lastResult.score - kBuffer && r.score < lastResult.score + kBuffer) {
+    return r;
+  }
+  return search<TURN>(pos, depth, kMinEval, kMaxEval, RecommendedMoves());
+}
+
+// Gives scores from white's perspective
+SearchResult<Color::WHITE> search(Position* pos, Depth depth, SearchResult<Color::WHITE> lastResult) {
   if (pos->turn_ == Color::WHITE) {
-    SearchResult<Color::WHITE> r = search<Color::WHITE>(pos, depth, lastResult.score - kBuffer, lastResult.score + kBuffer, RecommendedMoves());
-    if (r.score > lastResult.score - kBuffer && r.score < lastResult.score + kBuffer) {
-      return r;
-    }
-    return search<Color::WHITE>(pos, depth, kMinEval, kMaxEval, RecommendedMoves());
+    return search_with_aspiration_window<Color::WHITE>(pos, depth, lastResult);
   } else {
-    SearchResult<Color::BLACK> blackLastResult = flip(lastResult);
-    SearchResult<Color::WHITE> r = flip(search<Color::BLACK>(pos, depth, blackLastResult.score - kBuffer, blackLastResult.score + kBuffer, RecommendedMoves()));
-    if (r.score > blackLastResult.score - kBuffer && r.score < blackLastResult.score + kBuffer) {
-      return r;
-    }
-    return flip(search<Color::BLACK>(pos, depth, kMinEval, kMaxEval, RecommendedMoves()));
+    return flip(search_with_aspiration_window<Color::BLACK>(pos, depth, flip(lastResult)));
   }
 }
 
