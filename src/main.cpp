@@ -269,6 +269,11 @@ struct SearchResult {
   Move move;
 };
 
+std::ostream& operator<<(std::ostream& stream, SearchResult<Color::WHITE> sr) {
+  stream << "(" << sr.score << ", " << sr.move << ")";
+  return stream;
+}
+
 template<Color COLOR>
 SearchResult<opposite_color<COLOR>()> flip(SearchResult<COLOR> r) {
   return SearchResult<opposite_color<COLOR>()>(r.score * -1, r.move);
@@ -394,6 +399,15 @@ SearchResult<TURN> search(
   Position* pos, const Depth depth,
   Evaluation alpha, const Evaluation beta,
   RecommendedMoves recommendedMoves) {
+
+  // alpha: a score we're guaranteed to get
+  //  beta: a score our opponent is guaranteed to get
+  //
+  // if r.score >= beta
+  //   we know our opponent will never let this position occur
+  //
+  // if r.score >= alpha
+  //   we have just found a way to do better
 
   ++gNodeCounter;
 
@@ -683,7 +697,6 @@ SearchResult<TURN> search(
     r.move = kNullMove;
   }
 
-
   it = gCache.find(pos->hash_);  // Need to re-search since the iterator may have changed when searching my children.
   if (it == gCache.end() || depth > it->second.depth) {
     const CacheResult cr = CacheResult{
@@ -706,10 +719,28 @@ SearchResult<TURN> search(
 }
 
 // Gives scores from white's perspective
-SearchResult<Color::WHITE> search(Position* pos, Depth depth) {
+SearchResult<Color::WHITE> search(Position* pos, Depth depth, SearchResult<Color::WHITE> lastResult) {
+  // TODO: the aspiration window technique used here should probably be implemented for internal nodes too.
+  // Even just using this at the root node gives my engine a +0.25 (n=100) score against itself.
+  // Table of historical experiments (program with window vs program without)
+  // kBuffer  |  Score
+  //      75  |  +0.10 (n=100)
+  //      50  |  +0.25 (n=100)
+  //      25  |  +0.14 (n=100)
+  // TODO: only widen the bounds on the side that fails?
+  constexpr Evaluation kBuffer = 50;
   if (pos->turn_ == Color::WHITE) {
+    SearchResult<Color::WHITE> r = search<Color::WHITE>(pos, depth, lastResult.score - kBuffer, lastResult.score + kBuffer, RecommendedMoves());
+    if (r.score > lastResult.score - kBuffer && r.score < lastResult.score + kBuffer) {
+      return r;
+    }
     return search<Color::WHITE>(pos, depth, kMinEval, kMaxEval, RecommendedMoves());
   } else {
+    SearchResult<Color::BLACK> blackLastResult = flip(lastResult);
+    SearchResult<Color::WHITE> r = flip(search<Color::BLACK>(pos, depth, blackLastResult.score - kBuffer, blackLastResult.score + kBuffer, RecommendedMoves()));
+    if (r.score > blackLastResult.score - kBuffer && r.score < blackLastResult.score + kBuffer) {
+      return r;
+    }
     return flip(search<Color::BLACK>(pos, depth, kMinEval, kMaxEval, RecommendedMoves()));
   }
 }
@@ -832,7 +863,7 @@ void mymain(std::vector<Position>& positions, const std::string& mode, double ti
       SearchResult<Color::WHITE> results(Evaluation(0), kNullMove);
       time_t tstart = clock();
       for (size_t i = 1; i <= depth; ++i) {
-        results = search(&pos, i);
+        results = search(&pos, i, results);
         if (positions.size() == 1) {
           const double secs = double(clock() - tstart)/CLOCKS_PER_SEC;
           std::cout << i << " : " << results.move << " : " << results.score << " (" << secs << " secs, " << gNodeCounter / secs / 1000 << " kNodes/sec)" << std::endl;
@@ -877,7 +908,7 @@ void mymain(std::vector<Position>& positions, const std::string& mode, double ti
         SearchResult<Color::WHITE> results(Evaluation(0), kNullMove);
         time_t tstart = clock();
         for (size_t i = 1; i <= depth; ++i) {
-          results = search(&pos, i);
+          results = search(&pos, i, results);
           if (double(clock() - tstart)/CLOCKS_PER_SEC*1000 >= timeLimitMs) {
             break;
           }
