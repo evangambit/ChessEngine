@@ -457,7 +457,9 @@ SearchResult<TURN> search(
     }
   }
 
-  if (depth >= 3) {
+  Bitboard ourPieces = pos->colorBitboards_[TURN] & ~pos->pieceBitboards_[coloredPiece<TURN, Piece::PAWN>()];
+
+  if (depth >= 3 && std::popcount(ourPieces) > 1) {
     make_nullmove<TURN>(pos);
     SearchResult<TURN> a = flip(search<opposingColor>(pos, depth - 3, -beta, -alpha, RecommendedMoves()));
     if (a.score >= beta && a.move != kNullMove) {
