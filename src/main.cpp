@@ -434,10 +434,9 @@ SearchResult<TURN> search(
       return SearchResult<TURN>(Evaluation(0), kNullMove);
     }
   }
-
   
   auto it = gCache.find(pos->hash_);
-  {  // Ignore moves that easily caused a cutoff last search.
+  if (depth <= 2) {  // Ignore moves that easily caused a cutoff last search.
     const Evaluation deltaPerDepth = 100;
     if (it != gCache.end()) {
       const int8_t deltaDepth = std::max(depth - it->second.depth, 0);
@@ -456,6 +455,16 @@ SearchResult<TURN> search(
         return r;
       }
     }
+  }
+
+  if (depth >= 3) {
+    make_nullmove<TURN>(pos);
+    SearchResult<TURN> a = flip(search<opposingColor>(pos, depth - 3, -beta, -alpha, RecommendedMoves()));
+    if (a.score >= beta && a.move != kNullMove) {
+      undo_nullmove<TURN>(pos);
+      return SearchResult<TURN>(beta + 1, kNullMove);
+    }
+    undo_nullmove<TURN>(pos);
   }
 
   Move lastFoundBestMove = (it != gCache.end() ? it->second.bestMove : kNullMove);
