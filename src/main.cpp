@@ -799,7 +799,11 @@ void print_feature_vec(Position *pos, const std::string& originalFen, bool human
     }
   }
 
+  gEvaluator.features[EF::OUR_PAWNS] = 10;
   Evaluation e = gEvaluator.score<TURN>(*pos);
+  if (gEvaluator.features[EF::OUR_PAWNS] == 10) {
+    std::cout << "PRINT FEATURE VEC FAIL (SHORT-CIRCUIT)" << std::endl;
+  }
   if (humanReadable) {
     std::cout << "ORIGINAL_FEN " << originalFen << std::endl;
     std::cout << "FEN " << pos->fen() << std::endl;

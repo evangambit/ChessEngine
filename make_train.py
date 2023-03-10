@@ -159,8 +159,12 @@ def endgame_iterator():
   endgameTypes = [
     # Types of end games by remaining pieces.
     ((0,0,0,0, 0,1), (0,0,0,0, 0,1)),  # KvK
-    ((0,1,0,0, 0,1), (0,0,0,0, 0,1)),  # KNvK
+    ((0,1,0,0, 0,1), (0,0,0,0, 0,1)),  # Nv
+    ((0,0,1,0, 0,1), (0,0,0,0, 0,1)),  # Bv
+    ((0,0,0,1, 0,1), (0,0,0,0, 0,1)),  # Rv
+    ((0,0,0,0, 1,1), (0,0,0,0, 0,1)),  # Qv
     ((0,1,0,0, 0,1), (0,1,0,0, 0,1)),  # NvN
+    ((0,0,1,0, 0,1), (0,0,1,0, 0,1)),  # BvB
     ((0,1,1,0, 0,1), (0,1,0,0, 0,1)),  # NBvN
     ((0,1,1,0, 0,1), (0,1,1,0, 0,1)),  # NBvNB
     ((0,0,0,1, 0,1), (0,1,0,0, 0,1)),  # RvN
@@ -177,8 +181,8 @@ def endgame_iterator():
     white, black = list(white), list(black)
 
     # Randomize number of pawns
-    white[0] = random.randint(1, 4)
-    black[0] = random.randint(1, 4)
+    white[0] = random.randint(0, 4)
+    black[0] = random.randint(0, 4)
 
     board = chess.Board('8/8/8/8/8/8/8/8 w - - 0 1')
 
@@ -207,7 +211,7 @@ def endgame_iterator():
 def get_vec(fen, args):
   command = ["./a.out", "mode", "printvec-cpu", "fen", *fen.split(' '), "makequiet", str(args.quiet)]
   lines = subprocess.check_output(command).decode().strip().split('\n')
-  if lines == ['PRINT FEATURE VEC FAIL (MATE)']:
+  if lines[0].startswith('PRINT FEATURE VEC FAIL'):
     return None, None
   assert len(lines) == 2, lines
   fen = lines[0]
@@ -329,8 +333,8 @@ if __name__ == '__main__':
     Y = np.array(Y)
     F = np.array(F)
     print(X.shape, Y.shape, F.shape)
-    np.save(os.path.join('traindata', f'x.{args.type}.npy'), X)
-    np.save(os.path.join('traindata', f'y.{args.type}.npy'), Y)
-    np.save(os.path.join('traindata', f'f.{args.type}.npy'), F)
+    np.save(os.path.join('traindata', f'x.{get_table_name(args)}.npy'), X)
+    np.save(os.path.join('traindata', f'y.{get_table_name(args)}.npy'), Y)
+    np.save(os.path.join('traindata', f'f.{get_table_name(args)}.npy'), F)
     exit(0)
 
