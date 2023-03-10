@@ -458,8 +458,9 @@ SearchResult<TURN> search(
   }
 
   Bitboard ourPieces = pos->colorBitboards_[TURN] & ~pos->pieceBitboards_[coloredPiece<TURN, Piece::PAWN>()];
+  const bool inCheck = can_enemy_attack<TURN>(*pos, lsb(pos->pieceBitboards_[moverKing]));
 
-  if (depth >= 3 && std::popcount(ourPieces) > 1) {
+  if (depth >= 3 && std::popcount(ourPieces) > 1 && !inCheck) {
     make_nullmove<TURN>(pos);
     SearchResult<TURN> a = flip(search<opposingColor>(pos, depth - 3, -beta, -alpha, RecommendedMoves()));
     if (a.score >= beta && a.move != kNullMove) {
@@ -482,7 +483,6 @@ SearchResult<TURN> search(
 
   ExtMove moves[kMaxNumMoves];
   ExtMove *end = compute_moves<TURN, MoveGenType::ALL_MOVES>(*pos, moves);
-  const bool inCheck = can_enemy_attack<TURN>(*pos, lsb(pos->pieceBitboards_[moverKing]));
 
   if (end - moves == 0) {
     if (inCheck) {
