@@ -6,11 +6,30 @@ import sys
 import numpy as np
 from scipy import stats
 from multiprocessing import Pool
+import threading
+
+def run(cmd, timeout_sec):
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    timer = threading.Timer(timeout_sec, proc.kill)
+    try:
+        timer.start()
+        stdout, stderr = proc.communicate()
+    finally:
+        timer.cancel()
+    return stdout
 
 def f(player, fen, moves):
-	command = [player, "mode", "analyze", "fen", *fen.split(' '), "time", "40", "moves", *moves]
-	output = subprocess.check_output(command).decode().strip()
-	return re.findall(r"\d+ : [^ ]+", output)[-1].split(' ')[-1], command
+	command = [player, "mode", "analyze", "fen", *fen.split(' '), "moves", *moves]
+
+	stdout = run(command, 0.05).decode()
+
+	try:
+		return re.findall(r"^\d+ : [^ ]+", stdout)[-1].split(' ')[-1], command
+	except IndexError as e:
+		print(command)
+		print(' '.join(command))
+		print(stdout)
+		raise e
 
 def play(fen0, player1, player2):
 	board = chess.Board(fen0)
@@ -45,9 +64,9 @@ def play(fen0, player1, player2):
 
 	if board.is_checkmate():
 		if waiter == player1:
-			return 1
+			return 0.5
 		else:
-			return -1
+			return -0.5
 	else:
 		return 0
 
@@ -67,12 +86,13 @@ def thread_main(fen):
 	return r
 
 if __name__ == '__main__':
-	fens = [play_random(chess.Board(), 4) for _ in range(50)]
+	fens = [play_random(chess.Board(), 4) for _ in range(20)]
 	with Pool(8) as p:
 		r = p.map(thread_main, fens)
 	r = np.array(r, dtype=np.float64).reshape(-1)
 
 	t = r.mean() / (r.std(ddof=1) / np.sqrt(r.shape[0]))
 
+	print(r)
 	print(int(r.sum()), r.shape[0])
 	print(stats.t.cdf(t, 1))
