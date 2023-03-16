@@ -204,7 +204,7 @@ void test1() {
  56 57 58 59 60 61 62 63
 */
 
-size_t leafCounter = 0;
+size_t gLeafCounter = 0;
 size_t gNodeCounter = 0;
 
 Evaluator gEvaluator;
@@ -327,7 +327,7 @@ SearchResult<TURN> qsearch(Position *pos, int32_t depth, Evaluation alpha, Evalu
   }
 
   // If we can stand pat for a beta cutoff, or if we have no moves, return.
-  SearchResult<TURN> r(gEvaluator.score<TURN>(*pos), kNullMove);
+  SearchResult<TURN> r(gEvaluator.score<TURN>(*pos) - 50, kNullMove);
   if (moves == end || r.score >= beta) {
     return r;
   }
@@ -389,6 +389,8 @@ constexpr Evaluation kCapturePieceBonus_Hanging[7] = {
 uint32_t gHistoryHeuristicTable[Color::NUM_COLORS][64][64];
 
 void reset_stuff() {
+  gLeafCounter = 0;
+  gNodeCounter = 0;
   gCache.clear();
   std::fill_n(gHistoryHeuristicTable[Color::WHITE][0], 64 * 64, 0);
   std::fill_n(gHistoryHeuristicTable[Color::BLACK][0], 64 * 64, 0);
@@ -419,7 +421,7 @@ SearchResult<TURN> search(
   }
 
   if (depth <= 0) {
-    ++leafCounter;
+    ++gLeafCounter;
     return qsearch<TURN>(pos, 0, alpha, beta);
   }
 
@@ -862,7 +864,7 @@ bool is_uci(const std::string& text) {
   return text[4] == 'n' || text[4] == 'b' || text[4] == 'r' || text[4] == 'q';
 }
 
-void mymain(std::vector<Position>& positions, const std::string& mode, double timeLimitMs, Depth depth, bool makeQuiet) {
+void mymain(std::vector<Position>& positions, const std::string& mode, double timeLimitMs, Depth depth, uint64_t nodeLimit, bool makeQuiet) {
   if (mode == "printvec" || mode == "printvec-cpu") {
     for (auto pos : positions) {
       if (pos.turn_ == Color::WHITE) {
@@ -882,6 +884,9 @@ void mymain(std::vector<Position>& positions, const std::string& mode, double ti
         if (positions.size() == 1) {
           const double secs = double(clock() - tstart)/CLOCKS_PER_SEC;
           std::cout << i << " : " << results.move << " : " << results.score << " (" << secs << " secs, " << gNodeCounter / secs / 1000 << " kNodes/sec)" << std::endl;
+        }
+        if (gNodeCounter >= nodeLimit) {
+          break;
         }
         if (double(clock() - tstart)/CLOCKS_PER_SEC*1000 >= timeLimitMs) {
           break;
@@ -924,6 +929,9 @@ void mymain(std::vector<Position>& positions, const std::string& mode, double ti
         time_t tstart = clock();
         for (size_t i = 1; i <= depth; ++i) {
           results = search(&pos, i, results);
+          if (gNodeCounter >= nodeLimit) {
+            break;
+          }
           if (double(clock() - tstart)/CLOCKS_PER_SEC*1000 >= timeLimitMs) {
             break;
           }
@@ -994,6 +1002,7 @@ int main(int argc, char *argv[]) {
   uint64_t limitfens = 999999999;
   bool makeQuiet = false;
   std::vector<std::string> uciMoves;
+  size_t nodeLimit = -1;
 
   while (args.size() > 0) {
     if (args.size() >= 7 && args[0] == "fen") {
@@ -1010,6 +1019,13 @@ int main(int argc, char *argv[]) {
     } else if (args.size() >= 2 && args[0] == "time") {
       timeLimitMs = std::stoi(args[1]);
       if (timeLimitMs < 1) {
+        throw std::invalid_argument("");
+        exit(1);
+      }
+      args = std::vector<std::string>(args.begin() + 2, args.end());
+    } else if (args.size() >= 2 && args[0] == "nodes") {
+      nodeLimit = std::stoi(args[1]);
+      if (nodeLimit < 1) {
         throw std::invalid_argument("");
         exit(1);
       }
@@ -1080,7 +1096,7 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  mymain(positions, mode, timeLimitMs, depth, makeQuiet);
+  mymain(positions, mode, timeLimitMs, depth, nodeLimit, makeQuiet);
 
   return 0;
 }

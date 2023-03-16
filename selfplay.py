@@ -3,25 +3,14 @@ import re
 import subprocess
 import chess
 import sys
+import time
 import numpy as np
 from scipy import stats
 from multiprocessing import Pool
-import threading
-
-def run(cmd, timeout_sec):
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    timer = threading.Timer(timeout_sec, proc.kill)
-    try:
-        timer.start()
-        stdout, stderr = proc.communicate()
-    finally:
-        timer.cancel()
-    return stdout
 
 def f(player, fen, moves):
-	command = [player, "mode", "analyze", "fen", *fen.split(' '), "moves", *moves]
-
-	stdout = run(command, 0.05).decode()
+	command = [player, "mode", "analyze", "nodes", "10000", "fen", *fen.split(' '), "moves", *moves]
+	stdout = subprocess.check_output(command).decode()
 
 	try:
 		return re.findall(r"^\d+ : [^ ]+", stdout)[-1].split(' ')[-1], command
@@ -86,13 +75,17 @@ def thread_main(fen):
 	return r
 
 if __name__ == '__main__':
-	fens = [play_random(chess.Board(), 4) for _ in range(20)]
-	with Pool(8) as p:
+	t0 = time.time()
+	fens = [play_random(chess.Board(), 4) for _ in range(10)]
+	with Pool(1) as p:
 		r = p.map(thread_main, fens)
 	r = np.array(r, dtype=np.float64).reshape(-1)
 
 	t = r.mean() / (r.std(ddof=1) / np.sqrt(r.shape[0]))
 
+	t1 = time.time()
+
+	print((t1 - t0) / 60.0, 'min')
 	print(r)
 	print(int(r.sum()), r.shape[0])
 	print(stats.t.cdf(t, 1))
