@@ -9,7 +9,7 @@ from scipy import stats
 from multiprocessing import Pool
 
 def f(player, fen, moves):
-	command = [player, "mode", "analyze", "nodes", "10000", "fen", *fen.split(' '), "moves", *moves]
+	command = [player, "mode", "analyze", "nodes", "20000", "fen", *fen.split(' '), "moves", *moves]
 	stdout = subprocess.check_output(command).decode()
 
 	try:
@@ -76,8 +76,8 @@ def thread_main(fen):
 
 if __name__ == '__main__':
 	t0 = time.time()
-	fens = [play_random(chess.Board(), 4) for _ in range(10)]
-	with Pool(1) as p:
+	fens = [play_random(chess.Board(), 4) for _ in range(100)]
+	with Pool(2) as p:
 		r = p.map(thread_main, fens)
 	r = np.array(r, dtype=np.float64).reshape(-1)
 

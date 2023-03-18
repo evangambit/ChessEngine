@@ -133,73 +133,73 @@ enum EF {
   NUM_EVAL_FEATURES,
 };
 
-const int32_t kEarlyB0 = 3;
+const int32_t kEarlyB0 = 10;
 const int32_t kEarlyW0[84] = {
-  82, 482, 472, 519,1001, -76,
--478,-464,-505,-1005, -52,  -2,
- -48,  62, -61, -12, -24,  38,
- -29,   9,  28,  12,  32, 227,
- -33,   6,   6,  76,   4,  21,
-  19,  74, -20,  19,  15,  32,
-  81,  24,   6,  63,   8,  13,
-  13,   3, -97, -65,-104, -85,
-  28, 197, 175,  15, 144, 154,
- 336,   0,   3,  -4,  24,  22,
-   7,  36,  36,1043,-206, 124,
--1190, 174,-409, 112,  51,  41,
-  10,   3,   4,-115,-304,-850,
--566,  -1,-1801, 180,-106, 183,
+  19, 200, 124, 125, 363, -24,
+-195,-116,-129,-313, -31,   7,
+ -29, -53, -37,  -8,  -7,  12,
+ -20,  32,  24,   9,  22,   2,
+ -19,   3,   9,  44,   3,  -1,
+   6, 153,  -8,  20,  12,  22,
+  76,  20,   7,  53,  26,   6,
+  23,   2, -36, -11, -37, -14,
+   7,  62,  72, -72, 124,  23,
+  48,   0, -29,   0,   4,  16,
+ -24,  15,  27,   0,   0,   0,
+   0,   0, -12,  72,  30,  74,
+  -4,   0, -48, -80,  49,  44,
+  45,  41,  63,  74, -46, -17,
 };
-const int32_t kLateB0 = -6;
+const int32_t kLateB0 = -8;
 const int32_t kLateW0[84] = {
- 156, 291, 337, 613,1117,-147,
--284,-340,-616,-1079, -67, -39,
-  29, -19,  12,   0,  28, -21,
-   6, -33, -31, -14,  -9,  48,
-  77,  40, -42, -60,   1,   4,
-  26,  93, -10,   2,  40,  53,
- -81,  12,  44, -13,  43,  29,
-  -4, -74, -58, -81, -17, 131,
-  68,  55,  92, 324, 706,   5,
- -17,   0,  -2,   8,  -6,   3,
-  -7,  -5,  -3,  72,  80,  34,
--232, 376, 202,  54, -27,  11,
-   3,   2,  66, 127, 108, -26,
--209, -24,-431, 138,-106, -29,
+  75, 230, 306, 455, 833, -74,
+-169,-248,-375,-664, -55, -46,
+  25,  24,   6,  -3,  46, -45,
+  -2, -26, -14,  -7, -10,  -4,
+  55,  25, -26, -27,   4,   3,
+  24, -45, -10,  -2,  51,  33,
+  15,   9,  45,  -1,   9,  18,
+   4, -41, -43, -54, -24,  70,
+  41,  60,  60, 225, 601,  10,
+  23,   0,   2,   6,   4,   4,
+  -3,  -4,  -4,   4, -29,  89,
+-289, 114, 148,  17, -10,  22,
+   8,   4,  54,  76,  37,  34,
+  21,  35,  62,  83, -54, -20,
 };
-const int32_t kClippedB0 = -6;
+const int32_t kClippedB0 = 5;
 const int32_t kClippedW0[84] = {
-  21, 156, 160, 245, 566, -48,
--127,-135,-225,-498,  21,  -7,
-   3,  25,   1,  -1, -14, -23,
-  -5, -15,  -1,   2,   4,-519,
-  37,  14,  33,  15,   2,  -1,
-   2,   2,  -2,   4, -12,   2,
-  61,   3,   2, -14,   2,  -5,
-  -1,  -6,  23,  21,   0,  17,
-  25, 153, 207, 314, 537,  18,
-  95,   0,   8,  -1,   5,   5,
-   7,   1,   1,  26, -29,   8,
- -88,  44,1032, -11,  -2,  -2,
-  -3,  -2,   7,  -4, -37,-224,
--174,-110,-528,  69,  55,  16,
+  18,  94,  90, 110, 231, -23,
+ -87, -79,-110,-202, -26,  -3,
+   0,  18,   0,  -1,  -6,   0,
+  -2,  -1,  -2,   0,   2, -14,
+   9,   7,   3,   3,   1,   3,
+   3,  14,  -3,   0, -15,   1,
+ -42,   0,   3, -16,  -3,   2,
+  -5,  -7, -12, -15,  -6,  -4,
+   4,  66,  56,  95,-227,  43,
+  45,   0,   2,  -1,   3,   1,
+   2,   8,   1,  60,  59,  60,
+ -16,  68,  21,   9,   1,   0,
+   2,   0,   5,   3,  43,  43,
+  43,  41,  44,  34,   7,  41,
 };
-const int32_t kScaleB0 = 9;
-const int32_t kScaleW0[84] = {
-  14,  -8,  -8,   3,   6,   7,
-  -8, -17,  -9, -39,  -7,  -1,
-   2,   2,   1,  -1,  14,   8,
-  -1,  -1,  -5,   0,   1, -79,
-  -5,   0,   1,   2,   0,  -3,
-   1,  -3,  -1,   2,   1,  -1,
-   9,   6,   0,   3,   2,   0,
-   2,  -5,   9,   8,  -2,  -5,
-   6,   0,  11, -29, -99,   6,
-   3,   0,  -1,   0,   1,   2,
-  -1,   1,   0,   0,  20,   5,
- -31, -15, 103,   7,   0,   3,
-   1,   1,   0,   3,  -5, -12,
- -10, -25, -51,   6,  -4,  -5,
+const int32_t kLonelyKingB0 = -9;
+const int32_t kLonelyKingW0[84] = {
+  50, 133, 158, 152, 272, -58,
+-118,-142,-166,-158,  23,  38,
+   9,  -9,   1,   5,  23, -32,
+   9,  -7, -28,   2,  15, -73,
+  14,  14,  -4, -27,  -4, -15,
+ -11,  82,  24,  13,  13,  94,
+ -60,  27,  12,  13,  71, -12,
+   5, -40,  30,   6,  99,  94,
+  30,  52, 173, 371, 229,  11,
+  26,   0,   1,  -6, -43,  -1,
+ -35,  18,   6,   4, -29,  89,
+-289, 114, 176,  53,  51,  83,
+ -10,   0, -12,  24,  38,  35,
+  24,  35,  63,  93,  24, -20,
 };
 
 
@@ -534,26 +534,26 @@ struct Evaluator {
       features[EF::NUM_TARGET_SQUARES] = std::popcount(usTargets) * 2 - std::popcount(themTargets);
     }
 
-    {  // Piece map values.
-      std::fill_n(&features[EF::PAWN_PM], 6, 0);
-      for (ColoredPiece cp = ColoredPiece::WHITE_PAWN; cp < ColoredPiece::NUM_COLORED_PIECES; cp = ColoredPiece(cp + 1)) {
-        Piece piece = cp2p(cp);
-        EF feature = EF(EF::PAWN_PM + piece - 1);
-        Bitboard bitmap = pos.pieceBitboards_[cp];
-        while (bitmap) {
-          int delta = kPieceMap[(cp - 1) * 64 + pop_lsb(bitmap)];
-          features[feature] += delta;
-        }
-      }
-      if (US == Color::BLACK) {
-        features[EF::PAWN_PM] *= -1;
-        features[EF::KNIGHT_PM] *= -1;
-        features[EF::BISHOP_PM] *= -1;
-        features[EF::ROOK_PM] *= -1;
-        features[EF::QUEEN_PM] *= -1;
-        features[EF::KING_PM] *= -1;
-      }
-    }
+    // {  // Piece map values.
+    //   std::fill_n(&features[EF::PAWN_PM], 6, 0);
+    //   for (ColoredPiece cp = ColoredPiece::WHITE_PAWN; cp < ColoredPiece::NUM_COLORED_PIECES; cp = ColoredPiece(cp + 1)) {
+    //     Piece piece = cp2p(cp);
+    //     EF feature = EF(EF::PAWN_PM + piece - 1);
+    //     Bitboard bitmap = pos.pieceBitboards_[cp];
+    //     while (bitmap) {
+    //       int delta = kPieceMap[(cp - 1) * 64 + pop_lsb(bitmap)];
+    //       features[feature] += delta;
+    //     }
+    //   }
+    //   if (US == Color::BLACK) {
+    //     features[EF::PAWN_PM] *= -1;
+    //     features[EF::KNIGHT_PM] *= -1;
+    //     features[EF::BISHOP_PM] *= -1;
+    //     features[EF::ROOK_PM] *= -1;
+    //     features[EF::QUEEN_PM] *= -1;
+    //     features[EF::KING_PM] *= -1;
+    //   }
+    // }
 
     const bool isKingPawnEndgame = (ourKings == ourPieces) && (theirKings == theirPieces);
     features[EF::KPVK_OPPOSITION] = -((shift<kForward>(shift<kForward>(ourKings)) & theirKings) > 0) * isKingPawnEndgame;
@@ -653,14 +653,26 @@ struct Evaluator {
     const int32_t early = this->early<US>(pos);
     const int32_t late = this->late<US>(pos);
     const int32_t clipped = this->clipped<US>(pos);
-    const float scaled = 0.2 + sigmoid(float(this->scaled<US>(pos)) / 100.0);
+    const int32_t lonely_king = this->lonely_king<US>(pos);
 
-    const int32_t eval = (early * (18 - time) + late * time) / 18 + clipped;
+    int32_t pieceMap = 0;
+    {
+      const int32_t negatime = 18 - time;
+      for (size_t i = 0; i < 64; ++i) {
+        if (pos.tiles_[i] != ColoredPiece::NO_COLORED_PIECE) {
+          pieceMap += kEarlyPieceMap[(pos.tiles_[i] - 1) * 64 + i] * negatime;
+          pieceMap += kLatePieceMap[(pos.tiles_[i] - 1) * 64 + i] * time;
+        }
+      }
+      if (US == Color::BLACK) {
+        pieceMap *= -1;
+      }
+      pieceMap /= 18;
+    }
 
-    int32_t e = int32_t(std::round(eval * scaled));
-    e = std::min(int32_t(-kLongestForcedMate), std::max(int32_t(kLongestForcedMate), e));
+    int32_t eval = (early * (18 - time) + late * time) / 18 + clipped + lonely_king + pieceMap;
 
-    return e;
+    return std::min(int32_t(-kLongestForcedMate), std::max(int32_t(kLongestForcedMate), eval));
   }
 
   template<Color US>
@@ -682,21 +694,25 @@ struct Evaluator {
   }
 
   template<Color US>
-  Evaluation scaled(const Position& pos) const {
-    int32_t r = kScaleB0;
-    for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
-      r += features[i] * kScaleW0[i];
-    }
-    return r;
-  }
-
-  template<Color US>
   Evaluation clipped(const Position& pos) const {
     int32_t r = kClippedB0;
     for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
       r += features[i] * kClippedW0[i];
     }
     return std::max(-100, std::min(100, r));
+  }
+
+  template<Color US>
+  Evaluation lonely_king(const Position& pos) const {
+    int32_t r = kLonelyKingB0;
+    for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
+      r += features[i] * kLonelyKingW0[i];
+    }
+
+    const int32_t ourPieces = features[EF::OUR_KNIGHTS] + features[EF::OUR_BISHOPS] + features[EF::OUR_ROOKS] + features[EF::OUR_QUEENS];
+    const int32_t theirPieces = features[EF::THEIR_KNIGHTS] + features[EF::THEIR_BISHOPS] + features[EF::THEIR_ROOKS] + features[EF::THEIR_QUEENS];
+
+    return r * (1 - (ourPieces != 0) * (theirPieces != 0));
   }
 
   // template<Color US>
