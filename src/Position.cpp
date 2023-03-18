@@ -1,5 +1,7 @@
 #include "Position.h"
 
+#include "piece_maps.h"
+
 #include <iostream>
 #include <random>
 
@@ -127,6 +129,8 @@ void Position::_empty_() {
   colorBitboards_[Color::WHITE] = kEmptyBitboard;
   colorBitboards_[Color::BLACK] = kEmptyBitboard;
   currentState_.epSquare = Square::NO_SQUARE;
+  earlyPieceMapScore_ = 0;
+  latePieceMapScore_ = 0;
   hash_ = 0;
 }
 
@@ -202,6 +206,8 @@ void Position::place_piece_(ColoredPiece cp, Square square) {
   pieceBitboards_[cp] |= loc;
   colorBitboards_[cp2color(cp)] |= loc;
   hash_ ^= kZorbristNumbers[cp][square];
+  earlyPieceMapScore_ += early_piece_map(cp, square);
+  latePieceMapScore_ += late_piece_map(cp, square);
 }
 
 void Position::remove_piece_(Square square) {
@@ -216,6 +222,8 @@ void Position::remove_piece_(Square square) {
   pieceBitboards_[cp] &= antiloc;
   colorBitboards_[cp2color(cp)] &= antiloc;
   hash_ ^= kZorbristNumbers[cp][square];
+  earlyPieceMapScore_ -= early_piece_map(cp, square);
+  latePieceMapScore_ -= late_piece_map(cp, square);
 }
 
 void Position::assert_valid_state() const {

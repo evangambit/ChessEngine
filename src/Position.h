@@ -9,6 +9,7 @@
 #include <algorithm>
 
 #include "geometry.h"
+#include "piece_maps.h"
 #include "utils.h"
 
 namespace ChessEngine {
@@ -99,6 +100,10 @@ class Position {
   uint32_t wholeMoveCounter_;
   Color turn_;
 
+  // PieceMap scores from white's perspective.
+  int32_t earlyPieceMapScore_;
+  int32_t latePieceMapScore_;
+
   void place_piece_(ColoredPiece cp, Square square);
 
   void remove_piece_(Square square);
@@ -175,6 +180,13 @@ void undo(Position *pos) {
   pos->hash_ ^= kZorbristNumbers[movingPiece][move.from];
   pos->hash_ ^= kZorbristNumbers[promoPiece][move.to];
 
+  pos->earlyPieceMapScore_ += early_piece_map(movingPiece, move.from);
+  pos->latePieceMapScore_ += late_piece_map(movingPiece, move.from);
+  pos->earlyPieceMapScore_ -= early_piece_map(promoPiece, move.to);
+  pos->latePieceMapScore_ -= late_piece_map(promoPiece, move.to);
+  pos->earlyPieceMapScore_ += early_piece_map(capturedPiece, move.to);
+  pos->latePieceMapScore_ += late_piece_map(capturedPiece, move.to);
+
   const bool hasCapturedPiece = (capturedPiece != ColoredPiece::NO_COLORED_PIECE);
   pos->pieceBitboards_[capturedPiece] |= t;
   pos->colorBitboards_[opposite_color<MOVER_TURN>()] |= t * hasCapturedPiece;
@@ -188,8 +200,8 @@ void undo(Position *pos) {
       assert(move.from == 60);
       assert(move.to == 62 || move.to == 58);
     }
-    uint16_t rookDestination = (uint16_t(move.from) + uint16_t(move.to)) / 2;
-    uint16_t rookOrigin = ((uint16_t(move.to) % 8) * 7 - 14) / 4 + (MOVER_TURN == Color::WHITE ? 56 : 0);
+    Square rookDestination = Square((uint16_t(move.from) + uint16_t(move.to)) / 2);
+    Square rookOrigin = Square(((uint16_t(move.to) % 8) * 7 - 14) / 4 + (MOVER_TURN == Color::WHITE ? 56 : 0));
 
     Bitboard rookDestinationBB = bb(rookDestination);
     Bitboard rookOriginBB = bb(rookOrigin);
@@ -203,6 +215,10 @@ void undo(Position *pos) {
     pos->tiles_[rookOrigin] = myRookPiece;
     pos->hash_ ^= kZorbristNumbers[myRookPiece][rookOrigin] * hasCapturedPiece;
     pos->hash_ ^= kZorbristNumbers[myRookPiece][rookDestination] * hasCapturedPiece;
+    pos->earlyPieceMapScore_ += early_piece_map(myRookPiece, rookOrigin);
+    pos->latePieceMapScore_ += late_piece_map(myRookPiece, rookOrigin);
+    pos->earlyPieceMapScore_ -= early_piece_map(myRookPiece, rookDestination);
+    pos->latePieceMapScore_ -= late_piece_map(myRookPiece, rookDestination);
   }
 
   if (move.to == epSquare && movingPiece == coloredPiece<MOVER_TURN, Piece::PAWN>()) {
@@ -216,15 +232,18 @@ void undo(Position *pos) {
     }
 
     constexpr Color opposingColor = opposite_color<MOVER_TURN>();
-    uint8_t enpassantLoc = (MOVER_TURN == Color::WHITE ? move.to + 8 : move.to - 8);
-    Bitboard enpassantLocBB = bb(enpassantLoc);
+    Square enpassantSq = Square((MOVER_TURN == Color::WHITE ? move.to + 8 : move.to - 8));
+    Bitboard enpassantLocBB = bb(enpassantSq);
 
     constexpr ColoredPiece opposingPawn = coloredPiece<opposingColor, Piece::PAWN>();
 
     pos->pieceBitboards_[opposingPawn] |= enpassantLocBB;
     pos->colorBitboards_[opposingColor] |= enpassantLocBB;
-    pos->tiles_[enpassantLoc] = opposingPawn;
-    pos->hash_ ^= kZorbristNumbers[opposingPawn][enpassantLoc];
+    assert(pos->tiles_[enpassantSq] == ColoredPiece::NO_COLORED_PIECE);
+    pos->tiles_[enpassantSq] = opposingPawn;
+    pos->hash_ ^= kZorbristNumbers[opposingPawn][enpassantSq];
+    pos->earlyPieceMapScore_ += early_piece_map(opposingPawn, enpassantSq);
+    pos->latePieceMapScore_ += late_piece_map(opposingPawn, enpassantSq);
   }
 
   pos->assert_valid_state();
@@ -361,6 +380,13 @@ void make_move(Position *pos, Move move) {
   const bool hasCapturedPiece = (capturedPiece != ColoredPiece::NO_COLORED_PIECE);
   pos->hash_ ^= kZorbristNumbers[capturedPiece][move.to] * hasCapturedPiece;
 
+  pos->earlyPieceMapScore_ += early_piece_map(promoPiece, move.to);
+  pos->latePieceMapScore_ += late_piece_map(promoPiece, move.to);
+  pos->earlyPieceMapScore_ -= early_piece_map(capturedPiece, move.to);
+  pos->latePieceMapScore_ -= late_piece_map(capturedPiece, move.to);
+  pos->earlyPieceMapScore_ -= early_piece_map(movingPiece, move.from);
+  pos->latePieceMapScore_ -= late_piece_map(movingPiece, move.from);
+
   if (move.moveType == MoveType::CASTLE) {
     // TODO: get rid of if statement
     if (TURN == Color::BLACK) {
@@ -370,8 +396,8 @@ void make_move(Position *pos, Move move) {
       assert(move.from == 60);
       assert(move.to == 62 || move.to == 58);
     }
-    uint8_t rookDestination = (uint16_t(move.from) + uint16_t(move.to)) / 2;
-    uint8_t rookOrigin = ((uint16_t(move.to) % 8) * 7 - 14) / 4 + (TURN == Color::WHITE ? 56 : 0);
+    Square rookDestination = Square((uint16_t(move.from) + uint16_t(move.to)) / 2);
+    Square rookOrigin = Square(((uint16_t(move.to) % 8) * 7 - 14) / 4 + (TURN == Color::WHITE ? 56 : 0));
 
     Bitboard rookDestinationBB = bb(rookDestination);
     Bitboard rookOriginBB = bb(rookOrigin);
@@ -385,6 +411,11 @@ void make_move(Position *pos, Move move) {
     pos->tiles_[rookDestination] = myRookPiece;
     pos->hash_ ^= kZorbristNumbers[myRookPiece][rookOrigin] * hasCapturedPiece;
     pos->hash_ ^= kZorbristNumbers[myRookPiece][rookDestination] * hasCapturedPiece;
+
+    pos->earlyPieceMapScore_ += early_piece_map(myRookPiece, rookDestination);
+    pos->latePieceMapScore_ += late_piece_map(myRookPiece, rookDestination);
+    pos->earlyPieceMapScore_ -= early_piece_map(myRookPiece, rookOrigin);
+    pos->latePieceMapScore_ -= late_piece_map(myRookPiece, rookOrigin);
   }
 
   if (move.to == epSquare && movingPiece == coloredPiece<TURN, Piece::PAWN>()) {
@@ -396,17 +427,19 @@ void make_move(Position *pos, Move move) {
       assert(move.from / 8 == 3);
       assert(move.to / 8 == 2);
     }
-    uint8_t enpassantLoc = (TURN == Color::WHITE ? move.to + 8 : move.to - 8);
-    Bitboard enpassantLocBB = bb(enpassantLoc);
+    Square enpassantSq = Square(TURN == Color::WHITE ? move.to + 8 : move.to - 8);
+    Bitboard enpassantLocBB = bb(enpassantSq);
 
     constexpr ColoredPiece opposingPawn = coloredPiece<opposingColor, Piece::PAWN>();
 
-    assert(pos->tiles_[enpassantLoc] == opposingPawn);
+    assert(pos->tiles_[enpassantSq] == opposingPawn);
 
     pos->pieceBitboards_[opposingPawn] &= ~enpassantLocBB;
     pos->colorBitboards_[opposingColor] &= ~enpassantLocBB;
-    pos->tiles_[enpassantLoc] = ColoredPiece::NO_COLORED_PIECE;
-    pos->hash_ ^= kZorbristNumbers[opposingPawn][enpassantLoc];
+    pos->tiles_[enpassantSq] = ColoredPiece::NO_COLORED_PIECE;
+    pos->hash_ ^= kZorbristNumbers[opposingPawn][enpassantSq];
+    pos->earlyPieceMapScore_ -= early_piece_map(opposingPawn, enpassantSq);
+    pos->latePieceMapScore_ -= late_piece_map(opposingPawn, enpassantSq);
   }
 
   if (TURN == Color::BLACK) {

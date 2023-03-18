@@ -655,19 +655,9 @@ struct Evaluator {
     const int32_t clipped = this->clipped<US>(pos);
     const int32_t lonely_king = this->lonely_king<US>(pos);
 
-    int32_t pieceMap = 0;
-    {
-      const int32_t negatime = 18 - time;
-      for (size_t i = 0; i < 64; ++i) {
-        if (pos.tiles_[i] != ColoredPiece::NO_COLORED_PIECE) {
-          pieceMap += kEarlyPieceMap[(pos.tiles_[i] - 1) * 64 + i] * negatime;
-          pieceMap += kLatePieceMap[(pos.tiles_[i] - 1) * 64 + i] * time;
-        }
-      }
-      if (US == Color::BLACK) {
-        pieceMap *= -1;
-      }
-      pieceMap /= 18;
+    int32_t pieceMap = (pos.earlyPieceMapScore_ * (18 - time) + pos.latePieceMapScore_ * time) / 18;
+    if (US == Color::BLACK) {
+      pieceMap *= -1;
     }
 
     int32_t eval = (early * (18 - time) + late * time) / 18 + clipped + lonely_king + pieceMap;
