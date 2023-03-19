@@ -225,7 +225,7 @@ struct CacheResult {
   Depth depth;
   Evaluation eval;
   Move bestMove;
-  NodeType exhaustive;
+  NodeType nodeType;
   #ifndef NDEBUG
   std::string fen;
   #endif

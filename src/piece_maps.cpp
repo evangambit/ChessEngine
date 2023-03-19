@@ -244,7 +244,8 @@ const int32_t kLatePieceMap[13*64] = {
   48,  12, -17,   6,  -8, -29,   0,  27,
   24,   7,  21,  30,   1,  -3,  16,  33,
 };
-}
+
+}  // namespace
 
 int32_t early_piece_map(ColoredPiece cp, Square sq) {
 	assert(cp >= 0);

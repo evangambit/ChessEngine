@@ -68,12 +68,6 @@ varnames = [
   "LONELY_KING_AWAY_FROM_ENEMY_KING",
   "NUM_TARGET_SQUARES",
   "TIME",
-  "PAWN_PM",
-  "KNIGHT_PM",
-  "BISHOP_PM",
-  "ROOK_PM",
-  "QUEEN_PM",
-  "KING_PM",
   "KPVK_OPPOSITION",
   "KPVK_IN_FRONT_OF_PAWN",
   "KPVK_OFFENSIVE_KEY_SQUARES",
@@ -113,12 +107,6 @@ cat =  np.concatenate
 T = X[:,:,varnames.index('TIME')].copy()
 
 X[:,:,varnames.index('NUM_TARGET_SQUARES')] *= 0.0
-X[:,:,varnames.index("PAWN_PM")] *= 0
-X[:,:,varnames.index("KNIGHT_PM")] *= 0
-X[:,:,varnames.index("BISHOP_PM")] *= 0
-X[:,:,varnames.index("ROOK_PM")] *= 0
-X[:,:,varnames.index("QUEEN_PM")] *= 0
-X[:,:,varnames.index("KING_PM")] *= 0
 
 def soft_clip(x):
   x = nn.functional.leaky_relu(x + 5.0) - 5.0
@@ -257,7 +245,7 @@ for name in model.w:
 kPieceName = 'PNBRQKpnbrqk'
 A = np.zeros((len(F) * 2, 12, 64))
 for i in range(len(F)):
-  if i % 1000 == 0:
+  if i % 5000 == 0:
     print(i, len(F))
   fens = F[i].split(':')
   for j in range(2):
