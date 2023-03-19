@@ -429,33 +429,25 @@ SearchResult<TURN> search(
     return SearchResult<TURN>(Evaluation(0), kNullMove);
   }
 
-  for (size_t i = 0; i < pos->hashes_.size(); ++i) {
-    // TODO: stop looking when we hit a pawn move or capture.
-    // TODO: handle 3 move draw for moves before the root.
-    if (pos->hashes_[i] == pos->hash_) {
-      return SearchResult<TURN>(Evaluation(0), kNullMove);
+  {
+    const size_t n = pos->hashes_.size();
+    for (size_t i = n - 2; i < n; i -= 2) {
+      // TODO: stop looking when we hit a pawn move or capture.
+      // TODO: handle 3 move draw for moves before the root.
+      if (pos->hashes_[i] == pos->hash_) {
+        return SearchResult<TURN>(Evaluation(0), kNullMove);
+      }
     }
   }
   
-  auto it = gCache.find(pos->hash_);
-  if (depth <= 2) {  // Ignore moves that easily caused a cutoff last search.
-    const Evaluation deltaPerDepth = 100;
-    if (it != gCache.end()) {
-      const int8_t deltaDepth = std::max(depth - it->second.depth, 0);
-      if (it->second.eval >= beta + deltaPerDepth * deltaDepth) {
-        return SearchResult<TURN>(it->second.eval, it->second.bestMove);
-      }
-      if (it->second.eval <= alpha - deltaPerDepth * deltaDepth) {
-        return SearchResult<TURN>(it->second.eval, it->second.bestMove);
-      }
-    } else {
-      SearchResult<TURN> r = qsearch<TURN>(pos, 0, alpha, beta);
-      if (r.score >= beta + deltaPerDepth * depth) {
-        return r;
-      }
-      if (r.score <= alpha - deltaPerDepth * depth) {
-        return r;
-      }
+  if (depth <= 1) {  // Ignore moves that easily caused a cutoff last search.
+    const Evaluation deltaPerDepth = 50;
+    SearchResult<TURN> r = qsearch<TURN>(pos, 0, alpha, beta);
+    if (r.score >= beta + deltaPerDepth * depth) {
+      return r;
+    }
+    if (r.score <= alpha - deltaPerDepth * depth) {
+      return r;
     }
   }
 
@@ -472,6 +464,7 @@ SearchResult<TURN> search(
     undo_nullmove<TURN>(pos);
   }
 
+  auto it = gCache.find(pos->hash_);
   Move lastFoundBestMove = (it != gCache.end() ? it->second.bestMove : kNullMove);
 
   #ifndef NDEBUG
