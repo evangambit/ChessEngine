@@ -492,7 +492,6 @@ SearchResult<TURN> search(
   const Bitboard theirHanging = ourTargets & pos->colorBitboards_[opposingColor] & ~theirTargets;
   const Bitboard ourHanging = theirTargets & pos->colorBitboards_[TURN] & ~ourTargets;
 
-  const Move lastLastMove = pos->history_.size() > 2 ? pos->history_[pos->history_.size() - 3].move : kNullMove;
   const Move lastMove = pos->history_.size() > 0 ? pos->history_.back().move : kNullMove;
 
   for (ExtMove *move = moves; move < end; ++move) {
