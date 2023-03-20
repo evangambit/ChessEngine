@@ -123,9 +123,9 @@ enum EF {
 
 const int32_t kEarlyB0 = 10;
 const int32_t kEarlyW0[84] = {
-  19, 200, 124, 125, 363, -24,
--195,-116,-129,-313, -31,   7,
- -29, -53, -37,  -8,  -7,  12,
+  19, 200, 124, 125, 363,  24,
+ 195, 116, 129, 313,  31,   7,
+  29,  53,  37,   8,  -7, -12,
  -20,  32,  24,   9,  22,   2,
  -19,   3,   9,  44,   3,  -1,
    6, 153,  -8,  20,  12,  22,
@@ -139,9 +139,9 @@ const int32_t kEarlyW0[84] = {
 };
 const int32_t kLateB0 = -8;
 const int32_t kLateW0[84] = {
-  75, 230, 306, 455, 833, -74,
--169,-248,-375,-664, -55, -46,
-  25,  24,   6,  -3,  46, -45,
+  75, 230, 306, 455, 833,  74,
+ 169, 248, 375, 664,  55, -46,
+ -25, -24,  -6,   3,  46,  45,
   -2, -26, -14,  -7, -10,  -4,
   55,  25, -26, -27,   4,   3,
   24, -45, -10,  -2,  51,  33,
@@ -155,9 +155,9 @@ const int32_t kLateW0[84] = {
 };
 const int32_t kClippedB0 = 5;
 const int32_t kClippedW0[84] = {
-  18,  94,  90, 110, 231, -23,
- -87, -79,-110,-202, -26,  -3,
-   0,  18,   0,  -1,  -6,   0,
+  18,  94,  90, 110, 231,  23,
+  87,  79, 110, 202,  26,  -3,
+   0, -18,   0,   1,  -6,   0,
   -2,  -1,  -2,   0,   2, -14,
    9,   7,   3,   3,   1,   3,
    3,  14,  -3,   0, -15,   1,
@@ -171,9 +171,9 @@ const int32_t kClippedW0[84] = {
 };
 const int32_t kLonelyKingB0 = -9;
 const int32_t kLonelyKingW0[84] = {
-  50, 133, 158, 152, 272, -58,
--118,-142,-166,-158,  23,  38,
-   9,  -9,   1,   5,  23, -32,
+  50, 133, 158, 152, 272,  58,
+ 118, 142, 166, 158, -23,  38,
+  -9,   9,  -1,  -5,  23,  32,
    9,  -7, -28,   2,  15, -73,
   14,  14,  -4, -27,  -4, -15,
  -11,  82,  24,  13,  13,  94,
@@ -354,11 +354,11 @@ struct Evaluator {
     features[EF::OUR_ROOKS] = std::popcount(ourRooks);
     features[EF::OUR_QUEENS] = std::popcount(ourQueens);
 
-    features[EF::THEIR_PAWNS] = std::popcount(theirPawns);
-    features[EF::THEIR_KNIGHTS] = std::popcount(theirKnights);
-    features[EF::THEIR_BISHOPS] = std::popcount(theirBishops);
-    features[EF::THEIR_ROOKS] = std::popcount(theirRooks);
-    features[EF::THEIR_QUEENS] = std::popcount(theirQueens);
+    features[EF::THEIR_PAWNS] = -std::popcount(theirPawns);
+    features[EF::THEIR_KNIGHTS] = -std::popcount(theirKnights);
+    features[EF::THEIR_BISHOPS] = -std::popcount(theirBishops);
+    features[EF::THEIR_ROOKS] = -std::popcount(theirRooks);
+    features[EF::THEIR_QUEENS] = -std::popcount(theirQueens);
 
     // Note that TURN (the side to move) often gets larger bonuses since they can take advantage of threats better.
 
@@ -367,17 +367,17 @@ struct Evaluator {
     // Note: in a rigorous engine isThemInCheck would always be false on your move. For this engine,
     // it means they have moved into check (e.g. moving a pinned piece). Unfortunately we cannot
     // immediately return kMaxEval since it's possible they had had legal moves (and were in stalemate).
-    features[EF::IN_CHECK] = isUsInCheck - isThemInCheck;
+    features[EF::IN_CHECK] = isThemInCheck - isUsInCheck;
     if (US == Color::WHITE) {
       features[EF::KING_ON_BACK_RANK] = (ourKingSq / 8 == 7) - (theirKingSq / 8 == 0);
-      features[EF::KING_ACTIVE] = (ourKingSq / 8 < 5) - (theirKingSq / 8 > 2);
+      features[EF::KING_ACTIVE] = (theirKingSq / 8 > 2) - (ourKingSq / 8 < 5);
     } else {
       features[EF::KING_ON_BACK_RANK] = (ourKingSq / 8 == 0) - (theirKingSq / 8 == 7);
-      features[EF::KING_ACTIVE] = (ourKingSq / 8 > 2) - (theirKingSq / 8 < 5);
+      features[EF::KING_ACTIVE] = (theirKingSq / 8 < 5) - (ourKingSq / 8 > 2);
     }
-    features[EF::KING_ON_CENTER_FILE] = (ourKingSq % 8 == 3 || ourKingSq % 8 == 4) - (theirKingSq % 8 == 3 || theirKingSq % 8 == 4);
-    features[EF::THREATS_NEAR_KING_2] = std::popcount(kNearby[2][ourKingSq] & themTargets & ~usTargets) - std::popcount(kNearby[2][theirKingSq] & usTargets & ~themTargets);
-    features[EF::THREATS_NEAR_KING_3] = std::popcount(kNearby[3][ourKingSq] & themTargets & ~usTargets) - std::popcount(kNearby[2][theirKingSq] & usTargets & ~themTargets);
+    features[EF::KING_ON_CENTER_FILE] = (theirKingSq % 8 == 3 || theirKingSq % 8 == 4) - (ourKingSq % 8 == 3 || ourKingSq % 8 == 4);
+    features[EF::THREATS_NEAR_KING_2] = std::popcount(kNearby[2][theirKingSq] & usTargets & ~themTargets) - std::popcount(kNearby[2][ourKingSq] & themTargets & ~usTargets);
+    features[EF::THREATS_NEAR_KING_3] = std::popcount(kNearby[2][theirKingSq] & usTargets & ~themTargets) - std::popcount(kNearby[3][ourKingSq] & themTargets & ~usTargets);
 
     // Pawns
     const Bitboard theirBlockadedPawns = shift<kForward>(ourPawns) & theirPawns;
@@ -417,7 +417,7 @@ struct Evaluator {
       features[EF::PAWNS_CENTER_16] = std::popcount(ourPawns & kCenter16) - std::popcount(theirPawns & kCenter16);
       features[EF::PAWNS_CENTER_4] = std::popcount(ourPawns & kCenter4) - std::popcount(theirPawns & kCenter4);
       features[EF::OUR_PASSED_PAWNS] = std::popcount(ourPassedPawns);
-      features[EF::THEIR_PASSED_PAWNS] = std::popcount(theirPassedPawns);
+      features[EF::THEIR_PASSED_PAWNS] = -std::popcount(theirPassedPawns);
       features[EF::ISOLATED_PAWNS] = std::popcount(ourIsolatedPawns) - std::popcount(theirIsolatedPawns);
       features[EF::DOUBLED_PAWNS] = std::popcount(ourDoubledPawns) - std::popcount(theirDoubledPawns);
       features[EF::DOUBLE_ISOLATED_PAWNS] = std::popcount(ourDoubledPawns & ourIsolatedPawns) - std::popcount(theirDoubledPawns & theirIsolatedPawns);
