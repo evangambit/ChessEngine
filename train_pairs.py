@@ -1,4 +1,5 @@
 from collections import defaultdict
+from itertools import chain
 import os
  
 import chess
@@ -9,6 +10,33 @@ import numpy as np
 import torch
 from torch import nn, optim
 import torch.utils.data as tdata
+
+blacklist = set([
+  "OUR_PAWNS",
+  "OUR_KNIGHTS",
+  "OUR_BISHOPS",
+  "OUR_ROOKS",
+  "OUR_QUEENS",
+  "THEIR_PAWNS",
+  "THEIR_KNIGHTS",
+  "THEIR_BISHOPS",
+  "THEIR_ROOKS",
+  "THEIR_QUEENS",
+  "KING_ON_BACK_RANK",
+  "KING_ON_CENTER_FILE",
+  "KING_ACTIVE",
+  "PAWNS_CENTER_16",
+  "PAWNS_CENTER_4",
+  "BISHOPS_DEVELOPED",
+  "KNIGHTS_DEVELOPED",
+  "KNIGHTS_CENTER_16",
+  "KNIGHTS_CENTER_4",
+  "KNIGHT_ON_ENEMY_SIDE",
+  "ADVANCED_PAWNS_1",
+  "ADVANCED_PAWNS_2",
+  "ROOKS_ON_THEIR_SIDE",
+  "KING_CASTLED",
+])
 
 varnames = [
   "OUR_PAWNS",
@@ -91,6 +119,11 @@ varnames = [
   "LONELY_KING_ON_EDGE",
 ]
 
+whiteMask = np.ones((1, len(varnames)), dtype=np.float32)
+for x in blacklist:
+  whiteMask[0,varnames.index(x)] = 0.0
+whiteMask = torch.tensor(whiteMask, dtype=torch.float32)
+
 def lpad(t, n, c=' '):
   t = str(t)
   return max(n - len(t), 0) * c + t
@@ -99,10 +132,13 @@ X = np.load(os.path.join('traindata', f'x.pair.any_d10_q1_n0.npy')).astype(np.fl
 Y = np.load(os.path.join('traindata', f'y.pair.any_d10_q1_n0.npy')).astype(np.float64) / 100.0
 F = np.load(os.path.join('traindata', f'fen.pair.any_d10_q1_n0.npy'))
 S = np.load(os.path.join('traindata', f'turn.pair.any_d10_q1_n0.npy')).astype(np.float64) * 2.0 - 1.0
+A = np.load(os.path.join('traindata', f'pm.pair.any_d10_q1_n0.npy')).astype(np.float32)
 cat =  np.concatenate
-# X = cat([X, np.load(os.path.join('traindata', 'x.endgame_d10_q1_n0.npy')).astype(np.float64)], 0)
-# Y = cat([Y, np.load(os.path.join('traindata', 'y.endgame_d10_q1_n0.npy')).astype(np.float64)], 0)
-# F = cat([F, np.load(os.path.join('traindata', 'f.endgame_d10_q1_n0.npy'))], 0)
+X = cat([X, np.load(os.path.join('traindata', 'x.pair.endgame_d10_q1_n0.npy')).astype(np.float64)], 0)
+Y = cat([Y, np.load(os.path.join('traindata', 'y.pair.endgame_d10_q1_n0.npy')).astype(np.float64)], 0)
+F = cat([F, np.load(os.path.join('traindata', 'fen.pair.endgame_d10_q1_n0.npy'))], 0)
+S = cat([S, np.load(os.path.join('traindata', 'turn.pair.endgame_d10_q1_n0.npy')).astype(np.float64) * 2.0 - 1.0], 0)
+A = cat([A, np.load(os.path.join('traindata', 'pm.pair.endgame_d10_q1_n0.npy')).astype(np.float32)], 0)
 
 T = X[:,:,varnames.index('TIME')].copy()
 
@@ -113,11 +149,8 @@ def soft_clip(x):
   x = 5.0 - nn.functional.leaky_relu(5.0 - x)
   return x
 
-class LossFn(nn.Module):
-  def forward(self, yhat, y):
-    yhat = soft_clip(yhat)
-    r = yhat - y
-    return (r**2).mean()
+def score_loss_fn(yhat, y):
+  return ((soft_clip(yhat) - soft_clip(y))**2).mean()
 
 class Model(nn.Module):
   def __init__(self):
@@ -146,49 +179,66 @@ class Model(nn.Module):
     # t = t.clip(0, 18)
     early = self.w["early"](x).squeeze() * (18 - t) / 18
     late = self.w["late"](x).squeeze() * t / 18
-    clipped = self.w["clipped"](x).squeeze().clamp_(-1.0, 1.0)
-    # scale = 
-    ourPieces = x[:,:, model.ai].sum(2)
-    theirPieces = x[:,:, model.bi].sum(2)
-    lonely = self.w["lonelyKing"](x).squeeze() * (1 - (ourPieces != 0).to(torch.float32) * (theirPieces != 0).to(torch.float32))
-    r = early + late + clipped + lonely
+    r = early + late
+    if 'clipped' in self.w:
+      r = r + self.w["clipped"](x).squeeze().clamp_(-1.0, 1.0)
+    if 'lonelyKing' in self.w:
+      ourPieces = x[:,:, model.ai].sum(2)
+      theirPieces = x[:,:, model.bi].sum(2)
+      r = r + self.w["lonelyKing"](x).squeeze() * (1 - (ourPieces != 0).to(torch.float32) * (theirPieces != 0).to(torch.float32))
     if 'scale' in self.w:
       r = r * (torch.sigmoid(self.w["scale"](x).squeeze()) + 0.2)
     return r
 
-def soft_clip(x):
-  x = nn.functional.leaky_relu(x + 5.0) - 5.0
-  x = 5.0 - nn.functional.leaky_relu(5.0 - x)
-  return x
+class PieceMapModel(nn.Module):
+  def __init__(self):
+    super().__init__()
+    k = 12 * 64
+    self.w = nn.ModuleDict()
+    self.w["early"] = nn.Linear(k, 1)
+    self.w["late"] = nn.Linear(k, 1)
+
+  def forward(self, x, t):
+    x = x.reshape(x.shape[0], 2, 12 * 64)
+    early = self.w["early"](x).squeeze() * (18 - t) / 18
+    late = self.w["late"](x).squeeze() * t / 18
+    return early + late
 
 model = Model()
-opt = optim.AdamW(model.parameters(), lr=3e-3, weight_decay=0.1)
+pmModel = PieceMapModel()
+opt = optim.AdamW(chain(model.parameters(), pmModel.parameters()), lr=3e-3, weight_decay=0.1)
 
 Xth = torch.tensor(X, dtype=torch.float32)
 Yth = torch.tensor(Y, dtype=torch.float32)
 Tth = torch.tensor(T, dtype=torch.float32)
 Sth = torch.tensor(S, dtype=torch.float32)
+Ath = torch.tensor(A, dtype=torch.float32)
 
+kAlpha = 1.0
 bs = 50_000
 maxlr = 0.3
-duration = 60
+duration = 100
 
-dataset = tdata.TensorDataset(Xth, Tth, Sth, Yth)
+dataset = tdata.TensorDataset(Xth, Tth, Sth, Yth, Ath)
 dataloader = tdata.DataLoader(dataset, batch_size=bs, shuffle=True)
 
 cross_entropy_loss_fn = nn.CrossEntropyLoss()
 
 metrics = defaultdict(list)
 
-for lr in cat([np.linspace(maxlr / 100, maxlr, duration // 2), np.linspace(maxlr, maxlr / 100, duration // 2)]):
+for lr in cat([np.linspace(maxlr / 100, maxlr, int(round(duration * 0.1))), np.linspace(maxlr, maxlr / 100, int(round(duration * 0.9)))]):
   for pg in opt.param_groups:
     pg['lr'] = lr
-  for x, t, s, y in dataloader:
+  for x, t, s, y, a in dataloader:
+    with torch.no_grad():
+      model.w['early'].weight *= whiteMask
+      model.w['late'].weight *= whiteMask
     yhat = model(x, t) * s
+    yhat = yhat + pmModel(a, t)
     y = y * s
     b = (y[:,0] < y[:,1]) * 1
     loss = cross_entropy_loss_fn(nn.functional.softmax(yhat, 1), b)
-    loss = loss + ((soft_clip(yhat) - soft_clip(y))**2).mean() * 0.3
+    loss = loss + score_loss_fn(yhat, y) * kAlpha
     if "scale" in model.w:
       loss = loss + (model.w["scale"](x)**2).mean() * 0.2
     opt.zero_grad()
@@ -242,65 +292,9 @@ for name in model.w:
         print(','.join(str(x) for x in w[i]) + ',')
     print('};')
 
+print('====' * 6)
+
 kPieceName = 'PNBRQKpnbrqk'
-A = np.zeros((len(F) * 2, 12, 64))
-for i in range(len(F)):
-  if i % 5000 == 0:
-    print(i, len(F))
-  fens = F[i].split(':')
-  for j in range(2):
-    board = chess.Board(fens[j])
-    tiles = [line.split(' ') for line in str(board).split('\n')]
-    for y in range(8):
-      for x in range(8):
-        if tiles[y][x] != '.':
-          A[i * 2 + j, kPieceName.index(tiles[y][x]), y * 8 + x] = 1
-
-A = torch.tensor(A.reshape(len(F), 2, 12 * 64), dtype=torch.float32)
-
-class Model2(nn.Module):
-  def __init__(self):
-    super().__init__()
-    k = 12 * 64
-    self.w = nn.ModuleDict()
-    self.w["early"] = nn.Linear(k, 1)
-    self.w["late"] = nn.Linear(k, 1)
-
-  def forward(self, x, t):
-    early = self.w["early"](x).squeeze() * (18 - t) / 18
-    late = self.w["late"](x).squeeze() * t / 18
-    return early + late
-
-dataset = tdata.TensorDataset(Xth, Tth, Sth, Yth, A)
-dataloader = tdata.DataLoader(dataset, batch_size=bs, shuffle=True)
-
-bs = 50_000
-maxlr = 0.1
-duration = 30
-
-pmModel = Model2()
-opt = optim.AdamW(pmModel.parameters(), lr=3e-3, weight_decay=1.0)
-
-for lr in cat([np.linspace(maxlr / 100, maxlr, duration // 2), np.linspace(maxlr, maxlr / 100, duration // 2)]):
-  for pg in opt.param_groups:
-    pg['lr'] = lr
-  for x, t, s, y, a in dataloader:
-    yhat = model(x, t) * s
-    yhat = yhat + pmModel(a, t)
-    y = y * s
-    b = (y[:,0] < y[:,1]) * 1
-    loss = cross_entropy_loss_fn(nn.functional.softmax(yhat, 1), b)
-    loss = loss + ((soft_clip(yhat) - soft_clip(y))**2).mean() * 0.3
-    if "scale" in model.w:
-      loss = loss + (model.w["scale"](x)**2).mean() * 0.2
-    opt.zero_grad()
-    loss.backward()
-    opt.step()
-    metrics['loss'].append(float(loss))
-    metrics['error'].append(float((yhat.argmax(1) != b).to(torch.float32).mean()))
-  print('%.4f %.4f %.4f' % (lr, metrics['loss'][-1], metrics['error'][-1]))
-
-
 w = np.round(pmModel.w['early'].weight.reshape(12, 8, 8).detach().numpy() * 100).astype(np.int64)
 for i, pn in enumerate(kPieceName):
   if pn == pn.upper():
@@ -309,6 +303,8 @@ for i, pn in enumerate(kPieceName):
     print('// Early Black' + pn.upper())
   for j in range(8):
     print(','.join([lpad(x, n=4) for x in w[i,j]]) + ',')
+
+print('====' * 6)
 
 w = np.round(pmModel.w['late'].weight.reshape(12, 8, 8).detach().numpy() * 100).astype(np.int64)
 for i, pn in enumerate(kPieceName):
