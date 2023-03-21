@@ -522,6 +522,7 @@ SearchResult<TURN> search(
     move->score += isCapture * 518;
 
     const int32_t history = gHistoryHeuristicTable[TURN][move->move.from][move->move.to];
+    // move->score += depth * 40;
     move->score += (history > 0) * 87;
     move->score += (history > 4) * 66;
     move->score += (history > 16) * 98;
