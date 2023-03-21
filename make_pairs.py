@@ -109,7 +109,7 @@ def analyzer(fenQueue, resultQueue, args):
         try:
           score1 = stockfish.analyze(fen1, depth=args.depth)['score']
         except RuntimeError as _:
-          stockfish.p.terminate()
+          stockfish._p.terminate()
           continue
         if score1[0] == 'mate':
           score1 = score1[1] * args.clip
@@ -119,7 +119,7 @@ def analyzer(fenQueue, resultQueue, args):
         try:
           score2 = stockfish.analyze(fen2, depth=args.depth)['score']
         except RuntimeError as _:
-          stockfish.p.terminate()
+          stockfish._p.terminate()
           continue
         if score2[0] == 'mate':
           score2 = score2[1] * args.clip
@@ -131,7 +131,7 @@ def analyzer(fenQueue, resultQueue, args):
 
         low = min(abs(score1), abs(score2))
         if abs(score1 - score2) / (low + 100) < 0.33:
-          stockfish.p.terminate()
+          stockfish._p.terminate()
           continue
 
         resultQueue.put({
@@ -143,7 +143,7 @@ def analyzer(fenQueue, resultQueue, args):
           "moverFeatures2": x2,
         })
 
-        stockfish.p.terminate()
+        stockfish._p.terminate()
 
 def pgn_iterator(noise):
   assert len(args.pgnfiles) > 0
@@ -303,14 +303,29 @@ if __name__ == '__main__':
         int(' w ' in fen2),
       ])
 
+    kPieceName = 'PNBRQKpnbrqk'
+    A = np.zeros((len(F), 2, 12, 64), dtype=np.int8)
+    for i in range(len(F)):
+      if i % 5000 == 0:
+        print(i, len(F))
+      fens = F[i].split(':')
+      for j in range(2):
+        board = chess.Board(fens[j])
+        tiles = [line.split(' ') for line in str(board).split('\n')]
+        for y in range(8):
+          for x in range(8):
+            if tiles[y][x] != '.':
+              A[i, j, kPieceName.index(tiles[y][x]), y * 8 + x] = 1
+
     X = np.array(X, dtype=np.int16)
     Y = np.array(Y, dtype=np.int16)
     F = np.array(F)
     T = np.array(T, dtype=np.int8)
-    print(X.shape, Y.shape, F.shape, T.shape)
+    print(X.shape, Y.shape, F.shape, T.shape, A.shape)
     np.save(os.path.join('traindata', f'x.pair.{get_table_name(args)}.npy'), X)
     np.save(os.path.join('traindata', f'y.pair.{get_table_name(args)}.npy'), Y)
     np.save(os.path.join('traindata', f'fen.pair.{get_table_name(args)}.npy'), F)
     np.save(os.path.join('traindata', f'turn.pair.{get_table_name(args)}.npy'), T)
+    np.save(os.path.join('traindata', f'pm.pair.{get_table_name(args)}.npy'), A)
     exit(0)
 
