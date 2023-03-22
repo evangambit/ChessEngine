@@ -118,11 +118,25 @@ enum EF {
   THEIR_MATERIAL_THREATS,
   LONELY_KING_ON_EDGE,
 
+  OUTPOSTED_KNIGHTS,
+  OUTPOSTED_BISHOPS,
+  PAWN_MOVES,
+  KNIGHT_MOVES,
+  BISHOP_MOVES,
+  ROOK_MOVES,
+
+  QUEEN_MOVES,
+  PAWN_MOVES_ON_THEIR_SIDE,
+  KNIGHT_MOVES_ON_THEIR_SIDE,
+  BISHOP_MOVES_ON_THEIR_SIDE,
+  ROOK_MOVES_ON_THEIR_SIDE,
+  QUEEN_MOVES_ON_THEIR_SIDE,
+
   NUM_EVAL_FEATURES,
 };
 
 const int32_t kEarlyB0 = 10;
-const int32_t kEarlyW0[84] = {
+const int32_t kEarlyW0[EF::NUM_EVAL_FEATURES] = {
   19, 200, 124, 125, 363, -24,
 -195,-116,-129,-313, -31,   7,
  -29, -53, -37,  -8,  -7,  12,
@@ -136,9 +150,11 @@ const int32_t kEarlyW0[84] = {
    0,   0, -12,  72,  30,  74,
   -4,   0, -48, -80,  49,  44,
   45,  41,  63,  74, -46, -17,
+  0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0,
 };
 const int32_t kLateB0 = -8;
-const int32_t kLateW0[84] = {
+const int32_t kLateW0[EF::NUM_EVAL_FEATURES] = {
   75, 230, 306, 455, 833, -74,
 -169,-248,-375,-664, -55, -46,
   25,  24,   6,  -3,  46, -45,
@@ -152,9 +168,11 @@ const int32_t kLateW0[84] = {
 -289, 114, 148,  17, -10,  22,
    8,   4,  54,  76,  37,  34,
   21,  35,  62,  83, -54, -20,
+  0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0,
 };
 const int32_t kClippedB0 = 5;
-const int32_t kClippedW0[84] = {
+const int32_t kClippedW0[EF::NUM_EVAL_FEATURES] = {
   18,  94,  90, 110, 231, -23,
  -87, -79,-110,-202, -26,  -3,
    0,  18,   0,  -1,  -6,   0,
@@ -168,9 +186,11 @@ const int32_t kClippedW0[84] = {
  -16,  68,  21,   9,   1,   0,
    2,   0,   5,   3,  43,  43,
   43,  41,  44,  34,   7,  41,
+  0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0,
 };
 const int32_t kLonelyKingB0 = -9;
-const int32_t kLonelyKingW0[84] = {
+const int32_t kLonelyKingW0[EF::NUM_EVAL_FEATURES] = {
   50, 133, 158, 152, 272, -58,
 -118,-142,-166,-158,  23,  38,
    9,  -9,   1,   5,  23, -32,
@@ -184,6 +204,8 @@ const int32_t kLonelyKingW0[84] = {
 -289, 114, 176,  53,  51,  83,
  -10,   0, -12,  24,  38,  35,
   24,  35,  63,  93,  24, -20,
+  0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0,
 };
 
 
@@ -272,6 +294,18 @@ std::string EFSTR[] = {
   "OUR_MATERIAL_THREATS",
   "THEIR_MATERIAL_THREATS",
   "LONELY_KING_ON_EDGE",
+  "OUTPOSTED_KNIGHTS",
+  "OUTPOSTED_BISHOPS",
+  "PAWN_MOVES",
+  "KNIGHT_MOVES",
+  "BISHOP_MOVES",
+  "ROOK_MOVES",
+  "QUEEN_MOVES",
+  "PAWN_MOVES_ON_THEIR_SIDE",
+  "KNIGHT_MOVES_ON_THEIR_SIDE",
+  "BISHOP_MOVES_ON_THEIR_SIDE",
+  "ROOK_MOVES_ON_THEIR_SIDE",
+  "QUEEN_MOVES_ON_THEIR_SIDE",
 };
 
 struct Evaluator {
@@ -332,9 +366,9 @@ struct Evaluator {
     const Bitboard theirBishopTargets = compute_bishoplike_targets<THEM>(pos, theirBishops);
     const Bitboard ourRookTargets = compute_rooklike_targets<US>(pos, ourRooks);
     const Bitboard theirRookTargets = compute_rooklike_targets<THEM>(pos, theirRooks);
-    const Bitboard usQueenTargets = compute_bishoplike_targets<US>(pos, ourQueens) | compute_rooklike_targets<US>(pos, ourQueens);
+    const Bitboard ourQueenTargets = compute_bishoplike_targets<US>(pos, ourQueens) | compute_rooklike_targets<US>(pos, ourQueens);
     const Bitboard theirQueenTargets = compute_bishoplike_targets<THEM>(pos, theirQueens) | compute_rooklike_targets<THEM>(pos, theirQueens);
-    const Bitboard usKingTargets = compute_king_targets<US>(pos, ourKingSq);
+    const Bitboard ourKingTargets = compute_king_targets<US>(pos, ourKingSq);
     const Bitboard theirKingTargets = compute_king_targets<THEM>(pos, theirKingSq);
 
     constexpr Bitboard kOurSide = (US == Color::WHITE ? kWhiteSide : kBlackSide);
@@ -345,7 +379,7 @@ struct Evaluator {
     constexpr Bitboard kTheirBackRanks = (US == Color::WHITE ? kRanks[1] | kRanks[0] : kRanks[6] | kRanks[7]);
     constexpr Bitboard kHappyKingSquares = bb(62) | bb(58) | bb(57) | bb(6) | bb(1) | bb(2);
 
-    const Bitboard usTargets = ourPawnTargets | ourKnightTargets | usBishopTargets | ourRookTargets | usQueenTargets | usKingTargets;
+    const Bitboard usTargets = ourPawnTargets | ourKnightTargets | usBishopTargets | ourRookTargets | ourQueenTargets | ourKingTargets;
     const Bitboard themTargets = theirPawnTargets | theirKnightTargets | theirBishopTargets | theirRookTargets | theirQueenTargets | theirKingTargets;
 
     features[EF::OUR_PAWNS] = std::popcount(ourPawns);
@@ -386,30 +420,40 @@ struct Evaluator {
     const Bitboard theirProtectedPawns = theirPawns & theirPawnTargets;
     Bitboard ourPassedPawns, theirPassedPawns;
     Bitboard filesWithoutOurPawns, filesWithoutTheirPawns;
+    Bitboard possibleOutpostsForUs, possibleOutpostsForThem;
     {
-      Bitboard ourFilled, theirFilled;
+      Bitboard aheadOfOurPawns, aheadOfTheirPawns;
       Bitboard filesWithOurPawns, filesWithTheirPawns;
       if (US == Color::WHITE) {
-        ourFilled = northFill(ourPawns);
-        theirFilled = southFill(theirPawns);
-        filesWithOurPawns = southFill(ourFilled);
-        filesWithTheirPawns = northFill(theirFilled);
+        aheadOfOurPawns = northFill(ourPawns);
+        aheadOfTheirPawns = southFill(theirPawns);
+        filesWithOurPawns = southFill(aheadOfOurPawns);
+        filesWithTheirPawns = northFill(aheadOfTheirPawns);
       } else {
-        ourFilled = southFill(ourPawns);
-        theirFilled = northFill(theirPawns);
-        filesWithOurPawns = northFill(ourFilled);
-        filesWithTheirPawns = southFill(theirFilled);
+        aheadOfOurPawns = southFill(ourPawns);
+        aheadOfTheirPawns = northFill(theirPawns);
+        filesWithOurPawns = northFill(aheadOfOurPawns);
+        filesWithTheirPawns = southFill(aheadOfTheirPawns);
       }
-      const Bitboard aheadOfOurPawnsFat = fatten(ourFilled);
-      const Bitboard aheadOfTheirPawnsFat = fatten(theirFilled);
+      const Bitboard aheadOfOurPawnsFat = fatten(aheadOfOurPawns);
+      const Bitboard aheadOfTheirPawnsFat = fatten(aheadOfTheirPawns);
       filesWithoutOurPawns = ~filesWithOurPawns;
       filesWithoutTheirPawns = ~filesWithTheirPawns;
-      ourPassedPawns = ourPawns & ~shift<kBackward>(fatten(theirFilled));
-      theirPassedPawns = theirPawns & ~shift<kForward>(fatten(ourFilled));
+      ourPassedPawns = ourPawns & ~shift<kBackward>(fatten(aheadOfTheirPawns));
+      theirPassedPawns = theirPawns & ~shift<kForward>(fatten(aheadOfOurPawns));
       const Bitboard ourIsolatedPawns = ourPawns & ~shift<Direction::WEST>(filesWithOurPawns) & ~shift<Direction::EAST>(filesWithOurPawns);
       const Bitboard theirIsolatedPawns = theirPawns & ~shift<Direction::WEST>(filesWithTheirPawns) & ~shift<Direction::EAST>(filesWithTheirPawns);
-      const Bitboard ourDoubledPawns = ourPawns & shift<kForward>(ourFilled);
-      const Bitboard theirDoubledPawns = theirPawns & shift<kBackward>(theirFilled);
+      const Bitboard ourDoubledPawns = ourPawns & shift<kForward>(aheadOfOurPawns);
+      const Bitboard theirDoubledPawns = theirPawns & shift<kBackward>(aheadOfTheirPawns);
+
+      possibleOutpostsForUs = ~(
+        shift<Direction::EAST>(shift<kBackward>(aheadOfTheirPawns))
+        | shift<Direction::WEST>(shift<kBackward>(aheadOfTheirPawns))
+      ) & ~kTheirBackRanks;
+      possibleOutpostsForThem = ~(
+        shift<Direction::EAST>(shift<kForward>(aheadOfOurPawns))
+        | shift<Direction::WEST>(shift<kForward>(aheadOfOurPawns))
+      ) & ~kOurBackRanks;
 
       constexpr Bitboard kRookPawns = kFiles[0] | kFiles[7];
 
@@ -440,9 +484,9 @@ struct Evaluator {
       features[EF::PROTECTED_PASSED_PAWNS] = std::popcount(ourPassedPawns & ourPawnTargets) * 2 - std::popcount(theirPassedPawns & theirPawnTargets);
     }
 
+    const Bitboard ourBishopTargetsIgnoringNonBlockades = compute_bishoplike_targets<US>(pos, ourBishops, outBlockadedPawns);
+    const Bitboard theirBishopTargetsIgnoringNonBlockades = compute_bishoplike_targets<THEM>(pos, theirBishops, theirBlockadedPawns);
     {  // Bishops
-      const Bitboard ourBishopTargetsIgnoringNonBlockades = compute_bishoplike_targets<US>(pos, ourBishops, outBlockadedPawns);
-      const Bitboard theirBishopTargetsIgnoringNonBlockades = compute_bishoplike_targets<THEM>(pos, theirBishops, theirBlockadedPawns);
       if (US == Color::WHITE) {
         features[EF::BISHOPS_DEVELOPED] = std::popcount(theirBishops & (bb( 2) | bb( 5))) - std::popcount(ourBishops & (bb(58) | bb(61)));
       } else {
@@ -452,6 +496,7 @@ struct Evaluator {
       features[EF::BLOCKADED_BISHOPS] = std::popcount(ourBishopTargetsIgnoringNonBlockades & (outBlockadedPawns | theirProtectedPawns)) - std::popcount(theirBishopTargetsIgnoringNonBlockades & (theirBlockadedPawns | ourProtectedPawns));
       features[EF::SCARY_BISHOPS] = std::popcount(ourBishopTargetsIgnoringNonBlockades & theirMajors) - std::popcount(theirBishopTargetsIgnoringNonBlockades & ourMajors);
       features[EF::SCARIER_BISHOPS] = std::popcount(ourBishopTargetsIgnoringNonBlockades & theirRoyalty) - std::popcount(theirBishopTargetsIgnoringNonBlockades & ourRoyalty);
+      features[EF::OUTPOSTED_BISHOPS] = std::popcount(ourBishops & possibleOutpostsForUs) - std::popcount(theirBishops & possibleOutpostsForThem);
 
       // const Bitboard ourPawnsOnUs = kUsSquares & ourPawns;
       // const Bitboard ourPawnsOnThem = kThemSquares & ourPawns;
@@ -478,6 +523,7 @@ struct Evaluator {
       features[EF::KNIGHTS_CENTER_16] = std::popcount(ourKnights & kCenter16) - std::popcount(theirKnights & kCenter16);
       features[EF::KNIGHTS_CENTER_4] = std::popcount(ourKnights & kCenter4) - std::popcount(theirKnights & kCenter4);
       features[EF::KNIGHT_ON_ENEMY_SIDE] = std::popcount(ourKnights & kTheirSide) * 2 - std::popcount(theirKnights & kOurSide);
+      features[EF::OUTPOSTED_KNIGHTS] = std::popcount(ourKnights & possibleOutpostsForUs) - std::popcount(theirKnights & possibleOutpostsForThem);
     }
 
     {
@@ -614,7 +660,7 @@ struct Evaluator {
       ourMaterialThreats |= ourKnightTargets & theirMajors;
       ourMaterialThreats |= usBishopTargets & theirMajors;
       ourMaterialThreats |= ourRookTargets & theirRoyalty;
-      ourMaterialThreats |= usQueenTargets & theirKings;
+      ourMaterialThreats |= ourQueenTargets & theirKings;
 
       Bitboard theirMaterialThreats = 0;
       theirMaterialThreats |= theirPawnTargets & ourPieces;
@@ -626,6 +672,17 @@ struct Evaluator {
       features[EF::OUR_MATERIAL_THREATS] = std::popcount(ourMaterialThreats);
       features[EF::THEIR_MATERIAL_THREATS] = std::popcount(theirMaterialThreats);
     }
+
+    features[EF::PAWN_MOVES] = std::popcount(ourPawnTargets) - std::popcount(theirPawnTargets);
+    features[EF::KNIGHT_MOVES] = std::popcount(ourKnightTargets) - std::popcount(theirKnightTargets);
+    features[EF::BISHOP_MOVES] = std::popcount(ourBishopTargetsIgnoringNonBlockades) - std::popcount(theirBishopTargetsIgnoringNonBlockades);
+    features[EF::ROOK_MOVES] = std::popcount(ourRookTargets) - std::popcount(theirRookTargets);
+    features[EF::QUEEN_MOVES] = std::popcount(ourQueenTargets) - std::popcount(theirQueenTargets);
+    features[EF::PAWN_MOVES_ON_THEIR_SIDE] = std::popcount(ourPawnTargets & kTheirSide) - std::popcount(theirPawnTargets & kOurSide);
+    features[EF::KNIGHT_MOVES_ON_THEIR_SIDE] = std::popcount(ourKnightTargets & kTheirSide) - std::popcount(theirKnightTargets & kOurSide);
+    features[EF::BISHOP_MOVES_ON_THEIR_SIDE] = std::popcount(ourBishopTargetsIgnoringNonBlockades & kTheirSide) - std::popcount(theirBishopTargetsIgnoringNonBlockades & kOurSide);
+    features[EF::ROOK_MOVES_ON_THEIR_SIDE] = std::popcount(ourRookTargets & kTheirSide) - std::popcount(theirRookTargets & kOurSide);
+    features[EF::QUEEN_MOVES_ON_THEIR_SIDE] = std::popcount(ourQueenTargets & kTheirSide) - std::popcount(theirQueenTargets & kOurSide);
 
     const int16_t ourPiecesRemaining = std::popcount(pos.colorBitboards_[US] & ~ourPawns) + std::popcount(ourQueens) * 2 - 1;
     const int16_t theirPiecesRemaining = std::popcount(pos.colorBitboards_[THEM] & ~theirPawns) + std::popcount(theirQueens) * 2 - 1;
