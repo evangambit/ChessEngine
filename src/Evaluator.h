@@ -164,10 +164,10 @@ const int32_t kLateW0[EF::NUM_EVAL_FEATURES] = {
   15,   9,  45,  -1,   9,  18,
    4, -41, -43, -54, -24,  70,
   41,  60,  60, 225, 601,  10,
-  23,   0,   2,   4, -29,  89,
+  40,   0,   2,   4, -29,  89,
 -289, 114, 148,  17, -10,  22,
    8,   4,  54,  76,  37,  34,
-  21,  35,  62,  83, -54, -20,
+  21,  35,  62,  83, -54, -40,
   0, 0, 0, 0, 0, 0,
   0, 0, 0, 0, 0, 0,
 };
@@ -200,10 +200,10 @@ const int32_t kLonelyKingW0[EF::NUM_EVAL_FEATURES] = {
  -60,  27,  12,  13,  71, -12,
    5, -40,  30,   6,  99,  94,
   30,  52, 173, 371, 229,  11,
-  26,   0,   1,   4, -29,  89,
+  40,   0,   1,   4, -29,  89,
 -289, 114, 176,  53,  51,  83,
  -10,   0, -12,  24,  38,  35,
-  24,  35,  63,  93,  24, -20,
+  24,  35,  63,  93,  24, -40,
   0, 0, 0, 0, 0, 0,
   0, 0, 0, 0, 0, 0,
 };
@@ -526,6 +526,9 @@ struct Evaluator {
       features[EF::OUTPOSTED_KNIGHTS] = std::popcount(ourKnights & possibleOutpostsForUs) - std::popcount(theirKnights & possibleOutpostsForThem);
     }
 
+    const bool isOurKingLonely = (ourMen == ourKings);
+    const bool isTheirKingLonely = (theirMen == theirKings);
+
     {
       // Hanging pieces are more valuable if it is your turn since they're literally free material,
       // as opposed to threats. Also is a very useful heuristic so that leaf nodes don't sack a rook
@@ -551,8 +554,8 @@ struct Evaluator {
       features[EF::LONELY_KING_IN_CENTER] = kDistToCorner[theirKingSq] * (std::popcount(pos.colorBitboards_[THEM]) == 1);
       features[EF::LONELY_KING_IN_CENTER] -= kDistToCorner[ourKingSq] * (std::popcount(pos.colorBitboards_[US]) == 1);
 
-      features[EF::LONELY_KING_AWAY_FROM_ENEMY_KING] = (std::popcount(pos.colorBitboards_[THEM]) == 1) * kingsDist;
-      features[EF::LONELY_KING_AWAY_FROM_ENEMY_KING] -= (std::popcount(pos.colorBitboards_[US]) == 1) * kingsDist;
+      features[EF::LONELY_KING_AWAY_FROM_ENEMY_KING] = isTheirKingLonely * (8 - kingsDist);
+      features[EF::LONELY_KING_AWAY_FROM_ENEMY_KING] -= isOurKingLonely * (8 - kingsDist);
 
       const CastlingRights cr = pos.currentState_.castlingRights;
       features[EF::CASTLING_RIGHTS] = ((cr & kCastlingRights_WhiteKing) > 0);
@@ -636,9 +639,6 @@ struct Evaluator {
     features[EF::KING_IN_FRONT_OF_PASSED_PAWN2] = (ourKings & aheadOfTheirPassedPawnsFat) > 0;
     features[EF::KING_IN_FRONT_OF_PASSED_PAWN2] -= (theirKings & aheadOfOurPassedPawnsFat) > 0;
 
-    const bool isOurKingLonely = (ourMen == ourKings);
-    const bool isTheirKingLonely = (theirMen == theirKings);
-
     // Bonus vs lonely king.
     features[EF::PAWN_V_LONELY_KING] = isTheirKingLonely * std::popcount(ourPawns);
     features[EF::PAWN_V_LONELY_KING] -= isOurKingLonely * std::popcount(theirPawns);
@@ -651,8 +651,8 @@ struct Evaluator {
     features[EF::QUEEN_V_LONELY_KING] = isTheirKingLonely * std::popcount(ourQueens);
     features[EF::QUEEN_V_LONELY_KING] -= isOurKingLonely * std::popcount(theirQueens);
 
-    features[EF::LONELY_KING_ON_EDGE] = kDistToEdge[theirKingSq] * isTheirKingLonely;
-    features[EF::LONELY_KING_ON_EDGE] -= kDistToEdge[ourKingSq] * isOurKingLonely;
+    features[EF::LONELY_KING_ON_EDGE] -= (3 - kDistToEdge[theirKingSq]) * isTheirKingLonely;
+    features[EF::LONELY_KING_ON_EDGE] = (3 - kDistToEdge[ourKingSq]) * isOurKingLonely;
 
     {
       Bitboard ourMaterialThreats = 0;
