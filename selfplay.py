@@ -11,9 +11,9 @@ from multiprocessing import Pool
 def f(player, fen, moves):
 	command = [player, "mode", "analyze", "nodes", "20000", "fen", *fen.split(' '), "moves", *moves]
 	stdout = subprocess.check_output(command).decode()
-
+	matches = re.findall(r"\d+ : [^ ]+", stdout)
 	try:
-		return re.findall(r"^\d+ : [^ ]+", stdout)[-1].split(' ')[-1], command
+		return matches[-1].split(' ')[2], command
 	except IndexError as e:
 		print(command)
 		print(' '.join(command))
