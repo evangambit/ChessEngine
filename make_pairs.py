@@ -66,9 +66,9 @@ def sql_inserter(resultQueue, args):
     ))
 
     numInserted += 1
-    if numInserted % 20 == 0:
+    if numInserted % 50 == 0:
       print('%.1f inserts/sec (%.1f avg)' % (
-        20 / (time.time() - tlast),
+        50 / (time.time() - tlast),
         numInserted / (time.time() - t0)
       ), len(fens))
       tlast = time.time()
@@ -92,16 +92,47 @@ def analyzer(fenQueue, resultQueue, args):
         if fen is None:
           continue
 
-        fen1 = make_random(fen, random.randint(1, 4))
-        fen2 = make_random(fen, random.randint(1, 4))
+        stockfish = Stockfish(path=args.stockpath)
+
+        if args.quiet != 2:
+          fen1 = make_random(fen, random.randint(1, 4))
+          fen2 = make_random(fen, random.randint(1, 4))
+        else:
+          # Use stockfish to find quiet FENs, which we define as "the best move is not a capture".
+          # Try 8 times to generate 2 quiet fens.
+          quietfens = []
+          for _ in range(8):
+            f = make_random(fen, random.randint(1, 4))
+            if f in quietfens:
+              continue
+            try:
+              tmp = stockfish.analyze(f, depth=args.depth)
+              move = tmp['pv'][0]
+              board = chess.Board(f)
+              moves = list(board.legal_moves)
+              moves = [m for m in moves if m.uci() == move]
+              assert len(moves) == 1
+              if board.piece_at(moves[0].to_square) is None:
+                quietfens.append(f)
+            except RuntimeError as _:
+              stockfish._p.terminate()
+              break
+            if len(quietfens) == 2:
+              break
+
+          if len(quietfens) != 2:
+            stockfish._p.terminate()
+            continue
+
+          fen1, fen2 = quietfens
 
         if fen1 == fen2:
+          stockfish._p.terminate()
           continue
 
         if fen1 is None or fen2 is None:
+          stockfish._p.terminate()
           continue
-
-        stockfish = Stockfish(path=args.stockpath)
 
         fen1, x1 = get_vec(fen1, args)
         fen2, x2 = get_vec(fen2, args)
@@ -220,7 +251,7 @@ def endgame_iterator():
     yield fen
 
 def get_vec(fen, args):
-  command = ["./a.out", "mode", "printvec-cpu", "fen", *fen.split(' '), "makequiet", str(args.quiet)]
+  command = ["./a.out", "mode", "printvec-cpu", "fen", *fen.split(' '), "makequiet", "1" if args.quiet == 1 else "0"]
   lines = subprocess.check_output(command).decode().strip().split('\n')
   if lines[0].startswith('PRINT FEATURE VEC FAIL'):
     return None, None
@@ -233,7 +264,7 @@ def get_vecs(fens, args):
   filename = '/tmp/fens.txt'
   with open(filename, 'w+') as f:
     f.write('\n'.join(fens))
-  command = ["./a.out", "mode", "printvec-cpu", "fens", filename, "makequiet", str(args.quiet)]
+  command = ["./a.out", "mode", "printvec-cpu", "fens", filename, "makequiet", "0"]
   lines = subprocess.check_output(command).decode().strip().split('\n')
   lines = [line for line in lines if line != 'PRINT FEATURE VEC FAIL (MATE)']
   for i in range(0, len(lines), 2):
@@ -249,7 +280,7 @@ if __name__ == '__main__':
   parser.add_argument("pgnfiles", nargs='*')
   parser.add_argument("--mode", type=str, required=True, help="{generate, update_features, write_numpy}")
   parser.add_argument("--type", type=str, required=True, help="{any, endgame}")
-  parser.add_argument("--quiet", type=int, required=True, help="{0, 1}")
+  parser.add_argument("--quiet", type=int, required=True, help="{0, 1, 2} (2 uses stockfish to determine quiet-ness)")
   parser.add_argument("--noise", type=int, default=0)
   parser.add_argument("--depth", type=int, default=10, help="{1, 2, ..}")
   parser.add_argument("--num_workers", type=int, default=4)
@@ -258,8 +289,8 @@ if __name__ == '__main__':
   args = parser.parse_args()
 
   assert args.type in ["any", "endgame"]
-  assert args.quiet in [0, 1]
-  assert args.mode in ['generate', 'write_numpy']
+  assert args.quiet in [0, 1, 2]
+  assert args.mode in ['generate', 'write_numpy', 'update_features']
   assert args.depth > 1
 
   if args.type == "endgame":
@@ -285,6 +316,57 @@ if __name__ == '__main__':
 
     for fen in iterator:
       fenQueue.put(fen)
+
+  if args.mode == 'update_features':
+    conn = sqlite3.connect("db.sqlite3")
+    c = conn.cursor()
+    c.execute(f"""DROP TABLE IF EXISTS tmpTable""")
+    c.execute(f"""CREATE TABLE IF NOT EXISTS tmpTable (
+      fen1 BLOB,
+      fen2 BLOB,
+      moverScore1 INTEGER,
+      moverScore2 INTEGER,
+      moverFeatures1 BLOB,
+      moverFeatures2 BLOB
+    );""")
+    c.execute(f"SELECT fen1, fen2, moverScore1, moverScore2 FROM {get_table_name(args)}")
+    A = c.fetchall()
+
+    kTmpFn = '/tmp/fens.txt'
+    if os.path.exists(kTmpFn):
+      os.remove(kTmpFn)
+    with open(kTmpFn, 'w+') as f:
+      for fen1, fen2, _, _ in A:
+        f.write(fen1 + '\n')
+        f.write(fen2 + '\n')
+
+    command = ["./a.out", "mode", "printvec-cpu", "fens", kTmpFn, "makequiet", "0"]
+    lines = subprocess.check_output(command).decode().strip().split('\n')
+    for line in lines:
+      assert not line.startswith('PRINT FEATURE VEC FAIL')
+    assert len(lines) == len(A) * 4
+    for i in range(0, len(lines), 4):
+      fen1 = lines[i + 0]
+      x1 = [int(x) for x in lines[i + 1].split(' ')]
+      fen2 = lines[i + 2]
+      x2 = [int(x) for x in lines[i + 3].split(' ')]
+      f1, f2, moverScore1, moverScore2 = A[i//4]
+      assert fen1 == f1
+      assert fen2 == f2
+      c.execute(f"""INSERT INTO tmpTable
+        (fen1, fen2, moverScore1, moverScore2, moverFeatures1, moverFeatures2)
+        VALUES (?, ?, ?, ?, ?, ?)""", (
+        fen1,
+        fen2,
+        moverScore1,
+        moverScore2,
+        ' '.join(str(a) for a in x1),
+        ' '.join(str(a) for a in x2),
+      ))
+    c.execute(f"""DROP TABLE IF EXISTS {get_table_name(args)}""")
+    c.execute(f"""ALTER TABLE tmpTable RENAME TO {get_table_name(args)}""")
+    conn.commit()
+    exit(1)
 
   if args.mode == 'write_numpy':
     conn = sqlite3.connect("db.sqlite3")
