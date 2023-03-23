@@ -799,7 +799,7 @@ void print_feature_vec(Position *pos, const std::string& originalFen, bool human
     }
     if (r.move != kNullMove) {
       make_move<TURN>(pos, r.move);
-      print_feature_vec<opposite_color<TURN>()>(pos, originalFen, humanReadable, false);
+      print_feature_vec<opposite_color<TURN>()>(pos, originalFen, humanReadable, true);
       undo<TURN>(pos);
       return;
     }
