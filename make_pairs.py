@@ -239,6 +239,8 @@ def endgame_iterator():
     if random.randint(0, 1) == 0:
       fen = fen.replace(' w ', ' b ')
 
+    board = chess.Board(fen)
+
     if not board.is_valid():
       continue
 

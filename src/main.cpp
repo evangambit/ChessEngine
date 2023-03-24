@@ -233,10 +233,6 @@ struct CacheResult {
 
 std::unordered_map<uint64_t, CacheResult> gCache;
 
-constexpr int kSimplePieceValues[7] = {
-  0, 100, 450, 500, 1000, 2000, 9999
-};
-
 constexpr int kQSimplePieceValues[7] = {
   // Note "NO_PIECE" has a score of 200 since this
   // encourages qsearch to value checks.
