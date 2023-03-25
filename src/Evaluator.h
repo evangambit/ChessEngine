@@ -137,81 +137,81 @@ enum EF {
   NUM_EVAL_FEATURES,
 };
 
-const int32_t kEarlyB0 = -2;
+const int32_t kEarlyB0 = -9;
 const int32_t kEarlyW0[EF::NUM_EVAL_FEATURES] = {
-  18, 159, 148, 172, 278, -27,
--148,-134,-159,-264,-171,  41,
- -24,  26,  -1,   2, -18,  20,
-  -7,   9,   5,   1,  13,  36,
- -16,   5,   0,  22,   0,   3,
-  14,  50,  -7,   9,  -5,  13,
-  43,   3,  11,  22,  11,   8,
-  10,   2, -24, -11, -32, 102,
-  15,  29,  36, -44,-129,   7,
- -34,   0,   2, -12,   2,  -2,
-   1,   0, -74,  48,  10,  26,
-  11,   1,-124, -57,   0,   0,
-   0,   0,   0,  62, -38,  -2,
-  -4,  -1,   9,  -1,   1,   4,
-   1,  -2,  -3,  -1,  -6,  -1,
-   0,
+  17, 158, 146, 170, 283, -27,
+-149,-134,-152,-265,-160,  35,
+ -25,  22,   1,   0, -21,  20,
+  -7,   9,   6,   1,  14,  34,
+ -15,   4,  -5,  19,   1,   4,
+  14,  49,  -6,   8,  -4,  14,
+  57,   4,  11,  13,  11,   6,
+  11,   3, -27, -11, -35,   3,
+  14,  33,  35, -36,-100,   6,
+ -21,   0,   3,  -4,   4,  -1,
+  -6,   4, -71,  44,  11,  23,
+   8,   0,-117, -57,   0,   0,
+   0,   0,   0,  69, -37,  -3,
+  -6,  -2,   8,  -1,   0,   3,
+   1,  -1,  -3,   0,  -6,  -1,
+   6,
 };
-const int32_t kLateB0 = 3;
+const int32_t kLateB0 = -7;
 const int32_t kLateW0[EF::NUM_EVAL_FEATURES] = {
-  47,  65, 103, 201, 386, -46,
- -70,-111,-202,-342,  41, -44,
-  17,  -1,   0,  -1,  16, -14,
-  -2, -15,  -8,  -5, -15, -42,
-  35,  15,  -3, -13,   1,   3,
-  -9,  -5,   0,   1,  12,   2,
- -46,  -3, -21,   1, -22,   7,
-   2, -24, -10, -33,  -6,  88,
-  15,   2,  28,  80, -17, -71,
- -18,   0,   1,  -4, 630,  31,
-  43,  68, 130,   3,  -3,   7,
-   1,  -3,  49,  39,   0,   0,
-   0,   0,   0,  26,   5,  51,
-   9,   1,  -5,   7,   1,  -1,
-  -4,   4,   0,   2,   2,   0,
-  0,
+  46,  69, 104, 197, 345, -44,
+ -73,-109,-202,-305,  32, -39,
+  16,   0,   0,   0,  17, -17,
+  -2, -15,  -7,  -5, -14, -42,
+  33,  15, -13, -14,   2,   2,
+  -7,  -2,  -1,  -3,  15,   2,
+ -46,  -3, -13, -10, -19,   5,
+  -1, -25, -15, -35,  -4,  23,
+  14,  21,  43,  77, -24, -79,
+ -13,   0,   1,  -4, 600, 108,
+  26,  75, 132,   3,  -3,   5,
+   6,  -2,  49,  38,   0,   0,
+   0,   0,   0,  38,  -2,  68,
+  11,   2,  -5,   6,   1,  -1,
+  -1,   4,   0,   2,   2,   0,
+  -4,
 };
-const int32_t kClippedB0 = 9;
+const int32_t kClippedB0 = 5;
 const int32_t kClippedW0[EF::NUM_EVAL_FEATURES] = {
-  25,  89,  90, 136, 232, -26,
- -85, -83,-130,-218,-278,  -4,
-  -2,  10,  -1,  -1,  -2,  -5,
-  -1,   0,  -4,  -2,   3, -11,
-  10,   7,  -4,   3,   2,   0,
-   5,  17,  -4,   5,   0,   7,
- -11,   2,   3,   1,   1,   2,
-   2,  -9, -15, -13, -14,-371,
-  17,  54,  38,  38, 441,-121,
--135,   0,   2, 760,1053, 397,
-2210,  44,  41,  11,   1,   6,
-   9,   0,   6,   6,   0,   0,
-   0,   0,   0,  37, -16,  67,
-   0,   3,   2,   3,   2,   2,
-   1,   2,   1,   0,   0,   1,
-   0,
+  25,  88,  90, 138, 228, -27,
+ -84, -84,-133,-213,-422,  -7,
+  -1,  11,  -2,  -2,  -2,  -2,
+  -1,   0,  -5,  -2,   2, -14,
+  13,   7,   1,   4,   1,   1,
+   5,  17,  -6,   6,   0,   7,
+ -10,   1,   5,  10,   2,   3,
+   2,  -9, -14, -13, -12, -17,
+  15,  35,  31,  26, 860,-135,
+-132,   0,   2,1250,1078,  54,
+2410,  51,  48,   9,   0,   6,
+   6,   0,   5,   6,   0,   0,
+   0,   0,   0,  25, -14,  74,
+   0,   3,   3,   3,   2,   2,
+   1,   1,   1,   0,   0,   1,
+   2,
 };
-const int32_t kLonelyKingB0 = 6;
+const int32_t kLonelyKingB0 = -4;
 const int32_t kLonelyKingW0[EF::NUM_EVAL_FEATURES] = {
-  20,  30,  60,  90, 101, -19,
- -43, -74, -78, -75,-320,  27,
-  -1,   4,   1,   1,  -6,   4,
-   7,  -4, -16,  -8,   5, -35,
-   8,   1,   8, -22,  -4,  -5,
- -27, -47,  20, 111,-146, -12,
--126,  15, -37,   0,   0,   2,
- -12, -22,  14,  49,   0,  78,
-  14,  35,  43,  99, 114,  76,
-  35,   0,   0, -43,-606, -32,
--309,  89,  61,   6,   6,  12,
-  11,  15, -22,   2,   0,   0,
-   0,   0,   0, -21, -38, -49,
- -12, -29,   6,   5,   3,   2,
-  -1,   0,  -4,  -8,  -6,  -3,
-  0,
+  18,  25,  79, 100,  99, -19,
+ -47, -90, -76, -67,-761,  29,
+  -3,   1,   2,   0,  -9,   4,
+   9,   1, -24, -11,   6, -31,
+   9,   3, -17, -31,  -1,  -7,
+ -21, -53,  16,  96,-107,  -3,
+-134,  16, -33, -18,   1,   4,
+ -13, -24,   3,  29,  -8,  35,
+  15,  43,  41,  83,  93,  85,
+  31,   0,   1, -35,-554,  18,
+-332,  79,  60,   5,   7,  14,
+   4,   2, -16,   2,   0,   0,
+   0,   0,   0,  43, -33, -64,
+ -11, -25,   8,   4,   2,   2,
+  -1,   0,  -4,  -7,  -7,  -2,
+ -14,
 };
 
 
@@ -485,10 +485,10 @@ struct Evaluator {
         features[EF::ADVANCED_PASSED_PAWNS_4] = std::popcount(ourPassedPawns & kRanks[4]) * 2 - std::popcount(theirPassedPawns & kRanks[3]);
       }
 
-      features[EF::PAWN_MINOR_CAPTURES] = std::popcount(ourPawnTargets & theirMinors) * 3 - std::popcount(theirPawnTargets & ourMinors);
-      features[EF::PAWN_MAJOR_CAPTURES] = std::popcount(ourPawnTargets & theirMajors) * 3 - std::popcount(theirPawnTargets & ourMajors);
+      features[EF::PAWN_MINOR_CAPTURES] = std::popcount(ourPawnTargets & theirMinors) - std::popcount(theirPawnTargets & ourMinors);
+      features[EF::PAWN_MAJOR_CAPTURES] = std::popcount(ourPawnTargets & theirMajors) - std::popcount(theirPawnTargets & ourMajors);
       features[EF::PROTECTED_PAWNS] = std::popcount(ourPawns & ourPawnTargets) - std::popcount(theirPawns & theirPawnTargets);
-      features[EF::PROTECTED_PASSED_PAWNS] = std::popcount(ourPassedPawns & ourPawnTargets) * 2 - std::popcount(theirPassedPawns & theirPawnTargets);
+      features[EF::PROTECTED_PASSED_PAWNS] = std::popcount(ourPassedPawns & ourPawnTargets) - std::popcount(theirPassedPawns & theirPawnTargets);
     }
 
     const Bitboard ourBishopTargetsIgnoringNonBlockades = compute_bishoplike_targets<US>(pos, ourBishops, outBlockadedPawns);
@@ -526,10 +526,10 @@ struct Evaluator {
       } else {
         features[EF::KNIGHTS_DEVELOPED] = std::popcount(theirKnights & (bb(57) | bb(62))) - std::popcount(ourKnights & (bb( 1) | bb( 6)));
       }
-      features[EF::KNIGHT_MAJOR_CAPTURES] = std::popcount(ourKnightTargets & theirMajors) * 2 - std::popcount(theirKnightTargets & ourMajors);
+      features[EF::KNIGHT_MAJOR_CAPTURES] = std::popcount(ourKnightTargets & theirMajors) - std::popcount(theirKnightTargets & ourMajors);
       features[EF::KNIGHTS_CENTER_16] = std::popcount(ourKnights & kCenter16) - std::popcount(theirKnights & kCenter16);
       features[EF::KNIGHTS_CENTER_4] = std::popcount(ourKnights & kCenter4) - std::popcount(theirKnights & kCenter4);
-      features[EF::KNIGHT_ON_ENEMY_SIDE] = std::popcount(ourKnights & kTheirSide) * 2 - std::popcount(theirKnights & kOurSide);
+      features[EF::KNIGHT_ON_ENEMY_SIDE] = std::popcount(ourKnights & kTheirSide) - std::popcount(theirKnights & kOurSide);
       features[EF::OUTPOSTED_KNIGHTS] = std::popcount(ourKnights & possibleOutpostsForUs) - std::popcount(theirKnights & possibleOutpostsForThem);
     }
 
@@ -571,7 +571,7 @@ struct Evaluator {
       features[EF::CASTLING_RIGHTS] -= ((cr & kCastlingRights_BlackQueen) > 0);
       features[EF::KING_CASTLED] = std::popcount(ourKings & kHappyKingSquares) - std::popcount(theirKings & kHappyKingSquares);
 
-      features[EF::NUM_TARGET_SQUARES] = std::popcount(ourTargets) * 2 - std::popcount(theirTargets);
+      features[EF::NUM_TARGET_SQUARES] = std::popcount(ourTargets) - std::popcount(theirTargets);
     }
 
     // {  // Piece map values.
