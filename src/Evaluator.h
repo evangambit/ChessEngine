@@ -386,8 +386,8 @@ struct Evaluator {
     constexpr Bitboard kTheirBackRanks = (US == Color::WHITE ? kRanks[1] | kRanks[0] : kRanks[6] | kRanks[7]);
     constexpr Bitboard kHappyKingSquares = bb(62) | bb(58) | bb(57) | bb(6) | bb(1) | bb(2);
 
-    const Bitboard usTargets = ourPawnTargets | ourKnightTargets | usBishopTargets | ourRookTargets | ourQueenTargets | ourKingTargets;
-    const Bitboard themTargets = theirPawnTargets | theirKnightTargets | theirBishopTargets | theirRookTargets | theirQueenTargets | theirKingTargets;
+    const Bitboard ourTargets = ourPawnTargets | ourKnightTargets | usBishopTargets | ourRookTargets | ourQueenTargets | ourKingTargets;
+    const Bitboard theirTargets = theirPawnTargets | theirKnightTargets | theirBishopTargets | theirRookTargets | theirQueenTargets | theirKingTargets;
 
     features[EF::OUR_PAWNS] = std::popcount(ourPawns);
     features[EF::OUR_KNIGHTS] = std::popcount(ourKnights);
@@ -417,8 +417,8 @@ struct Evaluator {
       features[EF::KING_ACTIVE] = (ourKingSq / 8 > 2) - (theirKingSq / 8 < 5);
     }
     features[EF::KING_ON_CENTER_FILE] = (ourKingSq % 8 == 3 || ourKingSq % 8 == 4) - (theirKingSq % 8 == 3 || theirKingSq % 8 == 4);
-    features[EF::THREATS_NEAR_KING_2] = std::popcount(kNearby[2][ourKingSq] & themTargets & ~usTargets) - std::popcount(kNearby[2][theirKingSq] & usTargets & ~themTargets);
-    features[EF::THREATS_NEAR_KING_3] = std::popcount(kNearby[3][ourKingSq] & themTargets & ~usTargets) - std::popcount(kNearby[2][theirKingSq] & usTargets & ~themTargets);
+    features[EF::THREATS_NEAR_KING_2] = std::popcount(kNearby[2][ourKingSq] & theirTargets & ~ourTargets) - std::popcount(kNearby[2][theirKingSq] & ourTargets & ~theirTargets);
+    features[EF::THREATS_NEAR_KING_3] = std::popcount(kNearby[3][ourKingSq] & theirTargets & ~ourTargets) - std::popcount(kNearby[2][theirKingSq] & ourTargets & ~theirTargets);
 
     // Pawns
     const Bitboard theirBlockadedPawns = shift<kForward>(ourPawns) & theirPawns;
@@ -541,8 +541,8 @@ struct Evaluator {
       // Hanging pieces are more valuable if it is your turn since they're literally free material,
       // as opposed to threats. Also is a very useful heuristic so that leaf nodes don't sack a rook
       // for a pawn.
-      const Bitboard usHanging = themTargets & ~usTargets & pos.colorBitboards_[US];
-      const Bitboard themHanging = usTargets & ~themTargets & pos.colorBitboards_[THEM];
+      const Bitboard usHanging = theirTargets & ~ourTargets & pos.colorBitboards_[US];
+      const Bitboard themHanging = ourTargets & ~theirTargets & pos.colorBitboards_[THEM];
       features[EF::OUR_HANGING_PAWNS] = std::popcount(ourPawns & usHanging);
       features[EF::THEIR_HANGING_PAWNS] = std::popcount(theirPawns & themHanging);
       features[EF::OUR_HANGING_KNIGHTS] = std::popcount(ourKnights & usHanging);
@@ -571,7 +571,7 @@ struct Evaluator {
       features[EF::CASTLING_RIGHTS] -= ((cr & kCastlingRights_BlackQueen) > 0);
       features[EF::KING_CASTLED] = std::popcount(ourKings & kHappyKingSquares) - std::popcount(theirKings & kHappyKingSquares);
 
-      features[EF::NUM_TARGET_SQUARES] = std::popcount(usTargets) * 2 - std::popcount(themTargets);
+      features[EF::NUM_TARGET_SQUARES] = std::popcount(ourTargets) * 2 - std::popcount(theirTargets);
     }
 
     // {  // Piece map values.
