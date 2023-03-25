@@ -41,6 +41,7 @@ int8_t king_dist(Square sq1, Square sq2) {
 
 Bitboard kKingDist[8][64];
 Bitboard kNearby[7][64];
+Bitboard kKingHome[64];
 Bitboard kSquaresBetween[64][64];
 Bitboard kSquareRuleYourTurn[Color::NUM_COLORS][64];
 Bitboard kSquareRuleTheirTurn[Color::NUM_COLORS][64];
@@ -125,6 +126,31 @@ void initialize_geometry() {
       }
     }
   }
+
+  std::fill_n(&kKingHome[0], kNumSquares, 0);
+  kKingHome[Square::A1] = bb(Square::A2) | bb(Square::A3)
+    | bb(Square::B2) | bb(Square::B3);
+  kKingHome[Square::B1] = bb(Square::A2) | bb(Square::A3)
+    | bb(Square::B2) | bb(Square::B3) | bb(Square::C2);
+  kKingHome[Square::C1] = bb(Square::A2) | bb(Square::A3)
+    | bb(Square::B2) | bb(Square::B3) | bb(Square::C2);
+  kKingHome[Square::G1] = bb(Square::F2) | bb(Square::F3)
+    | bb(Square::G2) | bb(Square::G3)
+    | bb(Square::F2);
+  kKingHome[Square::H1] = bb(Square::G2) | bb(Square::G3)
+    | bb(Square::H2) | bb(Square::H3);
+
+  kKingHome[Square::A8] = bb(Square::A7) | bb(Square::A6)
+    | bb(Square::B7) | bb(Square::B6);
+  kKingHome[Square::B8] = bb(Square::A7) | bb(Square::A6)
+    | bb(Square::B7) | bb(Square::B6) | bb(Square::C7);
+  kKingHome[Square::C8] = bb(Square::A7) | bb(Square::A6)
+    | bb(Square::B7) | bb(Square::B6) | bb(Square::C7);
+  kKingHome[Square::G8] = bb(Square::F7) | bb(Square::F6)
+    | bb(Square::G7) | bb(Square::G6)
+    | bb(Square::F7);
+  kKingHome[Square::H8] = bb(Square::G7) | bb(Square::G6)
+    | bb(Square::H7) | bb(Square::H6);
 }
 
 /*

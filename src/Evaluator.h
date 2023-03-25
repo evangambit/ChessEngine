@@ -132,11 +132,13 @@ enum EF {
   ROOK_MOVES_ON_THEIR_SIDE,
   QUEEN_MOVES_ON_THEIR_SIDE,
 
+  KING_HOME_QUALITY,
+
   NUM_EVAL_FEATURES,
 };
 
 const int32_t kEarlyB0 = -2;
-const int32_t kEarlyW0[90] = {
+const int32_t kEarlyW0[EF::NUM_EVAL_FEATURES] = {
   18, 159, 148, 172, 278, -27,
 -148,-134,-159,-264,-171,  41,
  -24,  26,  -1,   2, -18,  20,
@@ -152,9 +154,10 @@ const int32_t kEarlyW0[90] = {
    0,   0,   0,  62, -38,  -2,
   -4,  -1,   9,  -1,   1,   4,
    1,  -2,  -3,  -1,  -6,  -1,
+   0,
 };
 const int32_t kLateB0 = 3;
-const int32_t kLateW0[90] = {
+const int32_t kLateW0[EF::NUM_EVAL_FEATURES] = {
   47,  65, 103, 201, 386, -46,
  -70,-111,-202,-342,  41, -44,
   17,  -1,   0,  -1,  16, -14,
@@ -170,9 +173,10 @@ const int32_t kLateW0[90] = {
    0,   0,   0,  26,   5,  51,
    9,   1,  -5,   7,   1,  -1,
   -4,   4,   0,   2,   2,   0,
+  0,
 };
 const int32_t kClippedB0 = 9;
-const int32_t kClippedW0[90] = {
+const int32_t kClippedW0[EF::NUM_EVAL_FEATURES] = {
   25,  89,  90, 136, 232, -26,
  -85, -83,-130,-218,-278,  -4,
   -2,  10,  -1,  -1,  -2,  -5,
@@ -188,9 +192,10 @@ const int32_t kClippedW0[90] = {
    0,   0,   0,  37, -16,  67,
    0,   3,   2,   3,   2,   2,
    1,   2,   1,   0,   0,   1,
+   0,
 };
 const int32_t kLonelyKingB0 = 6;
-const int32_t kLonelyKingW0[90] = {
+const int32_t kLonelyKingW0[EF::NUM_EVAL_FEATURES] = {
   20,  30,  60,  90, 101, -19,
  -43, -74, -78, -75,-320,  27,
   -1,   4,   1,   1,  -6,   4,
@@ -206,6 +211,7 @@ const int32_t kLonelyKingW0[90] = {
    0,   0,   0, -21, -38, -49,
  -12, -29,   6,   5,   3,   2,
   -1,   0,  -4,  -8,  -6,  -3,
+  0,
 };
 
 
@@ -306,6 +312,7 @@ std::string EFSTR[] = {
   "BISHOP_MOVES_ON_THEIR_SIDE",
   "ROOK_MOVES_ON_THEIR_SIDE",
   "QUEEN_MOVES_ON_THEIR_SIDE",
+  "KING_HOME_QUALITY",
 };
 
 struct Evaluator {
@@ -529,6 +536,7 @@ struct Evaluator {
     const bool isOurKingLonely = (ourMen == ourKings);
     const bool isTheirKingLonely = (theirMen == theirKings);
 
+    const CastlingRights cr = pos.currentState_.castlingRights;
     {
       // Hanging pieces are more valuable if it is your turn since they're literally free material,
       // as opposed to threats. Also is a very useful heuristic so that leaf nodes don't sack a rook
@@ -557,7 +565,6 @@ struct Evaluator {
       features[EF::LONELY_KING_AWAY_FROM_ENEMY_KING] = isTheirKingLonely * (8 - kingsDist);
       features[EF::LONELY_KING_AWAY_FROM_ENEMY_KING] -= isOurKingLonely * (8 - kingsDist);
 
-      const CastlingRights cr = pos.currentState_.castlingRights;
       features[EF::CASTLING_RIGHTS] = ((cr & kCastlingRights_WhiteKing) > 0);
       features[EF::CASTLING_RIGHTS] += ((cr & kCastlingRights_WhiteQueen) > 0);
       features[EF::CASTLING_RIGHTS] -= ((cr & kCastlingRights_BlackKing) > 0);
@@ -683,6 +690,16 @@ struct Evaluator {
     features[EF::BISHOP_MOVES_ON_THEIR_SIDE] = std::popcount(ourBishopTargetsIgnoringNonBlockades & kTheirSide) - std::popcount(theirBishopTargetsIgnoringNonBlockades & kOurSide);
     features[EF::ROOK_MOVES_ON_THEIR_SIDE] = std::popcount(ourRookTargets & kTheirSide) - std::popcount(theirRookTargets & kOurSide);
     features[EF::QUEEN_MOVES_ON_THEIR_SIDE] = std::popcount(ourQueenTargets & kTheirSide) - std::popcount(theirQueenTargets & kOurSide);
+
+    // Bonus for king having pawns in front of him, or having pawns in front of him once he castles.
+    features[EF::KING_HOME_QUALITY] = std::popcount(kKingHome[ourKingSq] & ourPawns) - std::popcount(kKingHome[theirKingSq] & theirPawns);
+    const Evaluation whitePotentialHome = std::max(std::popcount(kKingHome[Square::G1] & ourPawns) * ((cr & kCastlingRights_WhiteKing) > 0), std::popcount(kKingHome[Square::B1] & ourPawns) * ((cr & kCastlingRights_WhiteQueen) > 0));
+    const Evaluation blackPotentialHome = std::max(std::popcount(kKingHome[Square::G8] & ourPawns) * ((cr & kCastlingRights_BlackKing) > 0), std::popcount(kKingHome[Square::B8] & ourPawns) * ((cr & kCastlingRights_BlackQueen) > 0));
+    if (US == Color::WHITE) {
+      features[EF::KING_HOME_QUALITY] += whitePotentialHome - blackPotentialHome;
+    } else {
+      features[EF::KING_HOME_QUALITY] += blackPotentialHome - whitePotentialHome;
+    }
 
     const int16_t ourPiecesRemaining = std::popcount(pos.colorBitboards_[US] & ~ourPawns) + std::popcount(ourQueens) * 2 - 1;
     const int16_t theirPiecesRemaining = std::popcount(pos.colorBitboards_[THEM] & ~theirPawns) + std::popcount(theirQueens) * 2 - 1;

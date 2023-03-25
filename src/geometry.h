@@ -125,6 +125,8 @@ extern Bitboard kSquaresBetween[64][64];
 extern Bitboard kSquareRuleYourTurn[Color::NUM_COLORS][64];
 extern Bitboard kSquareRuleTheirTurn[Color::NUM_COLORS][64];
 
+extern Bitboard kKingHome[64];
+
 void initialize_geometry();
 
 void assert_valid_square(Square sq);
