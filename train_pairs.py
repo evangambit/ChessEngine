@@ -103,6 +103,18 @@ varnames = [
   "BISHOP_MOVES_ON_THEIR_SIDE",
   "ROOK_MOVES_ON_THEIR_SIDE",
   "QUEEN_MOVES_ON_THEIR_SIDE",
+  "KING_HOME_QUALITY",
+  "BISHOPS_BLOCKING_KNIGHTS",
+  "OUR_HANGING_PAWNS_2",
+  "OUR_HANGING_KNIGHTS_2",
+  "OUR_HANGING_BISHOPS_2",
+  "OUR_HANGING_ROOKS_2",
+  "OUR_HANGING_QUEENS_2",
+  "THEIR_HANGING_PAWNS_2",
+  "THEIR_HANGING_KNIGHTS_2",
+  "THEIR_HANGING_BISHOPS_2",
+  "THEIR_HANGING_ROOKS_2",
+  "THEIR_HANGING_QUEENS_2",
 ]
 
 def varnames2mask(names):
@@ -155,6 +167,11 @@ kPositiveList = torch.tensor(varnames2mask([
   "BISHOP_MOVES",
   "ROOK_MOVES",
   "QUEEN_MOVES",
+  "THEIR_HANGING_PAWNS_2",
+  "THEIR_HANGING_KNIGHTS_2",
+  "THEIR_HANGING_BISHOPS_2",
+  "THEIR_HANGING_ROOKS_2",
+  "THEIR_HANGING_QUEENS_2",
 ]).reshape(1, -1), dtype=torch.float32)
 
 kNegativeList = torch.tensor(varnames2mask([
@@ -175,6 +192,11 @@ kNegativeList = torch.tensor(varnames2mask([
   "OUR_HANGING_ROOKS",
   "OUR_HANGING_QUEENS",
   "THEIR_MATERIAL_THREATS",
+  "OUR_HANGING_PAWNS_2",
+  "OUR_HANGING_KNIGHTS_2",
+  "OUR_HANGING_BISHOPS_2",
+  "OUR_HANGING_ROOKS_2",
+  "OUR_HANGING_QUEENS_2",
 ]).reshape(1, -1), dtype=torch.float32)
 
 def lpad(t, n, c=' '):
@@ -372,14 +394,17 @@ for includePieceMaps in [False, True]:
       loss = cross_entropy_loss_fn(nn.functional.softmax(yhat, 1), b) * (1 - kAlpha)
       loss = loss + score_loss_fn(yhat, y) * kAlpha
 
-      w1 = pca.slope_backward(model.w['early'].weight)
+      # w1 = pca.slope_backward(model.w['early'].weight)
       # w2 = pca.slope_backward(model.w['late'].weight)
       # w3 = pca.slope_backward(model.w['clipped'].weight)
-      loss = loss + torch.abs(w1 * kEarlyBlacklist).mean()
+      # w4 = pca.slope_backward(model.w['lonelyKing'].weight)
+      # loss = loss + torch.abs(w1 * kEarlyBlacklist).mean()
       # loss = loss + torch.abs(torch.relu(-(w1 + w3)) * kPositiveList).mean()
       # loss = loss + torch.abs(torch.relu(-(w2 + w3)) * kPositiveList).mean()
+      # loss = loss + torch.abs(torch.relu(-(w2 + w3 + w4)) * kPositiveList).mean()
       # loss = loss + torch.abs(torch.relu(w1 + w3) * kNegativeList).mean()
       # loss = loss + torch.abs(torch.relu(w2 + w3) * kNegativeList).mean()
+      # loss = loss + torch.abs(torch.relu(w2 + w3 + w4) * kNegativeList).mean()
 
       if "scale" in model.w:
         loss = loss + (model.w["scale"](x)**2).mean() * 0.2
