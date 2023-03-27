@@ -146,8 +146,16 @@ enum EF {
   THEIR_HANGING_ROOKS_2,
   THEIR_HANGING_QUEENS_2,
 
+  QUEEN_THREATS_NEAR_KING,
+  MISSING_FIANCHETTO_BISHOP,
+
   NUM_EVAL_FEATURES,
 };
+
+constexpr Bitboard kWhiteKingCorner = bb(Square::H1) | bb(Square::H2) | bb(Square::G1) | bb(Square::G2) | bb(Square::F1);
+constexpr Bitboard kWhiteQueenCorner = bb(Square::A1) | bb(Square::A2) | bb(Square::B1) | bb(Square::B2) | bb(Square::C1);
+constexpr Bitboard kBlackKingCorner = bb(Square::H8) | bb(Square::H7) | bb(Square::G8) | bb(Square::G7) | bb(Square::F8);
+constexpr Bitboard kBlackQueenCorner = bb(Square::A8) | bb(Square::A7) | bb(Square::B8) | bb(Square::B7) | bb(Square::C8);
 
 const int32_t kEarlyB0 = 6;
 const int32_t kEarlyW0[EF::NUM_EVAL_FEATURES] = {
@@ -168,6 +176,7 @@ const int32_t kEarlyW0[EF::NUM_EVAL_FEATURES] = {
   -1,   0,   0,  -1,  -1,   2,
   12,   0,   3, -11, -16, -17,
    8,   6,  67,  50,   2,   9,
+ -28,  -5,
 };
 const int32_t kLateB0 = 0;
 const int32_t kLateW0[EF::NUM_EVAL_FEATURES] = {
@@ -188,6 +197,7 @@ const int32_t kLateW0[EF::NUM_EVAL_FEATURES] = {
    1,   3,   0,   1,  -5,   5,
   -4,   6,  -8,  -6, -29,  18,
   -6,   2,  94,  60,  -2,  46,
+ -37,  -5,
 };
 const int32_t kClippedB0 = 7;
 const int32_t kClippedW0[EF::NUM_EVAL_FEATURES] = {
@@ -208,6 +218,7 @@ const int32_t kClippedW0[EF::NUM_EVAL_FEATURES] = {
    1,   2,   2,   2,   0,   0,
    2,  -1,  -1,   4,   0,   0,
   -3,   6, -23, -15,  -8, -10,
+  27,   0,
 };
 const int32_t kLonelyKingB0 = -3;
 const int32_t kLonelyKingW0[EF::NUM_EVAL_FEATURES] = {
@@ -228,6 +239,7 @@ const int32_t kLonelyKingW0[EF::NUM_EVAL_FEATURES] = {
    4,   4, -10,  -8, -10,  -5,
  -11,-131, -12,  10,  35, 117,
  -58, -25,  -9,  21,-181,-496,
+   0,   0,
 };
 
 
@@ -289,12 +301,6 @@ std::string EFSTR[] = {
   "LONELY_KING_AWAY_FROM_ENEMY_KING",
   "NUM_TARGET_SQUARES",
   "TIME",
-  "PAWN_PM",
-  "KNIGHT_PM",
-  "BISHOP_PM",
-  "ROOK_PM",
-  "QUEEN_PM",
-  "KING_PM",
   "KPVK_OPPOSITION",
   "KPVK_IN_FRONT_OF_PAWN",
   "KPVK_OFFENSIVE_KEY_SQUARES",
@@ -340,6 +346,8 @@ std::string EFSTR[] = {
   "THEIR_HANGING_BISHOPS_2",
   "THEIR_HANGING_ROOKS_2",
   "THEIR_HANGING_QUEENS_2",
+  "QUEEN_THREATS_NEAR_KING",
+  "MISSING_FIANCHETTO_BISHOP",
 };
 
 struct Evaluator {
@@ -382,6 +390,8 @@ struct Evaluator {
     if (isDraw) {
       return 0;
     }
+
+    // TODO: penalty for double attacks near king
 
     const Bitboard ourRoyalty = ourQueens | ourKings;
     const Bitboard theirRoyalty = theirQueens | theirKings;
@@ -484,6 +494,24 @@ struct Evaluator {
     features[EF::KING_ON_CENTER_FILE] = (ourKingSq % 8 == 3 || ourKingSq % 8 == 4) - (theirKingSq % 8 == 3 || theirKingSq % 8 == 4);
     features[EF::THREATS_NEAR_KING_2] = std::popcount(kNearby[2][ourKingSq] & theirTargets & ~ourTargets) - std::popcount(kNearby[2][theirKingSq] & ourTargets & ~theirTargets);
     features[EF::THREATS_NEAR_KING_3] = std::popcount(kNearby[3][ourKingSq] & theirTargets & ~ourTargets) - std::popcount(kNearby[2][theirKingSq] & ourTargets & ~theirTargets);
+    features[EF::QUEEN_THREATS_NEAR_KING] = std::popcount(kNearby[1][ourKingSq] & theirDoubleTargets & ~ourDoubleTargets & theirQueenTargets) - std::popcount(kNearby[1][theirKingSq] & ourDoubleTargets & ~theirDoubleTargets & ourQueenTargets);
+
+    {  // Add penalty if the king is in a fianchettoed corner and his bishop is not on the main diagonal.
+      // Note: the "color" of a corner is the color of its fianchettoed bishop.
+      constexpr Bitboard kOurWhiteCorner = (US == Color::WHITE ? kWhiteKingCorner : kBlackQueenCorner);
+      constexpr Bitboard kOurBlackCorner = (US == Color::BLACK ? kWhiteQueenCorner : kBlackKingCorner);
+      constexpr Bitboard kTheirWhiteCorner = (US != Color::WHITE ? kWhiteKingCorner : kBlackQueenCorner);
+      constexpr Bitboard kTheirBlackCorner = (US != Color::BLACK ? kWhiteQueenCorner : kBlackKingCorner);
+      constexpr Bitboard ourWhiteFianchettoPawn = bb(US == Color::WHITE ? Square::G2 : Square::B7);
+      constexpr Bitboard ourBlackFianchettoPawn = bb(US == Color::WHITE ? Square::B2 : Square::G7);
+      constexpr Bitboard theirWhiteFianchettoPawn = bb(US != Color::WHITE ? Square::G2 : Square::B7);
+      constexpr Bitboard theirBlackFianchettoPawn = bb(US != Color::WHITE ? Square::B2 : Square::G7);
+      features[EF::MISSING_FIANCHETTO_BISHOP] = 0;
+      features[EF::MISSING_FIANCHETTO_BISHOP] += ((ourKings & kOurWhiteCorner) > 0) && ((kMainWhiteDiagonal & ourBishops) == 0) && ((kWhiteSquares & theirBishops) > 0) && ((ourPawns & ourWhiteFianchettoPawn) == 0);
+      features[EF::MISSING_FIANCHETTO_BISHOP] += ((ourKings & kOurBlackCorner) > 0) && ((kMainBlackDiagonal & ourBishops) == 0) && ((kBlackSquares & theirBishops) > 0) && ((ourPawns & ourBlackFianchettoPawn) == 0);
+      features[EF::MISSING_FIANCHETTO_BISHOP] -= ((theirKings & kOurWhiteCorner) > 0) && ((kMainWhiteDiagonal & theirBishops) == 0) && ((kWhiteSquares & ourBishops) > 0) && ((theirPawns & theirWhiteFianchettoPawn) == 0);
+      features[EF::MISSING_FIANCHETTO_BISHOP] -= ((theirKings & kOurBlackCorner) > 0) && ((kMainBlackDiagonal & theirBishops) == 0) && ((kBlackSquares & ourBishops) > 0) && ((theirPawns & theirBlackFianchettoPawn) == 0);
+    }
 
     // Pawns
     const Bitboard ourBlockadedPawns = shift<kBackward>(theirPawns) & ourPawns;

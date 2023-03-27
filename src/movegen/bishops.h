@@ -77,8 +77,6 @@ constexpr Bitboard kSouthWestDiagonalMask[64] = {
   0x8000000000000000,
 };
 
-constexpr Bitboard kMainDiagonals = 0x8040201008040201 | 0x102040810204080;
-
 // For a given square, get all points along its southeast/northwest diagonal.
 constexpr Bitboard kSouthEastDiagonalMask[64] = {
   0x8040201008040201,

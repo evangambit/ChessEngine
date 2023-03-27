@@ -73,6 +73,9 @@ enum Square : uint8_t {
   NO_SQUARE,
 };
 
+constexpr Bitboard kMainWhiteDiagonal = 0x8040201008040201;
+constexpr Bitboard kMainBlackDiagonal = 0x10204081020408;
+
 enum Direction : int8_t {
   SOUTH =  8,
   WEST  = -1,
