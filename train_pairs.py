@@ -364,13 +364,21 @@ numOurPieces = torch.tensor(numOurPieces, dtype=torch.float32)
 numTheirPieces = torch.tensor(numTheirPieces, dtype=torch.float32)
 numQueens = torch.tensor(numQueens, dtype=torch.float32)
 
+PmEarlySampleSizeTh = torch.tensor((A * (1.0 - T.reshape(T.shape + (1,1)) / 18)).sum((0, 1)), dtype=torch.float32)
+PmEarlySampleSizeTh = PmEarlySampleSizeTh.reshape((1, 1) + PmEarlySampleSizeTh.shape)
+
+PmLateSampleSizeTh = torch.tensor((A * T.reshape(T.shape + (1,1)) / 18).sum((0, 1)), dtype=torch.float32)
+PmLateSampleSizeTh = PmLateSampleSizeTh.reshape((1, 1) + PmLateSampleSizeTh.shape)
+
 kAlpha = 0.5  # higher -> more copying stockfish
 bs = min(Xth.shape[0], 50_000)
 maxlr = 0.3
 minlr = maxlr / 100
 duration = 30
 
-dataset = tdata.TensorDataset(Xth, Tth, Sth, Yth, Ath, numOurPieces, numTheirPieces, numQueens)
+dataset = tdata.TensorDataset(
+  Xth, Tth, Sth, Yth, Ath,
+  numOurPieces, numTheirPieces, numQueens)
 dataloader = tdata.DataLoader(dataset, batch_size=bs, shuffle=True, drop_last=True)
 
 cross_entropy_loss_fn = nn.CrossEntropyLoss()
@@ -381,7 +389,7 @@ for includePieceMaps in [False, True]:
   if includePieceMaps:
     opt = optim.AdamW(pmModel.parameters(), lr=3e-3, weight_decay=0.001)
   else:
-    opt = optim.AdamW(model.parameters(), lr=3e-3, weight_decay=1.0)
+    opt = optim.AdamW(model.parameters(), lr=3e-3, weight_decay=0.1)
   for lr in cat([np.linspace(minlr, maxlr, int(round(duration * 0.1))), np.linspace(maxlr, minlr, int(round(duration * 0.9)))]):
     for pg in opt.param_groups:
       pg['lr'] = lr
@@ -393,6 +401,10 @@ for includePieceMaps in [False, True]:
       b = (y[:,0] < y[:,1]) * 1
       loss = cross_entropy_loss_fn(nn.functional.softmax(yhat, 1), b) * (1 - kAlpha)
       loss = loss + score_loss_fn(yhat, y) * kAlpha
+
+      if includePieceMaps:
+        loss = loss + 30.0 * ((pmModel.w["early"].weight.reshape(PmEarlySampleSizeTh.shape)**2) / torch.sqrt(PmEarlySampleSizeTh + 1.0)).mean()
+        loss = loss + 30.0 * ((pmModel.w["late"].weight.reshape(PmLateSampleSizeTh.shape)**2) / torch.sqrt(PmEarlySampleSizeTh + 1.0)).mean()
 
       # w1 = pca.slope_backward(model.w['early'].weight)
       # w2 = pca.slope_backward(model.w['late'].weight)
