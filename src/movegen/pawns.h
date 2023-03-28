@@ -34,6 +34,7 @@ Bitboard compute_pawn_targets(const Position& pos) {
 template<Color US, MoveGenType MGT>
 ExtMove *compute_pawn_moves(const Position& pos, ExtMove *moves, Bitboard target, const PinMasks& pm) {
   constexpr Direction FORWARD = (US == Color::WHITE ? Direction::NORTH : Direction::SOUTH);
+  constexpr Direction BACKWARD = (US == Color::WHITE ? Direction::SOUTH : Direction::NORTH);
   constexpr Direction CAPTURE_NE = FORWARD == Direction::NORTH ? Direction::NORTH_EAST : Direction::SOUTH_WEST;
   constexpr Direction CAPTURE_NW = FORWARD == Direction::NORTH ? Direction::NORTH_WEST : Direction::SOUTH_EAST;
 
@@ -87,9 +88,11 @@ ExtMove *compute_pawn_moves(const Position& pos, ExtMove *moves, Bitboard target
     }
   }
 
-  // TODO: if a pawn checks the king, en passant may be a legal move, despite not belonging to target
-  // Example: "8/p3Q3/1q6/1k2p3/2Pp4/3K4/5P2/8 b - c3 0 50"
-  // We currently don't think d4c3 is a legal move :(
+  // If a pawn checks the king, en passant may be a legal move, despite not belonging to the target.
+  // For example "8/p3Q3/1q6/1k2p3/2Pp4/3K4/5P2/8 b - c3 0 50" or "8/8/8/5Pp1/7K/1k4BP/4p1q1/8 w - g6 0 5"
+  // To fix this we modify the target to include the en passant square if the corresponding pawn is part
+  // of the target.
+  target |= shift<FORWARD>(shift<BACKWARD>(epLoc) & target);
 
   if (MGT == MoveGenType::CAPTURES || MGT == MoveGenType::ALL_MOVES || MGT == MoveGenType::CHECKS_AND_CAPTURES) {
     b1 = shift<CAPTURE_NE>(pawns & ~(pm.vertical | pm.northwest)) & (enemies | epLoc);
