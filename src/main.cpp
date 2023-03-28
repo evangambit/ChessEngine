@@ -659,11 +659,6 @@ SearchResult<TURN> search(
     a.score -= (a.score > -kLongestForcedMate);
     a.score += (a.score < kLongestForcedMate);
 
-    if (a.score > r.score) {
-      r.score = a.score;
-      r.move = extMove->move;
-      recommendationsForChildren.add(a.move);
-    }
     undo<TURN>(pos);
 
     #ifndef NDEBUG
@@ -683,14 +678,20 @@ SearchResult<TURN> search(
     pos->assert_valid_state("b " + extMove->uci());
     #endif
 
-    if (r.score >= beta) {
-      nodeType = NodeTypeCut_LowerBound;
-      gHistoryHeuristicTable[TURN][r.move.from][r.move.to] += depth * depth;
-      break;
-    }
-    if (r.score > alpha) {
-      alpha = r.score;
-      isPV = false;
+    if (a.score > r.score) {
+      r.score = a.score;
+      r.move = extMove->move;
+      recommendationsForChildren.add(a.move);
+      if (r.score >= beta) {
+        nodeType = NodeTypeCut_LowerBound;
+        gHistoryHeuristicTable[TURN][r.move.from][r.move.to] += depth * depth;
+        break;
+      }
+      if (r.score > alpha) {
+        alpha = r.score;
+        isPV = false;
+      }
+
     }
   }
 
