@@ -353,6 +353,8 @@ SearchResult<TURN> qsearch(Position *pos, int32_t depth, Evaluation alpha, Evalu
     make_move<TURN>(pos, move->move);
 
     SearchResult<TURN> child = flip(qsearch<opposingColor>(pos, depth + 1, -beta, -alpha));
+    child.score -= (child.score > -kLongestForcedMate);
+    child.score += (child.score < kLongestForcedMate);
 
     if (child.score > r.score) {
       r.score = child.score;
