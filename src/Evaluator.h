@@ -847,12 +847,12 @@ struct Evaluator {
     }
     {
       // Force king to edge when there are no pieces left.
-      const int32_t ourPieces = features[EF::OUR_KNIGHTS] + features[EF::OUR_BISHOPS] + features[EF::OUR_ROOKS] + features[EF::OUR_QUEENS];
-      const int32_t theirPieces = features[EF::THEIR_KNIGHTS] + features[EF::THEIR_BISHOPS] + features[EF::THEIR_ROOKS] + features[EF::THEIR_QUEENS];
-      eval += (3 - kDistToEdge[theirKingSq]) * 100 * (theirPieces == 0 && ourPieces > 0);
-      eval -= (3 - kDistToEdge[ourKingSq]) * 100 * (ourPieces == 0 && theirPieces > 0);
-      eval += (3 - kDistToCorner[theirKingSq]) * 50 * (theirPieces == 0 && ourPieces > 0);
-      eval -= (3 - kDistToCorner[ourKingSq]) * 50 * (ourPieces == 0 && theirPieces > 0);
+      eval += (3 - kDistToEdge[theirKingSq]) * 100 * (theirPieces == 1 && ourPieces > 1);
+      eval -= (3 - kDistToEdge[ourKingSq]) * 100 * (ourPieces == 1 && theirPieces > 1);
+      eval += (3 - kDistToCorner[theirKingSq]) * 50 * (theirPieces == 1 && ourPieces > 1);
+      eval -= (3 - kDistToCorner[ourKingSq]) * 50 * (ourPieces == 1 && theirPieces > 1);
+      // And put our king next to the enemy king.
+      eval += features[EF::LONELY_KING_AWAY_FROM_ENEMY_KING] * 100;
     }
 
     return std::min(int32_t(-kLongestForcedMate), std::max(int32_t(kLongestForcedMate), eval));
