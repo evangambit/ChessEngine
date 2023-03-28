@@ -161,89 +161,89 @@ constexpr Bitboard kWhiteQueenCorner = bb(Square::A1) | bb(Square::A2) | bb(Squa
 constexpr Bitboard kBlackKingCorner = bb(Square::H8) | bb(Square::H7) | bb(Square::G8) | bb(Square::G7) | bb(Square::F8);
 constexpr Bitboard kBlackQueenCorner = bb(Square::A8) | bb(Square::A7) | bb(Square::B8) | bb(Square::B7) | bb(Square::C8);
 
-const int32_t kEarlyB0 = 6;
+const int32_t kEarlyB0 = 4;
 const int32_t kEarlyW0[EF::NUM_EVAL_FEATURES] = {
-  11, 218, 221, 226, 511, -38,
--198,-198,-208,-459,-346,  20,
- -36, -50, -19,  -3, -29,  25,
-  -6,  -2,   1,   4,  16,  -4,
-   0,   7,  66, 130,   2,   8,
-  18,  29, -10,  10,   2,  20,
-   7,  10,  13,  48,  13,   2,
-  16,  13, -16,   5,  -1,  -5,
-   2,  44,  21,   1,   6,-358,
- -88,   0,  11,4182,2743, 324,
-3386,1967, -74,  52,  23,   9,
-  11,   2, -53, -75,   0,   0,
-   0,   0,   0,  20,   5,-204,
-   5,   9,   9,   1,   2,   1,
-  -1,   0,   0,  -1,  -1,   2,
-  12,   0,   3, -11, -16, -17,
-   8,   6,  67,  50,   2,   9,
- -28,  -5,   0,   0,   0,   0,
+  17, 204, 202, 189, 552, -35,
+-188,-181,-170,-499,-182,  14,
+ -24,   3, -18,  -3, -27,  26,
+  -3,   6,  -2,  -1,  12,  18,
+ -11,   6, -16,  42,   3,   7,
+  12,  33,  -7,   8,   1,  11,
+  30,   3,  12,  19,  13,   4,
+  17,   8, -25, -18, -42, -15,
+   7,  24,  24, -70, 108,   0,
+   0,   0,   4,  18,  10,  -1,
+   3,  -3, -27,  50,  17,  12,
+  17,   0,-143, -76,   0,   0,
+   0,   0,   0,  68, -47,  -2,
+   2,   1,   7,   0,   0,   3,
+   2,   0,   1,   1,  -3,   2,
+   9,  -2,   1, -21, -22,   4,
+ -17,  17,   4, -10,   6, -43,
+-134, -13,   0,   1,  -1,   1,
 };
-const int32_t kLateB0 = 0;
+const int32_t kLateB0 = -7;
 const int32_t kLateW0[EF::NUM_EVAL_FEATURES] = {
-  57, 111, 141, 310, 540, -66,
--110,-142,-308,-474,  27, -37,
-  14,   9,   4,   0,  16, -22,
-  -2, -13,  -6,  -9, -14,-119,
-  52,  21,  39,  72,   3,   6,
-  -8,  23,  -9,  33,   4,  13,
-   1,  -5,  -5,  33, -22,   9,
-  -3, -17, -22, -35, -16,  11,
-  15,  55,  57,  25,  18,-192,
-  64,   0,   5,  51,1545, 325,
- 771,  28, 196,  10,  -7,  36,
-   5,   0,  42,  60,   0,   0,
-   0,   0,   0,  -1,  25, 208,
-   5,   7,  -3,  10,   3,   2,
-   1,   3,   0,   1,  -5,   5,
-  -4,   6,  -8,  -6, -29,  18,
-  -6,   2,  94,  60,  -2,  46,
- -37,  -5,   0,   0,   0,   0,
+  55, 161, 148, 311, 779, -55,
+-145,-137,-301,-708,  28, -39,
+  15,  -4,   5,   1,  19, -21,
+  -3, -13,  -2,  -7, -15,-111,
+  43,  18, -24,  -9,   3,   6,
+  -8,  30,  -4,  -4,  33,   8,
+ -15,   2,  10,  -6,  10,  10,
+  -6, -28, -28, -48,  -6,  17,
+  17,  30,  38,  -6, 201, 629,
+ 114,   0,   0, 277,2355, 156,
+ 727, -66, 295,  18,  -3,   6,
+   2,   0,  62,  49,   0,   0,
+   0,   0,   0,  25, -11,-919,
+   5,   5,  -3,   0,   1,  -1,
+  -6,   4,   2,   4,   0,   3,
+  -1,   5, -26, -30, -33,  -1,
+ -10,  19,  15, -37,   4,-157,
+ -32,   6,   0,   0,  -1,   2,
 };
-const int32_t kClippedB0 = 7;
+const int32_t kClippedB0 = -7;
 const int32_t kClippedW0[EF::NUM_EVAL_FEATURES] = {
-  38, 111, 118, 192, 355, -25,
--113,-124,-197,-379,-799,  -8,
-   4,  19,   0,   0,   4,   0,
-  -3,   1,  -6,  -1,   2, 181,
-   0,   6,   1, -44,   1,   3,
-   3,   9,  -4,   8,  -7,   7,
-   0,  10,   4,  38,  -2,   4,
-   1, -10,  -5,  -7,  -2,   0,
-   9, -19, -10,  -6,  -5,-282,
- -23,   0,  -2,1699,1913,-363,
- 907, 262, -66,   9,   1,  10,
-   4,  -2,   2,   0,   0,   0,
-   0,   0,   0,  -5,  -4, 325,
-   2,   1,   3,   3,   1,   0,
-   1,   2,   2,   2,   0,   0,
-   2,  -1,  -1,   4,   0,   0,
-  -3,   6, -23, -15,  -8, -10,
-  27,   0,   0,   0,   0,   0,
+  46, 169, 165, 266, 102, -43,
+-166,-166,-264, -98,-937,  -5,
+   2,  24,  -3,  -1,   2,  -3,
+  -3,  -4,  -8,  -1,   3,  65,
+  13,  10,   9,  -1,   2,   3,
+   7,  10,  -2,  11,  -8,   7,
+  21,   2,  11,  10,   7,   3,
+   4, -18, -16,  -9, -15,   7,
+  23,  67,  67, 268,-138, 980,
+ 225,   0,   0,1634,1103, 781,
+3459, 232,-114,   2,  -2,  10,
+   5,  -1,  -1,  15,   0,   0,
+   0,   0,   0,  48, -13,-1146,
+   8,   5,   2,   0,   2,   3,
+   2,   2,   0,   0,   0,   3,
+   1,  -4,  -8,  -1,   0,  -6,
+  26,  16, 144, 256, 212, 519,
+  35,  -6,   0,   0,   0,   0,
 };
-const int32_t kLonelyKingB0 = -3;
+const int32_t kLonelyKingB0 = -9;
 const int32_t kLonelyKingW0[EF::NUM_EVAL_FEATURES] = {
-  39,  68,  94, 222, 132, -40,
- -64, -92,-222, -77,-778,  32,
-  -3,  -7,   0,   2,  -8,  -4,
-  12, -20, -32, -12,   4, -75,
-  25,   7,  76,  41, -11,  -9,
- -34, -66,  37,  63, -36,  15,
-  44,  17, -56, 120,  11,  -2,
- -20, -43, -29,   7, -56, -29,
-  36,  74, 104,  -5, 226, 200,
- -48,   0,   1, -93,-1692,  42,
--845,  87, 130,   6,   8,  31,
-  -5, -18,   2,   8,   0,   0,
-   0,   0,   0, -38,  52,-222,
- -28, -28,   9,   7,   5,  -4,
-   4,   4, -10,  -8, -10,  -5,
- -11,-131, -12,  10,  35, 117,
- -58, -25,  -9,  21,-181,-496,
-   0,   0,   0,   0,   0,   0,
+  37,  59,  96, 134, 177, -41,
+ -67, -90,-147,-125,-2599,  33,
+  -4,   3,  -2,   3,  -9,  -3,
+  13, -20, -31, -12,   5, -28,
+  28,  10, 208, 125,  -8,  -8,
+ -39,  13,  32,  92, -69, -11,
+  77,   8,   6, 103,  26,  -4,
+ -44, -28, -13,  29, -53,  98,
+  18,  83,  89, 181, 102,-673,
+-121,   0,   2,-326,-2319, -64,
+-987, 179,  73,  -2,  10,  22,
+  -4,-138, -19,   8,   0,   0,
+   0,   0,   0,-197, 179, 970,
+ -25, -27,   7,   0,   1,   0,
+ -11,   1,  -4,  -7,  -6,   2,
+ -12,-213,  -5, -68,  23,-778,
+-267, -18,-140, -42, 391,  29,
+  17,   1,   0,   0,  -1,   5,
 };
 
 
@@ -358,6 +358,8 @@ std::string EFSTR[] = {
   "CLOSED_3",
 };
 
+// captures = difference in values divided by 2
+
 struct Evaluator {
   Evaluator() {}
 
@@ -420,14 +422,14 @@ struct Evaluator {
     const Bitboard ourKnightTargets = compute_knight_targets<US>(pos);
     const Bitboard theirKnightTargets = compute_knight_targets<THEM>(pos);
     // TODO: bishops can attack one square through our own pawns.
-    const Bitboard ourBishopTargets = compute_bishoplike_targets<US>(pos, ourBishops, (ourPieces & ~ourBishoplikePieces) | theirPieces);
-    const Bitboard theirBishopTargets = compute_bishoplike_targets<THEM>(pos, theirBishops, (theirPieces & ~theirBishoplikePieces) | ourPieces);
-    const Bitboard ourRookTargets = compute_rooklike_targets<US>(pos, ourRooks, (ourPieces & ~ourRooklikePieces) | theirPieces);
-    const Bitboard theirRookTargets = compute_rooklike_targets<THEM>(pos, theirRooks, ourPieces | (theirPieces & ~theirRooklikePieces));
-    const Bitboard ourQueenTargets = compute_bishoplike_targets<US>(pos, ourQueens, (ourPieces & ~ourBishoplikePieces) | theirPieces)
-    | compute_rooklike_targets<US>(pos, ourQueens, (ourPieces & ~ourRooklikePieces) | theirPieces);
-    const Bitboard theirQueenTargets = compute_bishoplike_targets<THEM>(pos, theirQueens, (theirPieces & ~theirBishoplikePieces) | ourPieces)
-    | compute_rooklike_targets<THEM>(pos, theirQueens, (theirPieces & ~theirRooklikePieces) | ourPieces);
+    const Bitboard ourBishopTargets = compute_bishoplike_targets<US>(pos, ourBishops, (ourMen & ~ourBishoplikePieces) | theirMen);
+    const Bitboard theirBishopTargets = compute_bishoplike_targets<THEM>(pos, theirBishops, (theirMen & ~theirBishoplikePieces) | ourMen);
+    const Bitboard ourRookTargets = compute_rooklike_targets<US>(pos, ourRooks, (ourMen & ~ourRooklikePieces) | theirMen);
+    const Bitboard theirRookTargets = compute_rooklike_targets<THEM>(pos, theirRooks, ourMen | (theirMen & ~theirRooklikePieces));
+    const Bitboard ourQueenTargets = compute_bishoplike_targets<US>(pos, ourQueens, (ourMen & ~ourBishoplikePieces) | theirMen)
+    | compute_rooklike_targets<US>(pos, ourQueens, (ourMen & ~ourRooklikePieces) | theirMen);
+    const Bitboard theirQueenTargets = compute_bishoplike_targets<THEM>(pos, theirQueens, (theirMen & ~theirBishoplikePieces) | ourMen)
+    | compute_rooklike_targets<THEM>(pos, theirQueens, (theirMen & ~theirRooklikePieces) | ourMen);
     const Bitboard ourKingTargets = compute_king_targets<US>(pos, ourKingSq);
     const Bitboard theirKingTargets = compute_king_targets<THEM>(pos, theirKingSq);
 
@@ -501,7 +503,7 @@ struct Evaluator {
     }
     features[EF::KING_ON_CENTER_FILE] = (ourKingSq % 8 == 3 || ourKingSq % 8 == 4) - (theirKingSq % 8 == 3 || theirKingSq % 8 == 4);
     features[EF::THREATS_NEAR_KING_2] = std::popcount(kNearby[2][ourKingSq] & theirTargets & ~ourTargets) - std::popcount(kNearby[2][theirKingSq] & ourTargets & ~theirTargets);
-    features[EF::THREATS_NEAR_KING_3] = std::popcount(kNearby[3][ourKingSq] & theirTargets & ~ourTargets) - std::popcount(kNearby[2][theirKingSq] & ourTargets & ~theirTargets);
+    features[EF::THREATS_NEAR_KING_3] = std::popcount(kNearby[3][ourKingSq] & theirTargets & ~ourTargets) - std::popcount(kNearby[3][theirKingSq] & ourTargets & ~theirTargets);
     features[EF::QUEEN_THREATS_NEAR_KING] = std::popcount(kNearby[1][ourKingSq] & theirDoubleTargets & ~ourDoubleTargets & theirQueenTargets) - std::popcount(kNearby[1][theirKingSq] & ourDoubleTargets & ~theirDoubleTargets & ourQueenTargets);
 
     {  // Add penalty if the king is in a fianchettoed corner and his bishop is not on the main diagonal.
@@ -607,7 +609,7 @@ struct Evaluator {
       features[EF::OUTPOSTED_BISHOPS] = std::popcount(ourBishops & possibleOutpostsForUs) - std::popcount(theirBishops & possibleOutpostsForThem);
 
       features[EF::BISHOP_PAWN_DISAGREEMENT] = std::popcount(ourBishops & ourPawns & kWhiteSquares) + std::popcount(ourBishops & ourPawns & kBlackSquares);
-      features[EF::BISHOP_PAWN_DISAGREEMENT] -= std::popcount(ourBishops & ourPawns & kWhiteSquares) + std::popcount(ourBishops & ourPawns & kBlackSquares);
+      features[EF::BISHOP_PAWN_DISAGREEMENT] -= std::popcount(theirBishops & theirPawns & kWhiteSquares) + std::popcount(theirBishops & theirPawns & kBlackSquares);
 
       features[EF::CLOSED_1] = std::popcount(ourBlockadedPawns | theirBlockadedPawns);
       features[EF::CLOSED_2] = std::popcount((ourBlockadedPawns | theirBlockadedPawns) & kCenter16);
@@ -668,8 +670,8 @@ struct Evaluator {
       const int bx = theirKingSq % 8;
       const int by = theirKingSq / 8;
       const int kingsDist = std::max(std::abs(wx - bx), std::abs(wy - by));
-      features[EF::LONELY_KING_IN_CENTER] = kDistToCorner[theirKingSq] * (std::popcount(pos.colorBitboards_[THEM]) == 1);
-      features[EF::LONELY_KING_IN_CENTER] -= kDistToCorner[ourKingSq] * (std::popcount(pos.colorBitboards_[US]) == 1);
+      features[EF::LONELY_KING_IN_CENTER] = (3 - kDistToCorner[theirKingSq]) * (std::popcount(pos.colorBitboards_[THEM]) == 1);
+      features[EF::LONELY_KING_IN_CENTER] -= (3 - kDistToCorner[ourKingSq]) * (std::popcount(pos.colorBitboards_[US]) == 1);
 
       features[EF::LONELY_KING_AWAY_FROM_ENEMY_KING] = isTheirKingLonely * (8 - kingsDist);
       features[EF::LONELY_KING_AWAY_FROM_ENEMY_KING] -= isOurKingLonely * (8 - kingsDist);
@@ -761,8 +763,11 @@ struct Evaluator {
     features[EF::QUEEN_V_LONELY_KING] = isTheirKingLonely * std::popcount(ourQueens);
     features[EF::QUEEN_V_LONELY_KING] -= isOurKingLonely * std::popcount(theirQueens);
 
-    features[EF::LONELY_KING_ON_EDGE] -= (3 - kDistToEdge[theirKingSq]) * isTheirKingLonely;
-    features[EF::LONELY_KING_ON_EDGE] = (3 - kDistToEdge[ourKingSq]) * isOurKingLonely;
+    // loser in center: 0
+    // they're lonely on edge: 3
+    //   we're lonely on edge: -3
+    features[EF::LONELY_KING_ON_EDGE] = (3 - kDistToEdge[theirKingSq]) * isTheirKingLonely;
+    features[EF::LONELY_KING_ON_EDGE] -= (3 - kDistToEdge[ourKingSq]) * isOurKingLonely;
 
     {
       Bitboard ourMaterialThreats = 0;

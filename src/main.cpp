@@ -321,7 +321,7 @@ SearchResult<TURN> qsearch(Position *pos, int32_t depth, Evaluation alpha, Evalu
   }
 
   // If we can stand pat for a beta cutoff, or if we have no moves, return.
-  SearchResult<TURN> r(gEvaluator.score<TURN>(*pos) - 50, kNullMove);
+  SearchResult<TURN> r(gEvaluator.score<TURN>(*pos) - 0, kNullMove);
   if (moves == end || r.score >= beta) {
     return r;
   }
