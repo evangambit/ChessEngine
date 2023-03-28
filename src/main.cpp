@@ -253,12 +253,6 @@ struct RecommendedMoves {
       moves[0] = move;
     }
   }
-  inline int score(Move move) {
-    int r = 0;
-    r += (move == moves[0]) * 2;
-    r += (move == moves[1]) * 1;
-    return r;
-  }
 };
 
 template<Color PERSPECTIVE>
@@ -336,7 +330,7 @@ SearchResult<TURN> qsearch(Position *pos, int32_t depth, Evaluation alpha, Evalu
 
   for (ExtMove *move = moves; move < end; ++move) {
     move->score = kQSimplePieceValues[move->capture] - kQSimplePieceValues[move->piece];
-    move->score += kQSimplePieceValues[move->piece] * ((theirUnprotected & bb(move->move.to)) > 0);
+    move->score += value_or_zero((theirUnprotected & bb(move->move.to)) > 0, kQSimplePieceValues[move->piece]);
   }
 
   std::sort(moves, end, [](ExtMove a, ExtMove b) {
@@ -493,28 +487,28 @@ SearchResult<TURN> search(
     move->score += kMoveOrderPieceValues[move->capture];
 
     // Subtract moving piece if we're capturing an enemy piece (we may be recaptured).
-    move->score -= kMoveOrderPieceValues[move->piece * (move->capture != Piece::NO_PIECE)];
+
+    move->score -= kMoveOrderPieceValues[value_or_zero<int16_t>(move->capture != Piece::NO_PIECE, move->piece)];
 
     // Refund moving piece if the captured piece is hanging.
-    move->score += kMoveOrderPieceValues[move->piece * areWeHanging];
+    move->score += kMoveOrderPieceValues[value_or_zero<int16_t>(areWeHanging, move->piece)];
 
     // Massive bonus to send all capture to the front.
-    move->score += isCapture * 1000;
+    move->score += value_or_zero(isCapture, 1000);
 
-    move->score += ((move->move == lastFoundBestMove) && (depth == 1)) * 5000;
-    move->score += ((move->move == lastFoundBestMove) && (depth == 2)) * 5000;
-    move->score += ((move->move == lastFoundBestMove) && (depth >= 3)) * 5000;
-    move->score += (move->move == recommendedMoves.moves[0]) * 100;
-    move->score += (move->move == recommendedMoves.moves[1]) * 100;
-    // move->score += (move->move.to == lastMove.to) * 50;
+    move->score += value_or_zero((move->move == lastFoundBestMove) && (depth == 1), 5000);
+    move->score += value_or_zero((move->move == lastFoundBestMove) && (depth == 2), 5000);
+    move->score += value_or_zero((move->move == lastFoundBestMove) && (depth >= 3), 5000);
+    move->score += value_or_zero(move->move == recommendedMoves.moves[0], 100);
+    move->score += value_or_zero(move->move == recommendedMoves.moves[1], 100);
+    // move->score += value_or_zero(move->move.to == lastMove.to, 50);
 
     const int32_t history = gHistoryHeuristicTable[TURN][move->move.from][move->move.to];
-    // move->score += depth * 40;
-    move->score += (history > 0) * 50;
-    move->score += (history > 4) * 50;
-    move->score += (history > 16) * 50;
-    move->score += (history > 64) * 50;
-    move->score += (history > 256) * 50;
+    move->score += value_or_zero(history > 0, 50);
+    move->score += value_or_zero(history > 4, 50);
+    move->score += value_or_zero(history > 16, 50);
+    move->score += value_or_zero(history > 64, 50);
+    move->score += value_or_zero(history > 256, 50);
   }
 
   std::sort(moves, end, [](ExtMove a, ExtMove b) {

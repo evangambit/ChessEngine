@@ -670,11 +670,11 @@ struct Evaluator {
       const int bx = theirKingSq % 8;
       const int by = theirKingSq / 8;
       const int kingsDist = std::max(std::abs(wx - bx), std::abs(wy - by));
-      features[EF::LONELY_KING_IN_CENTER] = (3 - kDistToCorner[theirKingSq]) * (std::popcount(pos.colorBitboards_[THEM]) == 1);
-      features[EF::LONELY_KING_IN_CENTER] -= (3 - kDistToCorner[ourKingSq]) * (std::popcount(pos.colorBitboards_[US]) == 1);
+      features[EF::LONELY_KING_IN_CENTER] = value_or_zero(std::popcount(pos.colorBitboards_[THEM]) == 1, 3 - kDistToCorner[theirKingSq]);
+      features[EF::LONELY_KING_IN_CENTER] -= value_or_zero(std::popcount(pos.colorBitboards_[US]) == 1, 3 - kDistToCorner[ourKingSq]);
 
-      features[EF::LONELY_KING_AWAY_FROM_ENEMY_KING] = isTheirKingLonely * (8 - kingsDist);
-      features[EF::LONELY_KING_AWAY_FROM_ENEMY_KING] -= isOurKingLonely * (8 - kingsDist);
+      features[EF::LONELY_KING_AWAY_FROM_ENEMY_KING] = value_or_zero(isTheirKingLonely, 8 - kingsDist);
+      features[EF::LONELY_KING_AWAY_FROM_ENEMY_KING] -= value_or_zero(isOurKingLonely, 8 - kingsDist);
 
       features[EF::CASTLING_RIGHTS] = ((cr & kCastlingRights_WhiteKing) > 0);
       features[EF::CASTLING_RIGHTS] += ((cr & kCastlingRights_WhiteQueen) > 0);
@@ -701,14 +701,15 @@ struct Evaluator {
     }
 
     const bool isKingPawnEndgame = (ourKings == ourPieces) && (theirKings == theirPieces);
-    features[EF::KPVK_OPPOSITION] = -((shift<kForward>(shift<kForward>(ourKings)) & theirKings) > 0) * isKingPawnEndgame;
+    // TODO: move this negative into the corresponding weights.
+    features[EF::KPVK_OPPOSITION] = value_or_zero(isKingPawnEndgame, -((shift<kForward>(shift<kForward>(ourKings)) & theirKings) > 0));
     features[EF::KPVK_IN_FRONT_OF_PAWN] = 0;
     features[EF::KPVK_OFFENSIVE_KEY_SQUARES] = 0;
     features[EF::KPVK_DEFENSIVE_KEY_SQUARES] = 0;
 
     features[EF::SQUARE_RULE] = 0;
-    features[EF::SQUARE_RULE] += ((kSquareRuleTheirTurn[US][theirKingSq] & ourPassedPawns) > 0) * isKingPawnEndgame;
-    features[EF::SQUARE_RULE] -= ((kSquareRuleYourTurn[THEM][ourKingSq] & theirPassedPawns) > 0) * isKingPawnEndgame;
+    features[EF::SQUARE_RULE] += value_or_zero(isKingPawnEndgame, (kSquareRuleTheirTurn[US][theirKingSq] & ourPassedPawns) > 0);
+    features[EF::SQUARE_RULE] -= value_or_zero(isKingPawnEndgame, (kSquareRuleYourTurn[THEM][ourKingSq] & theirPassedPawns) > 0);
 
     {  // If we have the pawn in a KPVK engame.
       bool isKPVK = isKingPawnEndgame && (std::popcount(ourPawns) == 1) && (theirPawns == 0);
@@ -718,9 +719,9 @@ struct Evaluator {
       const Bitboard inFront = (US == Color::WHITE ? (ourPawns - 1) : ~(ourPawns - 1));
       const Square promoSq = Square(US == Color::WHITE ? lsb(ourPawns) % 8 : lsb(ourPawns) % 8 + 56);
 
-      features[EF::KPVK_IN_FRONT_OF_PAWN] += ((ourKings & inFront) > 0) * isKPVK;
-      features[EF::KPVK_OFFENSIVE_KEY_SQUARES] += ((ourKings & keySquares) > 0) * isKPVK;
-      features[EF::KPVK_DEFENSIVE_KEY_SQUARES] += ((theirKings & inFrontOfPawn) > 0) * isKPVK;
+      features[EF::KPVK_IN_FRONT_OF_PAWN] += value_or_zero(isKPVK, (ourKings & inFront) > 0);
+      features[EF::KPVK_OFFENSIVE_KEY_SQUARES] += value_or_zero(isKPVK, (ourKings & keySquares) > 0);
+      features[EF::KPVK_DEFENSIVE_KEY_SQUARES] += value_or_zero(isKPVK, (theirKings & inFrontOfPawn) > 0);
     }
     {  // If they have the pawn in a KPVK engame. Note we add a '+1' penalty for square rule
       bool isKPVK = isKingPawnEndgame && (std::popcount(theirPawns) == 1) && (ourPawns == 0);
@@ -730,9 +731,9 @@ struct Evaluator {
       const Bitboard inFront = (US == Color::WHITE ? ~(theirPawns - 1) : (theirPawns - 1));
       const Square promoSq = Square(US == Color::WHITE ? lsb(theirPawns) % 8 + 56 : lsb(theirPawns) % 8);
 
-      features[EF::KPVK_IN_FRONT_OF_PAWN] -= ((theirKings & inFront) > 0) * isKPVK;
-      features[EF::KPVK_OFFENSIVE_KEY_SQUARES] -= ((theirKings & keySquares) > 0) * isKPVK;
-      features[EF::KPVK_DEFENSIVE_KEY_SQUARES] -= ((ourKings & inFrontOfPawn) > 0) * isKPVK;
+      features[EF::KPVK_IN_FRONT_OF_PAWN] -= value_or_zero(isKPVK, (theirKings & inFront) > 0);
+      features[EF::KPVK_OFFENSIVE_KEY_SQUARES] -= value_or_zero(isKPVK, (theirKings & keySquares) > 0);
+      features[EF::KPVK_DEFENSIVE_KEY_SQUARES] -= value_or_zero(isKPVK, (ourKings & inFrontOfPawn) > 0);
     }
 
     Bitboard aheadOfOurPassedPawnsFat, aheadOfTheirPassedPawnsFat;
@@ -752,22 +753,22 @@ struct Evaluator {
     features[EF::KING_IN_FRONT_OF_PASSED_PAWN2] -= (theirKings & aheadOfOurPassedPawnsFat) > 0;
 
     // Bonus vs lonely king.
-    features[EF::PAWN_V_LONELY_KING] = isTheirKingLonely * std::popcount(ourPawns);
-    features[EF::PAWN_V_LONELY_KING] -= isOurKingLonely * std::popcount(theirPawns);
-    features[EF::KNIGHTS_V_LONELY_KING] = isTheirKingLonely * std::popcount(ourKnights);
-    features[EF::KNIGHTS_V_LONELY_KING] -= isOurKingLonely * std::popcount(theirKnights);
-    features[EF::BISHOPS_V_LONELY_KING] = isTheirKingLonely * std::popcount(ourBishops);
-    features[EF::BISHOPS_V_LONELY_KING] -= isOurKingLonely * std::popcount(theirBishops);
-    features[EF::ROOK_V_LONELY_KING] = isTheirKingLonely * std::popcount(ourRooks);
-    features[EF::ROOK_V_LONELY_KING] -= isOurKingLonely * std::popcount(theirRooks);
-    features[EF::QUEEN_V_LONELY_KING] = isTheirKingLonely * std::popcount(ourQueens);
-    features[EF::QUEEN_V_LONELY_KING] -= isOurKingLonely * std::popcount(theirQueens);
+    features[EF::PAWN_V_LONELY_KING] = value_or_zero(isTheirKingLonely, std::popcount(ourPawns));
+    features[EF::PAWN_V_LONELY_KING] -= value_or_zero(isOurKingLonely, std::popcount(theirPawns));
+    features[EF::KNIGHTS_V_LONELY_KING] = value_or_zero(isTheirKingLonely, std::popcount(ourKnights));
+    features[EF::KNIGHTS_V_LONELY_KING] -= value_or_zero(isOurKingLonely, std::popcount(theirKnights));
+    features[EF::BISHOPS_V_LONELY_KING] = value_or_zero(isTheirKingLonely, std::popcount(ourBishops));
+    features[EF::BISHOPS_V_LONELY_KING] -= value_or_zero(isOurKingLonely, std::popcount(theirBishops));
+    features[EF::ROOK_V_LONELY_KING] = value_or_zero(isTheirKingLonely, std::popcount(ourRooks));
+    features[EF::ROOK_V_LONELY_KING] -= value_or_zero(isOurKingLonely, std::popcount(theirRooks));
+    features[EF::QUEEN_V_LONELY_KING] = value_or_zero(isTheirKingLonely, std::popcount(ourQueens));
+    features[EF::QUEEN_V_LONELY_KING] -= value_or_zero(isOurKingLonely, std::popcount(theirQueens));
 
     // loser in center: 0
     // they're lonely on edge: 3
     //   we're lonely on edge: -3
-    features[EF::LONELY_KING_ON_EDGE] = (3 - kDistToEdge[theirKingSq]) * isTheirKingLonely;
-    features[EF::LONELY_KING_ON_EDGE] -= (3 - kDistToEdge[ourKingSq]) * isOurKingLonely;
+    features[EF::LONELY_KING_ON_EDGE] = value_or_zero(isTheirKingLonely, 3 - kDistToEdge[theirKingSq]);
+    features[EF::LONELY_KING_ON_EDGE] -= value_or_zero(isOurKingLonely, 3 - kDistToEdge[ourKingSq]);
 
     {
       Bitboard ourMaterialThreats = 0;
@@ -811,8 +812,14 @@ struct Evaluator {
 
     // Bonus for king having pawns in front of him, or having pawns in front of him once he castles.
     features[EF::KING_HOME_QUALITY] = std::popcount(kKingHome[ourKingSq] & ourPawns) - std::popcount(kKingHome[theirKingSq] & theirPawns);
-    const Evaluation whitePotentialHome = std::max(std::popcount(kKingHome[Square::G1] & ourPawns) * ((cr & kCastlingRights_WhiteKing) > 0), std::popcount(kKingHome[Square::B1] & ourPawns) * ((cr & kCastlingRights_WhiteQueen) > 0));
-    const Evaluation blackPotentialHome = std::max(std::popcount(kKingHome[Square::G8] & ourPawns) * ((cr & kCastlingRights_BlackKing) > 0), std::popcount(kKingHome[Square::B8] & ourPawns) * ((cr & kCastlingRights_BlackQueen) > 0));
+    const Evaluation whitePotentialHome = std::max(
+      value_or_zero((cr & kCastlingRights_WhiteKing) > 0, std::popcount(kKingHome[Square::G1] & ourPawns)),
+      value_or_zero((cr & kCastlingRights_WhiteQueen) > 0, std::popcount(kKingHome[Square::B1] & ourPawns))
+    );
+    const Evaluation blackPotentialHome = std::max(
+      value_or_zero((cr & kCastlingRights_BlackKing) > 0, std::popcount(kKingHome[Square::G8] & ourPawns)),
+      value_or_zero((cr & kCastlingRights_BlackQueen) > 0, std::popcount(kKingHome[Square::B8] & ourPawns))
+    );
     if (US == Color::WHITE) {
       features[EF::KING_HOME_QUALITY] += whitePotentialHome - blackPotentialHome;
     } else {
@@ -842,15 +849,15 @@ struct Evaluator {
       // KPVK games are winning if square rule is true.
       const bool isOurKPVK = isKingPawnEndgame && (std::popcount(ourPawns) >= 1) && (theirPawns == 0);
       const bool isTheirKPVK = isKingPawnEndgame && (std::popcount(theirPawns) >= 1) && (ourPawns == 0);
-      eval -= (isTheirKPVK && features[EF::SQUARE_RULE] < 0) * 500;
-      eval += (isOurKPVK && features[EF::SQUARE_RULE] > 0) * 500;
+      eval -= value_or_zero(isTheirKPVK && features[EF::SQUARE_RULE] < 0, 500);
+      eval += value_or_zero(isOurKPVK && features[EF::SQUARE_RULE] > 0, 500);
     }
     {
       // Force king to edge when there are no pieces left.
-      eval += (3 - kDistToEdge[theirKingSq]) * 100 * (theirPieces == 1 && ourPieces > 1);
-      eval -= (3 - kDistToEdge[ourKingSq]) * 100 * (ourPieces == 1 && theirPieces > 1);
-      eval += (3 - kDistToCorner[theirKingSq]) * 50 * (theirPieces == 1 && ourPieces > 1);
-      eval -= (3 - kDistToCorner[ourKingSq]) * 50 * (ourPieces == 1 && theirPieces > 1);
+      eval += value_or_zero(theirPieces == 1 && ourPieces > 1, (3 - kDistToEdge[theirKingSq]) * 100);
+      eval -= value_or_zero(ourPieces == 1 && theirPieces > 1, (3 - kDistToEdge[ourKingSq]) * 100);
+      eval += value_or_zero(theirPieces == 1 && ourPieces > 1, (3 - kDistToCorner[theirKingSq]) * 50);
+      eval -= value_or_zero(ourPieces == 1 && theirPieces > 1, (3 - kDistToCorner[ourKingSq]) * 50);
       // And put our king next to the enemy king.
       eval += features[EF::LONELY_KING_AWAY_FROM_ENEMY_KING] * 100;
     }
@@ -895,6 +902,7 @@ struct Evaluator {
     const int32_t ourPieces = features[EF::OUR_KNIGHTS] + features[EF::OUR_BISHOPS] + features[EF::OUR_ROOKS] + features[EF::OUR_QUEENS];
     const int32_t theirPieces = features[EF::THEIR_KNIGHTS] + features[EF::THEIR_BISHOPS] + features[EF::THEIR_ROOKS] + features[EF::THEIR_QUEENS];
 
+    // todo: value_or_zero
     return r * (1 - (ourPieces != 0) * (theirPieces != 0));
   }
 

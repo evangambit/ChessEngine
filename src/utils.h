@@ -48,6 +48,21 @@ constexpr Color opposite_color<Color::BLACK>() {
   return Color::WHITE;
 }
 
+// Branchless "condition ? a : b"
+template<class T>
+inline T select(bool condition, T a, T b) {
+  assert(condition == 0 || condition == 1);
+  T tmp = condition - 1;
+  return (a & ~tmp) | (b & tmp);
+}
+
+// Branchless "condition ? value : 0"
+template<class T>
+inline T value_or_zero(bool condition, T value) {
+  assert(condition == 0 || condition == 1);
+  return (value & ~(condition - 1));
+}
+
 Color opposite_color(Color color);
 
 void assert_valid_color(Color color);
