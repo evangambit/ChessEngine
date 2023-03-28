@@ -838,6 +838,23 @@ struct Evaluator {
 
     int32_t eval = (early * (18 - time) + late * time) / 18 + clipped + lonely_king + pieceMap;
 
+    {
+      // KPVK games are winning if square rule is true.
+      const bool isOurKPVK = isKingPawnEndgame && (std::popcount(ourPawns) >= 1) && (theirPawns == 0);
+      const bool isTheirKPVK = isKingPawnEndgame && (std::popcount(theirPawns) >= 1) && (ourPawns == 0);
+      eval -= (isTheirKPVK && features[EF::SQUARE_RULE] < 0) * 500;
+      eval += (isOurKPVK && features[EF::SQUARE_RULE] > 0) * 500;
+    }
+    {
+      // Force king to edge when there are no pieces left.
+      const int32_t ourPieces = features[EF::OUR_KNIGHTS] + features[EF::OUR_BISHOPS] + features[EF::OUR_ROOKS] + features[EF::OUR_QUEENS];
+      const int32_t theirPieces = features[EF::THEIR_KNIGHTS] + features[EF::THEIR_BISHOPS] + features[EF::THEIR_ROOKS] + features[EF::THEIR_QUEENS];
+      eval += (3 - kDistToEdge[theirKingSq]) * 100 * (theirPieces == 0 && ourPieces > 0);
+      eval -= (3 - kDistToEdge[ourKingSq]) * 100 * (ourPieces == 0 && theirPieces > 0);
+      eval += (3 - kDistToCorner[theirKingSq]) * 50 * (theirPieces == 0 && ourPieces > 0);
+      eval -= (3 - kDistToCorner[ourKingSq]) * 50 * (ourPieces == 0 && theirPieces > 0);
+    }
+
     return std::min(int32_t(-kLongestForcedMate), std::max(int32_t(kLongestForcedMate), eval));
   }
 

@@ -711,7 +711,7 @@ void print_feature_vec(Position *pos, const std::string& originalFen, bool human
     const int32_t t = gEvaluator.features[EF::TIME];
     for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
       const int32_t x = gEvaluator.features[i];
-      const int32_t s = (kEarlyW0[i] * x * t + kLateW0[i] * x * (16 - t)) / 16;
+      const int32_t s = (kEarlyW0[i] * x * t + kLateW0[i] * x * (16 - t)) / 16 + kClippedW0[i] * x;
       std::cout << gEvaluator.features[i] << " " << std::setfill(' ') << std::setw(4) << s << " " << EFSTR[i] << std::endl;
     }
   } else {
