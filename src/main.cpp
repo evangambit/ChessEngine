@@ -441,8 +441,8 @@ SearchResult<TURN> search(
     }
   }
   
-  if (depth <= 1) {  // Ignore moves that easily caused a cutoff last search.
-    const Evaluation deltaPerDepth = 50;
+  if (depth == 1) {  // Ignore moves that easily caused a cutoff last search.
+    const Evaluation deltaPerDepth = 70;
     SearchResult<TURN> r = qsearch<TURN>(pos, 0, alpha, beta);
     if (r.score >= beta + deltaPerDepth * depth) {
       return r;
