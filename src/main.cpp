@@ -215,10 +215,15 @@ typedef int8_t Depth;
 std::vector<std::string> gStackDebug;
 #endif
 
+// PV-nodes ("principal variation" nodes) have a score that lies between alpha and beta; their scores are exact.
+
+// Cut-nodes are nodes which contain a beta cutoff; score is a lower bound
+
+// All-Nodes are nodes where no score exceeded alpha; score is an upper bound
 enum NodeType {
-  NodeTypeAlphaCut,
-  NodeTypeBetaCut,
-  NodeTypeExact,
+  NodeTypeAll_UpperBound,
+  NodeTypeCut_LowerBound,
+  NodeTypePV,
 };
 
 struct CacheResult {
@@ -435,6 +440,17 @@ SearchResult<TURN> search(
       }
     }
   }
+
+  auto it = gCache.find(pos->hash_);
+  if (it != gCache.end() && it->second.depth >= depth) {
+    const CacheResult& cr = it->second;
+    if (cr.nodeType == NodeTypePV) {
+      return SearchResult<TURN>(cr.eval, cr.bestMove);
+    }
+    if (cr.nodeType == NodeTypeCut_LowerBound && cr.eval >= beta) {
+      return SearchResult<TURN>(cr.eval, cr.bestMove);
+    }
+  }
   
   if (depth <= 1) {  // Ignore moves that easily caused a cutoff last search.
     const Evaluation deltaPerDepth = 50;
@@ -460,7 +476,6 @@ SearchResult<TURN> search(
     undo_nullmove<TURN>(pos);
   }
 
-  auto it = gCache.find(pos->hash_);
   Move lastFoundBestMove = (it != gCache.end() ? it->second.bestMove : kNullMove);
 
   #ifndef NDEBUG
@@ -626,9 +641,10 @@ SearchResult<TURN> search(
 
   RecommendedMoves recommendationsForChildren;
 
-  NodeType nodeType = NodeTypeExact;
+  NodeType nodeType = NodeTypePV;
 
   size_t numValidMoves = 0;
+  bool isPV = true;
   for (ExtMove *extMove = moves; extMove < end; ++extMove) {
 
     #ifndef NDEBUG
@@ -651,6 +667,7 @@ SearchResult<TURN> search(
     ++numValidMoves;
 
     SearchResult<TURN> a = flip(search<opposingColor>(pos, depth - 1, -beta, -alpha, recommendationsForChildren));
+
     if (a.score > -kLongestForcedMate) {
       a.score -= 1;
     }
@@ -683,15 +700,18 @@ SearchResult<TURN> search(
     #endif
 
     if (r.score >= beta) {
-      nodeType = NodeTypeBetaCut;
+      nodeType = NodeTypeCut_LowerBound;
       gHistoryHeuristicTable[TURN][r.move.from][r.move.to] += depth * depth;
       break;
     }
-    alpha = std::max(alpha, r.score);
+    if (r.score > alpha) {
+      alpha = r.score;
+      isPV = false;
+    }
   }
 
-  if (r.score >= alpha) {
-    nodeType = NodeTypeBetaCut;
+  if (r.score <= alpha) {
+    nodeType = NodeTypeAll_UpperBound;
   }
 
   if (numValidMoves == 0) {
