@@ -667,13 +667,8 @@ SearchResult<TURN> search(
     ++numValidMoves;
 
     SearchResult<TURN> a = flip(search<opposingColor>(pos, depth - 1, -beta, -alpha, recommendationsForChildren));
-
-    if (a.score > -kLongestForcedMate) {
-      a.score -= 1;
-    }
-    if (a.score < kLongestForcedMate) {
-      a.score += 1;
-    }
+    a.score -= (a.score > -kLongestForcedMate);
+    a.score += (a.score < kLongestForcedMate);
 
     if (a.score > r.score) {
       r.score = a.score;
