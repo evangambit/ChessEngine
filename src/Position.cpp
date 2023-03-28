@@ -281,6 +281,21 @@ void Position::assert_valid_state(const std::string& msg) const {
   #endif
 }
 
+bool Position::is_draw() const {
+  if (this->currentState_.halfMoveCounter >= 100) {
+    return true;
+  }
+  const size_t n = this->hashes_.size();
+  for (size_t i = n - 2; i < n; i -= 2) {
+    // TODO: stop looking when we hit a pawn move or capture.
+    // TODO: handle 3 move draw for moves before the root.
+    if (this->hashes_[i] == this->hash_) {
+      return true;
+    }
+  }
+  return false;
+}
+
 std::string Position::fen() const {
   this->assert_valid_state();
 

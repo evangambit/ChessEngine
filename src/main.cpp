@@ -426,19 +426,8 @@ SearchResult<TURN> search(
     return qsearch<TURN>(pos, 0, alpha, beta);
   }
 
-  if (pos->currentState_.halfMoveCounter >= 100) {
-    return SearchResult<TURN>(Evaluation(0), kNullMove);
-  }
-
-  {
-    const size_t n = pos->hashes_.size();
-    for (size_t i = n - 2; i < n; i -= 2) {
-      // TODO: stop looking when we hit a pawn move or capture.
-      // TODO: handle 3 move draw for moves before the root.
-      if (pos->hashes_[i] == pos->hash_) {
-        return SearchResult<TURN>(Evaluation(0), kNullMove);
-      }
-    }
+  if (pos->is_draw()) {
+    SearchResult<TURN>(Evaluation(0), kNullMove);
   }
 
   auto it = gCache.find(pos->hash_);
