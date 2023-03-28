@@ -115,6 +115,12 @@ varnames = [
   "THEIR_HANGING_BISHOPS_2",
   "THEIR_HANGING_ROOKS_2",
   "THEIR_HANGING_QUEENS_2",
+  "QUEEN_THREATS_NEAR_KING",
+  "MISSING_FIANCHETTO_BISHOP",
+  "CLOSED_1",
+  "CLOSED_2",
+  "CLOSED_3",
+  "BISHOP_PAWN_DISAGREEMENT",
 ]
 
 def varnames2mask(names):
@@ -215,6 +221,8 @@ cat =  np.concatenate
 # S = cat([S, np.load(os.path.join('traindata', 'turn.pair.endgame_d10_q1_n0.npy')).astype(np.float64) * 2.0 - 1.0], 0)
 # A = cat([A, np.load(os.path.join('traindata', 'pm.pair.endgame_d10_q1_n0.npy')).astype(np.float32)], 0)
 
+assert X.shape[-1] == len(varnames)
+
 T = X[:,:,varnames.index('TIME')].copy()
 
 tmp = []
@@ -242,6 +250,9 @@ X[:,:,varnames.index('KNIGHTS_V_LONELY_KING')] *= 0.0
 X[:,:,varnames.index('BISHOPS_V_LONELY_KING')] *= 0.0
 X[:,:,varnames.index('ROOK_V_LONELY_KING')] *= 0.0
 X[:,:,varnames.index('QUEEN_V_LONELY_KING')] *= 0.0
+X[:,:,varnames.index('KPVK_OFFENSIVE_KEY_SQUARES')] *= 0.0
+X[:,:,varnames.index('KPVK_DEFENSIVE_KEY_SQUARES')] *= 0.0
+X[:,:,varnames.index('SQUARE_RULE')] *= 0.0
 
 class PCA:
   def __init__(self, X, reg = 0.0):
@@ -373,7 +384,7 @@ PmLateSampleSizeTh = PmLateSampleSizeTh.reshape((1, 1) + PmLateSampleSizeTh.shap
 kAlpha = 0.5  # higher -> more copying stockfish
 bs = min(Xth.shape[0], 50_000)
 maxlr = 0.3
-minlr = maxlr / 100
+minlr = maxlr / 300
 duration = 30
 
 dataset = tdata.TensorDataset(
@@ -406,11 +417,11 @@ for includePieceMaps in [False, True]:
         loss = loss + 30.0 * ((pmModel.w["early"].weight.reshape(PmEarlySampleSizeTh.shape)**2) / torch.sqrt(PmEarlySampleSizeTh + 1.0)).mean()
         loss = loss + 30.0 * ((pmModel.w["late"].weight.reshape(PmLateSampleSizeTh.shape)**2) / torch.sqrt(PmEarlySampleSizeTh + 1.0)).mean()
 
-      # w1 = pca.slope_backward(model.w['early'].weight)
+      w1 = pca.slope_backward(model.w['early'].weight)
       # w2 = pca.slope_backward(model.w['late'].weight)
       # w3 = pca.slope_backward(model.w['clipped'].weight)
       # w4 = pca.slope_backward(model.w['lonelyKing'].weight)
-      # loss = loss + torch.abs(w1 * kEarlyBlacklist).mean()
+      loss = loss + torch.abs(w1 * kEarlyBlacklist).mean() * 10.0
       # loss = loss + torch.abs(torch.relu(-(w1 + w3)) * kPositiveList).mean()
       # loss = loss + torch.abs(torch.relu(-(w2 + w3)) * kPositiveList).mean()
       # loss = loss + torch.abs(torch.relu(-(w2 + w3 + w4)) * kPositiveList).mean()
@@ -420,6 +431,7 @@ for includePieceMaps in [False, True]:
 
       if "scale" in model.w:
         loss = loss + (model.w["scale"](x)**2).mean() * 0.2
+
       opt.zero_grad()
       loss.backward()
       opt.step()
