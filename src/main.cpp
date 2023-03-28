@@ -45,8 +45,6 @@
 
 using namespace ChessEngine;
 
-#define GENERATE_MOVE_ORDERING_DATA 0
-
 std::string repeat(const std::string text, size_t n) {
   std::string r = "";
   for (size_t i = 0; i < n; ++i) {
@@ -373,16 +371,9 @@ SearchResult<TURN> qsearch(Position *pos, int32_t depth, Evaluation alpha, Evalu
   return r;
 }
 
-constexpr Evaluation kMovePieceBonus[7] = {
-  0,  -107, -128, -272, -186, -267, -124 };
-constexpr Evaluation kMovePieceBonus_Capture[7] = {
-  0,  547,    6,  120,   30, -184,   -1 };
-constexpr Evaluation kMovePieceBonus_WeAreHanging[7] = {
-  0, -81,  124,  145,  -68, -194,  334 };
-constexpr Evaluation kCapturePieceBonus[7] = {
-  0, -423,   -5,   51,  278,  617,  9999 }; // todo: 999 should be zero?
-constexpr Evaluation kCapturePieceBonus_Hanging[7] = {
-  0, -543,  142,  221,  254,  533,   -1};
+constexpr Evaluation kMoveOrderPieceValues[7] = {
+  0, 100,  300,  300,  500, 900,  900
+};
 
 uint32_t gHistoryHeuristicTable[Color::NUM_COLORS][64][64];
 
@@ -498,128 +489,33 @@ SearchResult<TURN> search(
     const bool areWeHanging = ((bb(move->move.from) & ourHanging) > 0);
     const bool areTheyHanging = isCapture && ((bb(move->move.to) & theirHanging) > 0);
 
-    move->score += kMovePieceBonus[move->piece];
-    move->score += kMovePieceBonus_Capture[move->piece * (move->capture != Piece::NO_PIECE)];
-    move->score += kMovePieceBonus_WeAreHanging[move->piece * areWeHanging];
-    move->score += kCapturePieceBonus[move->capture];
-    move->score += kCapturePieceBonus_Hanging[move->capture * areTheyHanging];
+    // Bonus for capturing a piece.
+    move->score += kMoveOrderPieceValues[move->capture];
 
-    move->score += areWeHanging * 258;
-    move->score += areTheyHanging * 607;
-    move->score += (move->move == lastFoundBestMove) * (depth == 1) * 592;
-    move->score += (move->move == lastFoundBestMove) * (depth == 2) * 420;
-    move->score += (move->move == lastFoundBestMove) * (depth >= 3) * 465;
-    // move->score += (kNullMove == lastFoundBestMove) * -67;  // unnecessary
+    // Subtract moving piece if we're capturing an enemy piece (we may be recaptured).
+    move->score -= kMoveOrderPieceValues[move->piece * (move->capture != Piece::NO_PIECE)];
 
-    move->score += (move->move == recommendedMoves.moves[0]) * 237;
-    // move->score += (kNullMove == recommendedMoves.moves[0]) * 65;
-    move->score += (move->move == recommendedMoves.moves[1]) * 300;
-    // move->score += (kNullMove == recommendedMoves.moves[1]) * 44;
-    move->score += (move->move.to == lastMove.to) * 250;
-    move->score += isCapture * 518;
+    // Refund moving piece if the captured piece is hanging.
+    move->score += kMoveOrderPieceValues[move->piece * areWeHanging];
+
+    // Massive bonus to send all capture to the front.
+    move->score += isCapture * 1000;
+
+    move->score += ((move->move == lastFoundBestMove) && (depth == 1)) * 5000;
+    move->score += ((move->move == lastFoundBestMove) && (depth == 2)) * 5000;
+    move->score += ((move->move == lastFoundBestMove) && (depth >= 3)) * 5000;
+    move->score += (move->move == recommendedMoves.moves[0]) * 100;
+    move->score += (move->move == recommendedMoves.moves[1]) * 100;
+    // move->score += (move->move.to == lastMove.to) * 50;
 
     const int32_t history = gHistoryHeuristicTable[TURN][move->move.from][move->move.to];
     // move->score += depth * 40;
-    move->score += (history > 0) * 87;
-    move->score += (history > 4) * 66;
-    move->score += (history > 16) * 98;
-    move->score += (history > 64) * 126;
-    move->score += (history > 256) * 153;
+    move->score += (history > 0) * 50;
+    move->score += (history > 4) * 50;
+    move->score += (history > 16) * 50;
+    move->score += (history > 64) * 50;
+    move->score += (history > 256) * 50;
   }
-
-  #if GENERATE_MOVE_ORDERING_DATA
-  size_t foo = rand() % 50000;
-  if (foo == 0 || (depth > 1 && foo < 5) || (depth > 2 && foo < 25)) {
-    const Bitboard ourTargets = compute_my_targets<TURN>(*pos);
-    const Bitboard theirTargets = compute_my_targets<opposingColor>(*pos);
-
-    const Bitboard theirHanging = ourTargets & pos->colorBitboards_[opposingColor] & ~theirTargets;
-    const Bitboard ourHanging = theirTargets & pos->colorBitboards_[TURN] & ~ourTargets;
-
-    std::cout << "<movedata>" << std::endl;
-    std::cout << pos->fen() << std::endl;
-    for (ExtMove *move = moves; move < end; ++move) {
-
-      const bool isCapture = (move->capture != Piece::NO_PIECE);
-      const bool areWeHanging = ((bb(move->move.from) & ourHanging) > 0);
-      const bool areTheyHanging = isCapture && ((bb(move->move.to) & theirHanging) > 0);
-
-      std::vector<int> features;
-      // [-107 -128 -272 -186 -267 -124]
-      features.push_back(move->piece == Piece::PAWN);
-      features.push_back(move->piece == Piece::KNIGHT);
-      features.push_back(move->piece == Piece::BISHOP);
-      features.push_back(move->piece == Piece::ROOK);
-      features.push_back(move->piece == Piece::QUEEN);
-      features.push_back(move->piece == Piece::KING);
-
-      //  [ 547    6  120   30 -184   -1]
-      features.push_back((move->piece == Piece::PAWN) && isCapture);
-      features.push_back((move->piece == Piece::KNIGHT) && isCapture);
-      features.push_back((move->piece == Piece::BISHOP) && isCapture);
-      features.push_back((move->piece == Piece::ROOK) && isCapture);
-      features.push_back((move->piece == Piece::QUEEN) && isCapture);
-      features.push_back((move->piece == Piece::KING) && isCapture);
-
-      // [ -81  124  145  -68 -194  334]
-      features.push_back((move->piece == Piece::PAWN) && areWeHanging);
-      features.push_back((move->piece == Piece::KNIGHT) && areWeHanging);
-      features.push_back((move->piece == Piece::BISHOP) && areWeHanging);
-      features.push_back((move->piece == Piece::ROOK) && areWeHanging);
-      features.push_back((move->piece == Piece::QUEEN) && areWeHanging);
-      features.push_back((move->piece == Piece::KING) && areWeHanging);
-
-      // [-423   -5   51  278  617    0]
-      features.push_back(move->capture == Piece::PAWN);
-      features.push_back(move->capture == Piece::KNIGHT);
-      features.push_back(move->capture == Piece::BISHOP);
-      features.push_back(move->capture == Piece::ROOK);
-      features.push_back(move->capture == Piece::QUEEN);
-      features.push_back(move->capture == Piece::KING);
-
-      // [-543  142  221  254  533   -1]
-      features.push_back((move->piece == Piece::PAWN) * areTheyHanging);
-      features.push_back((move->piece == Piece::KNIGHT) * areTheyHanging);
-      features.push_back((move->piece == Piece::BISHOP) * areTheyHanging);
-      features.push_back((move->piece == Piece::ROOK) * areTheyHanging);
-      features.push_back((move->piece == Piece::QUEEN) * areTheyHanging);
-      features.push_back((move->piece == Piece::KING) * areTheyHanging);
-
-      // [ 258  607  592  420  465  -67]
-      features.push_back(areWeHanging);
-      features.push_back(areTheyHanging);
-      features.push_back((move->move == lastFoundBestMove) * (depth == 1));
-      features.push_back((move->move == lastFoundBestMove) * (depth == 2));
-      features.push_back((move->move == lastFoundBestMove) * (depth >= 3));
-      features.push_back(lastFoundBestMove == kNullMove);
-
-      // [ 237   65  300   44  250  518]
-      features.push_back(recommendedMoves.moves[0] == move->move);
-      features.push_back(recommendedMoves.moves[0] == kNullMove);
-      features.push_back(recommendedMoves.moves[1] == move->move);
-      features.push_back(recommendedMoves.moves[1] == kNullMove);
-      features.push_back(move->move.to == lastMove.to);
-      features.push_back(isCapture);
-
-      // [  -6   87   66   98  126  153]
-      features.push_back(depth);
-
-      features.push_back(gHistoryHeuristicTable[TURN][move->move.from][move->move.to] > 0);
-      features.push_back(gHistoryHeuristicTable[TURN][move->move.from][move->move.to] > 4);
-      features.push_back(gHistoryHeuristicTable[TURN][move->move.from][move->move.to] > 16);
-      features.push_back(gHistoryHeuristicTable[TURN][move->move.from][move->move.to] > 64);
-      features.push_back(gHistoryHeuristicTable[TURN][move->move.from][move->move.to] > 256);
-
-      std::cout << move->move.uci();
-      for (size_t i = 0; i < features.size(); ++i) {
-        std::cout << " " << features[i];
-      }
-      std::cout << std::endl;
-    }
-    std::cout << "</movedata>" << std::endl;
-    exit(0);
-  }
-  #endif
 
   std::sort(moves, end, [](ExtMove a, ExtMove b) {
     return a.score > b.score;
