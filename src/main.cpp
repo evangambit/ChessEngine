@@ -298,13 +298,8 @@ template<Color TURN>
 SearchResult<TURN> qsearch(Position *pos, int32_t depth, Evaluation alpha, Evaluation beta) {
   ++gNodeCounter;
 
-
-  for (size_t i = 0; i < pos->hashes_.size(); ++i) {
-    // TODO: stop looking when we hit a pawn move or capture.
-    // TODO: handle 3 move draw for moves before the root.
-    if (pos->hashes_[i] == pos->hash_) {
-      return SearchResult<TURN>(Evaluation(0), kNullMove);
-    }
+  if (pos->is_draw()) {
+    return SearchResult<TURN>(0, kNullMove);
   }
 
   if (std::popcount(pos->pieceBitboards_[coloredPiece<TURN, Piece::KING>()]) == 0) {
