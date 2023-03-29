@@ -429,7 +429,10 @@ SearchResult<TURN> search(
   const Evaluation futilityThreshold = 70;
   if (it != gCache.end() && depth - it->second.depth == 1) {
     const CacheResult& cr = it->second;
-    if (cr.eval >= beta + futilityThreshold || cr.eval <= alpha - futilityThreshold) {
+    if (
+      (cr.eval >= beta + futilityThreshold && it->second.nodeType != NodeTypeAll_UpperBound)
+      ||
+      (cr.eval <= alpha - futilityThreshold && it->second.nodeType != NodeTypeCut_LowerBound)) {
       return SearchResult<TURN>(cr.eval, cr.bestMove);
     }
   } else if (depth == 1) {
