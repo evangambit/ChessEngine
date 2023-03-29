@@ -436,8 +436,11 @@ SearchResult<TURN> search(
       return SearchResult<TURN>(cr.eval, cr.bestMove);
     }
   } else if (depth == 1) {
+    // We assume that you can make a move that improves your position, so comparing against alpha
+    // gets a small bonus.
+    const Evaluation tempoMargin = 20;
     SearchResult<TURN> r = qsearch<TURN>(pos, 0, alpha, beta);
-    if (r.score >= beta + futilityThreshold || r.score <= alpha - futilityThreshold) {
+    if (r.score >= beta + futilityThreshold || r.score + tempo <= alpha - futilityThreshold) {
       return r;
     }
   }
