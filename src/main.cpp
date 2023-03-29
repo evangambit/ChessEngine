@@ -422,14 +422,19 @@ SearchResult<TURN> search(
       return SearchResult<TURN>(cr.eval, cr.bestMove);
     }
   }
-  
-  if (depth == 1) {  // Ignore moves that easily caused a cutoff last search.
-    const Evaluation deltaPerDepth = 70;
-    SearchResult<TURN> r = qsearch<TURN>(pos, 0, alpha, beta);
-    if (r.score >= beta + deltaPerDepth * depth) {
-      return r;
+
+  // Futility pruning.
+  // If our depth is 1 or exceeds the transposition table by 1 then we ignore moves that
+  // are sufficiently bad that they are unlikely to be improved by increasing depth by 1.
+  const Evaluation futilityThreshold = 70;
+  if (it != gCache.end() && depth - it->second.depth == 1) {
+    const CacheResult& cr = it->second;
+    if (cr.eval >= beta + futilityThreshold || cr.eval <= alpha - futilityThreshold) {
+      return SearchResult<TURN>(cr.eval, cr.bestMove);
     }
-    if (r.score <= alpha - deltaPerDepth * depth) {
+  } else if (depth == 1) {
+    SearchResult<TURN> r = qsearch<TURN>(pos, 0, alpha, beta);
+    if (r.score >= beta + futilityThreshold || r.score <= alpha - futilityThreshold) {
       return r;
     }
   }
