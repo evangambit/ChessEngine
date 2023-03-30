@@ -177,6 +177,8 @@ Bitboard southFill(Bitboard b);
 
 Bitboard eastFill(Bitboard b);
 
+Bitboard westFill(Bitboard b);
+
 inline uint8_t eastmost_file_to_byte(Bitboard board) {
   constexpr Bitboard magic = bb(49) | bb(42) | bb(35) | bb(28) | bb(21) | bb(14) | bb(7) | bb(0);
   return (board * magic) >> 56;

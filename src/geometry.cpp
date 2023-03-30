@@ -228,6 +228,14 @@ Bitboard eastFill(Bitboard b) {
   return b;
 }
 
+Bitboard westFill(Bitboard b) {
+  b |= (b & ~kFiles[0]) >> 1;
+  b |= (b & ~(kFiles[0] | kFiles[1])) >> 2;
+  b |= (b & ~(kFiles[0] | kFiles[1] | kFiles[2] | kFiles[3])) >> 4;
+  return b;
+}
+
+
 const int8_t kDistToEdge[64] = {
   0, 0, 0, 0, 0, 0, 0, 0,
   0, 1, 1, 1, 1, 1, 1, 1,

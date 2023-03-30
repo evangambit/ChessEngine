@@ -104,6 +104,14 @@ class Position {
   int32_t earlyPieceMapScore_;
   int32_t latePieceMapScore_;
 
+  std::string history_str() const {
+    std::string r = "";
+    for (const auto& move : history_) {
+      r += move.uci() + " ";
+    }
+    return r;
+  }
+
   void place_piece_(ColoredPiece cp, Square square);
 
   void remove_piece_(Square square);

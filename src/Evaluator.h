@@ -855,10 +855,40 @@ struct Evaluator {
 
     {
       // KPVK games are winning if square rule is true.
-      const bool isOurKPVK = isKingPawnEndgame && (std::popcount(ourPawns) >= 1) && (theirPawns == 0);
-      const bool isTheirKPVK = isKingPawnEndgame && (std::popcount(theirPawns) >= 1) && (ourPawns == 0);
-      eval -= value_or_zero(isTheirKPVK && features[EF::SQUARE_RULE] < 0, 500);
-      eval += value_or_zero(isOurKPVK && features[EF::SQUARE_RULE] > 0, 500);
+      const bool isOurKPPVK = isKingPawnEndgame && (std::popcount(ourPawns) >= 1) && (theirPawns == 0);
+      const bool isTheirKPPVK = isKingPawnEndgame && (std::popcount(theirPawns) >= 1) && (ourPawns == 0);
+      constexpr Bitboard kPromoRanks = kRanks[0] | kRanks[7];
+      eval -= value_or_zero(isOurKPPVK && features[EF::SQUARE_RULE] < 0, 500);
+      eval += value_or_zero(isTheirKPPVK && features[EF::SQUARE_RULE] > 0, 500);
+
+      if (isOurKPPVK && std::popcount(ourPawns) == 1) {
+        int result;
+        if (US == Color::WHITE) {
+          result = this->known_kpvk_result(ourKingSq, theirKingSq, lsb(ourPawns), true);
+        } else {
+          result = this->known_kpvk_result(Square(63 - ourKingSq), Square(63 - theirKingSq), Square(63 - lsb(ourPawns)), true);
+        }
+        if (result == 0) {
+          return 0;
+        }
+        if (result == 2) {
+          eval += 1000;
+        }
+      }
+      if (isTheirKPPVK && std::popcount(theirPawns) == 1) {
+        int result;
+        if (US == Color::BLACK) {
+          result = this->known_kpvk_result(theirKingSq, ourKingSq, lsb(theirPawns), false);
+        } else {
+          result = this->known_kpvk_result(Square(63 - theirKingSq), Square(63 - ourKingSq), Square(63 - lsb(theirPawns)), false);
+        }
+        if (result == 0) {
+          return 0;
+        }
+        if (result == 2) {
+          eval -= 1000;
+        }
+      }
     }
     {  // KRvK, KQvK, KBBvK, KBNvK
       const bool theyHaveLonelyKing = (theirMen == theirKings) && (features[EF::OUR_KNIGHTS] > 2 || features[EF::OUR_BISHOPS] > 1 || features[EF::OUR_ROOKS] > 0 || features[EF::OUR_QUEENS] > 0);
@@ -930,6 +960,74 @@ struct Evaluator {
 
     // todo: value_or_zero
     return r * (1 - (ourPieces != 0) * (theirPieces != 0));
+  }
+
+  // Assumes white has the pawn.
+  // Returns 2 if white wins
+  // Returns 0 if white draws
+  // Returns 1 if unknown
+  int known_kpvk_result(Square yourKing, Square theirKing, Square yourPawn, bool yourMove) {
+    const int wx = yourKing % 8;
+    const int wy = yourKing / 8;
+    const int bx = theirKing % 8;
+    const int by = theirKing / 8;
+    const int px = yourPawn % 8;
+    const int py = yourPawn / 8;
+
+    const int wdist = std::max(std::abs(wx - px), std::abs(wy - py));
+    const int bdist = std::max(std::abs(bx - px), std::abs(by - py));
+
+
+    // {
+    //   // Square rule
+    //   const int theirDistFromPromoSquare = std::max(std::abs(bx - px), by) - !yourMove;
+    //   if (theirDistFromPromoSquare > py) {
+    //     return 2;
+    //   }
+    // }
+
+    if (wy == py - 2 && std::abs(wx - px) == 1 && bdist + yourMove > 1) {
+      return 2;
+    }
+
+    // if (wx == bx && wy >= py - 1 && by == wy - 2 && by != 0 && yourMove) {
+    //   return 0;
+    // }
+
+    // // Horizontally symmetric is a win for white.
+    if (wx - px == px - bx && wy == by) {
+      return 2;
+    }
+
+    // Black king in front of pawn.
+    if (bx == px && by == py - 1) {
+      return 0;
+    }
+
+    if (by == py - 2 && by != 0) {
+      return 0;
+    }
+
+    // Distance Rule:
+    //   1) Compute the distance between your king and your pawn
+    //   2) Compute the distance between the enemy king and your pawn
+    //   3) Subtract 1 from your distance if it's your turn
+    //   4) Add 1 to your enemy's distance if they're in front of your pawn and on a diagonal with it.
+    // If your distance is greater than your opponent's, then it's a draw.
+    {
+      if (wdist - yourMove > bdist + ((bx + by == wx + wy) || (bx - by == wx - wy))) {
+        return 0;
+      }
+    }
+
+    // No-zones when you're behind your pawn.
+    if (wy > py && py > by) {
+      if (std::abs(px - bx) - yourMove <= wy - py) {
+        return 0;
+      }
+    }
+
+    return 1;
   }
 
   // template<Color US>

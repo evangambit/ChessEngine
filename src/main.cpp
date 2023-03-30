@@ -319,7 +319,7 @@ SearchResult<TURN> qsearch(Position *pos, int32_t depth, Evaluation alpha, Evalu
   }
 
   // If we can stand pat for a beta cutoff, or if we have no moves, return.
-  SearchResult<TURN> r(gEvaluator.score<TURN>(*pos) - 0, kNullMove);
+  SearchResult<TURN> r(gEvaluator.score<TURN>(*pos), kNullMove);
   if (moves == end || r.score >= beta) {
     return r;
   }
@@ -394,6 +394,8 @@ SearchResult<TURN> search(
 
   ++gNodeCounter;
 
+  const Evaluation initialGap = beta - alpha;
+
   constexpr Color opposingColor = opposite_color<TURN>();
   constexpr ColoredPiece moverKing = coloredPiece<TURN, Piece::KING>();
 
@@ -403,7 +405,9 @@ SearchResult<TURN> search(
 
   if (depth <= 0) {
     ++gLeafCounter;
-    return qsearch<TURN>(pos, 0, alpha, beta);
+    // return qsearch<TURN>(pos, 0, alpha, beta);
+    Evaluation e = gEvaluator.score<TURN>(*pos);
+    return SearchResult<TURN>(e, kNullMove);
   }
 
   if (pos->is_draw()) {
@@ -424,8 +428,9 @@ SearchResult<TURN> search(
   // Futility pruning (+0.10)
   // If our depth is 1 or exceeds the transposition table by 1 then we ignore moves that
   // are sufficiently bad that they are unlikely to be improved by increasing depth by 1.
+  const int numMenLeft = std::popcount(pos->colorBitboards_[Color::WHITE] | pos->colorBitboards_[Color::BLACK]);
   const Evaluation futilityThreshold = 70;
-  if (it != gCache.end() && depth - it->second.depth == 1) {
+  if (it != gCache.end() && depth - it->second.depth == 1 && numMenLeft > 5) {  // Disable when very late in the game.
     const CacheResult& cr = it->second;
     if (
       (cr.eval >= beta + futilityThreshold && it->second.nodeType != NodeTypeAll_UpperBound)
@@ -473,7 +478,7 @@ SearchResult<TURN> search(
 
   if (end - moves == 0) {
     if (inCheck) {
-      return r;
+      return SearchResult<TURN>(kCheckmate, kNullMove);
     } else {
       return SearchResult<TURN>(Evaluation(0), kNullMove);
     }
@@ -601,8 +606,7 @@ SearchResult<TURN> search(
     r.move = kNullMove;
   }
 
-  it = gCache.find(pos->hash_);  // Need to re-search since the iterator may have changed when searching my children.
-  if (it == gCache.end()) {
+  if (initialGap > 1) {
     const CacheResult cr = CacheResult{
       depth,
       r.score,
@@ -612,15 +616,20 @@ SearchResult<TURN> search(
       pos->fen(),
       #endif
     };
-    if (it != gCache.end()) {
-      it->second = cr;
-    } else {
+    it = gCache.find(pos->hash_);  // Need to re-search since the iterator may have changed when searching my children.
+    if (it == gCache.end()) {
       gCache.insert(std::make_pair(pos->hash_, cr));
+    } else if (depth > it->second.depth) {
+      it->second = cr;
     }
   }
 
   return r;
 }
+
+// TODO: there is a bug where
+// "./a.out fen 8/8/8/1k6/3P4/8/8/3K4 w - - 0 1 depth 17"
+// claims white is winning.
 
 template<Color TURN>
 SearchResult<TURN> search_with_aspiration_window(Position* pos, Depth depth, SearchResult<TURN> lastResult) {
@@ -770,7 +779,7 @@ void mymain(std::vector<Position>& positions, const std::string& mode, double ti
       reset_stuff();
       SearchResult<Color::WHITE> results(Evaluation(0), kNullMove);
       time_t tstart = clock();
-      for (size_t i = 1; i <= depth; ++i) {
+      for (size_t i = 0; i <= depth; ++i) {
         results = search(&pos, i, results);
         if (positions.size() == 1) {
           const double secs = double(clock() - tstart)/CLOCKS_PER_SEC;
@@ -818,7 +827,7 @@ void mymain(std::vector<Position>& positions, const std::string& mode, double ti
         reset_stuff();
         SearchResult<Color::WHITE> results(Evaluation(0), kNullMove);
         time_t tstart = clock();
-        for (size_t i = 1; i <= depth; ++i) {
+        for (size_t i = 0; i <= depth; ++i) {
           results = search(&pos, i, results);
           if (gNodeCounter >= nodeLimit) {
             break;
@@ -958,7 +967,7 @@ int main(int argc, char *argv[]) {
   if ((fenFile.size() != 0) == (fen.size() != 0)) {
     throw std::runtime_error("Cannot provide fen and fens");
   }
-  if (depth <= 0) {
+  if (depth < 0) {
     throw std::runtime_error("invalid depth");
   }
 
