@@ -437,6 +437,7 @@ struct Evaluator {
     constexpr Bitboard kOurSide = (US == Color::WHITE ? kWhiteSide : kBlackSide);
     constexpr Bitboard kTheirSide = (US == Color::WHITE ? kBlackSide : kWhiteSide);
     constexpr Direction kForward = (US == Color::WHITE ? Direction::NORTH : Direction::SOUTH);
+    constexpr Direction kForward2 = (US == Color::WHITE ? Direction::NORTHx2 : Direction::SOUTHx2);
     constexpr Direction kBackward = opposite_dir(kForward);
     constexpr Bitboard kOurBackRanks = (US == Color::WHITE ? kRanks[6] | kRanks[7] : kRanks[1] | kRanks[0]);
     constexpr Bitboard kTheirBackRanks = (US == Color::WHITE ? kRanks[1] | kRanks[0] : kRanks[6] | kRanks[7]);
@@ -846,6 +847,12 @@ struct Evaluator {
 
     int32_t eval = (early * (18 - time) + late * time) / 18 + clipped + lonely_king + pieceMap;
 
+
+    const int wx = ourKingSq % 8;
+    const int wy = ourKingSq / 8;
+    const int bx = theirKingSq % 8;
+    const int by = theirKingSq / 8;
+
     {
       // KPVK games are winning if square rule is true.
       const bool isOurKPVK = isKingPawnEndgame && (std::popcount(ourPawns) >= 1) && (theirPawns == 0);
@@ -853,14 +860,32 @@ struct Evaluator {
       eval -= value_or_zero(isTheirKPVK && features[EF::SQUARE_RULE] < 0, 500);
       eval += value_or_zero(isOurKPVK && features[EF::SQUARE_RULE] > 0, 500);
     }
-    {
-      // Force king to edge when there are no pieces left.
-      eval += value_or_zero(theirPieces == 1 && ourPieces > 1, (3 - kDistToEdge[theirKingSq]) * 100);
-      eval -= value_or_zero(ourPieces == 1 && theirPieces > 1, (3 - kDistToEdge[ourKingSq]) * 100);
-      eval += value_or_zero(theirPieces == 1 && ourPieces > 1, (3 - kDistToCorner[theirKingSq]) * 50);
-      eval -= value_or_zero(ourPieces == 1 && theirPieces > 1, (3 - kDistToCorner[ourKingSq]) * 50);
+    {  // KRvK, KQvK, KBBvK, KBNvK
+      const bool theyHaveLonelyKing = (theirMen == theirKings) && (features[EF::OUR_KNIGHTS] > 2 || features[EF::OUR_BISHOPS] > 1 || features[EF::OUR_ROOKS] > 0 || features[EF::OUR_QUEENS] > 0);
+      const bool weHaveLonelyKing = (ourMen == ourKings) && (features[EF::THEIR_KNIGHTS] > 2 || features[EF::THEIR_BISHOPS] > 1 || features[EF::THEIR_ROOKS] > 0 || features[EF::THEIR_QUEENS] > 0);
+
+      eval += value_or_zero(theyHaveLonelyKing, (3 - kDistToEdge[theirKingSq]) * 50);
+      eval -= value_or_zero(  weHaveLonelyKing, (3 - kDistToEdge[ourKingSq]) * 50);
+      eval += value_or_zero(theyHaveLonelyKing, (3 - kDistToCorner[theirKingSq]) * 50);
+      eval -= value_or_zero(  weHaveLonelyKing, (3 - kDistToCorner[ourKingSq]) * 50);
+
+      int dx = std::abs(wx - bx);
+      int dy = std::abs(wy - by);
+      const bool opposition = (dx == 2 && dy == 0) || (dx == 0 && dy == 2);
+
+      // We don't want it to be our turn!
+      eval -= value_or_zero(weHaveLonelyKing && opposition, 75);
+      // We can achieve opposition from here.
+      eval += value_or_zero(theyHaveLonelyKing && (
+        (dx == 3 && dy <= 1)
+        || (dy == 3 && dx <= 1)
+      ), 50);
+
       // And put our king next to the enemy king.
-      eval += features[EF::LONELY_KING_AWAY_FROM_ENEMY_KING] * 100;
+      eval += value_or_zero(theyHaveLonelyKing, (8 - std::max(dx, dy)) * 50);
+      eval -= value_or_zero(  weHaveLonelyKing, (8 - std::max(dx, dy)) * 50);
+      eval += value_or_zero(theyHaveLonelyKing, (8 - std::min(dx, dy)) * 25);
+      eval -= value_or_zero(  weHaveLonelyKing, (8 - std::min(dx, dy)) * 25);
     }
 
     return std::min(int32_t(-kLongestForcedMate), std::max(int32_t(kLongestForcedMate), eval));
