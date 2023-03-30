@@ -392,6 +392,7 @@ struct Evaluator {
 
     const Bitboard ourMen = pos.colorBitboards_[US];
     const Bitboard theirMen = pos.colorBitboards_[THEM];
+    const Bitboard everyone = ourMen | theirMen;
     const bool isThreeManEndgame = std::popcount(ourMen | theirMen) == 3;
     bool isDraw = false;
     isDraw |= (ourMen == ourKings) && (theirMen == theirKings);
@@ -422,14 +423,14 @@ struct Evaluator {
     const Bitboard ourKnightTargets = compute_knight_targets<US>(pos);
     const Bitboard theirKnightTargets = compute_knight_targets<THEM>(pos);
     // TODO: bishops can attack one square through our own pawns.
-    const Bitboard ourBishopTargets = compute_bishoplike_targets<US>(pos, ourBishops, (ourMen & ~ourBishoplikePieces) | theirMen);
-    const Bitboard theirBishopTargets = compute_bishoplike_targets<THEM>(pos, theirBishops, (theirMen & ~theirBishoplikePieces) | ourMen);
-    const Bitboard ourRookTargets = compute_rooklike_targets<US>(pos, ourRooks, (ourMen & ~ourRooklikePieces) | theirMen);
-    const Bitboard theirRookTargets = compute_rooklike_targets<THEM>(pos, theirRooks, ourMen | (theirMen & ~theirRooklikePieces));
-    const Bitboard ourQueenTargets = compute_bishoplike_targets<US>(pos, ourQueens, (ourMen & ~ourBishoplikePieces) | theirMen)
-    | compute_rooklike_targets<US>(pos, ourQueens, (ourMen & ~ourRooklikePieces) | theirMen);
-    const Bitboard theirQueenTargets = compute_bishoplike_targets<THEM>(pos, theirQueens, (theirMen & ~theirBishoplikePieces) | ourMen)
-    | compute_rooklike_targets<THEM>(pos, theirQueens, (theirMen & ~theirRooklikePieces) | ourMen);
+    const Bitboard ourBishopTargets = compute_bishoplike_targets<US>(pos, ourBishops, everyone & ~ourBishops);
+    const Bitboard theirBishopTargets = compute_bishoplike_targets<THEM>(pos, theirBishops, everyone & ~theirBishops);
+    const Bitboard ourRookTargets = compute_rooklike_targets<US>(pos, ourRooks, everyone & ~ourRooks);
+    const Bitboard theirRookTargets = compute_rooklike_targets<THEM>(pos, theirRooks, everyone & ~theirRooks);
+    const Bitboard ourQueenTargets = compute_bishoplike_targets<US>(pos, ourQueens, everyone & ~ourBishoplikePieces)
+    | compute_rooklike_targets<US>(pos, ourQueens, everyone & ~ourRooklikePieces);
+    const Bitboard theirQueenTargets = compute_bishoplike_targets<THEM>(pos, theirQueens, everyone & ~theirBishoplikePieces)
+    | compute_rooklike_targets<THEM>(pos, theirQueens, everyone & ~theirRooklikePieces);
     const Bitboard ourKingTargets = compute_king_targets<US>(pos, ourKingSq);
     const Bitboard theirKingTargets = compute_king_targets<THEM>(pos, theirKingSq);
 
