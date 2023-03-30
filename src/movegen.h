@@ -14,6 +14,89 @@
 
 namespace ChessEngine {
 
+namespace StaticExchangeAnalysis {
+
+template<Color US>
+void simple_make_move(Position *pos, Square from, Square to) {
+  const ColoredPiece movingCP = pos->tiles_[from];
+  const ColoredPiece capturedPieceCP = pos->tiles_[to];
+  pos->tiles_[to] = movingCP;
+  pos->tiles_[from] = ColoredPiece::NO_COLORED_PIECE;
+  pos->pieceBitboards_[movingCP] = pos->pieceBitboards_[movingCP] | bb(to) & ~bb(from);
+  pos->pieceBitboards_[capturedPieceCP] &= ~bb(to);
+}
+
+template<Color US>
+void simple_undo_move(Position *pos, Square from, Square to, ColoredPiece capturedPiece) {
+  const ColoredPiece movingCP = pos->tiles_[to];
+  pos->tiles_[to] = capturedPiece;
+  pos->tiles_[from] = movingCP;
+  pos->pieceBitboards_[movingCP] = pos->pieceBitboards_[movingCP] | bb(from) & ~bb(to);
+  pos->pieceBitboards_[capturedPiece] |= bb(to);
+}
+
+template<Color US>
+int static_exchange(Position *pos) {
+  constexpr ColoredPiece ourPawnCP = coloredPiece<US, Piece::PAWN>();
+  constexpr ColoredPiece ourKnightCP = coloredPiece<US, Piece::KNIGHT>();
+  constexpr ColoredPiece ourBishopCP = coloredPiece<US, Piece::BISHOP>();
+  constexpr ColoredPiece ourRookCP = coloredPiece<US, Piece::ROOK>();
+  constexpr ColoredPiece ourQueenCP = coloredPiece<US, Piece::QUEEN>();
+
+  constexpr Color THEM = opposite_color<US>();
+  constexpr ColoredPiece theirQueenCP = coloredPiece<THEM, Piece::QUEEN>();
+  constexpr ColoredPiece theirRookCP = coloredPiece<THEM, Piece::ROOK>();
+  constexpr ColoredPiece theirBishopCP = coloredPiece<THEM, Piece::BISHOP>();
+  constexpr ColoredPiece theirKnightCP = coloredPiece<THEM, Piece::KNIGHT>();
+
+  constexpr Direction southeast = (US == Color::WHITE ? Direction::SOUTH_EAST : Direction::NORTH_WEST);
+  constexpr Direction southwest = (US == Color::WHITE ? Direction::SOUTH_WEST : Direction::NORTH_EAST);
+
+  constexpr int kPieceValues[7] = {0, 1, 3, 3, 5, 9, 99};
+
+  if (compute_attackers<THEM>(*pos, lsb(pos->pieceBitboards_[coloredPiece<US, Piece::KING>()]))) {
+    return kPieceValues[Piece::KING];
+  }
+
+  // Try all ways to capture enemy queen.
+  if (pos->pieceBitboards_[theirQueenCP]) {
+    Square queenSq = lsb(pos->pieceBitboards_[theirQueenCP]);
+    Bitboard attackers = compute_attackers<THEM>(*pos, queenSq);
+    for (Piece piece = Piece::PAWN; piece < Piece::QUEEN; piece = Piece(piece + 1)) {
+      ColoredPiece cp = coloredPiece<US>(piece);
+      if (attackers & pos->pieceBitboards_[cp]) {
+        Square attackersSq = lsb(attackers & pos->pieceBitboards_[cp]);
+        simple_make_move<US>(pos, attackersSq, queenSq);
+        int r = (kPieceValues[Piece::QUEEN] - kPieceValues[Piece::PAWN]) - static_exchange<THEM>(pos);
+        simple_undo_move<US>(pos, attackersSq, queenSq, theirQueenCP);
+        return r;
+      }
+    }
+  }
+
+  // Try all ways to capture an enemy piece with a pawn.
+  Bitboard pawnTargets = compute_pawn_targets<US>(*pos);
+  for (Piece piece = Piece::ROOK; piece > Piece::PAWN; piece = Piece(piece - 1)) {
+    Bitboard vulnerablePieces = pawnTargets & pos->pieceBitboards_[coloredPiece<THEM>(piece)];
+    if (!vulnerablePieces) {
+      continue;
+    }
+    Square targetSq = lsb(vulnerablePieces);
+    Location targetLoc = bb(targetSq);
+    Square attackersSq = lsb(pos->pieceBitboards_[ourPawnCP] & (shift<southeast>(targetLoc) | shift<southwest>(targetLoc)));
+    simple_make_move<US>(pos, attackersSq, targetSq);
+    int r = (kPieceValues[piece] - kPieceValues[Piece::PAWN]) - static_exchange<THEM>(pos);
+    simple_undo_move<US>(pos, attackersSq, targetSq, theirRookCP);
+    return r;
+  }
+
+  // TODO: minor piece capturing a rook.
+
+  return 0;
+}
+
+}  // namespace StaticExchangeAnalysis
+
 /**
  * There's a cool idea in Stockfish to have a "target" bitboard.
  * Only moves that move to the target are returned. This way we
