@@ -86,6 +86,11 @@ enum Direction : int8_t {
   NORTH_EAST = -7,
   SOUTH_WEST = 7,
   SOUTH_EAST = 9,
+
+  SOUTHx2 =  16,
+  WESTx2  = -2,
+  EASTx2  =  2,
+  NORTHx2 = -16,
 };
 
 constexpr Direction opposite_dir(Direction dir) {
@@ -106,6 +111,14 @@ constexpr Direction opposite_dir(Direction dir) {
       return Direction::NORTH_EAST;
     case Direction::NORTH_EAST:
       return Direction::SOUTH_WEST;
+    case Direction::SOUTHx2:
+      return Direction::NORTHx2;
+    case Direction::NORTHx2:
+      return Direction::SOUTHx2;
+    case Direction::EASTx2:
+      return Direction::WESTx2;
+    case Direction::WESTx2:
+      return Direction::EASTx2;
   }
 }
 
@@ -146,8 +159,14 @@ Bitboard shift(Bitboard b) {
   if ((dir + 16) % 8 == 1) {
     b &= ~kFiles[0];
   }
+  if ((dir + 16) % 8 == 2) {
+    b &= ~(kFiles[0] | kFiles[1]);
+  }
   if ((dir + 16) % 8 == 7) {
     b &= ~kFiles[7];
+  }
+  if ((dir + 16) % 8 == 6) {
+    b &= ~(kFiles[7] | kFiles[6]);
   }
   return b;
 }
