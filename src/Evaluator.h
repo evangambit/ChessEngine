@@ -1014,15 +1014,13 @@ struct Evaluator {
     //   3) Subtract 1 from your distance if it's your turn
     //   4) Add 1 to your enemy's distance if they're in front of your pawn and on a diagonal with it.
     // If your distance is greater than your opponent's, then it's a draw.
-    {
-      if (wdist - yourMove > bdist + ((bx + by == wx + wy) || (bx - by == wx - wy))) {
-        return 0;
-      }
+    if (wdist - yourMove > bdist + ((bx + by == wx + wy) || (bx - by == wx - wy))) {
+      return 0;
     }
 
     // No-zones when you're behind your pawn.
     if (wy > py && py > by) {
-      if (std::abs(px - bx) - yourMove <= wy - py) {
+      if (std::abs(px - bx) - !yourMove <= wy - py) {
         return 0;
       }
     }
