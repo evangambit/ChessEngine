@@ -238,8 +238,12 @@ std::unordered_map<uint64_t, CacheResult> gCache;
 
 constexpr int kQSimplePieceValues[7] = {
   // Note "NO_PIECE" has a score of 200 since this
-  // encourages qsearch to value checks.
+  // encourages qsearch to value checks. (+0.02625)
   200, 100, 450, 500, 1000, 2000, 9999
+};
+
+constexpr Evaluation kMoveOrderPieceValues[7] = {
+  0, 100,  300,  300,  500, 900,  900
 };
 
 struct RecommendedMoves {
@@ -326,11 +330,10 @@ SearchResult<TURN> qsearch(Position *pos, int32_t depth, Evaluation alpha, Evalu
   }
 
   const Bitboard theirTargets = compute_my_targets_except_king<opposingColor>(*pos);
-  const Bitboard theirUnprotected = ~theirTargets;
 
   for (ExtMove *move = moves; move < end; ++move) {
-    move->score = kQSimplePieceValues[move->capture] - kQSimplePieceValues[move->piece];
-    move->score += value_or_zero((theirUnprotected & bb(move->move.to)) > 0, kQSimplePieceValues[move->piece]);
+    move->score = kQSimplePieceValues[move->capture];
+    move->score -= value_or_zero((theirTargets & bb(move->move.to)) > 0, kQSimplePieceValues[move->piece]);
   }
 
   std::sort(moves, end, [](ExtMove a, ExtMove b) {
@@ -348,15 +351,14 @@ SearchResult<TURN> qsearch(Position *pos, int32_t depth, Evaluation alpha, Evalu
     child.score -= (child.score > -kLongestForcedMate);
     child.score += (child.score < kLongestForcedMate);
 
+    undo<TURN>(pos);
+
     if (child.score > r.score) {
       r.score = child.score;
       r.move = move->move;
-    }
-
-    undo<TURN>(pos);
-
-    if (r.score >= beta) {
-      break;
+      if (r.score >= beta) {
+        break;
+      }
     }
 
     alpha = std::max(alpha, child.score);
@@ -364,10 +366,6 @@ SearchResult<TURN> qsearch(Position *pos, int32_t depth, Evaluation alpha, Evalu
 
   return r;
 }
-
-constexpr Evaluation kMoveOrderPieceValues[7] = {
-  0, 100,  300,  300,  500, 900,  900
-};
 
 uint32_t gHistoryHeuristicTable[Color::NUM_COLORS][64][64];
 
