@@ -6,15 +6,14 @@
 
 namespace ChessEngine {
 
-// Returns which enemy pawns can attack the target.
+// Returns which pawns can attack the target.
 template<Color US>
-Bitboard compute_enemy_pawn_attackers(const Position& pos, const Bitboard target) {
-  constexpr Color enemyColor = opposite_color<US>();
-  constexpr Direction forward = (US == Color::WHITE ? Direction::NORTH : Direction::SOUTH);
-  constexpr Direction pawnCaptureDir1 = Direction(forward - 1);
-  constexpr Direction pawnCaptureDir2 = Direction(forward + 1);
-  const Bitboard enemyPawns = pos.pieceBitboards_[coloredPiece<enemyColor, Piece::PAWN>()];
-  return (shift<pawnCaptureDir1>(target) & enemyPawns) | (shift<pawnCaptureDir2>(target) & enemyPawns);
+Bitboard compute_pawn_attackers(const Position& pos, const Bitboard target) {
+  constexpr Direction backward = (US == Color::WHITE ? Direction::SOUTH : Direction::NORTH);
+  constexpr Direction pawnCaptureDir1 = Direction(backward - 1);
+  constexpr Direction pawnCaptureDir2 = Direction(backward + 1);
+  const Bitboard ourPawns = pos.pieceBitboards_[coloredPiece<US, Piece::PAWN>()];
+  return (shift<pawnCaptureDir1>(target) & ourPawns) | (shift<pawnCaptureDir2>(target) & ourPawns);
 }
 
 template<Color US>

@@ -24,7 +24,7 @@ namespace ChessEngine {
 // Also helps generate real moves (as opposed to pseudo-moves).
 template<Color US>
 bool can_enemy_attack(const Position& pos, Square sq) {
-  return compute_enemy_attackers<US>(pos, sq) > 0;
+  return compute_attackers<opposite_color<US>()>(pos, sq) > 0;
 }
 
 // 1 if any piece can get to a square.
@@ -55,24 +55,24 @@ Bitboard compute_my_targets_except_king(const Position& pos) {
 }
 
 template<Color US>
-Bitboard compute_enemy_attackers(const Position& pos, const Square sq) {
-  constexpr Color enemyColor = opposite_color<US>();
+Bitboard compute_attackers(const Position& pos, const Square sq) {
+  constexpr Color THEM = opposite_color<US>();
 
-  const Bitboard enemyRooks = pos.pieceBitboards_[coloredPiece<enemyColor, Piece::ROOK>()] | pos.pieceBitboards_[coloredPiece<enemyColor, Piece::QUEEN>()];
-  const Bitboard enemyBishops = pos.pieceBitboards_[coloredPiece<enemyColor, Piece::BISHOP>()] | pos.pieceBitboards_[coloredPiece<enemyColor, Piece::QUEEN>()];
+  const Bitboard ourRooks = pos.pieceBitboards_[coloredPiece<US, Piece::ROOK>()] | pos.pieceBitboards_[coloredPiece<US, Piece::QUEEN>()];
+  const Bitboard ourBishops = pos.pieceBitboards_[coloredPiece<US, Piece::BISHOP>()] | pos.pieceBitboards_[coloredPiece<US, Piece::QUEEN>()];
 
   const Location loc = square2location(sq);
-  const Bitboard enemies = pos.colorBitboards_[opposite_color<US>()];
-  const Bitboard friends = pos.colorBitboards_[US] & ~loc;
+  const Bitboard enemies = pos.colorBitboards_[US];
+  const Bitboard friends = pos.colorBitboards_[THEM] & ~loc;
 
   const Bitboard file = kFiles[sq % 8];
   const Bitboard rank = kRanks[sq / 8];
 
   Bitboard attackers = kEmptyBitboard;
-  attackers |= (kKnightMoves[sq] & pos.pieceBitboards_[coloredPiece<enemyColor, Piece::KNIGHT>()]);
-  attackers |= (kKingMoves[sq] & pos.pieceBitboards_[coloredPiece<enemyColor, Piece::KING>()]);
+  attackers |= (kKnightMoves[sq] & pos.pieceBitboards_[coloredPiece<US, Piece::KNIGHT>()]);
+  attackers |= (kKingMoves[sq] & pos.pieceBitboards_[coloredPiece<US, Piece::KING>()]);
 
-  attackers |= compute_enemy_pawn_attackers<US>(pos, loc);
+  attackers |= compute_pawn_attackers<US>(pos, loc);
 
   {  // Compute east/west moves.
     const uint8_t y = sq / 8;
@@ -81,7 +81,7 @@ Bitboard compute_enemy_attackers(const Position& pos, const Square sq) {
     uint8_t occ = (enemies | friends) >> rankShift;
     uint8_t toByte = sliding_moves(fromByte, occ);
     Bitboard to = Bitboard(toByte) << rankShift;
-    attackers |= (to & enemyRooks);
+    attackers |= (to & ourRooks);
   }
 
   {  // North/south attackers
@@ -91,20 +91,20 @@ Bitboard compute_enemy_attackers(const Position& pos, const Square sq) {
     uint8_t occ = (((((enemies | friends) & file) << columnShift) & kFiles[7]) * kRookMagic) >> 56;
     uint8_t toByte = sliding_moves(fromByte, occ);
     Bitboard to = (((Bitboard(toByte & 254) * kRookMagic) & kFiles[0]) | (toByte & 1)) << x;
-    attackers |= (to & enemyRooks);
+    attackers |= (to & ourRooks);
   }
 
   {  // Southeast/Northwest diagonal.
     uint8_t occ = diag::southeast_diag_to_byte(sq, enemies | friends);
     uint8_t fromByte = diag::southeast_diag_to_byte(sq, loc);
     Bitboard to = diag::byte_to_southeast_diag(sq, sliding_moves(fromByte, occ));
-    attackers |= (to & enemyBishops);
+    attackers |= (to & ourBishops);
   }
   {  // Southwest/Northeast diagonal.
     uint8_t occ = diag::southwest_diag_to_byte(sq, enemies | friends);
     uint8_t fromByte = diag::southwest_diag_to_byte(sq, loc);
     Bitboard to = diag::byte_to_southwest_diag(sq, sliding_moves(fromByte, occ));
-    attackers |= (to & enemyBishops);
+    attackers |= (to & ourBishops);
   }
 
   return attackers;
@@ -175,7 +175,7 @@ ExtMove* compute_moves(const Position& pos, ExtMove *moves) {
     return moves;
   }
   const Square ourKing = lsb(ourKings);
-  Bitboard checkers = compute_enemy_attackers<US>(pos, ourKing);
+  Bitboard checkers = compute_attackers<enemyColor>(pos, ourKing);
   const PinMasks pm = compute_pin_masks<US>(pos);
 
   const unsigned numCheckers = std::popcount(checkers);
