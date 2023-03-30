@@ -602,7 +602,7 @@ SearchResult<TURN> search(
   }
 
   it = gCache.find(pos->hash_);  // Need to re-search since the iterator may have changed when searching my children.
-  if (it == gCache.end() || depth > it->second.depth) {
+  if (it == gCache.end()) {
     const CacheResult cr = CacheResult{
       depth,
       r.score,
