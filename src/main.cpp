@@ -606,7 +606,7 @@ SearchResult<TURN> search(
     r.move = kNullMove;
   }
 
-  if (initialGap > 1) {
+  {
     const CacheResult cr = CacheResult{
       depth,
       r.score,
