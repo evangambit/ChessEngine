@@ -483,6 +483,10 @@ std::string EFSTR[] = {
   "CLOSED_1",
   "CLOSED_2",
   "CLOSED_3",
+  "NUM_BAD_SQUARES_FOR_PAWNS",
+  "NUM_BAD_SQUARES_FOR_MINORS",
+  "NUM_BAD_SQUARES_FOR_ROOKS",
+  "NUM_BAD_SQUARES_FOR_QUEENS",
 };
 
 // captures = difference in values divided by 2
