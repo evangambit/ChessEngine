@@ -161,89 +161,89 @@ constexpr Bitboard kWhiteQueenCorner = bb(Square::A1) | bb(Square::A2) | bb(Squa
 constexpr Bitboard kBlackKingCorner = bb(Square::H8) | bb(Square::H7) | bb(Square::G8) | bb(Square::G7) | bb(Square::F8);
 constexpr Bitboard kBlackQueenCorner = bb(Square::A8) | bb(Square::A7) | bb(Square::B8) | bb(Square::B7) | bb(Square::C8);
 
-const int32_t kEarlyB0 = 4;
+const int32_t kEarlyB0 = 7;
 const int32_t kEarlyW0[EF::NUM_EVAL_FEATURES] = {
-  17, 204, 202, 189, 552, -35,
--188,-181,-170,-499,-182,  14,
- -24,   3, -18,  -3, -27,  26,
-  -3,   6,  -2,  -1,  12,  18,
- -11,   6, -16,  42,   3,   7,
-  12,  33,  -7,   8,   1,  11,
-  30,   3,  12,  19,  13,   4,
-  17,   8, -25, -18, -42, -15,
-   7,  24,  24, -70, 108,   0,
-   0,   0,   4,  18,  10,  -1,
-   3,  -3, -27,  50,  17,  12,
-  17,   0,-143, -76,   0,   0,
-   0,   0,   0,  68, -47,  -2,
-   2,   1,   7,   0,   0,   3,
-   2,   0,   1,   1,  -3,   2,
-   9,  -2,   1, -21, -22,   4,
- -17,  17,   4, -10,   6, -43,
--134, -13,   0,   1,  -1,   1,
+  20, 215, 217, 202, 430, -40,
+-198,-197,-182,-371,-244,  12,
+ -24,   4, -20,  -4, -30,  27,
+  -3,   6,  -5,  -1,  13,  -7,
+  -8,   6, -19,  38,   3,   7,
+  14,  30,  -7,   9,   0,  14,
+  49,   9,  12,  22,  12,   4,
+  18,   8, -26, -18, -43,  -6,
+   9,  20,  26, -64, -48,  -2,
+  -6,  -1,   5,   0,   4,  -2,
+  -4,   2,  20,  46,  19,  17,
+  17,   0,-118, -75,   0,   1,
+   0,   1,   1,  68, -48,   0,
+   1,   0,   8,  -1,   0,   4,
+   1,   0,   1,   1,  -6,   1,
+  10,  -2,   5, -30, -25,  -6,
+ -16,  19,  21,  92, -30, 129,
+-184, -14,   0,   1,  -1,   1,
 };
-const int32_t kLateB0 = -7;
+const int32_t kLateB0 = 5;
 const int32_t kLateW0[EF::NUM_EVAL_FEATURES] = {
-  55, 161, 148, 311, 779, -55,
--145,-137,-301,-708,  28, -39,
-  15,  -4,   5,   1,  19, -21,
-  -3, -13,  -2,  -7, -15,-111,
-  43,  18, -24,  -9,   3,   6,
-  -8,  30,  -4,  -4,  33,   8,
- -15,   2,  10,  -6,  10,  10,
-  -6, -28, -28, -48,  -6,  17,
-  17,  30,  38,  -6, 201, 629,
- 114,   0,   0, 277,2355, 156,
- 727, -66, 295,  18,  -3,   6,
-   2,   0,  62,  49,   0,   0,
-   0,   0,   0,  25, -11,-919,
-   5,   5,  -3,   0,   1,  -1,
-  -6,   4,   2,   4,   0,   3,
-  -1,   5, -26, -30, -33,  -1,
- -10,  19,  15, -37,   4,-157,
- -32,   6,   0,   0,  -1,   2,
+  54, 164, 156, 319, 644, -56,
+-148,-146,-309,-574,  46, -39,
+  17,  -6,   6,   1,  20, -23,
+  -3, -13,  -3,  -7, -15,-112,
+  42,  18, -26,  -8,   2,   6,
+  -6,  28,  -4,  -2,  35,   8,
+ -31,  -3,  12,   0,   9,  11,
+  -4, -27, -29, -46,  -6,  25,
+  16,  27,  37,   0,  36, 580,
+ 157,   0,   1, 158,1744,   0,
+   0,   0, 299,  15,  -4,   4,
+   3,   1,  57,  53,   0,   0,
+   0,   0,   0,  21,  -7,-894,
+   5,   5,  -2,   0,   1,  -1,
+  -6,   4,   3,   4,   1,   3,
+  -1,  10, -25, -38, -38,  -4,
+  11,  14,  23,  89, -20,  18,
+-153,   4,   0,   0,  -1,   2,
 };
-const int32_t kClippedB0 = -7;
+const int32_t kClippedB0 = -5;
 const int32_t kClippedW0[EF::NUM_EVAL_FEATURES] = {
-  46, 169, 165, 266, 102, -43,
--166,-166,-264, -98,-937,  -5,
-   2,  24,  -3,  -1,   2,  -3,
-  -3,  -4,  -8,  -1,   3,  65,
-  13,  10,   9,  -1,   2,   3,
-   7,  10,  -2,  11,  -8,   7,
-  21,   2,  11,  10,   7,   3,
-   4, -18, -16,  -9, -15,   7,
-  23,  67,  67, 268,-138, 980,
- 225,   0,   0,1634,1103, 781,
-3459, 232,-114,   2,  -2,  10,
-   5,  -1,  -1,  15,   0,   0,
-   0,   0,   0,  48, -13,-1146,
-   8,   5,   2,   0,   2,   3,
-   2,   2,   0,   0,   0,   3,
-   1,  -4,  -8,  -1,   0,  -6,
-  26,  16, 144, 256, 212, 519,
-  35,  -6,   0,   0,   0,   0,
+  42, 148, 140, 227, 451, -37,
+-148,-143,-227,-458,-1268,  -6,
+   2,  23,  -2,  -1,   1,   0,
+  -2,  -4,  -8,  -1,   2,  65,
+  13,  10,   9,  -1,   2,   4,
+   5,  11,  -3,  10,  -7,   6,
+   3,   4,  11,   5,   5,   2,
+   4, -18, -16, -10, -13,  -9,
+  20,  63,  48, 208,1519, 363,
+  35,   0,   0,1601,1708,   0,
+   0,   0,-113,   6,  -1,   7,
+   5,  -1,   2,   9,   0,   0,
+   0,   0,   0,  46, -13,-600,
+   6,   4,   2,   0,   2,   2,
+   4,   2,  -1,   0,   1,   4,
+   1,  -4, -12,   9,   4,   2,
+  28,  18, 122, -44, 533,-574,
+2720,  -5,   0,   0,   0,  -1,
 };
-const int32_t kLonelyKingB0 = -9;
+const int32_t kLonelyKingB0 = -4;
 const int32_t kLonelyKingW0[EF::NUM_EVAL_FEATURES] = {
-  37,  59,  96, 134, 177, -41,
- -67, -90,-147,-125,-2599,  33,
-  -4,   3,  -2,   3,  -9,  -3,
-  13, -20, -31, -12,   5, -28,
-  28,  10, 208, 125,  -8,  -8,
- -39,  13,  32,  92, -69, -11,
-  77,   8,   6, 103,  26,  -4,
- -44, -28, -13,  29, -53,  98,
-  18,  83,  89, 181, 102,-673,
--121,   0,   2,-326,-2319, -64,
--987, 179,  73,  -2,  10,  22,
-  -4,-138, -19,   8,   0,   0,
-   0,   0,   0,-197, 179, 970,
- -25, -27,   7,   0,   1,   0,
- -11,   1,  -4,  -7,  -6,   2,
- -12,-213,  -5, -68,  23,-778,
--267, -18,-140, -42, 391,  29,
-  17,   1,   0,   0,  -1,   5,
+  33,  54,  99, 149, 100, -36,
+ -68, -93,-166, -62,-2629,  35,
+  -1,  -4,   0,   2,   4, -10,
+  12, -14, -30, -13,   6, -28,
+  29,  12, 145,  59,  -9, -14,
+ -44,   3,  24,  89, -78, -27,
+-174,   6, -15,  66,  19,  -6,
+ -47, -24,  -9,  24, -51, -36,
+  17,  44,  68, 180,  94,-591,
+-145,   0,   2,-205,-1854,   0,
+   0,   0,  70,  -1,  12,  18,
+  -4, -26, -15,  18,   0,   0,
+   0,   0,   0,-121, 118, 928,
+ -19, -26,   5,   0,   2,  -1,
+  -5,   2,  -5,  -8,  -5,   5,
+ -11,-488,  10, -51,  40,-196,
+-382,   7, -51,  22, 463,1107,
+  -1, -13,   0,   1,  -3,   4,
 };
 
 template<Color US>
@@ -267,9 +267,26 @@ struct Threats {
   Bitboard theirTargets;
   Bitboard theirDoubleTargets;
 
+  // TODO: use these.
+  Bitboard badForOurPawns;
+  Bitboard badForOurMinors;
+  Bitboard badForOurRooks;
+  Bitboard badForOurQueen;
+
+  Bitboard badForTheirPawns;
+  Bitboard badForTheirMinors;
+  Bitboard badForTheirRooks;
+  Bitboard badForTheirQueen;
+
   // TODO: bishops can attack one square through our own pawns.
   Threats(const Position& pos) {
     constexpr Color THEM = opposite_color<US>();
+    constexpr ColoredPiece cp = coloredPiece<US, Piece::PAWN>();
+    constexpr Direction kForward = (US == Color::WHITE ? Direction::NORTH : Direction::SOUTH);
+    constexpr Direction kForwardRight = (kForward == Direction::NORTH ? Direction::NORTH_EAST : Direction::SOUTH_WEST);
+    constexpr Direction kForwardLeft = (kForward == Direction::NORTH ? Direction::NORTH_WEST : Direction::SOUTH_EAST);
+    constexpr Direction kBackwardRight = (kForward == Direction::NORTH ? Direction::SOUTH_WEST : Direction::NORTH_EAST);
+    constexpr Direction kBackwardLeft = (kForward == Direction::NORTH ? Direction::SOUTH_EAST : Direction::NORTH_WEST);
 
     const Square ourKingSq = lsb(pos.pieceBitboards_[coloredPiece<US, Piece::KING>()]);
     const Square theirKingSq = lsb(pos.pieceBitboards_[coloredPiece<THEM, Piece::KING>()]);
@@ -281,8 +298,13 @@ struct Threats {
     const Bitboard ourBishoplikePieces = pos.pieceBitboards_[coloredPiece<US, Piece::BISHOP>()] | pos.pieceBitboards_[coloredPiece<US, Piece::QUEEN>()];
     const Bitboard theirBishoplikePieces = pos.pieceBitboards_[coloredPiece<THEM, Piece::BISHOP>()] | pos.pieceBitboards_[coloredPiece<THEM, Piece::QUEEN>()];
 
-    this->ourPawnTargets = compute_pawn_targets<US>(pos);
-    this->theirPawnTargets = compute_pawn_targets<THEM>(pos);
+    Bitboard ourPawn1 = shift<kForwardRight>(pos.pieceBitboards_[coloredPiece<US, Piece::PAWN>()]);
+    Bitboard ourPawn2 = shift<kForwardLeft>(pos.pieceBitboards_[coloredPiece<US, Piece::PAWN>()]);
+    Bitboard theirPawn1 = shift<kBackwardRight>(pos.pieceBitboards_[coloredPiece<THEM, Piece::PAWN>()]);
+    Bitboard theirPawn2 = shift<kBackwardLeft>(pos.pieceBitboards_[coloredPiece<THEM, Piece::PAWN>()]);
+
+    this->ourPawnTargets = ourPawn1 | ourPawn2;
+    this->theirPawnTargets = theirPawn1 | theirPawn2;
     this->ourKnightTargets = compute_knight_targets<US>(pos);
     this->theirKnightTargets = compute_knight_targets<THEM>(pos);
     this->ourBishopTargets = compute_bishoplike_targets<US>(pos, pos.pieceBitboards_[coloredPiece<US, Piece::BISHOP>()], everyone & ~pos.pieceBitboards_[coloredPiece<US, Piece::BISHOP>()]);
@@ -294,13 +316,14 @@ struct Threats {
     this->ourKingTargets = compute_king_targets<US>(pos, ourKingSq);
     this->theirKingTargets = compute_king_targets<THEM>(pos, theirKingSq);
 
-    this->ourTargets = this->ourPawnTargets;
-    this->ourDoubleTargets = 0;
-    this->theirTargets = this->theirPawnTargets;
-    this->theirDoubleTargets = 0;
+    this->ourTargets = ourPawn1 | ourPawn2;
+    this->ourDoubleTargets = ourPawn1 & ourPawn2;
+    this->theirTargets = theirPawn1 | theirPawn2;
+    this->theirDoubleTargets = theirPawn1 & theirPawn2;
     { // Compute the above four variables.
       // Note: "ourDoubleTargets" and "theirDoubleTargets" are approximations, since
-      // they ignore the possibility that two of the same piece can attack a square.
+      // they ignore the possibility that two of the same piece can attack a square
+      // (except for pawn double-attacks).
       this->ourDoubleTargets |= this->ourTargets & this->ourKnightTargets;
       this->ourTargets |= this->ourKnightTargets;
       this->theirDoubleTargets |= this->theirTargets & this->theirKnightTargets;
@@ -326,6 +349,22 @@ struct Threats {
       this->theirDoubleTargets |= this->theirTargets & this->theirKingTargets;
       this->theirTargets |= this->theirKingTargets;
     }
+
+    const Bitboard badForAllOfUs = this->theirTargets & ~this->ourTargets;
+    const Bitboard badForAllOfThem = this->ourTargets & ~this->theirTargets;
+
+    const Bitboard theirMinorTargets = this->theirKnightTargets | this->theirBishopTargets;
+    const Bitboard ourMinorTargets = this->ourKnightTargets | this->ourBishopTargets;
+
+    this->badForOurPawns  = badForAllOfUs | (this->theirDoubleTargets & ~this->ourDoubleTargets & this->theirPawnTargets);
+    this->badForOurMinors = badForAllOfUs | this->theirPawnTargets | (this->theirDoubleTargets & ~this->ourDoubleTargets & theirMinorTargets);
+    this->badForOurRooks  = badForAllOfUs | this->theirPawnTargets | theirMinorTargets | (this->theirDoubleTargets & ~this->ourDoubleTargets & this->theirRookTargets);
+    this->badForOurQueen  = badForAllOfUs | this->theirPawnTargets | theirMinorTargets | this->theirRookTargets | (this->theirDoubleTargets & ~this->ourDoubleTargets & this->theirQueenTargets);
+
+    this->badForTheirPawns  = badForAllOfThem | (this->ourDoubleTargets & ~this->theirDoubleTargets & this->ourPawnTargets);
+    this->badForTheirMinors = badForAllOfThem | this->ourPawnTargets | (this->ourDoubleTargets & ~this->theirDoubleTargets & ourMinorTargets);
+    this->badForTheirRooks  = badForAllOfThem | this->ourPawnTargets | ourMinorTargets | (this->ourDoubleTargets & ~this->theirDoubleTargets & this->ourRookTargets);
+    this->badForTheirQueen  = badForAllOfThem | this->ourPawnTargets | ourMinorTargets | this->ourRookTargets | (this->ourDoubleTargets & ~this->theirDoubleTargets & this->ourQueenTargets);
   }
 };
 

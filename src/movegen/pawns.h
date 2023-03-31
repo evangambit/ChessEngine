@@ -20,7 +20,6 @@ template<Color US>
 Bitboard compute_pawn_targets(const Position& pos) {
   constexpr ColoredPiece cp = coloredPiece<US, Piece::PAWN>();
   constexpr Direction FORWARD = (US == Color::WHITE ? Direction::NORTH : Direction::SOUTH);
-
   constexpr Direction CAPTURE_NE = (FORWARD == Direction::NORTH ? Direction::NORTH_EAST : Direction::SOUTH_WEST);
   constexpr Direction CAPTURE_NW = (FORWARD == Direction::NORTH ? Direction::NORTH_WEST : Direction::SOUTH_EAST);
   const Bitboard pawns = pos.pieceBitboards_[cp];
