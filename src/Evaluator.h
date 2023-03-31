@@ -268,15 +268,8 @@ struct Threats {
   Bitboard theirDoubleTargets;
 
   // TODO: use these.
-  Bitboard badForOurPawns;
-  Bitboard badForOurMinors;
-  Bitboard badForOurRooks;
-  Bitboard badForOurQueen;
-
-  Bitboard badForTheirPawns;
-  Bitboard badForTheirMinors;
-  Bitboard badForTheirRooks;
-  Bitboard badForTheirQueen;
+  Bitboard badForOur[7];
+  Bitboard badForTheir[7];
 
   // TODO: bishops can attack one square through our own pawns.
   Threats(const Position& pos) {
@@ -356,15 +349,19 @@ struct Threats {
     const Bitboard theirMinorTargets = this->theirKnightTargets | this->theirBishopTargets;
     const Bitboard ourMinorTargets = this->ourKnightTargets | this->ourBishopTargets;
 
-    this->badForOurPawns  = badForAllOfUs | (this->theirDoubleTargets & ~this->ourDoubleTargets & this->theirPawnTargets);
-    this->badForOurMinors = badForAllOfUs | this->theirPawnTargets | (this->theirDoubleTargets & ~this->ourDoubleTargets & theirMinorTargets);
-    this->badForOurRooks  = badForAllOfUs | this->theirPawnTargets | theirMinorTargets | (this->theirDoubleTargets & ~this->ourDoubleTargets & this->theirRookTargets);
-    this->badForOurQueen  = badForAllOfUs | this->theirPawnTargets | theirMinorTargets | this->theirRookTargets | (this->theirDoubleTargets & ~this->ourDoubleTargets & this->theirQueenTargets);
+    this->badForOur[Piece::PAWN]   = badForAllOfUs | (this->theirDoubleTargets & ~this->ourDoubleTargets & this->theirPawnTargets);
+    this->badForOur[Piece::KNIGHT] = badForAllOfUs | this->theirPawnTargets | (this->theirDoubleTargets & ~this->ourDoubleTargets & theirMinorTargets);
+    this->badForOur[Piece::BISHOP] = this->badForOur[Piece::KNIGHT];
+    this->badForOur[Piece::ROOK]   = badForAllOfUs | this->theirPawnTargets | theirMinorTargets | (this->theirDoubleTargets & ~this->ourDoubleTargets & this->theirRookTargets);
+    this->badForOur[Piece::QUEEN]  = badForAllOfUs | this->theirPawnTargets | theirMinorTargets | this->theirRookTargets | (this->theirDoubleTargets & ~this->ourDoubleTargets & this->theirQueenTargets);
+    this->badForOur[Piece::KING]   = this->theirTargets;
 
-    this->badForTheirPawns  = badForAllOfThem | (this->ourDoubleTargets & ~this->theirDoubleTargets & this->ourPawnTargets);
-    this->badForTheirMinors = badForAllOfThem | this->ourPawnTargets | (this->ourDoubleTargets & ~this->theirDoubleTargets & ourMinorTargets);
-    this->badForTheirRooks  = badForAllOfThem | this->ourPawnTargets | ourMinorTargets | (this->ourDoubleTargets & ~this->theirDoubleTargets & this->ourRookTargets);
-    this->badForTheirQueen  = badForAllOfThem | this->ourPawnTargets | ourMinorTargets | this->ourRookTargets | (this->ourDoubleTargets & ~this->theirDoubleTargets & this->ourQueenTargets);
+    this->badForTheir[Piece::PAWN]   = badForAllOfThem | (this->ourDoubleTargets & ~this->theirDoubleTargets & this->ourPawnTargets);
+    this->badForTheir[Piece::KNIGHT] = badForAllOfThem | this->ourPawnTargets | (this->ourDoubleTargets & ~this->theirDoubleTargets & ourMinorTargets);
+    this->badForTheir[Piece::BISHOP] = this->badForTheir[Piece::KNIGHT];
+    this->badForTheir[Piece::ROOK]   = badForAllOfThem | this->ourPawnTargets | ourMinorTargets | (this->ourDoubleTargets & ~this->theirDoubleTargets & this->ourRookTargets);
+    this->badForTheir[Piece::QUEEN]  = badForAllOfThem | this->ourPawnTargets | ourMinorTargets | this->ourRookTargets | (this->ourDoubleTargets & ~this->theirDoubleTargets & this->ourQueenTargets);
+    this->badForTheir[Piece::KING]   = this->ourTargets;
   }
 };
 
@@ -486,13 +483,18 @@ struct Evaluator {
 
   template<Color US>
   Evaluation score(const Position& pos) {
+    assert(pos.pieceBitboards_[ColoredPiece::WHITE_KING] > 0);
+    assert(pos.pieceBitboards_[ColoredPiece::BLACK_KING] > 0);
+    Threats<US> threats(pos);
+    return this->score<US>(pos, threats);
+  }
+
+  template<Color US>
+  Evaluation score(const Position& pos, const Threats<US>& threats) {
     constexpr Color THEM = opposite_color<US>();
-    if (std::popcount(pos.pieceBitboards_[coloredPiece<US, Piece::KING>()]) == 0) {
-      return kMinEval;
-    }
-    if (std::popcount(pos.pieceBitboards_[coloredPiece<THEM, Piece::KING>()]) == 0) {
-      return kMaxEval;
-    }
+
+    assert(pos.pieceBitboards_[ColoredPiece::WHITE_KING] > 0);
+    assert(pos.pieceBitboards_[ColoredPiece::BLACK_KING] > 0);
 
     const Square ourKingSq = lsb(pos.pieceBitboards_[coloredPiece<US, Piece::KING>()]);
     const Square theirKingSq = lsb(pos.pieceBitboards_[coloredPiece<THEM, Piece::KING>()]);
@@ -538,8 +540,6 @@ struct Evaluator {
     const Bitboard theirRooklikePieces = theirRooks | theirQueens;
     const Bitboard ourBishoplikePieces = ourBishops | ourQueens;
     const Bitboard theirBishoplikePieces = theirBishops | theirQueens;
-
-    Threats<US> threats(pos);
 
     constexpr Bitboard kOurSide = (US == Color::WHITE ? kWhiteSide : kBlackSide);
     constexpr Bitboard kTheirSide = (US == Color::WHITE ? kBlackSide : kWhiteSide);
@@ -793,7 +793,6 @@ struct Evaluator {
       const Bitboard inFrontOfPawn = shift<kForward>(ourPawns);
       const Bitboard keySquares = fatten(shift<kForward>(inFrontOfPawn & ~kRookFiles));
       const Bitboard inFront = (US == Color::WHITE ? (ourPawns - 1) : ~(ourPawns - 1));
-      const Square promoSq = Square(US == Color::WHITE ? lsb(ourPawns) % 8 : lsb(ourPawns) % 8 + 56);
 
       features[EF::KPVK_IN_FRONT_OF_PAWN] += value_or_zero(isKPVK, (ourKings & inFront) > 0);
       features[EF::KPVK_OFFENSIVE_KEY_SQUARES] += value_or_zero(isKPVK, (ourKings & keySquares) > 0);
@@ -805,7 +804,6 @@ struct Evaluator {
       const Bitboard inFrontOfPawn = shift<kBackward>(theirPawns);
       const Bitboard keySquares = fatten(shift<kBackward>(inFrontOfPawn & ~kRookFiles));
       const Bitboard inFront = (US == Color::WHITE ? ~(theirPawns - 1) : (theirPawns - 1));
-      const Square promoSq = Square(US == Color::WHITE ? lsb(theirPawns) % 8 + 56 : lsb(theirPawns) % 8);
 
       features[EF::KPVK_IN_FRONT_OF_PAWN] -= value_or_zero(isKPVK, (theirKings & inFront) > 0);
       features[EF::KPVK_OFFENSIVE_KEY_SQUARES] -= value_or_zero(isKPVK, (theirKings & keySquares) > 0);

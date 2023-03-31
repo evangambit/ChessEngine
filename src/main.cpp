@@ -319,7 +319,8 @@ SearchResult<TURN> qsearch(Position *pos, int32_t depth, Evaluation alpha, Evalu
   }
 
   // If we can stand pat for a beta cutoff, or if we have no moves, return.
-  SearchResult<TURN> r(gEvaluator.score<TURN>(*pos), kNullMove);
+  Threats<TURN> threats(*pos);
+  SearchResult<TURN> r(gEvaluator.score<TURN>(*pos, threats), kNullMove);
   if (moves == end || r.score >= beta) {
     return r;
   }
@@ -333,7 +334,8 @@ SearchResult<TURN> qsearch(Position *pos, int32_t depth, Evaluation alpha, Evalu
 
   for (ExtMove *move = moves; move < end; ++move) {
     move->score = kQSimplePieceValues[move->capture];
-    move->score -= value_or_zero((theirTargets & bb(move->move.to)) > 0, kQSimplePieceValues[move->piece]);
+    move->score -= value_or_zero(((threats.badForOur[move->piece] & bb(move->move.to)) > 0) && ~((threats.badForOur[move->piece] & bb(move->move.from)) > 0), kQSimplePieceValues[move->piece]);
+    move->score += (move->capture != Piece::NO_PIECE) * 1000;
   }
 
   std::sort(moves, end, [](ExtMove a, ExtMove b) {
