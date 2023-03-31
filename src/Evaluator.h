@@ -186,7 +186,7 @@ const int32_t kEarlyW0[EF::NUM_EVAL_FEATURES] = {
   10,  -2,   5, -30, -25,  -6,
  -16,  19,  21,  92, -30, 129,
 -184, -14,   0,   1,  -1,   1,
-  -1,  -1,  -1,  -1
+  -1,  -1,  -1,  -1,
 };
 const int32_t kLateB0 = 5;
 const int32_t kLateW0[EF::NUM_EVAL_FEATURES] = {
