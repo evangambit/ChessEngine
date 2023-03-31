@@ -978,15 +978,18 @@ struct Evaluator {
     const int bdist = std::max(std::abs(bx - px), std::abs(by - py));
 
 
-    // {
-    //   // Square rule
-    //   const int theirDistFromPromoSquare = std::max(std::abs(bx - px), by) - !yourMove;
-    //   if (theirDistFromPromoSquare > py) {
-    //     return 2;
-    //   }
-    // }
+    bool isWinning = false;
+    {  // Square rule
+      const int theirDistFromPromoSquare = std::max(std::abs(bx - px), by) - !yourMove;
+      isWinning |= theirDistFromPromoSquare > py;
+    }
 
-    if (wy == py - 2 && std::abs(wx - px) == 1 && bdist + yourMove > 1) {
+    isWinning |= (wy == py - 2 && std::abs(wx - px) == 1 && bdist + yourMove > 1);
+
+    // Horizontally symmetric is a win for white.
+    isWinning |= (wx - px == px - bx && wy == by);
+
+    if (isWinning) {
       return 2;
     }
 
@@ -994,19 +997,13 @@ struct Evaluator {
     //   return 0;
     // }
 
-    // // Horizontally symmetric is a win for white.
-    if (wx - px == px - bx && wy == by) {
-      return 2;
-    }
+    bool isDrawn = false;
 
     // Black king in front of pawn.
-    if (bx == px && by == py - 1) {
-      return 0;
-    }
+    isDrawn |= (bx == px && by == py - 1);
 
-    if (by == py - 2 && by != 0) {
-      return 0;
-    }
+    // Black king two in front of pawn and not on back rank.
+    isDrawn |= (by == py - 2 && by != 0);
 
     // Distance Rule:
     //   1) Compute the distance between your king and your pawn
@@ -1014,18 +1011,12 @@ struct Evaluator {
     //   3) Subtract 1 from your distance if it's your turn
     //   4) Add 1 to your enemy's distance if they're in front of your pawn and on a diagonal with it.
     // If your distance is greater than your opponent's, then it's a draw.
-    if (wdist - yourMove > bdist + ((bx + by == wx + wy) || (bx - by == wx - wy))) {
-      return 0;
-    }
+    isDrawn |= (wdist - yourMove > bdist + ((bx + by == wx + wy) || (bx - by == wx - wy)));
 
     // No-zones when you're behind your pawn.
-    if (wy > py && py > by) {
-      if (std::abs(px - bx) - !yourMove <= wy - py) {
-        return 0;
-      }
-    }
+    isDrawn |= (wy > py && py > by) && (std::abs(px - bx) - !yourMove <= wy - py);
 
-    return 1;
+    return !isDrawn;
   }
 
   // template<Color US>
