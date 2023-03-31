@@ -485,36 +485,22 @@ SearchResult<TURN> search(
     }
   }
 
-  const Bitboard ourTargets = compute_my_targets<TURN>(*pos);
-  const Bitboard theirTargets = compute_my_targets<opposingColor>(*pos);
-  // const Bitboard theirHangingSquares = ourTargets & ~theirTargets;
-  const Bitboard ourHangingSquares = theirTargets & ~ourTargets;
-
   const Move lastMove = pos->history_.size() > 0 ? pos->history_.back().move : kNullMove;
 
   for (ExtMove *move = moves; move < end; ++move) {
     move->score = 0;
 
     const bool isCapture = (move->capture != Piece::NO_PIECE);
-    const bool areWeHanging = ((bb(move->move.from) & ourHangingSquares) > 0);
-    // const bool areTheyHanging = isCapture && ((bb(move->move.to) & theirHangingSquares) > 0);
-    const bool isDestinationSafe = ((bb(move->move.to) & ~theirTargets) > 0);
 
-    // Bonus for capturing a piece.  (+0.05)
+    // Bonus for capturing a piece.  (+0.136 ± 0.012)
     move->score += kMoveOrderPieceValues[move->capture];
 
-    // Subtract moving piece if we're moving to an unsafe square; we don't do this
-    // if we're already hanging (since we'd be captured anyway if we don't move). (+0.015)
-    move->score -= kMoveOrderPieceValues[value_or_zero<int16_t>(isCapture && (!areWeHanging && !isDestinationSafe), move->piece)];
-
-    // Massive bonus to send all capture to the front. (+0.10)
-    move->score += value_or_zero(isCapture, 1000);
-
+    // Bonus if it was the last-found best move.  (0.048 ± 0.014)
     move->score += value_or_zero((move->move == lastFoundBestMove) && (depth == 1), 5000);
     move->score += value_or_zero((move->move == lastFoundBestMove) && (depth == 2), 5000);
     move->score += value_or_zero((move->move == lastFoundBestMove) && (depth >= 3), 5000);
 
-    // Bonus if siblings like a move (0.01)
+    // Bonus if siblings like a move, though this seems statistically insignificant.
     move->score += value_or_zero(move->move == recommendedMoves.moves[0], 50);
     move->score += value_or_zero(move->move == recommendedMoves.moves[1], 50);
 
@@ -584,8 +570,8 @@ SearchResult<TURN> search(
     if (a.score > r.score) {
       r.score = a.score;
       r.move = extMove->move;
+      recommendationsForChildren.add(a.move);
       if (r.score >= beta) {
-        recommendationsForChildren.add(a.move);
         nodeType = NodeTypeCut_LowerBound;
         gHistoryHeuristicTable[TURN][r.move.from][r.move.to] += depth * depth;
         break;
