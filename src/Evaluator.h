@@ -153,6 +153,11 @@ enum EF {
   CLOSED_2,
   CLOSED_3,
 
+  NUM_BAD_SQUARES_FOR_PAWNS,
+  NUM_BAD_SQUARES_FOR_MINORS,
+  NUM_BAD_SQUARES_FOR_ROOKS,
+  NUM_BAD_SQUARES_FOR_QUEENS,
+
   NUM_EVAL_FEATURES,
 };
 
@@ -181,6 +186,7 @@ const int32_t kEarlyW0[EF::NUM_EVAL_FEATURES] = {
   10,  -2,   5, -30, -25,  -6,
  -16,  19,  21,  92, -30, 129,
 -184, -14,   0,   1,  -1,   1,
+  -1,  -1,  -1,  -1
 };
 const int32_t kLateB0 = 5;
 const int32_t kLateW0[EF::NUM_EVAL_FEATURES] = {
@@ -202,6 +208,7 @@ const int32_t kLateW0[EF::NUM_EVAL_FEATURES] = {
   -1,  10, -25, -38, -38,  -4,
   11,  14,  23,  89, -20,  18,
 -153,   4,   0,   0,  -1,   2,
+   0,   0,   0,   0,
 };
 const int32_t kClippedB0 = -5;
 const int32_t kClippedW0[EF::NUM_EVAL_FEATURES] = {
@@ -223,6 +230,7 @@ const int32_t kClippedW0[EF::NUM_EVAL_FEATURES] = {
    1,  -4, -12,   9,   4,   2,
   28,  18, 122, -44, 533,-574,
 2720,  -5,   0,   0,   0,  -1,
+   0,   0,   0,   0,
 };
 const int32_t kLonelyKingB0 = -4;
 const int32_t kLonelyKingW0[EF::NUM_EVAL_FEATURES] = {
@@ -244,6 +252,7 @@ const int32_t kLonelyKingW0[EF::NUM_EVAL_FEATURES] = {
  -11,-488,  10, -51,  40,-196,
 -382,   7, -51,  22, 463,1107,
   -1, -13,   0,   1,  -3,   4,
+   0,   0,   0,   0,
 };
 
 template<Color US>
@@ -899,6 +908,11 @@ struct Evaluator {
     } else {
       features[EF::KING_HOME_QUALITY] += blackPotentialHome - whitePotentialHome;
     }
+
+    features[EF::NUM_BAD_SQUARES_FOR_PAWNS] = std::popcount(threats.badForOur[Piece::PAWN] & kCenter16) - std::popcount(threats.badForTheir[Piece::PAWN] & kCenter16);
+    features[EF::NUM_BAD_SQUARES_FOR_MINORS] = std::popcount(threats.badForOur[Piece::KNIGHT] & kCenter16) - std::popcount(threats.badForTheir[Piece::KNIGHT] & kCenter16);
+    features[EF::NUM_BAD_SQUARES_FOR_ROOKS] = std::popcount(threats.badForOur[Piece::ROOK] & kCenter16) - std::popcount(threats.badForTheir[Piece::ROOK] & kCenter16);
+    features[EF::NUM_BAD_SQUARES_FOR_QUEENS] = std::popcount(threats.badForOur[Piece::QUEEN] & kCenter16) - std::popcount(threats.badForTheir[Piece::QUEEN] & kCenter16);
 
     const int16_t ourPiecesRemaining = std::popcount(pos.colorBitboards_[US] & ~ourPawns) + std::popcount(ourQueens) * 2 - 1;
     const int16_t theirPiecesRemaining = std::popcount(pos.colorBitboards_[THEM] & ~theirPawns) + std::popcount(theirQueens) * 2 - 1;
