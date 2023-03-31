@@ -405,9 +405,8 @@ SearchResult<TURN> search(
 
   if (depth <= 0) {
     ++gLeafCounter;
-    // return qsearch<TURN>(pos, 0, alpha, beta);
-    Evaluation e = gEvaluator.score<TURN>(*pos);
-    return SearchResult<TURN>(e, kNullMove);
+    // Quiescence Search (+0.47)
+    return qsearch<TURN>(pos, 0, alpha, beta);
   }
 
   if (pos->is_draw()) {
