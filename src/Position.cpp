@@ -53,20 +53,6 @@ std::string ExtMove::uci() const {
   return this->move.uci();
 }
 
-std::vector<std::string> split(const std::string& text, char delimiter) {
-  std::vector<std::string> r;
-  size_t pos = 0;
-  size_t i = -1;
-  while (++i < text.size()) {
-    if (text[i] == delimiter) {
-      r.push_back(text.substr(pos, i - pos));
-      pos = ++i;
-    }
-  }
-  r.push_back(text.substr(pos, text.size() - pos));
-  return r;
-}
-
 std::string join(const std::vector<std::string>& A, const std::string& delimiter) {
   std::string r = "";
   for (size_t i = 0; i < A.size(); ++i) {

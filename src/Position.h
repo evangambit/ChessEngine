@@ -14,8 +14,6 @@
 
 namespace ChessEngine {
 
-std::vector<std::string> split(const std::string& text, char delimiter);
-
 std::string join(const std::vector<std::string>& A, const std::string& delimiter);
 
 enum MoveType {

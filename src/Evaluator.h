@@ -3,8 +3,9 @@
 
 #include <cstdint>
 
-#include <string>
 #include <algorithm>
+#include <fstream>
+#include <string>
 
 #include "geometry.h"
 #include "utils.h"
@@ -166,8 +167,8 @@ constexpr Bitboard kWhiteQueenCorner = bb(Square::A1) | bb(Square::A2) | bb(Squa
 constexpr Bitboard kBlackKingCorner = bb(Square::H8) | bb(Square::H7) | bb(Square::G8) | bb(Square::G7) | bb(Square::F8);
 constexpr Bitboard kBlackQueenCorner = bb(Square::A8) | bb(Square::A7) | bb(Square::B8) | bb(Square::B7) | bb(Square::C8);
 
-const int32_t kEarlyB0 = 7;
-const int32_t kEarlyW0[EF::NUM_EVAL_FEATURES] = {
+int32_t kEarlyB0 = 7;
+int32_t kEarlyW0[EF::NUM_EVAL_FEATURES] = {
   20, 215, 217, 202, 430, -40,
 -198,-197,-182,-371,-244,  12,
  -24,   4, -20,  -4, -30,  27,
@@ -188,10 +189,10 @@ const int32_t kEarlyW0[EF::NUM_EVAL_FEATURES] = {
 -184, -14,   0,   1,  -1,   1,
   -1,  -1,  -1,  -1,
 };
-const int32_t kLateB0 = 5;
-const int32_t kLateW0[EF::NUM_EVAL_FEATURES] = {
-  54, 164, 156, 319, 709, -56,
--163,-161,-309,-574,  46, -39,
+int32_t kLateB0 = 5;
+int32_t kLateW0[EF::NUM_EVAL_FEATURES] = {
+  48, 164, 156, 319, 709, -56,
+-161,-161,-309,-574,  46, -39,
   17,  -6,   6,   1,  20, -23,
   -3, -13,  -3,  -7, -15,-112,
   42,  18, -30,  -8,   2,   3,
@@ -210,8 +211,8 @@ const int32_t kLateW0[EF::NUM_EVAL_FEATURES] = {
 -153,   4,   0,   0,  -1,   2,
    0,   0,   0,   0,
 };
-const int32_t kClippedB0 = -5;
-const int32_t kClippedW0[EF::NUM_EVAL_FEATURES] = {
+int32_t kClippedB0 = -5;
+int32_t kClippedW0[EF::NUM_EVAL_FEATURES] = {
   42, 148, 140, 227, 451, -37,
 -148,-143,-227,-504,-1268,  -6,
    2,  17,  0,  -1,   1,   0,
@@ -232,8 +233,8 @@ const int32_t kClippedW0[EF::NUM_EVAL_FEATURES] = {
 2720,  -5,   0,   0,   0,  -1,
    0,   0,   0,   0,
 };
-const int32_t kLonelyKingB0 = -4;
-const int32_t kLonelyKingW0[EF::NUM_EVAL_FEATURES] = {
+int32_t kLonelyKingB0 = -4;
+int32_t kLonelyKingW0[EF::NUM_EVAL_FEATURES] = {
   33,  54,  99, 149, 100, -36,
  -68, -93,-166, -62,-2629,  35,
   -1,  -4,   0,   2,   4, -10,
@@ -254,6 +255,96 @@ const int32_t kLonelyKingW0[EF::NUM_EVAL_FEATURES] = {
   -1, -13,   0,   1,  -3,   4,
    0,   0,   0,   0,
 };
+
+void save_weights_to_file(const std::string& filename) {
+  std::ofstream myfile;
+  myfile.open(filename);
+  if (!myfile.is_open()) {
+    std::cout << "Error opening file \"" << filename << "\"" << std::endl;
+    exit(0);
+  }
+
+  myfile << kEarlyB0;
+  for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
+    myfile << " " << kEarlyW0[i];
+  }
+  myfile << std::endl;
+
+  myfile << kLateB0;
+  for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
+    myfile << " " << kLateW0[i];
+  }
+  myfile << std::endl;
+
+  myfile << kClippedB0;
+  for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
+    myfile << " " << kClippedW0[i];
+  }
+  myfile << std::endl;
+
+  myfile << kLonelyKingB0;
+  for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
+    myfile << " " << kLonelyKingW0[i];
+  }
+  myfile << std::endl;
+
+  myfile.close();
+}
+
+void load_weights_from_file(const std::string& filename) {
+  std::ifstream myfile;
+  myfile.open(filename);
+  if (!myfile.is_open()) {
+    std::cout << "Error opening file \"" << filename << "\"" << std::endl;
+    exit(0);
+  }
+
+  std::string line;
+  std::vector<std::string> params;
+
+  getline(myfile, line);
+  params = split(line, ' ');
+  if (params.size() != EF::NUM_EVAL_FEATURES + 1) {
+    throw std::runtime_error("Invalid weights file");
+  }
+  kEarlyB0 = stoi(params[0]);
+  for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
+    kEarlyW0[i] = stoi(params[i + 1]);
+  }
+
+  getline(myfile, line);
+  params = split(line, ' ');
+  if (params.size() != EF::NUM_EVAL_FEATURES + 1) {
+    throw std::runtime_error("Invalid weights file");
+  }
+  kLateB0 = stoi(params[0]);
+  for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
+    kLateW0[i] = stoi(params[i + 1]);
+  }
+
+  getline(myfile, line);
+  params = split(line, ' ');
+  if (params.size() != EF::NUM_EVAL_FEATURES + 1) {
+    throw std::runtime_error("Invalid weights file");
+  }
+  kClippedB0 = stoi(params[0]);
+  for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
+    kClippedW0[i] = stoi(params[i + 1]);
+  }
+
+  getline(myfile, line);
+  params = split(line, ' ');
+  if (params.size() != EF::NUM_EVAL_FEATURES + 1) {
+    throw std::runtime_error("Invalid weights file");
+  }
+  kLonelyKingB0 = stoi(params[0]);
+  for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
+    kLonelyKingW0[i] = stoi(params[i + 1]);
+  }
+
+
+  myfile.close();
+}
 
 template<Color US>
 struct Threats {

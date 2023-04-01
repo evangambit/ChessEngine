@@ -1,10 +1,11 @@
 #ifndef UTILS_H
 #define UTILS_H
 
-#include <iostream>
 #include <cassert>
 #include <cstdint>
 
+#include <iostream>
+#include <vector>
 
 namespace ChessEngine {
 
@@ -136,6 +137,8 @@ ColoredPiece char_to_colored_piece(char c);
 char colored_piece_to_char(ColoredPiece cp);
 
 char piece_to_char(Piece piece);
+
+std::vector<std::string> split(const std::string& text, char delimiter);
 
 }  // namespace ChessEngine
 

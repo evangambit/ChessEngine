@@ -71,4 +71,18 @@ char piece_to_char(Piece piece) {
   return r == 0 ? '?' : r;
 }
 
+std::vector<std::string> split(const std::string& text, char delimiter) {
+  std::vector<std::string> r;
+  size_t pos = 0;
+  size_t i = -1;
+  while (++i < text.size()) {
+    if (text[i] == delimiter) {
+      r.push_back(text.substr(pos, i - pos));
+      pos = ++i;
+    }
+  }
+  r.push_back(text.substr(pos, text.size() - pos));
+  return r;
+}
+
 }  // namespace ChessEngine
