@@ -8,8 +8,11 @@ import numpy as np
 from scipy import stats
 from multiprocessing import Pool
 
+from simple_stockfish import Stockfish
+
 def f(player, fen, moves):
-	command = [player, "mode", "analyze", "nodes", "20000", "fen", *fen.split(' '), "moves", *moves]
+	command = [player, "mode", "analyze", "nodes", "10000", "fen", *fen.split(' '), "moves", *moves]
+	# command = [player, "mode", "analyze", "time", "5", "fen", *fen.split(' '), "moves", *moves]
 	stdout = subprocess.check_output(command).decode()
 	matches = re.findall(r"\d+ : [^ ]+", stdout)
 	try:
@@ -21,6 +24,7 @@ def f(player, fen, moves):
 		raise e
 
 def play(fen0, player1, player2):
+	isPlayer1White = ' w ' in fen0
 	board = chess.Board(fen0)
 	moves = []
 	mover, waiter = player1, player2
@@ -56,8 +60,7 @@ def play(fen0, player1, player2):
 			return 0.5
 		else:
 			return -0.5
-	else:
-		return 0
+	return 0
 
 
 def play_random(board, n):
@@ -68,24 +71,23 @@ def play_random(board, n):
 	return play_random(board, n - 1)
 
 def thread_main(fen):
-	r = [
-		play(fen, sys.argv[1], sys.argv[2]),
-		-play(fen, sys.argv[2], sys.argv[1]),
-	]
-	return r
+	return (play(fen, sys.argv[1], sys.argv[2]) - play(fen, sys.argv[2], sys.argv[1])) / 2.0
 
 if __name__ == '__main__':
 	t0 = time.time()
-	fens = [play_random(chess.Board(), 4) for _ in range(50)]
+	fens = [play_random(chess.Board(), 4) for _ in range(200)]
 	with Pool(2) as p:
 		r = p.map(thread_main, fens)
 	r = np.array(r, dtype=np.float64).reshape(-1)
 
-	t = r.mean() / (r.std(ddof=1) / np.sqrt(r.shape[0]))
+	stderr = r.std(ddof=1) / np.sqrt(r.shape[0])
+	avg = r.mean()
 
-	t1 = time.time()
+	dt = time.time() - t0
+	if dt < 60:
+		print('%.1f secs' % dt)
+	else:
+		print('%.1f min' % (dt / 60.0))
+	print('%.3f ± %.3f' % (avg, stderr))
+	print(stats.norm.cdf(avg / stderr))
 
-	print((t1 - t0) / 60.0, 'min')
-	print(r)
-	print(int(r.sum()), r.shape[0])
-	print(stats.t.cdf(t, 1))
