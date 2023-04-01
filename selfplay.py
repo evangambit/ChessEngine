@@ -1,3 +1,14 @@
+"""
+To compare weights:
+
+python3 selfplay ./a.out new_weights.txt ./a.out old_weights.txt
+
+To compare different binaries
+
+python3 selfplay ./a.out None ./a.out None
+
+"""
+
 import random
 import re
 import subprocess
@@ -11,7 +22,10 @@ from multiprocessing import Pool
 from simple_stockfish import Stockfish
 
 def f(player, fen, moves):
-	command = [player, "mode", "analyze", "nodes", "10000", "fen", *fen.split(' '), "moves", *moves]
+	if player[1] == 'None':
+		command = [player[0], "mode", "analyze", "nodes", "10000", "fen", *fen.split(' '), "moves", *moves]
+	else:
+		command = [player[0], "loadweights", player[1], "mode", "analyze", "nodes", "10000", "fen", *fen.split(' '), "moves", *moves]
 	# command = [player, "mode", "analyze", "time", "5", "fen", *fen.split(' '), "moves", *moves]
 	stdout = subprocess.check_output(command).decode()
 	matches = re.findall(r"\d+ : [^ ]+", stdout)
@@ -71,7 +85,8 @@ def play_random(board, n):
 	return play_random(board, n - 1)
 
 def thread_main(fen):
-	return (play(fen, sys.argv[1], sys.argv[2]) - play(fen, sys.argv[2], sys.argv[1])) / 2.0
+	player1, player2 = (sys.argv[1], sys.argv[2]), (sys.argv[3], sys.argv[4])
+	return (play(fen, player1, player2) - play(fen, player2, player1)) / 2.0
 
 if __name__ == '__main__':
 	t0 = time.time()

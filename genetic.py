@@ -5,15 +5,20 @@ Running 20 iterations on just material weight gave us 0.072 ± 0.019!
 # TODO: PCA on variables before mutating?
 """
 
-import subprocess
+import argparse
 import os
 import random
 import re
+import subprocess
+import time
+
+from multiprocessing import Pool
 
 import chess
 import numpy as np
 
 varnames = [
+  "BIAS",
   "OUR_PAWNS",
   "OUR_KNIGHTS",
   "OUR_BISHOPS",
@@ -242,9 +247,8 @@ def play_random(board, n):
   board.push(move)
   return play_random(board, n - 1)
 
-def analyze(player, fen, moves):
-  command = [player, "mode", "analyze", "nodes", "10000", "fen", *fen.split(' '), "moves", *moves]
-  # command = [player, "mode", "analyze", "time", "10", "fen", *fen.split(' '), "moves", *moves]
+def analyze(weights_filename, fen, moves):
+  command = ["./a.out", "loadweights", weights_filename, "mode", "analyze", "nodes", "10000", "fen", *fen.split(' '), "moves", *moves]
   stdout = subprocess.check_output(command).decode()
   matches = re.findall(r"\d+ : [^ ]+", stdout)
   try:
@@ -255,10 +259,10 @@ def analyze(player, fen, moves):
     print(stdout)
     raise e
 
-def play(fen0, player1, player2):
+def play(fen0, weights_filename1, weights_filename2):
   board = chess.Board(fen0)
   moves = []
-  mover, waiter = player1, player2
+  mover, waiter = weights_filename1, weights_filename2
   while not board.can_claim_draw() and not board.is_stalemate() and not board.is_checkmate():
     move, cmd = analyze(mover, fen0, moves)
     moves.append(move)
@@ -278,7 +282,7 @@ def play(fen0, player1, player2):
       break
 
   if board.is_checkmate():
-    if waiter == player1:
+    if waiter == weights_filename1:
       return 1
     else:
       return -1
@@ -291,59 +295,71 @@ def moves2fen(*moves):
     b.push_uci(move)
   return b.fen()
 
+def load_weights(fn):
+  with open(fn, 'r') as f:
+    weights = [float(x) for x in re.split(r'\s+', f.read()) if len(x.strip()) > 0]
+  weights = np.array(weights)
+  assert len(weights) == len(varnames) * 4
+  return weights.astype(np.int32)
+
+def save_weights(w, fn):
+  w = w.reshape(4, len(varnames)).astype(np.int32)
+  with open(fn, 'w+') as f:
+    for row in w:
+      f.write(' '.join([str(x) for x in row]) + '\n')
+
+def lpad(t, n, c=' '):
+  t = str(t)
+  return max(n - len(t), 0) * c + t
+
+# Returns  2 if w1.txt wins both games
+# Returns -2 if w0.txt wins both games
+def thread_main(fen):
+  return play(fen, 'w1.txt', 'w0.txt') - play(fen, 'w0.txt', 'w1.txt')
+
 kFoo = ['early', 'late', 'clipped', 'lonelyKing']
 
-os.system("sh build.sh ; mv ./a.out ./old")
-
-with open(os.path.join('src', 'Evaluator.h'), 'r') as f:
-  text = f.read()
-
-i = text.index("const int32_t kEarlyB0 =")
-j = text.index("template<Color US>\nstruct Threats")
-
-prefix = text[:i]
-suffix = text[j:]
-
-feature_text_with_placeholders = re.sub(r"-?\d+,", "$$,", text[i:j])
-
-variables0 = np.array([int(x[:-1]) for x in re.findall(r"-?\d+,", text[i:j])], dtype=np.float64)
-
-assert len(variables0) == len(varnames) * 4
-
-for _ in range(10_000):
-  # variables1 = variables0 + np.random.normal(0, 1, variables0.shape)
-  variables1 = variables0.copy()
-
-  # Mutate one variable.
-  varidx = random.choice(valid_indices)
-  lr = abs(variables1[varidx]) // 10 + 1
-  variables1[varidx] += random.randint(0, 1) * (2 * lr) - lr
-
-  t = feature_text_with_placeholders
-  for v in variables1:
-    idx = t.index('$$')
-    t = t[:idx] + str(int(round(v))) + t[idx+2:]
-
-  with open(os.path.join('src', 'Evaluator.h'), 'w') as f:
-    f.write(prefix + t + suffix)
-
-  try:
-    os.system("sh build.sh ; mv ./a.out ./new")
-  except KeyboardInterrupt:
-    exit(0)
-
-  fens = [ play_random(chess.Board(), 4) for _ in range(40) ]
-
-  r = 0
-  for fen in fens:
-    r += play(fen, './new', './old')
-    r -= play(fen, './old', './new')
-
-  print(r, f'"{varnames[varidx % len(varnames)]} ({kFoo[varidx // len(varnames)]})" -> {variables0[varidx]} to {variables1[varidx]}')
-  if r >= 5:
-    variables0 = variables1.copy()
-    os.system("mv ./new ./old")
-    os.system(f"cp {os.path.join('src', 'Evaluator.h')} Evaluator.h.best")
+if __name__ == '__main__':
+  parser = argparse.ArgumentParser()
+  parser.add_argument("--num_trials", type=int, default=40, help="Number of duplicate-games to play per generation")
+  parser.add_argument("--threshold", type=float, default=2.0, help="Number of z-scores required to step in a direction")
+  parser.add_argument("--lr", type=float, default=0.1)
+  args = parser.parse_args()
+  assert args.threshold <= args.num_trials * 2
 
 
+  os.system("./a.out saveweights w0.txt")
+
+  for it in range(100_000):
+    t0 = time.time()
+    w0 = load_weights("w0.txt")
+    assert len(w0) == len(varnames) * 4
+
+    # Create w1 by mutating one variable.
+    w1 = w0.copy()
+    varidx = random.choice(valid_indices)
+    lr = max(1, round(abs(w1[varidx]) * args.lr))
+    step = random.randint(0, 1) * (2 * lr) - lr
+    w1[varidx] += step
+
+    save_weights(w1, 'w1.txt')
+
+    fens = [ play_random(chess.Board(), 4) for _ in range(args.num_trials) ]
+
+    with Pool(4) as p:
+      r = p.map(thread_main, fens)
+    r = np.array(r)
+
+    avg = r.mean()
+    stderr = r.std() / np.sqrt(r.shape[0])  # Don't hate me.
+
+    t1 = time.time()
+
+    print('%.1f secs' % (t1 - t0))
+    print('%.3f %.3f' % (avg - stderr * args.threshold, avg + stderr * args.threshold))
+    if avg >= stderr * args.threshold:
+      print(f"iteration {lpad(it, 6)}; score {lpad(avg, 3)}; {varnames[varidx % len(varnames)]}_{kFoo[varidx // len(varnames)]} += {step}")
+      os.system(f"mv w1.txt w0.txt")
+    else:
+      print(f"iteration {lpad(it, 6)}; score {lpad(avg, 3)}; {varnames[varidx % len(varnames)]}_{kFoo[varidx // len(varnames)]} unchanged")
 
