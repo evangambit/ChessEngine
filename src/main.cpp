@@ -1,5 +1,5 @@
 // Production:
-// g++ src/*.cpp -std=c++20 -O3 -DNDEBUG
+// g++ src/*.cpp src/game/*.cpp -std=c++20 -O3 -DNDEBUG
 // 
 // Debug:
 // g++ src/*.cpp -std=c++20 -std=c++20 -rdynamic -g1
@@ -33,14 +33,13 @@
 #include <execinfo.h>
 #include <unistd.h>
 
-
-#include "geometry.h"
-#include "utils.h"
-#include "Position.h"
-#include "movegen.h"
-#include "movegen/sliding.h"
-#include "Evaluator.h"
-#include "search.h"
+#include "game/geometry.h"
+#include "game/utils.h"
+#include "game/Position.h"
+#include "game/movegen.h"
+#include "game/movegen/sliding.h"
+#include "game/Evaluator.h"
+#include "game/search.h"
 
 using namespace ChessEngine;
 
