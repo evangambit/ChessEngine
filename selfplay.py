@@ -1,12 +1,9 @@
 """
-To compare weights:
+Prints a positive number if (main1, weights1) is better than (main2, weights2)
 
-python3 selfplay ./a.out new_weights.txt ./a.out old_weights.txt
+python3 selfplay.py ./main1 weights1.txt ./main2 weights2.txt
 
-To compare different binaries
-
-python3 selfplay ./a.out None ./a.out None
-
+If only the weights are different, prefer selfplay_w.py.
 """
 
 import random
