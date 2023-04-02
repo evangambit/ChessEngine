@@ -44,6 +44,8 @@
 
 using namespace ChessEngine;
 
+Thinker gThinker;
+
 std::string repeat(const std::string text, size_t n) {
   std::string r = "";
   for (size_t i = 0; i < n; ++i) {
@@ -242,7 +244,7 @@ void handler(int sig) {
 template<Color TURN>
 void print_feature_vec(Position *pos, const std::string& originalFen, bool humanReadable, bool makeQuiet) {
   if (makeQuiet) {
-    SearchResult<Color::WHITE> r = to_white(qsearch<TURN>(pos, 0, kMinEval, kMaxEval));
+    SearchResult<Color::WHITE> r = to_white(gThinker.qsearch<TURN>(pos, 0, kMinEval, kMaxEval));
     if (r.score > kMaxEval - 100 || r.score < kMinEval + 100) {
       std::cout << "PRINT FEATURE VEC FAIL (MATE)" << std::endl;
       return;
@@ -255,20 +257,20 @@ void print_feature_vec(Position *pos, const std::string& originalFen, bool human
     }
   }
 
-  gEvaluator.features[EF::OUR_PAWNS] = 10;
-  Evaluation e = gEvaluator.score<TURN>(*pos);
-  if (gEvaluator.features[EF::OUR_PAWNS] == 10) {
+  gThinker.evaluator.features[EF::OUR_PAWNS] = 10;
+  Evaluation e = gThinker.evaluator.score<TURN>(*pos);
+  if (gThinker.evaluator.features[EF::OUR_PAWNS] == 10) {
     std::cout << "PRINT FEATURE VEC FAIL (SHORT-CIRCUIT)" << std::endl;
   }
   if (humanReadable) {
     std::cout << "ORIGINAL_FEN " << originalFen << std::endl;
     std::cout << "FEN " << pos->fen() << std::endl;
     std::cout << "SCORE " << e << std::endl;
-    const int32_t t = gEvaluator.features[EF::TIME];
+    const int32_t t = gThinker.evaluator.features[EF::TIME];
     for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
-      const int32_t x = gEvaluator.features[i];
+      const int32_t x = gThinker.evaluator.features[i];
       const int32_t s = (kEarlyW0[i] * x * t + kLateW0[i] * x * (16 - t)) / 16 + kClippedW0[i] * x;
-      std::cout << gEvaluator.features[i] << " " << std::setfill(' ') << std::setw(4) << s << " " << EFSTR[i] << std::endl;
+      std::cout << gThinker.evaluator.features[i] << " " << std::setfill(' ') << std::setw(4) << s << " " << EFSTR[i] << std::endl;
     }
   } else {
     std::cout << pos->fen() << std::endl;
@@ -276,7 +278,7 @@ void print_feature_vec(Position *pos, const std::string& originalFen, bool human
       if (i != 0) {
         std::cout << " ";
       }
-      std::cout << gEvaluator.features[i];
+      std::cout << gThinker.evaluator.features[i];
     }
     std::cout << std::endl;
   }
@@ -319,16 +321,16 @@ void mymain(std::vector<Position>& positions, const std::string& mode, double ti
     return;
   } else if (mode == "analyze") {
     for (auto pos : positions) {
-      reset_stuff();
+      gThinker.reset_stuff();
       SearchResult<Color::WHITE> results(Evaluation(0), kNullMove);
       time_t tstart = clock();
       for (size_t i = 0; i <= depth; ++i) {
-        results = search(&pos, i, results);
+        results = gThinker.search(&pos, i, results);
         if (positions.size() == 1) {
           const double secs = double(clock() - tstart)/CLOCKS_PER_SEC;
-          std::cout << i << " : " << results.move << " : " << results.score << " (" << secs << " secs, " << gNodeCounter / secs / 1000 << " kNodes/sec)" << std::endl;
+          std::cout << i << " : " << results.move << " : " << results.score << " (" << secs << " secs, " << gThinker.nodeCounter / secs / 1000 << " kNodes/sec)" << std::endl;
         }
-        if (gNodeCounter >= nodeLimit) {
+        if (gThinker.nodeCounter >= nodeLimit) {
           break;
         }
         if (double(clock() - tstart)/CLOCKS_PER_SEC*1000 >= timeLimitMs) {
@@ -336,10 +338,10 @@ void mymain(std::vector<Position>& positions, const std::string& mode, double ti
         }
       }
 
-      auto it = gCache.find(pos.hash_);
+      auto it = gThinker.cache.find(pos.hash_);
       std::vector<uint64_t> oldHashes = {pos.hash_};
       size_t i = 0;
-      while (it != gCache.end()) {
+      while (it != gThinker.cache.end()) {
         if (++i > 40) {
           break;
         }
@@ -361,18 +363,18 @@ void mymain(std::vector<Position>& positions, const std::string& mode, double ti
           break;
         }
         oldHashes.push_back(pos.hash_);
-        it = gCache.find(pos.hash_);
+        it = gThinker.cache.find(pos.hash_);
       }
     }
   } else if (mode == "play") {
     for (auto pos : positions) {
       while (true) {
-        reset_stuff();
+        gThinker.reset_stuff();
         SearchResult<Color::WHITE> results(Evaluation(0), kNullMove);
         time_t tstart = clock();
         for (size_t i = 0; i <= depth; ++i) {
-          results = search(&pos, i, results);
-          if (gNodeCounter >= nodeLimit) {
+          results = gThinker.search(&pos, i, results);
+          if (gThinker.nodeCounter >= nodeLimit) {
             break;
           }
           if (double(clock() - tstart)/CLOCKS_PER_SEC*1000 >= timeLimitMs) {
