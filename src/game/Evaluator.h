@@ -16,14 +16,6 @@
 
 namespace ChessEngine {
 
-/*
-
-Add a feature for how many friendly pawns are on your bishop's color
-
-Add a feature for the mobility of each piece
-
-*/
-
 float sigmoid(float x) {
   return 1.0f / (1.0f + std::exp(-x));
 }
@@ -1010,40 +1002,6 @@ lonelyKingB = 0;
 
     return !isDrawn;
   }
-
-  // template<Color US>
-  // int32_t early(const Position& pos) const {
-  //   float A[8];
-  //   for (size_t i = 0; i < 8; ++i) {
-  //     A[i] = earlyB[i];
-  //     for (size_t j = 0; j < EF::NUM_EVAL_FEATURES; ++j) {
-  //       A[i] += features[j] * earlyW[i * EF::NUM_EVAL_FEATURES + j];
-  //     }
-  //     A[i] = (std::max(A[i], 0.0f) + std::min(A[i], 0.0f) / 100) / 100;
-  //   }
-  //   float r = kEarlyB1;
-  //   for (size_t i = 0; i < 8; ++i) {
-  //     r += A[i] * kEarlyW1[i];
-  //   }
-  //   return r;
-  // }
-
-  // template<Color US>
-  // int32_t late(const Position& pos) const {
-  //   float A[8];
-  //   for (size_t i = 0; i < 8; ++i) {
-  //     A[i] = lateB[i];
-  //     for (size_t j = 0; j < EF::NUM_EVAL_FEATURES; ++j) {
-  //       A[i] += features[j] * lateW[i * EF::NUM_EVAL_FEATURES + j];
-  //     }
-  //     A[i] = (std::max(A[i], 0.0f) + std::min(A[i], 0.0f) / 100) / 100;
-  //   }
-  //   float r = kLateB1;
-  //   for (size_t i = 0; i < 8; ++i) {
-  //     r += A[i] * kLateW1[i];
-  //   }
-  //   return r;
-  // }
 
   Evaluation features[NUM_EVAL_FEATURES];
 };

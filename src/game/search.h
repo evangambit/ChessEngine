@@ -428,7 +428,9 @@ struct Thinker {
       it = this->cache.find(pos->hash_);  // Need to re-search since the iterator may have changed when searching my children.
       if (it == this->cache.end()) {
         this->cache.insert(std::make_pair(pos->hash_, cr));
-      } else if (depth > it->second.depth) {
+      } else if (depth >= it->second.depth) {
+        // We use ">=" because otherwise if we fail the aspiration window search the table will have
+        // stale results.
         it->second = cr;
       }
     }
