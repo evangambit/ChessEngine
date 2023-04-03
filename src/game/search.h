@@ -47,6 +47,12 @@ struct CacheResult {
   #ifndef NDEBUG
   std::string fen;
   #endif
+  inline Evaluation lowerbound() const {
+    return nodeType == NodeTypeAll_UpperBound ? kMinEval : eval;
+  }
+  inline Evaluation upperbound() const {
+    return nodeType == NodeTypeAll_UpperBound ? kMaxEval : eval;
+  }
 };
 
 constexpr int kQSimplePieceValues[7] = {
@@ -240,10 +246,7 @@ struct Thinker {
     auto it = this->cache.find(pos->hash_);
     if (it != this->cache.end() && it->second.depth >= depth) {
       const CacheResult& cr = it->second;
-      if (cr.nodeType == NodeTypePV) {
-        return SearchResult<TURN>(cr.eval, cr.bestMove);
-      }
-      if (cr.nodeType == NodeTypeCut_LowerBound && cr.eval >= beta) {
+      if (cr.nodeType == NodeTypePV || cr.lowerbound() >= beta) {
         return SearchResult<TURN>(cr.eval, cr.bestMove);
       }
     }
