@@ -256,7 +256,7 @@ struct Thinker {
     // are sufficiently bad that they are unlikely to be improved by increasing depth by 1.
     const int numMenLeft = std::popcount(pos->colorBitboards_[Color::WHITE] | pos->colorBitboards_[Color::BLACK]);
     const Evaluation futilityThreshold = 70;
-    if (it != this->cache.end() && depth - it->second.depth == 1 && numMenLeft > 5) {  // Disable when very late in the game.
+    if (it != this->cache.end() && depth - it->second.depth == 1) {
       const CacheResult& cr = it->second;
       if (cr.lowerbound() >= beta + futilityThreshold || cr.upperbound() <= alpha - futilityThreshold) {
         return SearchResult<TURN>(cr.eval, cr.bestMove);
