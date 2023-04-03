@@ -261,7 +261,8 @@ struct Thinker {
       if (cr.lowerbound() >= beta + futilityThreshold || cr.upperbound() <= alpha - futilityThreshold) {
         return SearchResult<TURN>(cr.eval, cr.bestMove);
       }
-    } else if (depth == 1) {
+    }
+    if (it == this->cache.end() && depth <= 2) {
       // We assume that you can make a move that improves your position, so comparing against alpha
       // gets a small bonus.
       const Evaluation tempoBonus = 20;
@@ -308,11 +309,12 @@ struct Thinker {
     }
 
     const Move lastMove = pos->history_.size() > 0 ? pos->history_.back().move : kNullMove;
-
+    size_t numCaptures = 0;
     for (ExtMove *move = moves; move < end; ++move) {
       move->score = 0;
 
       const bool isCapture = (move->capture != Piece::NO_PIECE);
+      numCaptures += isCapture;
 
       // Bonus for capturing a piece.  (+0.136 ± 0.012)
       move->score += kMoveOrderPieceValues[move->capture];

@@ -151,6 +151,8 @@ enum EF {
   NUM_BAD_SQUARES_FOR_MINORS,
   NUM_BAD_SQUARES_FOR_ROOKS,
   NUM_BAD_SQUARES_FOR_QUEENS,
+  IN_TRIVIAL_CHECK,
+  IN_DOUBLE_CHECK,
 
   NUM_EVAL_FEATURES,
 };
@@ -273,6 +275,8 @@ std::string EFSTR[] = {
   "NUM_BAD_SQUARES_FOR_MINORS",
   "NUM_BAD_SQUARES_FOR_ROOKS",
   "NUM_BAD_SQUARES_FOR_QUEENS",
+  "IN_TRIVIAL_CHECK",
+  "IN_DOUBLE_CHECK",
 };
 
 // captures = difference in values divided by 2
@@ -470,13 +474,24 @@ lonelyKingB = 0;
     features[EF::THEIR_QUEENS] = std::popcount(theirQueens);
 
     // Note that TURN (the side to move) often gets larger bonuses since they can take advantage of threats better.
+    {
+      Bitboard attackingOurKing = compute_attackers<THEM>(pos, ourKingSq);
+      // Note: in a rigorous engine isThemInCheck would always be false on your move. For this engine,
+      // it means they have moved into check (e.g. moving a pinned piece). Unfortunately we cannot
+      // immediately return kMaxEval since it's possible they had had legal moves (and were in stalemate).
+      features[EF::IN_CHECK] = (attackingOurKing > 0);
+      features[EF::IN_DOUBLE_CHECK] = std::popcount(attackingOurKing) > 1;
 
-    bool isUsInCheck = can_enemy_attack<US>(pos, ourKingSq);
-    bool isThemInCheck = can_enemy_attack<THEM>(pos, theirKingSq);
-    // Note: in a rigorous engine isThemInCheck would always be false on your move. For this engine,
-    // it means they have moved into check (e.g. moving a pinned piece). Unfortunately we cannot
-    // immediately return kMaxEval since it's possible they had had legal moves (and were in stalemate).
-    features[EF::IN_CHECK] = isUsInCheck - isThemInCheck;
+      attackingOurKing &= theirQueens & threats.badForTheir[Piece::QUEEN];
+      attackingOurKing &= theirRooks & threats.badForTheir[Piece::ROOK];
+      attackingOurKing &= theirBishops & threats.badForTheir[Piece::BISHOP];
+      attackingOurKing &= theirKnights & threats.badForTheir[Piece::KNIGHT];
+      attackingOurKing &= theirPawns & threats.badForTheir[Piece::PAWN];
+
+      // The piece checking our king can simply be captured.
+      features[EF::IN_TRIVIAL_CHECK] = (attackingOurKing == 0) && !features[EF::IN_DOUBLE_CHECK];
+    }
+
     if (US == Color::WHITE) {
       features[EF::KING_ON_BACK_RANK] = (ourKingSq / 8 == 7) - (theirKingSq / 8 == 0);
       features[EF::KING_ACTIVE] = (ourKingSq / 8 < 5) - (theirKingSq / 8 > 2);
@@ -772,7 +787,7 @@ lonelyKingB = 0;
 
     {
       const Bitboard ourGoodKnightTargets = threats.ourKnightTargets & ~threats.theirPawnTargets;
-      const Bitboard theirGoodKnightTargets = threats.ourKnightTargets & ~threats.theirPawnTargets;
+      const Bitboard theirGoodKnightTargets = threats.theirKnightTargets & ~threats.ourPawnTargets;
       const Bitboard ourGoodBishopTargets = ourBishopTargetsIgnoringNonBlockades & ~threats.theirPawnTargets;
       const Bitboard theirGoodBishopTargets = theirBishopTargetsIgnoringNonBlockades & ~threats.ourPawnTargets;
       const Bitboard ourGoodRookTargets = threats.ourRookTargets & ~threats.theirPawnTargets;
