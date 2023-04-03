@@ -103,9 +103,9 @@ int play(Thinker *thinkerWhite, Thinker *thinkerBlack, const std::string& fen, s
   if (pos.is_draw() || is_material_draw(pos)) {
     return 0;
   }
-  if (can_enemy_attack<Color::WHITE>(pos, lsb(pos.pieceBitboards_[ColoredPiece::BLACK_KING]))) {
+  if (can_enemy_attack<Color::BLACK>(pos, lsb(pos.pieceBitboards_[ColoredPiece::BLACK_KING]))) {
     return 1;
-  } else if (can_enemy_attack<Color::BLACK>(pos, lsb(pos.pieceBitboards_[ColoredPiece::WHITE_KING]))) {
+  } else if (can_enemy_attack<Color::WHITE>(pos, lsb(pos.pieceBitboards_[ColoredPiece::WHITE_KING]))) {
     return -1;
   }
   return 0;
@@ -124,7 +124,7 @@ int main(int argc, char *argv[]) {
   Thinker thinker1;
   Thinker thinker2;
 
-  std::string fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+  std::vector<std::string> fens;
   bool weightsLoaded = false;
   size_t nodeLimit = 5000;
 
@@ -132,7 +132,7 @@ int main(int argc, char *argv[]) {
     if (args.size() >= 7 && args[0] == "fen") {
       std::vector<std::string> fenVec(args.begin() + 1, args.begin() + 7);
       args = std::vector<std::string>(args.begin() + 7, args.end());
-      fen = join(fenVec, " ");
+      fens.push_back(join(fenVec, " "));
     } else if (args.size() >= 2 && args[0] == "nodes") {
       nodeLimit = std::stoi(args[1]);
       if (nodeLimit < 1) {
@@ -151,6 +151,10 @@ int main(int argc, char *argv[]) {
     }
   }
 
+  if (fens.size() == 0) {
+    fens.push_back("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+  }
+
   if (!weightsLoaded) {
     std::cout << "missing weights files" << std::endl;
     return 1;
@@ -158,8 +162,10 @@ int main(int argc, char *argv[]) {
 
   // Prints 1 if thinker1 wins
   // Prints -1 if thinker2 wins
-  std::cout << play(&thinker1, &thinker2, fen, nodeLimit) << std::endl;
-  std::cout << -play(&thinker2, &thinker1, fen, nodeLimit) << std::endl;
+  for (const auto& fen : fens) {
+    std::cout << play(&thinker1, &thinker2, fen, nodeLimit) << std::endl;
+    std::cout << -play(&thinker2, &thinker1, fen, nodeLimit) << std::endl;
+  }
 
   return 0;
 }
