@@ -258,10 +258,7 @@ struct Thinker {
     const Evaluation futilityThreshold = 70;
     if (it != this->cache.end() && depth - it->second.depth == 1 && numMenLeft > 5) {  // Disable when very late in the game.
       const CacheResult& cr = it->second;
-      if (
-        (cr.eval >= beta + futilityThreshold && it->second.nodeType != NodeTypeAll_UpperBound)
-        ||
-        (cr.eval <= alpha - futilityThreshold && it->second.nodeType != NodeTypeCut_LowerBound)) {
+      if (cr.lowerbound() >= beta + futilityThreshold || cr.upperbound() <= alpha - futilityThreshold) {
         return SearchResult<TURN>(cr.eval, cr.bestMove);
       }
     } else if (depth == 1) {
