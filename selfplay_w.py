@@ -15,6 +15,8 @@ import numpy as np
 from scipy import stats
 from multiprocessing import Pool
 
+from tqdm import tqdm
+
 from simple_stockfish import Stockfish
 
 def play_random(board, n):
@@ -41,7 +43,7 @@ if __name__ == '__main__':
   parser.add_argument("weights", nargs=2)
   parser.add_argument("--nodes", type=int, default=500)
   parser.add_argument("--num_workers", type=int, default=4)
-  parser.add_argument("--trials", type=int, default=50)
+  parser.add_argument("--num_trials", type=int, default=400)
   args = parser.parse_args()
 
   t0 = time.time()
@@ -49,9 +51,9 @@ if __name__ == '__main__':
     play_random(chess.Board(), 4),
     args.weights[0],
     args.weights[1],
-  ) for _ in range(50)]
+  ) for _ in range(args.num_trials)]
   with Pool(2) as p:
-    r = p.map(thread_main, thread_arguments)
+    r = list(tqdm(p.imap(thread_main, thread_arguments), total=args.num_trials))
   r = np.array(r, dtype=np.float64).reshape(-1)
 
   stderr = r.std(ddof=1) / np.sqrt(r.shape[0])
