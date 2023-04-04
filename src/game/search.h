@@ -211,7 +211,8 @@ struct Thinker {
   SearchResult<TURN> search(
     Position* pos, const Depth depth,
     Evaluation alpha, const Evaluation beta,
-    RecommendedMoves recommendedMoves) {
+    RecommendedMoves recommendedMoves,
+    bool isPV) {
 
     // alpha: a score we're guaranteed to get
     //  beta: a score our opponent is guaranteed to get
@@ -276,9 +277,9 @@ struct Thinker {
     const bool inCheck = can_enemy_attack<TURN>(*pos, lsb(pos->pieceBitboards_[moverKing]));
 
     // Null Move Pruning (+0.016)
-    if (depth >= 3 && std::popcount(ourPieces) > 1 && !inCheck) {
+    if (depth >= 3 && std::popcount(ourPieces) > 1 && !inCheck && !isPV) {
       make_nullmove<TURN>(pos);
-      SearchResult<TURN> a = flip(search<opposingColor>(pos, depth - 3, -beta, -alpha, RecommendedMoves()));
+      SearchResult<TURN> a = flip(search<opposingColor>(pos, depth - 3, -beta, -alpha, RecommendedMoves(), false));
       if (a.score >= beta && a.move != kNullMove) {
         undo_nullmove<TURN>(pos);
         return SearchResult<TURN>(beta + 1, kNullMove);
@@ -346,7 +347,6 @@ struct Thinker {
     NodeType nodeType = NodeTypePV;
 
     size_t numValidMoves = 0;
-    bool isPV = true;
     for (ExtMove *extMove = moves; extMove < end; ++extMove) {
 
       #ifndef NDEBUG
@@ -368,7 +368,7 @@ struct Thinker {
 
       ++numValidMoves;
 
-      SearchResult<TURN> a = flip(search<opposingColor>(pos, depth - 1, -beta, -alpha, recommendationsForChildren));
+      SearchResult<TURN> a = flip(search<opposingColor>(pos, depth - 1, -beta, -alpha, recommendationsForChildren, isPV && (extMove == moves)));
       a.score -= (a.score > -kLongestForcedMate);
       a.score += (a.score < kLongestForcedMate);
 
@@ -402,7 +402,6 @@ struct Thinker {
         }
         if (r.score > alpha) {
           alpha = r.score;
-          isPV = false;
         }
 
       }
@@ -451,11 +450,11 @@ struct Thinker {
     //      25  |  +0.14 (n=100)
     // TODO: only widen the bounds on the side that fails?
     constexpr Evaluation kBuffer = 50;
-    SearchResult<TURN> r = search<TURN>(pos, depth, lastResult.score - kBuffer, lastResult.score + kBuffer, RecommendedMoves());
+    SearchResult<TURN> r = search<TURN>(pos, depth, lastResult.score - kBuffer, lastResult.score + kBuffer, RecommendedMoves(), true);
     if (r.score > lastResult.score - kBuffer && r.score < lastResult.score + kBuffer) {
       return r;
     }
-    return search<TURN>(pos, depth, kMinEval, kMaxEval, RecommendedMoves());
+    return search<TURN>(pos, depth, kMinEval, kMaxEval, RecommendedMoves(), true);
   }
 
   // Gives scores from white's perspective
