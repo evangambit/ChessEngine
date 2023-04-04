@@ -153,6 +153,8 @@ enum EF {
   NUM_BAD_SQUARES_FOR_QUEENS,
   IN_TRIVIAL_CHECK,
   IN_DOUBLE_CHECK,
+  THREATS_NEAR_OUR_KING,
+  THREATS_NEAR_THEIR_KING,
 
   NUM_EVAL_FEATURES,
 };
@@ -277,6 +279,8 @@ std::string EFSTR[] = {
   "NUM_BAD_SQUARES_FOR_QUEENS",
   "IN_TRIVIAL_CHECK",
   "IN_DOUBLE_CHECK",
+  "THREATS_NEAR_OUR_KING",
+  "THREATS_NEAR_THEIR_KING",
 };
 
 // captures = difference in values divided by 2
@@ -489,7 +493,7 @@ lonelyKingB = 0;
       attackingOurKing &= theirPawns & threats.badForTheir[Piece::PAWN];
 
       // The piece checking our king can simply be captured.
-      features[EF::IN_TRIVIAL_CHECK] = (attackingOurKing == 0) && !features[EF::IN_DOUBLE_CHECK];
+      features[EF::IN_TRIVIAL_CHECK] = features[EF::IN_CHECK] && (attackingOurKing == 0) && !features[EF::IN_DOUBLE_CHECK];
     }
 
     if (US == Color::WHITE) {
@@ -503,6 +507,9 @@ lonelyKingB = 0;
     features[EF::THREATS_NEAR_KING_2] = std::popcount(kNearby[2][ourKingSq] & threats.theirTargets & ~threats.ourTargets) - std::popcount(kNearby[2][theirKingSq] & threats.ourTargets & ~threats.theirTargets);
     features[EF::THREATS_NEAR_KING_3] = std::popcount(kNearby[3][ourKingSq] & threats.theirTargets & ~threats.ourTargets) - std::popcount(kNearby[3][theirKingSq] & threats.ourTargets & ~threats.theirTargets);
     features[EF::QUEEN_THREATS_NEAR_KING] = std::popcount(kNearby[1][ourKingSq] & threats.theirDoubleTargets & ~threats.ourDoubleTargets & threats.theirQueenTargets) - std::popcount(kNearby[1][theirKingSq] & threats.ourDoubleTargets & ~threats.theirDoubleTargets & threats.ourQueenTargets);
+    features[EF::THREATS_NEAR_OUR_KING] = std::popcount(kNearby[1][ourKingSq] & threats.theirDoubleTargets & ~threats.ourDoubleTargets);
+    features[EF::THREATS_NEAR_THEIR_KING] = std::popcount(kNearby[1][theirKingSq] & threats.ourDoubleTargets & ~threats.theirDoubleTargets);
+
 
     {  // Add penalty if the king is in a fianchettoed corner and his bishop is not on the main diagonal.
       // Note: the "color" of a corner is the color of its fianchettoed bishop.
