@@ -444,12 +444,10 @@ struct Thinker {
     // TODO: the aspiration window technique used here should probably be implemented for internal nodes too.
     // Even just using this at the root node gives my engine a +0.25 (n=100) score against itself.
     // Table of historical experiments (program with window vs program without)
-    // kBuffer  |  Score
-    //      75  |  +0.10 (n=100)
-    //      50  |  +0.25 (n=100)
-    //      25  |  +0.14 (n=100)
-    // TODO: only widen the bounds on the side that fails?
-    constexpr Evaluation kBuffer = 50;
+    // 100: 0.099 ± 0.021
+    //  75: 0.152 ± 0.021
+    //  50: 0.105 ± 0.019
+    constexpr Evaluation kBuffer = 75;
     SearchResult<TURN> r = search<TURN>(pos, depth, lastResult.score - kBuffer, lastResult.score + kBuffer, RecommendedMoves(), true);
     if (r.score > lastResult.score - kBuffer && r.score < lastResult.score + kBuffer) {
       return r;
