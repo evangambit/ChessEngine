@@ -17,6 +17,8 @@ from multiprocessing import Pool
 
 import chess
 import numpy as np
+import matplotlib.pyplot as plt
+from tqdm import tqdm
 
 varnames = [
   "BIAS",
@@ -132,6 +134,10 @@ varnames = [
   "NUM_BAD_SQUARES_FOR_MINORS",
   "NUM_BAD_SQUARES_FOR_ROOKS",
   "NUM_BAD_SQUARES_FOR_QUEENS",
+  "IN_TRIVIAL_CHECK",
+  "IN_DOUBLE_CHECK",
+  "THREATS_NEAR_OUR_KING",
+  "THREATS_NEAR_THEIR_KING",
 ]
 
 def play_random(board, n):
@@ -163,7 +169,8 @@ def lpad(t, n, c=' '):
 def thread_main(fen):
   command = [
     "./selfplay",
-    "weights", "w0.txt", "w1.txt",
+    "weights", "w1.txt", "w0.txt",
+    "nodes", "500",
     "fen", *fen.split(' ')
   ]
   stdout = subprocess.check_output(command).decode()
@@ -171,66 +178,111 @@ def thread_main(fen):
 
 kFoo = ['early', 'late', 'clipped', 'lonelyKing']
 
+# Already run:
+#
+# 0.125 ± 0.029
+# python3 genetic.py --num_trials 4096 --range 20 --step 5 --stage 0 \
+# --variables OUR_PAWNS,THEIR_PAWNS,OUR_KNIGHTS,THEIR_KNIGHTS,OUR_BISHOPS,THEIR_BISHOPS,OUR_ROOKS,THEIR_ROOKS,OUR_QUEENS,THEIR_QUEENS
+#
+# Already run:
+# 0.023 ± 0.009
+# python3 genetic.py --num_trials 4096 --range 20 --step 5 --stage 1 \
+# --variables OUR_PAWNS,THEIR_PAWNS,OUR_KNIGHTS,THEIR_KNIGHTS,OUR_BISHOPS,THEIR_BISHOPS,OUR_ROOKS,THEIR_ROOKS,OUR_QUEENS,THEIR_QUEENS
+
+
 if __name__ == '__main__':
   parser = argparse.ArgumentParser()
-  parser.add_argument("--num_trials", type=int, default=40, help="Number of duplicate-games to play per generation")
+  parser.add_argument("--num_trials", type=int, default=160, help="Number of duplicate-games to play per generation")
   parser.add_argument("--threshold", type=float, default=2.0, help="Number of z-scores required to step in a direction")
-  parser.add_argument("--lr", type=float, default=0.0)
-  # parser.add_argument("--variables", type=str, default='')
+  parser.add_argument("--lr", type=float, default=0.05)
+  parser.add_argument("--variables", type=str, default='')
+  parser.add_argument("--range", type=int, default=5)
+  parser.add_argument("--step", type=int, default=1)
+  parser.add_argument("--stage", type=int, required=True)
   args = parser.parse_args()
   assert args.threshold <= args.num_trials * 2
+  assert args.stage >= 0 and args.stage < 4
+  if args.variables == '':
+    args.variables = ','.join(varnames)
+  args.variables = args.variables.split(',')
 
-  # args.variables = args.variables.split(',')
-  # if len(args.variables) == 0:
-  #   args.variables = copy.copy(varnames)
-
-  # var_indices = [varnames.index(v) for v in args.variables]  
-
-  # var_indices = np.concatenate([
-  #   var_indices,
-  #   [i + len(varnames) for i in var_indices],
-  #   [i + len(varnames) * 2 for i in var_indices],
-  #   # [i + len(varnames) * 3 for i in var_indices],  # Ignore lonely king
-  # ])
-
-  var_indices = np.arange(len(varnames) * 4)
+  for vn in args.variables:
+    assert vn in varnames
 
   os.system('cp weights.txt w0.txt')
   w0 = load_weights("w0.txt").astype(np.float64)
-  it = 0
-  while True:
-    t0 = time.time()
-    assert len(w0) == len(varnames) * 4
+  assert len(w0) == len(varnames) * 4
 
-    w1 = w0.copy()
-    I = np.arange(len(var_indices))
-    np.random.shuffle(I)
-    for i in I[:4]:
-      lr = max(1, round(abs(w1[i]) * args.lr))
-      step = random.randint(0, 1) * (2 * lr) - lr
-      w1[i] += step
+  for varname in args.variables:
+    varidx = varnames.index(varname) + len(varnames) * args.stage
 
-    save_weights(w1, 'w1.txt')
+    save_weights(w0, 'w0.txt')
 
-    fens = [ play_random(chess.Board(), 4) for _ in range(args.num_trials) ]
+    px = [0.0]
+    py = [0.0]
+    pz = [0.0]
 
-    with Pool(4) as p:
-      r = p.map(thread_main, fens)
-    r = np.array(r)
+    deltas = np.concatenate([np.arange(1, args.range, args.step), np.arange(1, args.range, args.step) * -1])
+    # deltas = np.concatenate([deltas, deltas, deltas, deltas])
 
-    avg = r.mean()
-    stderr = r.std() / np.sqrt(r.shape[0])  # Don't hate me.
+    for stepsize in tqdm(deltas):
+      w1 = w0.copy()
+      w1[varidx] += stepsize
 
-    t1 = time.time()
+      save_weights(w1, 'w1.txt')
 
-    print(
-      lpad(it, 6),
-      lpad('%.3f' % (avg - stderr * args.threshold), n=6),
-      lpad('%.3f' % (avg + stderr * args.threshold), n=6),
-      '%.1f secs' % (t1 - t0),
-    )
-    if avg > stderr * args.threshold:
-      w0 = w1.copy()
-      save_weights(w0, 'w0.txt')
-    it += 1
+      fens = [ play_random(chess.Board(), 4) for _ in range(args.num_trials) ]
+
+      with Pool(8) as p:
+        r = p.map(thread_main, fens)
+      r = np.array(r) / 2
+
+      avg = r.mean()
+      stderr = r.std() / np.sqrt(r.shape[0])  # Don't hate me.
+
+      px.append(stepsize)
+      py.append(avg)
+      pz.append(stderr)
+
+    px = np.array(px)
+    py = np.array(py)
+
+    # Since we know f(0) = 0, we can omit the contant term from this quadratic regression.
+    X = np.zeros((px.shape[0], 2))
+    X[:,0] = px
+    X[:,1] = px * px
+    w = np.linalg.lstsq(X, py, rcond=-1)[0]
+    slopeAt0 = w[0]
+    maximum = -w[0] / (2 * w[1]) if w[1] < 0 else None
+    if maximum is not None and maximum > -args.range and maximum < args.range:
+      delta = max(-args.range, min(args.range, maximum))
+      scoreIncrease = w[0] * delta + w[1] * delta * delta
+    else:
+      # Linear regression
+      w = float(np.linalg.lstsq(X[:,0:1], py, rcond=-1)[0])
+      if w > 0:
+        delta = round(np.percentile(deltas, 75))
+      else:
+        delta = round(np.percentile(deltas, 25))
+      scoreIncrease = w * delta
+    if scoreIncrease > 0:
+      print(f"w0[{varname}] = {w0[varidx]} + {delta}; increases points by %.4f" % scoreIncrease)
+    else:
+      print(f'no improvement found for "{varname}"')
+      continue
+
+
+    plt.figure()
+    plt.scatter(px, py)
+    curvex = np.array(list(sorted(set(px))))
+    if isinstance(w, float):
+      plt.plot(curvex, curvex * w)
+    else:
+      plt.plot(curvex, curvex * w[0] + curvex * curvex * w[1])
+
+    plt.grid()
+    plt.savefig(os.path.join("optimages", f"{varname}_{args.stage}.png"))
+
+    w0[varidx] += delta
+
 
