@@ -39,6 +39,11 @@ enum NodeType {
   NodeTypePV,
 };
 
+enum SearchType {
+  SearchTypeRoot,
+  SearchTypeNormal,
+};
+
 struct CacheResult {
   Depth depth;
   Evaluation eval;
@@ -219,7 +224,7 @@ struct Thinker {
     std::fill_n(historyHeuristicTable[Color::BLACK][0], 64 * 64, 0);
   }
 
-  template<Color TURN, bool isRoot>
+  template<Color TURN, SearchType SEARCH_TYPE>
   SearchResult<TURN> search(
     Position* pos, const Depth depth,
     Evaluation alpha, const Evaluation beta,
@@ -304,13 +309,21 @@ struct Thinker {
     // Null Move Pruning (+0.016)
     if (depth >= 3 && std::popcount(ourPieces) > 1 && !inCheck && !isPV && (it != this->cache.end() && it->second.lowerbound() > beta)) {
       make_nullmove<TURN>(pos);
-      SearchResult<TURN> a = flip(search<opposingColor, false>(pos, depth - 3, -beta, -alpha, RecommendedMoves(), false));
+      SearchResult<TURN> a = flip(search<opposingColor, SearchTypeNormal>(pos, depth - 3, -beta, -alpha, RecommendedMoves(), false));
       if (a.score >= beta && a.move != kNullMove) {
         undo_nullmove<TURN>(pos);
         return SearchResult<TURN>(beta + 1, kNullMove);
       }
       undo_nullmove<TURN>(pos);
     }
+
+    // if (!isPV && (it != this->cache.end() && it->second.upperbound() < alpha)) {
+    //   // Null Window search.
+    //   SearchResult<TURN> r = search<TURN, SearchTypeNormal>(pos, depth - 1, -(alpha + 1), -alpha, RecommendedMoves(), false);
+    //   if (r.score <= alpha) {
+    //     return r;
+    //   }
+    // }
 
     Move lastFoundBestMove = (it != this->cache.end() ? it->second.bestMove : kNullMove);
 
@@ -371,7 +384,7 @@ struct Thinker {
 
     NodeType nodeType = NodeTypePV;
 
-    // Should be optimized away if !isRoot.
+    // Should be optimized away if SEARCH_TYPE != SearchTypeRoot.
     std::vector<SearchResult<TURN>> children;
 
     size_t numValidMoves = 0;
@@ -400,7 +413,7 @@ struct Thinker {
       // return terrible moves for its secondary variation?
 
       // TODO: "isPV && (extMove == moves)" is more complicated for MultiPV root node.
-      SearchResult<TURN> a = flip(search<opposingColor, false>(pos, depth - 1, -beta, -alpha, recommendationsForChildren, isPV && (extMove == moves)));
+      SearchResult<TURN> a = flip(search<opposingColor, SearchTypeNormal>(pos, depth - 1, -beta, -alpha, recommendationsForChildren, isPV && (extMove == moves)));
 
       a.score -= (a.score > -kLongestForcedMate);
       a.score += (a.score < kLongestForcedMate);
@@ -424,7 +437,7 @@ struct Thinker {
       pos->assert_valid_state("b " + extMove->uci());
       #endif
 
-      if (isRoot) {
+      if (SEARCH_TYPE == SearchTypeRoot) {
         children.push_back(a);
         std::sort(children.begin(), children.end());
         if (a.score > r.score) {
@@ -496,14 +509,14 @@ struct Thinker {
     //  50: 0.105 ± 0.019
     if (multiPV != 1) {
       // Disable aspiration window if we are searching more than one principle variation.
-      return search<TURN, true>(pos, depth, kMinEval, kMaxEval, RecommendedMoves(), true);
+      return search<TURN, SearchTypeRoot>(pos, depth, kMinEval, kMaxEval, RecommendedMoves(), true);
     }
     constexpr Evaluation kBuffer = 75;
-    SearchResult<TURN> r = search<TURN, true>(pos, depth, lastResult.score - kBuffer, lastResult.score + kBuffer, RecommendedMoves(), true);
+    SearchResult<TURN> r = search<TURN, SearchTypeRoot>(pos, depth, lastResult.score - kBuffer, lastResult.score + kBuffer, RecommendedMoves(), true);
     if (r.score > lastResult.score - kBuffer && r.score < lastResult.score + kBuffer) {
       return r;
     }
-    return search<TURN, true>(pos, depth, kMinEval, kMaxEval, RecommendedMoves(), true);
+    return search<TURN, SearchTypeRoot>(pos, depth, kMinEval, kMaxEval, RecommendedMoves(), true);
   }
 
   // Gives scores from white's perspective
