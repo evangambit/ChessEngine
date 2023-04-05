@@ -428,13 +428,10 @@ struct Thinker {
           r.score = a.score;
           r.move = extMove->move;
           recommendationsForChildren.add(a.move);
-        }
-        if (children.size() >= multiPV) {
-          if (r.score >= beta) {
-            break;
-          }
-          if (r.score > alpha) {
-            alpha = r.score;
+          if (children.size() >= multiPV) {
+            if (r.score > alpha) {
+              alpha = r.score;
+            }
           }
         }
       } else {
