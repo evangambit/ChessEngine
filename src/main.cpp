@@ -348,8 +348,16 @@ void mymain(std::vector<Position>& positions, const std::string& mode, double ti
           end = compute_legal_moves<Color::BLACK>(&pos, moves);
         }
 
-        std::vector<SearchResult<Color::WHITE>> variations;
+        std::deque<SearchResult<Color::WHITE>> variations;
         for (ExtMove *move = moves; move < end; ++move) {
+          if (results.move == move->move) {
+            // Skip the best move and add it later so we're guaranteed to print it as PV 1.
+            // Otherwise (e.g.) if multiPV == 1, we may have two moves with the same score:
+            // the real primary variation, and a score that we've merely proven is not any
+            // better. Our variation-sorting code here doesn't understand that that's all we've
+            // proven, so it will consider them both equal.
+            continue;
+          }
           if (pos.turn_ == Color::WHITE) {
             make_move<Color::WHITE>(&pos, move->move);
           } else {
@@ -371,6 +379,13 @@ void mymain(std::vector<Position>& positions, const std::string& mode, double ti
           } else {
             undo<Color::BLACK>(&pos);
           }
+        }
+        // Now add the best move and rely on the stability of std::sort to guarantee it will
+        // be ranked first, even if other moves have the same score.
+        if (pos.turn_ == Color::WHITE) {
+          variations.push_back(results);
+        } else {
+          variations.push_front(results);
         }
         std::sort(variations.begin(), variations.end());
         if (pos.turn_ == Color::WHITE) {
