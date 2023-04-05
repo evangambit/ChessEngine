@@ -17,10 +17,11 @@ from scipy import stats
 from multiprocessing import Pool
 
 from simple_stockfish import Stockfish
+from tqdm import tqdm
 
 def f(player, fen, moves):
 	if player[1] == 'None':
-		command = [player[0], "mode", "analyze", "nodes", "10000", "fen", *fen.split(' '), "moves", *moves]
+		command = [player[0], "mode", "analyze", "nodes", "1000", "fen", *fen.split(' '), "moves", *moves]
 	else:
 		command = [player[0], "loadweights", player[1], "mode", "analyze", "nodes", "10000", "fen", *fen.split(' '), "moves", *moves]
 	# command = [player, "mode", "analyze", "time", "5", "fen", *fen.split(' '), "moves", *moves]
@@ -88,8 +89,8 @@ def thread_main(fen):
 if __name__ == '__main__':
 	t0 = time.time()
 	fens = [play_random(chess.Board(), 4) for _ in range(200)]
-	with Pool(2) as p:
-		r = p.map(thread_main, fens)
+	with Pool(8) as p:
+	    r = list(tqdm(p.imap(thread_main, fens), total=len(fens)))
 	r = np.array(r, dtype=np.float64).reshape(-1)
 
 	stderr = r.std(ddof=1) / np.sqrt(r.shape[0])
