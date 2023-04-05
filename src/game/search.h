@@ -397,6 +397,10 @@ struct Thinker {
 
       ++numValidMoves;
 
+      // TODO: why does "./main multiPV 2 moves g1f3 e7e6 d2d4 c7c5 b1c3 g8f6 e2e4 d7d5 depth 8"
+      // return terrible moves for its secondary variation?
+
+      // TODO: "isPV && (extMove == moves)" is more complicated for MultiPV root node.
       SearchResult<TURN> a = flip(search<opposingColor, false>(pos, depth - 1, -beta, -alpha, recommendationsForChildren, isPV && (extMove == moves)));
 
       a.score -= (a.score > -kLongestForcedMate);
