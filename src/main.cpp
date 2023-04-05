@@ -324,7 +324,7 @@ void mymain(std::vector<Position>& positions, const std::string& mode, double ti
       gThinker.reset_stuff();
       SearchResult<Color::WHITE> results(Evaluation(0), kNullMove);
       time_t tstart = clock();
-      for (size_t i = 0; i <= depth; ++i) {
+      for (size_t i = 1; i <= depth; ++i) {
         results = gThinker.search(&pos, i, results);
         if (positions.size() == 1) {
           const double secs = double(clock() - tstart)/CLOCKS_PER_SEC;
@@ -337,6 +337,63 @@ void mymain(std::vector<Position>& positions, const std::string& mode, double ti
           break;
         }
       }
+
+      std::vector<SearchResult<Color::WHITE>> topVariations;
+      {
+        ExtMove moves[256];
+        ExtMove *end;
+        if (pos.turn_ == Color::WHITE) {
+          end = compute_legal_moves<Color::WHITE>(&pos, moves);
+        } else {
+          end = compute_legal_moves<Color::BLACK>(&pos, moves);
+        }
+
+        std::vector<SearchResult<Color::WHITE>> variations;
+        for (ExtMove *move = moves; move < end; ++move) {
+          if (pos.turn_ == Color::WHITE) {
+            make_move<Color::WHITE>(&pos, move->move);
+          } else {
+            make_move<Color::BLACK>(&pos, move->move);
+          }
+          auto it = gThinker.cache.find(pos.hash_);
+          if (it == gThinker.cache.end()) {
+            std::cout << "missing " << move->move << " " << pos.hash_ << std::endl;
+            undo<Color::WHITE>(&pos);
+            continue;
+          }
+          if (pos.turn_ == Color::WHITE) {
+            variations.push_back(SearchResult<Color::WHITE>(it->second.eval, move->move));
+          } else {
+            variations.push_back(SearchResult<Color::WHITE>(-it->second.eval, move->move));
+          }
+          if (pos.turn_ == Color::BLACK) {
+            undo<Color::WHITE>(&pos);
+          } else {
+            undo<Color::BLACK>(&pos);
+          }
+        }
+        std::sort(variations.begin(), variations.end());
+        if (pos.turn_ == Color::WHITE) {
+          for (size_t i = variations.size() - 1; i < variations.size(); --i) {
+            topVariations.push_back(variations[i]);
+            if (topVariations.size() >= gThinker.multiPV) {
+              break;
+            }
+          }
+        } else {
+          for (size_t i = 0; i < variations.size(); ++i) {
+            topVariations.push_back(variations[i]);
+            if (topVariations.size() >= gThinker.multiPV) {
+              break;
+            }
+          }
+        }
+      }
+      for (size_t i = 0; i < topVariations.size(); ++i) {
+        std::cout << "PV " << i << ": " << topVariations[i].move.uci() << " (" << topVariations[i].score << ")" << std::endl;
+      }
+
+      // gThinker.multiPV
 
       auto it = gThinker.cache.find(pos.hash_);
       std::vector<uint64_t> oldHashes = {pos.hash_};
@@ -372,7 +429,7 @@ void mymain(std::vector<Position>& positions, const std::string& mode, double ti
         gThinker.reset_stuff();
         SearchResult<Color::WHITE> results(Evaluation(0), kNullMove);
         time_t tstart = clock();
-        for (size_t i = 0; i <= depth; ++i) {
+        for (size_t i = 1; i <= depth; ++i) {
           results = gThinker.search(&pos, i, results);
           if (gThinker.nodeCounter >= nodeLimit) {
             break;
@@ -459,6 +516,13 @@ int main(int argc, char *argv[]) {
     } else if (args.size() >= 2 && args[0] == "depth") {
       depth = std::stoi(args[1]);
       if (depth < 0) {
+        throw std::invalid_argument("");
+        exit(1);
+      }
+      args = std::vector<std::string>(args.begin() + 2, args.end());
+    } else if (args.size() >= 2 && args[0] == "multiPV") {
+      gThinker.multiPV = std::stoi(args[1]);
+      if (gThinker.multiPV < 0 || gThinker.multiPV > 99) {
         throw std::invalid_argument("");
         exit(1);
       }

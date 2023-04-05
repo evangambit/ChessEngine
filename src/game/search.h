@@ -80,10 +80,20 @@ struct RecommendedMoves {
 
 template<Color PERSPECTIVE>
 struct SearchResult {
+  SearchResult() : score(0), move(kNullMove) {}
   SearchResult(Evaluation score, Move move) : score(score), move(move) {}
   Evaluation score;
   Move move;
 };
+
+template<Color color>
+bool operator<(SearchResult<color> a, SearchResult<color> b) {
+  if (color == Color::WHITE) {
+    return a.score < b.score;
+  } else {
+    return a.score > b.score;
+  }
+}
 
 std::ostream& operator<<(std::ostream& stream, SearchResult<Color::WHITE> sr) {
   stream << "(" << sr.score << ", " << sr.move << ")";
@@ -114,9 +124,11 @@ struct Thinker {
   Evaluator evaluator;
   std::unordered_map<uint64_t, CacheResult> cache;
   uint32_t historyHeuristicTable[Color::NUM_COLORS][64][64];
+  size_t multiPV;
 
   Thinker() {
     reset_stuff();
+    multiPV = 1;
   }
 
   // TODO: qsearch can leave you in check
@@ -207,7 +219,7 @@ struct Thinker {
     std::fill_n(historyHeuristicTable[Color::BLACK][0], 64 * 64, 0);
   }
 
-  template<Color TURN>
+  template<Color TURN, bool isRoot>
   SearchResult<TURN> search(
     Position* pos, const Depth depth,
     Evaluation alpha, const Evaluation beta,
@@ -225,19 +237,33 @@ struct Thinker {
 
     ++this->nodeCounter;
 
-    const Evaluation initialGap = beta - alpha;
-
     constexpr Color opposingColor = opposite_color<TURN>();
     constexpr ColoredPiece moverKing = coloredPiece<TURN, Piece::KING>();
 
     if (std::popcount(pos->pieceBitboards_[coloredPiece<TURN, Piece::KING>()]) == 0) {
+      std::cout << "a" << std::endl;
       return SearchResult<TURN>(kMissingKing, kNullMove);
     }
 
     if (depth <= 0) {
       ++this->leafCounter;
       // Quiescence Search (+0.47)
-      return qsearch<TURN>(pos, 0, alpha, beta);
+      SearchResult<TURN> r = qsearch<TURN>(pos, 0, alpha, beta);
+
+      const CacheResult cr = CacheResult{
+        depth,
+        r.score,
+        r.move,
+        NodeTypePV,
+        #ifndef NDEBUG
+        pos->fen(),
+        #endif
+      };
+      auto it = this->cache.find(pos->hash_);
+      if (this->cache.find(pos->hash_) == this->cache.end()) {
+        this->cache.insert(std::make_pair(pos->hash_, cr));
+      }
+      return r;
     }
 
     if (pos->is_draw()) {
@@ -252,40 +278,40 @@ struct Thinker {
       }
     }
 
-    // Futility pruning (+0.10)
-    // If our depth is 1 or exceeds the transposition table by 1 then we ignore moves that
-    // are sufficiently bad that they are unlikely to be improved by increasing depth by 1.
-    const int numMenLeft = std::popcount(pos->colorBitboards_[Color::WHITE] | pos->colorBitboards_[Color::BLACK]);
-    const Evaluation futilityThreshold = 70;
-    if (it != this->cache.end() && depth - it->second.depth == 1) {
-      const CacheResult& cr = it->second;
-      if (cr.lowerbound() >= beta + futilityThreshold || cr.upperbound() <= alpha - futilityThreshold) {
-        return SearchResult<TURN>(cr.eval, cr.bestMove);
-      }
-    }
-    if (it == this->cache.end() && depth <= 2) {
-      // We assume that you can make a move that improves your position, so comparing against alpha
-      // gets a small bonus.
-      const Evaluation tempoBonus = 20;
-      SearchResult<TURN> r = qsearch<TURN>(pos, 0, alpha, beta);
-      if (r.score >= beta + futilityThreshold || r.score + tempoBonus <= alpha - futilityThreshold) {
-        return r;
-      }
-    }
+    // // Futility pruning (+0.10)
+    // // If our depth is 1 or exceeds the transposition table by 1 then we ignore moves that
+    // // are sufficiently bad that they are unlikely to be improved by increasing depth by 1.
+    // const int numMenLeft = std::popcount(pos->colorBitboards_[Color::WHITE] | pos->colorBitboards_[Color::BLACK]);
+    // const Evaluation futilityThreshold = 70;
+    // if (it != this->cache.end() && depth - it->second.depth == 1) {
+    //   const CacheResult& cr = it->second;
+    //   if (cr.lowerbound() >= beta + futilityThreshold || cr.upperbound() <= alpha - futilityThreshold) {
+    //     return SearchResult<TURN>(cr.eval, cr.bestMove);
+    //   }
+    // }
+    // if (it == this->cache.end() && depth <= 2) {
+    //   // We assume that you can make a move that improves your position, so comparing against alpha
+    //   // gets a small bonus.
+    //   const Evaluation tempoBonus = 20;
+    //   SearchResult<TURN> r = qsearch<TURN>(pos, 0, alpha, beta);
+    //   if (r.score >= beta + futilityThreshold || r.score + tempoBonus <= alpha - futilityThreshold) {
+    //     return r;
+    //   }
+    // }
 
     Bitboard ourPieces = pos->colorBitboards_[TURN] & ~pos->pieceBitboards_[coloredPiece<TURN, Piece::PAWN>()];
     const bool inCheck = can_enemy_attack<TURN>(*pos, lsb(pos->pieceBitboards_[moverKing]));
 
-    // Null Move Pruning (+0.016)
-    if (depth >= 3 && std::popcount(ourPieces) > 1 && !inCheck && !isPV) {
-      make_nullmove<TURN>(pos);
-      SearchResult<TURN> a = flip(search<opposingColor>(pos, depth - 3, -beta, -alpha, RecommendedMoves(), false));
-      if (a.score >= beta && a.move != kNullMove) {
-        undo_nullmove<TURN>(pos);
-        return SearchResult<TURN>(beta + 1, kNullMove);
-      }
-      undo_nullmove<TURN>(pos);
-    }
+    // // Null Move Pruning (+0.016)
+    // if (depth >= 3 && std::popcount(ourPieces) > 1 && !inCheck && !isPV) {
+    //   make_nullmove<TURN>(pos);
+    //   SearchResult<TURN> a = flip(search<opposingColor, false>(pos, depth - 3, -beta, -alpha, RecommendedMoves(), false));
+    //   if (a.score >= beta && a.move != kNullMove) {
+    //     undo_nullmove<TURN>(pos);
+    //     return SearchResult<TURN>(beta + 1, kNullMove);
+    //   }
+    //   undo_nullmove<TURN>(pos);
+    // }
 
     Move lastFoundBestMove = (it != this->cache.end() ? it->second.bestMove : kNullMove);
 
@@ -346,6 +372,9 @@ struct Thinker {
 
     NodeType nodeType = NodeTypePV;
 
+    // Should be optimized away if !isRoot.
+    std::vector<SearchResult<TURN>> children;
+
     size_t numValidMoves = 0;
     for (ExtMove *extMove = moves; extMove < end; ++extMove) {
 
@@ -368,7 +397,8 @@ struct Thinker {
 
       ++numValidMoves;
 
-      SearchResult<TURN> a = flip(search<opposingColor>(pos, depth - 1, -beta, -alpha, recommendationsForChildren, isPV && (extMove == moves)));
+      SearchResult<TURN> a = flip(search<opposingColor, false>(pos, depth - 1, -beta, -alpha, recommendationsForChildren, isPV && (extMove == moves)));
+
       a.score -= (a.score > -kLongestForcedMate);
       a.score += (a.score < kLongestForcedMate);
 
@@ -391,19 +421,31 @@ struct Thinker {
       pos->assert_valid_state("b " + extMove->uci());
       #endif
 
-      if (a.score > r.score) {
-        r.score = a.score;
-        r.move = extMove->move;
-        recommendationsForChildren.add(a.move);
-        if (r.score >= beta) {
-          nodeType = NodeTypeCut_LowerBound;
-          this->historyHeuristicTable[TURN][r.move.from][r.move.to] += depth * depth;
-          break;
+      if (isRoot) {
+        children.push_back(a);
+        std::sort(children.begin(), children.end());
+        if (a.score > r.score) {
+          r.score = a.score;
+          r.move = extMove->move;
+          recommendationsForChildren.add(a.move);
         }
-        if (r.score > alpha) {
-          alpha = r.score;
+        if (children.size() >= multiPV) {
+          alpha = std::max(alpha, children[0].score);
         }
-
+      } else {
+        if (a.score > r.score) {
+          r.score = a.score;
+          r.move = extMove->move;
+          recommendationsForChildren.add(a.move);
+          if (r.score >= beta) {
+            nodeType = NodeTypeCut_LowerBound;
+            this->historyHeuristicTable[TURN][r.move.from][r.move.to] += depth * depth;
+            break;
+          }
+          if (r.score > alpha) {
+            alpha = r.score;
+          }
+        }
       }
     }
 
@@ -447,12 +489,16 @@ struct Thinker {
     // 100: 0.099 ± 0.021
     //  75: 0.152 ± 0.021
     //  50: 0.105 ± 0.019
+    if (multiPV != 1) {
+      // Disable aspiration window if we are searching more than one principle variation.
+      return search<TURN, true>(pos, depth, kMinEval, kMaxEval, RecommendedMoves(), true);
+    }
     constexpr Evaluation kBuffer = 75;
-    SearchResult<TURN> r = search<TURN>(pos, depth, lastResult.score - kBuffer, lastResult.score + kBuffer, RecommendedMoves(), true);
+    SearchResult<TURN> r = search<TURN, true>(pos, depth, lastResult.score - kBuffer, lastResult.score + kBuffer, RecommendedMoves(), true);
     if (r.score > lastResult.score - kBuffer && r.score < lastResult.score + kBuffer) {
       return r;
     }
-    return search<TURN>(pos, depth, kMinEval, kMaxEval, RecommendedMoves(), true);
+    return search<TURN, true>(pos, depth, kMinEval, kMaxEval, RecommendedMoves(), true);
   }
 
   // Gives scores from white's perspective
