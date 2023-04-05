@@ -178,27 +178,48 @@ def thread_main(fen):
 
 kFoo = ['early', 'late', 'clipped', 'lonelyKing']
 
+# The basic approach is to run a command to optimize some variables (e.g. see below) and then run
+#
+# $ python3 selfplay_w.py w0.txt weights.txt
+#
+# If the results are positive and significant run
+#
+# $ mv w0.txt weights.txt
+#
+# And commit the new weights.txt
+#
+# If the results are negative, it's possible the code below misinterpretted its data. You can view graphs of
+# the data in optimages/... and make manual adjustments if necessary.
+#
 # Already run:
 #
 # 0.125 ± 0.029
-# python3 genetic.py --num_trials 4096 --range 20 --step 5 --stage 0 \
+# $ python3 genetic.py --num_trials 4096 --range 20 --step 5 --stage 0 \
 # --variables OUR_PAWNS,THEIR_PAWNS,OUR_KNIGHTS,THEIR_KNIGHTS,OUR_BISHOPS,THEIR_BISHOPS,OUR_ROOKS,THEIR_ROOKS,OUR_QUEENS,THEIR_QUEENS
 #
-# Already run:
 # 0.023 ± 0.009
-# python3 genetic.py --num_trials 4096 --range 20 --step 5 --stage 1 \
+# $ python3 genetic.py --num_trials 4096 --range 20 --step 5 --stage 1 \
 # --variables OUR_PAWNS,THEIR_PAWNS,OUR_KNIGHTS,THEIR_KNIGHTS,OUR_BISHOPS,THEIR_BISHOPS,OUR_ROOKS,THEIR_ROOKS,OUR_QUEENS,THEIR_QUEENS
+#
+# 0.004 ± 0.002 (95.8%)
+# $ python3 genetic.py --num_trials 4096 --range 10 --step 2 --stage 1 \
+# --variables KING_ON_BACK_RANK,KING_ON_CENTER_FILE,KING_ACTIVE,THREATS_NEAR_KING_2,THREATS_NEAR_KING_3
+#
+# 
+# 0.0022 ± 0.0111 (57.8%)
+# $ python3 genetic.py --num_trials 4096 --range 10 --step 2 --stage 0 \
+# --variables KING_ON_BACK_RANK,KING_ON_CENTER_FILE,KING_ACTIVE,THREATS_NEAR_KING_2,THREATS_NEAR_KING_3
 
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser()
-  parser.add_argument("--num_trials", type=int, default=160, help="Number of duplicate-games to play per generation")
+  parser.add_argument("--num_trials", type=int, default=4096, help="Number of duplicate-games to play per generation")
   parser.add_argument("--threshold", type=float, default=2.0, help="Number of z-scores required to step in a direction")
   parser.add_argument("--lr", type=float, default=0.05)
   parser.add_argument("--variables", type=str, default='')
   parser.add_argument("--range", type=int, default=5)
   parser.add_argument("--step", type=int, default=1)
-  parser.add_argument("--stage", type=int, required=True)
+  parser.add_argument("--stage", type=int, required=True, help="Integer indicating weight type (early,late,clipped,lonelyKing)")
   args = parser.parse_args()
   assert args.threshold <= args.num_trials * 2
   assert args.stage >= 0 and args.stage < 4
@@ -233,7 +254,7 @@ if __name__ == '__main__':
 
       fens = [ play_random(chess.Board(), 4) for _ in range(args.num_trials) ]
 
-      with Pool(8) as p:
+      with Pool(12) as p:
         r = p.map(thread_main, fens)
       r = np.array(r) / 2
 
@@ -281,6 +302,8 @@ if __name__ == '__main__':
       plt.plot(curvex, curvex * w[0] + curvex * curvex * w[1])
 
     plt.grid()
+    if not os.path.exists("optimages"):
+      os.mkdir("optimages")
     plt.savefig(os.path.join("optimages", f"{varname}_{args.stage}.png"))
 
     w0[varidx] += delta
