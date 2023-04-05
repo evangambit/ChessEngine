@@ -306,16 +306,16 @@ struct Thinker {
     Bitboard ourPieces = pos->colorBitboards_[TURN] & ~pos->pieceBitboards_[coloredPiece<TURN, Piece::PAWN>()];
     const bool inCheck = can_enemy_attack<TURN>(*pos, lsb(pos->pieceBitboards_[moverKing]));
 
-    // Null Move Pruning (+0.016)
-    if (depth >= 3 && std::popcount(ourPieces) > 1 && !inCheck && !isPV && (it != this->cache.end() && it->second.lowerbound() > beta)) {
-      make_nullmove<TURN>(pos);
-      SearchResult<TURN> a = flip(search<opposingColor, SearchTypeNormal>(pos, depth - 3, -beta, -alpha, RecommendedMoves(), false));
-      if (a.score >= beta && a.move != kNullMove) {
-        undo_nullmove<TURN>(pos);
-        return SearchResult<TURN>(beta + 1, kNullMove);
-      }
-      undo_nullmove<TURN>(pos);
-    }
+    // Null move pruning doesn't seem to help.
+    // if (depth >= 3 && std::popcount(ourPieces) > 1 && !inCheck && !isPV && (it != this->cache.end() && it->second.lowerbound() >= beta)) {
+    //   make_nullmove<TURN>(pos);
+    //   SearchResult<TURN> a = flip(search<opposingColor, SearchTypeNormal>(pos, depth - 3, -beta, -beta+1, RecommendedMoves(), false));
+    //   if (a.score >= beta && a.move != kNullMove) {
+    //     undo_nullmove<TURN>(pos);
+    //     return SearchResult<TURN>(beta + 1, kNullMove);
+    //   }
+    //   undo_nullmove<TURN>(pos);
+    // }
 
     // Null-window search doesn't seem to help,
     // if (SEARCH_TYPE == SearchTypeNormal && !isPV && (it != this->cache.end() && it->second.upperbound() + 50 < alpha)) {
