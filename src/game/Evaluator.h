@@ -405,11 +405,29 @@ lonelyKingB = 0;
   }
 
   template<Color US>
+  bool is_material_draw(const Position& pos) const {
+    constexpr Color THEM = opposite_color<US>();
+    const Bitboard ourMen = pos.colorBitboards_[US];
+    const Bitboard theirMen = pos.colorBitboards_[THEM];
+    const Bitboard everyoneButKings = ourMen | theirMen & ~(pos.pieceBitboards_[ColoredPiece::WHITE_KING] | pos.pieceBitboards_[ColoredPiece::BLACK_KING]);
+    const bool isThreeManEndgame = std::popcount(ourMen | theirMen) == 3;
+    bool isDraw = false;
+    isDraw |= (everyoneButKings == 0);
+    isDraw |= (everyoneButKings == (pos.pieceBitboards_[ColoredPiece::WHITE_KNIGHT] | pos.pieceBitboards_[ColoredPiece::BLACK_KNIGHT])) && isThreeManEndgame;
+    isDraw |= (everyoneButKings == (pos.pieceBitboards_[ColoredPiece::WHITE_BISHOP] | pos.pieceBitboards_[ColoredPiece::BLACK_BISHOP])) && isThreeManEndgame;
+    return isDraw;
+  }
+
+  template<Color US>
   Evaluation score(const Position& pos, const Threats<US>& threats) {
     constexpr Color THEM = opposite_color<US>();
 
     assert(pos.pieceBitboards_[ColoredPiece::WHITE_KING] > 0);
     assert(pos.pieceBitboards_[ColoredPiece::BLACK_KING] > 0);
+
+    if (this->is_material_draw<US>(pos)) {
+      return 0;
+    }
 
     const Square ourKingSq = lsb(pos.pieceBitboards_[coloredPiece<US, Piece::KING>()]);
     const Square theirKingSq = lsb(pos.pieceBitboards_[coloredPiece<THEM, Piece::KING>()]);
@@ -430,15 +448,6 @@ lonelyKingB = 0;
 
     const Bitboard ourMen = pos.colorBitboards_[US];
     const Bitboard theirMen = pos.colorBitboards_[THEM];
-    const Bitboard everyone = ourMen | theirMen;
-    const bool isThreeManEndgame = std::popcount(ourMen | theirMen) == 3;
-    bool isDraw = false;
-    isDraw |= (ourMen == ourKings) && (theirMen == theirKings);
-    isDraw |= ((ourMen | theirMen) == (ourKings | ourKnights | theirKings | theirKnights)) && isThreeManEndgame;
-    isDraw |= ((ourMen | theirMen) == (ourKings | ourBishops | theirKings | theirBishops)) && isThreeManEndgame;
-    if (isDraw) {
-      return 0;
-    }
 
     // TODO: penalty for double attacks near king
 
