@@ -241,7 +241,6 @@ struct Thinker {
     constexpr ColoredPiece moverKing = coloredPiece<TURN, Piece::KING>();
 
     if (std::popcount(pos->pieceBitboards_[coloredPiece<TURN, Piece::KING>()]) == 0) {
-      std::cout << "a" << std::endl;
       return SearchResult<TURN>(kMissingKing, kNullMove);
     }
 
@@ -303,7 +302,7 @@ struct Thinker {
     const bool inCheck = can_enemy_attack<TURN>(*pos, lsb(pos->pieceBitboards_[moverKing]));
 
     // Null Move Pruning (+0.016)
-    if (depth >= 3 && std::popcount(ourPieces) > 1 && !inCheck && !isPV) {
+    if (depth >= 3 && std::popcount(ourPieces) > 1 && !inCheck && !isPV && (it != this->cache.end() && it->second.lowerbound() > beta)) {
       make_nullmove<TURN>(pos);
       SearchResult<TURN> a = flip(search<opposingColor, false>(pos, depth - 3, -beta, -alpha, RecommendedMoves(), false));
       if (a.score >= beta && a.move != kNullMove) {
