@@ -317,9 +317,10 @@ struct Thinker {
       undo_nullmove<TURN>(pos);
     }
 
-    // if (!isPV && (it != this->cache.end() && it->second.upperbound() < alpha)) {
+    // Null-window search doesn't seem to help,
+    // if (SEARCH_TYPE == SearchTypeNormal && !isPV && (it != this->cache.end() && it->second.upperbound() + 50 < alpha)) {
     //   // Null Window search.
-    //   SearchResult<TURN> r = search<TURN, SearchTypeNormal>(pos, depth - 1, -(alpha + 1), -alpha, RecommendedMoves(), false);
+    //   SearchResult<TURN> r = search<TURN, SearchTypeNullWindow>(pos, depth, alpha, alpha + 1, RecommendedMoves(), false);
     //   if (r.score <= alpha) {
     //     return r;
     //   }
