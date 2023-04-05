@@ -278,40 +278,40 @@ struct Thinker {
       }
     }
 
-    // // Futility pruning (+0.10)
-    // // If our depth is 1 or exceeds the transposition table by 1 then we ignore moves that
-    // // are sufficiently bad that they are unlikely to be improved by increasing depth by 1.
-    // const int numMenLeft = std::popcount(pos->colorBitboards_[Color::WHITE] | pos->colorBitboards_[Color::BLACK]);
-    // const Evaluation futilityThreshold = 70;
-    // if (it != this->cache.end() && depth - it->second.depth == 1) {
-    //   const CacheResult& cr = it->second;
-    //   if (cr.lowerbound() >= beta + futilityThreshold || cr.upperbound() <= alpha - futilityThreshold) {
-    //     return SearchResult<TURN>(cr.eval, cr.bestMove);
-    //   }
-    // }
-    // if (it == this->cache.end() && depth <= 2) {
-    //   // We assume that you can make a move that improves your position, so comparing against alpha
-    //   // gets a small bonus.
-    //   const Evaluation tempoBonus = 20;
-    //   SearchResult<TURN> r = qsearch<TURN>(pos, 0, alpha, beta);
-    //   if (r.score >= beta + futilityThreshold || r.score + tempoBonus <= alpha - futilityThreshold) {
-    //     return r;
-    //   }
-    // }
+    // Futility pruning (+0.10)
+    // If our depth is 1 or exceeds the transposition table by 1 then we ignore moves that
+    // are sufficiently bad that they are unlikely to be improved by increasing depth by 1.
+    const int numMenLeft = std::popcount(pos->colorBitboards_[Color::WHITE] | pos->colorBitboards_[Color::BLACK]);
+    const Evaluation futilityThreshold = 70;
+    if (it != this->cache.end() && depth - it->second.depth == 1) {
+      const CacheResult& cr = it->second;
+      if (cr.lowerbound() >= beta + futilityThreshold || cr.upperbound() <= alpha - futilityThreshold) {
+        return SearchResult<TURN>(cr.eval, cr.bestMove);
+      }
+    }
+    if (it == this->cache.end() && depth <= 2) {
+      // We assume that you can make a move that improves your position, so comparing against alpha
+      // gets a small bonus.
+      const Evaluation tempoBonus = 20;
+      SearchResult<TURN> r = qsearch<TURN>(pos, 0, alpha, beta);
+      if (r.score >= beta + futilityThreshold || r.score + tempoBonus <= alpha - futilityThreshold) {
+        return r;
+      }
+    }
 
     Bitboard ourPieces = pos->colorBitboards_[TURN] & ~pos->pieceBitboards_[coloredPiece<TURN, Piece::PAWN>()];
     const bool inCheck = can_enemy_attack<TURN>(*pos, lsb(pos->pieceBitboards_[moverKing]));
 
-    // // Null Move Pruning (+0.016)
-    // if (depth >= 3 && std::popcount(ourPieces) > 1 && !inCheck && !isPV) {
-    //   make_nullmove<TURN>(pos);
-    //   SearchResult<TURN> a = flip(search<opposingColor, false>(pos, depth - 3, -beta, -alpha, RecommendedMoves(), false));
-    //   if (a.score >= beta && a.move != kNullMove) {
-    //     undo_nullmove<TURN>(pos);
-    //     return SearchResult<TURN>(beta + 1, kNullMove);
-    //   }
-    //   undo_nullmove<TURN>(pos);
-    // }
+    // Null Move Pruning (+0.016)
+    if (depth >= 3 && std::popcount(ourPieces) > 1 && !inCheck && !isPV) {
+      make_nullmove<TURN>(pos);
+      SearchResult<TURN> a = flip(search<opposingColor, false>(pos, depth - 3, -beta, -alpha, RecommendedMoves(), false));
+      if (a.score >= beta && a.move != kNullMove) {
+        undo_nullmove<TURN>(pos);
+        return SearchResult<TURN>(beta + 1, kNullMove);
+      }
+      undo_nullmove<TURN>(pos);
+    }
 
     Move lastFoundBestMove = (it != this->cache.end() ? it->second.bestMove : kNullMove);
 
@@ -430,7 +430,12 @@ struct Thinker {
           recommendationsForChildren.add(a.move);
         }
         if (children.size() >= multiPV) {
-          alpha = std::max(alpha, children[0].score);
+          if (r.score >= beta) {
+            break;
+          }
+          if (r.score > alpha) {
+            alpha = r.score;
+          }
         }
       } else {
         if (a.score > r.score) {
