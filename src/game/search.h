@@ -142,7 +142,11 @@ struct Thinker {
   void print_variation(Position* pos, Move move) {
     uint64_t foo = pos->hash_;
     this->make_move(pos, move);
-    auto it = cache.find(pos->hash_);
+    auto it = this->cache.find(pos->hash_);
+
+    if (it == this->cache.end()) {
+      return;
+    }
 
     Evaluation eval = it->second.eval;
     if (pos->turn_ == Color::BLACK) {

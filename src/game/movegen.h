@@ -193,6 +193,64 @@ Bitboard compute_attackers(const Position& pos, const Square sq) {
   return attackers;
 }
 
+struct CheckMap {
+  Bitboard data[Piece::KING + 1];
+};
+
+template<Color US>
+CheckMap compute_potential_attackers(const Position& pos, const Square sq) {
+  constexpr Color THEM = opposite_color<US>();
+
+  const Location loc = square2location(sq);
+
+  const Bitboard file = kFiles[sq % 8];
+  const Bitboard rank = kRanks[sq / 8];
+  const Bitboard everyone = (pos.colorBitboards_[Color::WHITE] | pos.colorBitboards_[Color::BLACK]) & ~loc;
+
+  CheckMap r;
+
+  r.data[Piece::KNIGHT] = kKnightMoves[sq];
+  r.data[Piece::KING] = kKingMoves[sq];
+
+  // todo: pawns
+  r.data[Piece::NO_PIECE] = 0;
+  r.data[Piece::PAWN] = 0;
+
+  r.data[Piece::ROOK] = 0;
+  {
+    const uint8_t y = sq / 8;
+    const unsigned rankShift = y * 8;
+    uint8_t fromByte = loc >> rankShift;
+    uint8_t occ = everyone >> rankShift;
+    uint8_t toByte = sliding_moves(fromByte, occ);
+    r.data[Piece::ROOK] |= Bitboard(toByte) << rankShift;
+  }
+  {
+    const uint8_t x = (sq % 8);
+    const unsigned columnShift = 7 - x;
+    uint8_t fromByte = (((loc << columnShift) & kFiles[7]) * kRookMagic) >> 56;
+    uint8_t occ = ((((everyone & file) << columnShift) & kFiles[7]) * kRookMagic) >> 56;
+    uint8_t toByte = sliding_moves(fromByte, occ);
+    r.data[Piece::ROOK] |= (((Bitboard(toByte & 254) * kRookMagic) & kFiles[0]) | (toByte & 1)) << x;
+  }
+
+  r.data[Piece::BISHOP] = 0;
+  {  // Southeast/Northwest diagonal.
+    uint8_t occ = diag::southeast_diag_to_byte(sq, everyone);
+    uint8_t fromByte = diag::southeast_diag_to_byte(sq, loc);
+    r.data[Piece::BISHOP] |= diag::byte_to_southeast_diag(sq, sliding_moves(fromByte, occ));
+  }
+  {  // Southwest/Northeast diagonal.
+    uint8_t occ = diag::southwest_diag_to_byte(sq, everyone);
+    uint8_t fromByte = diag::southwest_diag_to_byte(sq, loc);
+    r.data[Piece::BISHOP] |= diag::byte_to_southwest_diag(sq, sliding_moves(fromByte, occ));
+  }
+
+  r.data[Piece::QUEEN] = r.data[Piece::BISHOP] | r.data[Piece::ROOK];
+
+  return r;
+}
+
 template<Color US>
 PinMasks compute_pin_masks(const Position& pos) {
   constexpr Color THEM = opposite_color<US>();
