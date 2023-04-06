@@ -171,6 +171,7 @@ def thread_main(fen):
     "./selfplay",
     "weights", "w1.txt", "w0.txt",
     "nodes", "500",
+    "maxmoves", "200",
     "fen", *fen.split(' ')
   ]
   stdout = subprocess.check_output(command).decode()
@@ -209,7 +210,10 @@ kFoo = ['early', 'late', 'clipped', 'lonelyKing']
 # 0.0022 ± 0.0111 (57.8%)
 # $ python3 genetic.py --num_trials 4096 --range 10 --step 2 --stage 0 \
 # --variables KING_ON_BACK_RANK,KING_ON_CENTER_FILE,KING_ACTIVE,THREATS_NEAR_KING_2,THREATS_NEAR_KING_3
-
+#
+# 0.0193 ± 0.0114 (95.5%)
+# $ python3 genetic.py --num_trials 4096 --range 10 --step 2 --stage 2 \
+# --variables ISOLATED_PAWNS,DOUBLED_PAWNS,DOUBLE_ISOLATED_PAWNS,PAWNS_CENTER_16,PAWNS_CENTER_4,ADVANCED_PASSED_PAWNS_2,ADVANCED_PASSED_PAWNS_3,ADVANCED_PASSED_PAWNS_4
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser()
@@ -244,7 +248,7 @@ if __name__ == '__main__':
     pz = [0.0]
 
     deltas = np.concatenate([np.arange(1, args.range, args.step), np.arange(1, args.range, args.step) * -1])
-    # deltas = np.concatenate([deltas, deltas, deltas, deltas])
+    deltas = np.concatenate([deltas, deltas, deltas, deltas, deltas, deltas, deltas, deltas])
 
     for stepsize in tqdm(deltas):
       w1 = w0.copy()
@@ -254,7 +258,7 @@ if __name__ == '__main__':
 
       fens = [ play_random(chess.Board(), 4) for _ in range(args.num_trials) ]
 
-      with Pool(12) as p:
+      with Pool(8) as p:
         r = p.map(thread_main, fens)
       r = np.array(r) / 2
 
@@ -276,7 +280,7 @@ if __name__ == '__main__':
     slopeAt0 = w[0]
     maximum = -w[0] / (2 * w[1]) if w[1] < 0 else None
     if maximum is not None and maximum > -args.range and maximum < args.range:
-      delta = max(-args.range, min(args.range, maximum))
+      delta = max(-args.range, min(args.range, round(maximum)))
       scoreIncrease = w[0] * delta + w[1] * delta * delta
     else:
       # Linear regression
