@@ -433,8 +433,12 @@ void mymain(std::vector<Position>& positions, const std::string& mode, double ti
         } else {
           make_move<Color::BLACK>(&pos, results.move);
         }
+        if (pos.is_draw() || gThinker.evaluator.is_material_draw(pos)) {
+          break;
+        }
       }
       std::cout << std::endl;
+      std::cout << pos << std::endl;
     }
   }
 }

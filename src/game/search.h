@@ -305,7 +305,7 @@ struct Thinker {
       return r;
     }
 
-    if (pos->is_draw() || this->evaluator.is_material_draw<TURN>(*pos)) {
+    if (pos->is_draw() || this->evaluator.is_material_draw(*pos)) {
       SearchResult<TURN>(Evaluation(0), kNullMove);
     }
 

@@ -407,13 +407,10 @@ lonelyKingB = 0;
     return this->score<US>(pos, threats);
   }
 
-  template<Color US>
   bool is_material_draw(const Position& pos) const {
-    constexpr Color THEM = opposite_color<US>();
-    const Bitboard ourMen = pos.colorBitboards_[US];
-    const Bitboard theirMen = pos.colorBitboards_[THEM];
-    const Bitboard everyoneButKings = ourMen | theirMen & ~(pos.pieceBitboards_[ColoredPiece::WHITE_KING] | pos.pieceBitboards_[ColoredPiece::BLACK_KING]);
-    const bool isThreeManEndgame = std::popcount(ourMen | theirMen) == 3;
+    const Bitboard everyone = pos.colorBitboards_[Color::WHITE] | pos.colorBitboards_[Color::BLACK];
+    const Bitboard everyoneButKings = everyone & ~(pos.pieceBitboards_[ColoredPiece::WHITE_KING] | pos.pieceBitboards_[ColoredPiece::BLACK_KING]);
+    const bool isThreeManEndgame = std::popcount(everyone) == 3;
     bool isDraw = false;
     isDraw |= (everyoneButKings == 0);
     isDraw |= (everyoneButKings == (pos.pieceBitboards_[ColoredPiece::WHITE_KNIGHT] | pos.pieceBitboards_[ColoredPiece::BLACK_KNIGHT])) && isThreeManEndgame;
@@ -428,7 +425,7 @@ lonelyKingB = 0;
     assert(pos.pieceBitboards_[ColoredPiece::WHITE_KING] > 0);
     assert(pos.pieceBitboards_[ColoredPiece::BLACK_KING] > 0);
 
-    if (this->is_material_draw<US>(pos)) {
+    if (this->is_material_draw(pos)) {
       return 0;
     }
 
