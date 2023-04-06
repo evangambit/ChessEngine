@@ -7,12 +7,6 @@
 #include <algorithm>
 #include <unordered_map>
 
-#ifndef NDEBUG
-#include <iostream>
-#include <string>
-#include <vector>
-#endif
-
 #include "geometry.h"
 #include "utils.h"
 #include "Position.h"
@@ -23,10 +17,6 @@
 namespace ChessEngine {
 
 typedef int8_t Depth;
-
-#ifndef NDEBUG
-std::vector<std::string> gStackDebug;
-#endif
 
 // PV-nodes ("principal variation" nodes) have a score that lies between alpha and beta; their scores are exact.
 
@@ -49,9 +39,6 @@ struct CacheResult {
   Evaluation eval;
   Move bestMove;
   NodeType nodeType;
-  #ifndef NDEBUG
-  std::string fen;
-  #endif
   inline Evaluation lowerbound() const {
     return nodeType == NodeTypeAll_UpperBound ? kMinEval : eval;
   }
@@ -259,9 +246,6 @@ struct Thinker {
         r.score,
         r.move,
         NodeTypePV,
-        #ifndef NDEBUG
-        pos->fen(),
-        #endif
       };
       auto it = this->cache.find(pos->hash_);
       if (this->cache.find(pos->hash_) == this->cache.end()) {
@@ -328,10 +312,6 @@ struct Thinker {
 
     Move lastFoundBestMove = (it != this->cache.end() ? it->second.bestMove : kNullMove);
 
-    #ifndef NDEBUG
-    std::string fen0 = pos->fen();
-    #endif
-
     SearchResult<TURN> r(
       kMinEval + 1,
       kNullMove
@@ -391,15 +371,6 @@ struct Thinker {
     size_t numValidMoves = 0;
     for (ExtMove *extMove = moves; extMove < end; ++extMove) {
 
-      #ifndef NDEBUG
-      gStackDebug.push_back(extMove->uci());
-      pos->assert_valid_state("a " + extMove->uci());
-      #endif
-
-      #ifndef NDEBUG
-      const size_t h0 = pos->hash_;
-      #endif
-
       make_move<TURN>(pos, extMove->move);
 
       // Don't move into check.
@@ -420,23 +391,6 @@ struct Thinker {
       a.score += (a.score < kLongestForcedMate);
 
       undo<TURN>(pos);
-
-      #ifndef NDEBUG
-      const size_t h1 = pos->hash_;
-      if (h0 != h1) {
-        throw std::runtime_error("h0 != h1");
-      }
-      #endif
-
-      #ifndef NDEBUG
-      gStackDebug.pop_back();
-      if (pos->fen() != fen0) {
-        std::cout << fen0 << std::endl;
-        std::cout << pos->fen() << std::endl;
-        throw std::runtime_error("fen != fen0");
-      }
-      pos->assert_valid_state("b " + extMove->uci());
-      #endif
 
       if (SEARCH_TYPE == SearchTypeRoot) {
         children.push_back(a);
@@ -483,9 +437,6 @@ struct Thinker {
         r.score,
         r.move,
         nodeType,
-        #ifndef NDEBUG
-        pos->fen(),
-        #endif
       };
       it = this->cache.find(pos->hash_);  // Need to re-search since the iterator may have changed when searching my children.
       if (it == this->cache.end()) {

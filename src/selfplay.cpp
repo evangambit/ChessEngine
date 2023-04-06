@@ -78,7 +78,7 @@ bool is_material_draw(const Position& pos) {
   return !canAnyoneWin;
 }
 
-int play(Thinker *thinkerWhite, Thinker *thinkerBlack, const std::string& fen, size_t nodeLimit) {
+int play(Thinker *thinkerWhite, Thinker *thinkerBlack, const std::string& fen, const size_t nodeLimit, const size_t maxMoves) {
   Position pos(fen);
   while (true) {
     Thinker *thinker;
@@ -93,12 +93,18 @@ int play(Thinker *thinkerWhite, Thinker *thinkerBlack, const std::string& fen, s
     if (pos.is_draw() || is_material_draw(pos)) {
       break;
     }
+    if (pos.history_.size() >= maxMoves) {
+      break;
+    }
   }
   if (!pos.pieceBitboards_[ColoredPiece::WHITE_KING]) {
     throw std::runtime_error("missing white king");
   }
   if (!pos.pieceBitboards_[ColoredPiece::BLACK_KING]) {
     throw std::runtime_error("missing black king");
+  }
+  if (pos.history_.size() >= maxMoves) {
+    return 0;
   }
   if (pos.is_draw() || is_material_draw(pos)) {
     return 0;
@@ -127,6 +133,7 @@ int main(int argc, char *argv[]) {
   std::vector<std::string> fens;
   bool weightsLoaded = false;
   size_t nodeLimit = 5000;
+  size_t maxMoves = 9999999;
 
   while (args.size() > 0) {
     if (args.size() >= 7 && args[0] == "fen") {
@@ -145,6 +152,9 @@ int main(int argc, char *argv[]) {
       thinker2.evaluator.load_weights_from_file(args[2]);
       weightsLoaded = true;
       args = std::vector<std::string>(args.begin() + 3, args.end());
+    } else if (args.size() >= 2 && args[0] == "maxmoves") {
+      maxMoves = std::stoi(args[1]);
+      args = std::vector<std::string>(args.begin() + 2, args.end());
     } else {
       std::cout << "Cannot understand argument \"" << args[0] << "\"" << std::endl;
       return 1;
@@ -163,8 +173,8 @@ int main(int argc, char *argv[]) {
   // Prints 1 if thinker1 wins
   // Prints -1 if thinker2 wins
   for (const auto& fen : fens) {
-    std::cout << play(&thinker1, &thinker2, fen, nodeLimit) << std::endl;
-    std::cout << -play(&thinker2, &thinker1, fen, nodeLimit) << std::endl;
+    std::cout << play(&thinker1, &thinker2, fen, nodeLimit, maxMoves) << std::endl;
+    std::cout << -play(&thinker2, &thinker1, fen, nodeLimit, maxMoves) << std::endl;
   }
 
   return 0;
