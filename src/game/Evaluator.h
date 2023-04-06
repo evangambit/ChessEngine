@@ -153,8 +153,10 @@ enum EF {
   NUM_BAD_SQUARES_FOR_QUEENS,
   IN_TRIVIAL_CHECK,
   IN_DOUBLE_CHECK,
+
   THREATS_NEAR_OUR_KING,
   THREATS_NEAR_THEIR_KING,
+  NUM_PIECES_HARRASSABLE_BY_PAWNS,  // 0.0322 ± 0.0174 (96.8%)
 
   NUM_EVAL_FEATURES,
 };
@@ -281,6 +283,7 @@ std::string EFSTR[] = {
   "IN_DOUBLE_CHECK",
   "THREATS_NEAR_OUR_KING",
   "THREATS_NEAR_THEIR_KING",
+  "NUM_PIECES_HARRASSABLE_BY_PAWNS",
 };
 
 // captures = difference in values divided by 2
@@ -448,6 +451,7 @@ lonelyKingB = 0;
 
     const Bitboard ourMen = pos.colorBitboards_[US];
     const Bitboard theirMen = pos.colorBitboards_[THEM];
+    const Bitboard everyone = ourMen | theirMen;
 
     // TODO: penalty for double attacks near king
 
@@ -469,7 +473,7 @@ lonelyKingB = 0;
     constexpr Bitboard kTheirSide = (US == Color::WHITE ? kBlackSide : kWhiteSide);
     constexpr Direction kForward = (US == Color::WHITE ? Direction::NORTH : Direction::SOUTH);
     constexpr Direction kForward2 = (US == Color::WHITE ? Direction::NORTHx2 : Direction::SOUTHx2);
-    constexpr Direction kBackward = opposite_dir(kForward);
+    constexpr Direction kBackward = opposite_dir<kForward>();
     constexpr Bitboard kOurBackRanks = (US == Color::WHITE ? kRanks[6] | kRanks[7] : kRanks[1] | kRanks[0]);
     constexpr Bitboard kTheirBackRanks = (US == Color::WHITE ? kRanks[1] | kRanks[0] : kRanks[6] | kRanks[7]);
     constexpr Bitboard kHappyKingSquares = bb(62) | bb(58) | bb(57) | bb(6) | bb(1) | bb(2);
@@ -606,6 +610,27 @@ lonelyKingB = 0;
       features[EF::PAWN_MAJOR_CAPTURES] = std::popcount(threats.ourPawnTargets & theirMajors) - std::popcount(threats.theirPawnTargets & ourMajors);
       features[EF::PROTECTED_PAWNS] = std::popcount(ourPawns & threats.ourPawnTargets) - std::popcount(theirPawns & threats.theirPawnTargets);
       features[EF::PROTECTED_PASSED_PAWNS] = std::popcount(ourPassedPawns & threats.ourPawnTargets) - std::popcount(theirPassedPawns & threats.theirPawnTargets);
+
+      const Bitboard aheadOfOurPawnHome = (US == Color::WHITE ? kRanks[5] : kRanks[2]);
+      const Bitboard behindTheirPawnHome = (US == Color::WHITE ? kRanks[2] : kRanks[5]);
+
+      Bitboard squaresWeCanAdvancePawnsTo = shift<kForward>(ourPawns) & ~everyone;
+      squaresWeCanAdvancePawnsTo |= shift<kForward>(squaresWeCanAdvancePawnsTo & aheadOfOurPawnHome) & ~everyone;
+      squaresWeCanAdvancePawnsTo &= ~threats.badForOur[Piece::PAWN];
+
+      Bitboard squaresTheyCanAdvancePawnsTo = shift<kBackward>(theirPawns) & ~everyone;
+      squaresTheyCanAdvancePawnsTo |= shift<kBackward>(squaresTheyCanAdvancePawnsTo & behindTheirPawnHome) & ~everyone;
+      squaresTheyCanAdvancePawnsTo &= ~threats.badForTheir[Piece::PAWN];
+
+      constexpr Direction kForwardLeft = (US == Color::WHITE ? Direction::NORTH_WEST : Direction::SOUTH_EAST);
+      constexpr Direction kForwardRight = (US == Color::WHITE ? Direction::NORTH_EAST : Direction::SOUTH_WEST);
+      constexpr Direction kBackwardLeft = opposite_dir<kForwardLeft>();
+      constexpr Direction kBackwardRight = opposite_dir<kForwardRight>();
+
+      Bitboard piecesOurPawnsCanThreaten = (shift<kForwardLeft>(squaresWeCanAdvancePawnsTo) | shift<kForwardRight>(squaresWeCanAdvancePawnsTo)) & theirPieces;
+      Bitboard piecesTheirPawnsCanThreaten = (shift<kBackwardLeft>(squaresTheyCanAdvancePawnsTo) | shift<kBackwardRight>(squaresTheyCanAdvancePawnsTo)) & ourPieces;
+
+      features[EF::NUM_PIECES_HARRASSABLE_BY_PAWNS] = std::popcount(piecesOurPawnsCanThreaten) - std::popcount(piecesTheirPawnsCanThreaten);
     }
 
     const Bitboard ourBishopTargetsIgnoringNonBlockades = compute_bishoplike_targets<US>(pos, ourBishops, ourBlockadedPawns);

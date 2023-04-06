@@ -122,6 +122,37 @@ constexpr Direction opposite_dir(Direction dir) {
   }
 }
 
+template<Direction dir>
+constexpr Direction opposite_dir() {
+  switch (dir) {
+    case Direction::SOUTH:
+      return Direction::NORTH;
+    case Direction::NORTH:
+      return Direction::SOUTH;
+    case Direction::EAST:
+      return Direction::WEST;
+    case Direction::WEST:
+      return Direction::EAST;
+    case Direction::SOUTH_EAST:
+      return Direction::NORTH_WEST;
+    case Direction::NORTH_WEST:
+      return Direction::SOUTH_EAST;
+    case Direction::SOUTH_WEST:
+      return Direction::NORTH_EAST;
+    case Direction::NORTH_EAST:
+      return Direction::SOUTH_WEST;
+    case Direction::SOUTHx2:
+      return Direction::NORTHx2;
+    case Direction::NORTHx2:
+      return Direction::SOUTHx2;
+    case Direction::EASTx2:
+      return Direction::WESTx2;
+    case Direction::WESTx2:
+      return Direction::EASTx2;
+  }
+}
+
+
 Location square2location(Square sq);
 
 int8_t king_dist(Square sq1, Square sq2);
