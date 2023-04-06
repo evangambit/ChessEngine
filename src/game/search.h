@@ -123,6 +123,53 @@ struct Thinker {
     multiPV = 1;
   }
 
+  void make_move(Position* pos, Move move) {
+    if (pos->turn_ == Color::WHITE) {
+      make_move<Color::WHITE>(pos, move);
+    } else {
+      make_move<Color::BLACK>(pos, move);
+    }
+  }
+
+  void undo(Position* pos) {
+    if (pos->turn_ == Color::BLACK) {
+      undo<Color::WHITE>(pos);
+    } else {
+      undo<Color::BLACK>(pos);
+    }
+  }
+
+  void print_variation(Position* pos, Move move) {
+    uint64_t foo = pos->hash_;
+    this->make_move(pos, move);
+    auto it = cache.find(pos->hash_);
+
+    Evaluation eval = it->second.eval;
+    if (pos->turn_ == Color::BLACK) {
+      eval *= -1;
+    }
+
+    if (eval < 0) {
+      std::cout << eval << " " << move;
+    } else {
+      std::cout << "+" << eval << " " << move;
+    }
+
+    size_t counter = 1;
+    while (it != this->cache.end() && it->second.bestMove != kNullMove && counter < 10) {
+      std::cout << " " << it->second.bestMove;
+      this->make_move(pos, it->second.bestMove);
+      ++counter;
+      it = cache.find(pos->hash_);
+    }
+    std::cout << std::endl;
+    while (counter > 0) {
+      this->undo(pos);
+      --counter;
+    }
+    uint64_t bar = pos->hash_;
+  }
+
   // TODO: qsearch can leave you in check
   template<Color TURN>
   SearchResult<TURN> qsearch(Position *pos, int32_t depth, Evaluation alpha, Evaluation beta) {

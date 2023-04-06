@@ -405,7 +405,9 @@ void mymain(std::vector<Position>& positions, const std::string& mode, double ti
         }
       }
       for (size_t i = 0; i < topVariations.size(); ++i) {
-        std::cout << "PV " << i << ": " << topVariations[i].move.uci() << " (" << topVariations[i].score << ")" << std::endl;
+        // std::cout << "PV " << i << ": " << topVariations[i].move.uci() << " (" << topVariations[i].score << ")" << std::endl;
+        std::cout << "PV " << i << ": ";
+        gThinker.print_variation(&pos, topVariations[i].move);
       }
 
       // gThinker.multiPV
