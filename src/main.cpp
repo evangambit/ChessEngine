@@ -405,39 +405,8 @@ void mymain(std::vector<Position>& positions, const std::string& mode, double ti
         }
       }
       for (size_t i = 0; i < topVariations.size(); ++i) {
-        // std::cout << "PV " << i << ": " << topVariations[i].move.uci() << " (" << topVariations[i].score << ")" << std::endl;
-        std::cout << "PV " << i << ": ";
+        std::cout << "PV " << (i + 1) << ": ";
         gThinker.print_variation(&pos, topVariations[i].move);
-      }
-
-      // gThinker.multiPV
-
-      auto it = gThinker.cache.find(pos.hash_);
-      std::vector<uint64_t> oldHashes = {pos.hash_};
-      size_t i = 0;
-      while (it != gThinker.cache.end()) {
-        if (++i > 40) {
-          break;
-        }
-        if (pos.turn_ == Color::BLACK) {
-          it->second.eval *= -1;
-        }
-        std::cout << it->second.bestMove.uci() << " (" << it->second.eval << ", " << unsigned(it->second.depth) << ")" << std::endl;
-        if (it->second.bestMove == kNullMove) {
-          break;
-        }
-        if (pos.turn_ == Color::WHITE) {
-          make_move<Color::WHITE>(&pos, it->second.bestMove);
-        } else {
-          make_move<Color::BLACK>(&pos, it->second.bestMove);
-        }
-        if (std::find(oldHashes.begin(), oldHashes.end(), pos.hash_) != oldHashes.end()) {
-          oldHashes.push_back(pos.hash_);
-          std::cout << "loop" << std::endl;
-          break;
-        }
-        oldHashes.push_back(pos.hash_);
-        it = gThinker.cache.find(pos.hash_);
       }
     }
   } else if (mode == "play") {
