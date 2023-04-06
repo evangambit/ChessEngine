@@ -827,14 +827,14 @@ lonelyKingB = 0;
     }
 
     {
-      const Bitboard ourGoodKnightTargets = threats.ourKnightTargets & ~threats.theirPawnTargets;
-      const Bitboard theirGoodKnightTargets = threats.theirKnightTargets & ~threats.ourPawnTargets;
-      const Bitboard ourGoodBishopTargets = ourBishopTargetsIgnoringNonBlockades & ~threats.theirPawnTargets;
-      const Bitboard theirGoodBishopTargets = theirBishopTargetsIgnoringNonBlockades & ~threats.ourPawnTargets;
-      const Bitboard ourGoodRookTargets = threats.ourRookTargets & ~threats.theirPawnTargets;
-      const Bitboard theirGoodRookTargets = threats.theirRookTargets & ~threats.ourPawnTargets;
-      const Bitboard ourGoodQueenTargets = threats.ourQueenTargets & ~(threats.theirPawnTargets | threats.theirKnightTargets | threats.theirBishopTargets | threats.theirRookTargets);
-      const Bitboard theirGoodQueenTargets = threats.theirQueenTargets & ~(threats.ourPawnTargets | threats.ourKnightTargets | threats.ourBishopTargets | threats.ourRookTargets);
+      const Bitboard ourGoodKnightTargets = threats.ourKnightTargets & ~threats.badForOur[Piece::KNIGHT];
+      const Bitboard theirGoodKnightTargets = threats.theirKnightTargets & ~threats.badForTheir[Piece::KNIGHT];
+      const Bitboard ourGoodBishopTargets = ourBishopTargetsIgnoringNonBlockades & ~threats.badForOur[Piece::BISHOP];
+      const Bitboard theirGoodBishopTargets = theirBishopTargetsIgnoringNonBlockades & ~threats.badForTheir[Piece::BISHOP];
+      const Bitboard ourGoodRookTargets = threats.ourRookTargets & ~threats.badForOur[Piece::ROOK];
+      const Bitboard theirGoodRookTargets = threats.theirRookTargets & ~threats.badForTheir[Piece::ROOK];
+      const Bitboard ourGoodQueenTargets = threats.ourQueenTargets & ~threats.badForOur[Piece::QUEEN];
+      const Bitboard theirGoodQueenTargets = threats.theirQueenTargets & ~threats.badForTheir[Piece::QUEEN];
       features[EF::PAWN_MOVES] = std::popcount(threats.ourPawnTargets) - std::popcount(threats.theirPawnTargets);
       features[EF::KNIGHT_MOVES] = std::popcount(ourGoodKnightTargets) - std::popcount(theirGoodKnightTargets);
       features[EF::BISHOP_MOVES] = std::popcount(ourGoodBishopTargets) - std::popcount(theirGoodBishopTargets);
