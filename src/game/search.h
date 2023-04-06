@@ -301,7 +301,7 @@ struct Thinker {
     //   undo_nullmove<TURN>(pos);
     // }
 
-    // Null-window search doesn't seem to help,
+    // // Null-window search doesn't seem to help,
     // if (SEARCH_TYPE == SearchTypeNormal && !isPV && (it != this->cache.end() && it->second.upperbound() + 50 < alpha)) {
     //   // Null Window search.
     //   SearchResult<TURN> r = search<TURN, SearchTypeNullWindow>(pos, depth, alpha, alpha + 1, RecommendedMoves(), false);
@@ -367,7 +367,6 @@ struct Thinker {
 
     // Should be optimized away if SEARCH_TYPE != SearchTypeRoot.
     std::vector<SearchResult<TURN>> children;
-
     size_t numValidMoves = 0;
     for (ExtMove *extMove = moves; extMove < end; ++extMove) {
 
@@ -384,9 +383,17 @@ struct Thinker {
       // TODO: why does "./main multiPV 2 moves g1f3 e7e6 d2d4 c7c5 b1c3 g8f6 e2e4 d7d5 depth 8"
       // return terrible moves for its secondary variation?
 
-      // TODO: "isPV && (extMove == moves)" is more complicated for MultiPV root node.
+      // This simple, very limited null-window search has negligible effect (-0.003 ± 0.003).
+      // SearchResult<TURN> a;
+      // if (SEARCH_TYPE == SearchTypeRoot && depth > 2 && extMove != moves) {
+      //   a = flip(search<opposingColor, SearchTypeNormal>(pos, depth - 1, -(alpha + 1), -alpha, recommendationsForChildren, isPV && (extMove == moves)));
+      //   if (a.score > alpha) {
+      //     a = flip(search<opposingColor, SearchTypeNormal>(pos, depth - 1, -beta, -alpha, recommendationsForChildren, isPV && (extMove == moves)));
+      //   }
+      // } else {
+      //   a = flip(search<opposingColor, SearchTypeNormal>(pos, depth - 1, -beta, -alpha, recommendationsForChildren, isPV && (extMove == moves)));
+      // }
       SearchResult<TURN> a = flip(search<opposingColor, SearchTypeNormal>(pos, depth - 1, -beta, -alpha, recommendationsForChildren, isPV && (extMove == moves)));
-
       a.score -= (a.score > -kLongestForcedMate);
       a.score += (a.score < kLongestForcedMate);
 
