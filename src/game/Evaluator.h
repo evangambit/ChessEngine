@@ -158,6 +158,12 @@ enum EF {
   THREATS_NEAR_THEIR_KING,
   NUM_PIECES_HARRASSABLE_BY_PAWNS,  // 0.0322 ± 0.0174 (96.8%)
 
+  PAWN_CHECKS,
+  KNIGHT_CHECKS,
+  BISHOP_CHECKS,
+  ROOK_CHECKS,
+  QUEEN_CHECKS,
+
   NUM_EVAL_FEATURES,
 };
 
@@ -284,6 +290,11 @@ std::string EFSTR[] = {
   "THREATS_NEAR_OUR_KING",
   "THREATS_NEAR_THEIR_KING",
   "NUM_PIECES_HARRASSABLE_BY_PAWNS",
+  "PAWN_CHECKS",
+  "KNIGHT_CHECKS",
+  "BISHOP_CHECKS",
+  "ROOK_CHECKS",
+  "QUEEN_CHECKS",
 };
 
 // captures = difference in values divided by 2
@@ -864,6 +875,26 @@ lonelyKingB = 0;
     features[EF::NUM_BAD_SQUARES_FOR_MINORS] = std::popcount(threats.badForOur[Piece::KNIGHT] & kCenter16) - std::popcount(threats.badForTheir[Piece::KNIGHT] & kCenter16);
     features[EF::NUM_BAD_SQUARES_FOR_ROOKS] = std::popcount(threats.badForOur[Piece::ROOK] & kCenter16) - std::popcount(threats.badForTheir[Piece::ROOK] & kCenter16);
     features[EF::NUM_BAD_SQUARES_FOR_QUEENS] = std::popcount(threats.badForOur[Piece::QUEEN] & kCenter16) - std::popcount(threats.badForTheir[Piece::QUEEN] & kCenter16);
+
+    // Checks
+    const CheckMap checkMap = compute_potential_attackers<US>(pos, theirKingSq);
+    {
+      const Bitboard pawnChecks = checkMap.data[Piece::PAWN] & threats.ourPawnTargets;
+      const Bitboard knightChecks = checkMap.data[Piece::KNIGHT] & threats.ourKnightTargets;
+      const Bitboard bishopChecks = checkMap.data[Piece::BISHOP] & threats.ourBishopTargets;
+      const Bitboard rookChecks = checkMap.data[Piece::ROOK] & threats.ourRookTargets;
+      const Bitboard queenChecks = checkMap.data[Piece::QUEEN] & threats.ourQueenTargets;
+
+      // NOTE: we can't use badForOur[Piece::BISHOP] (or any piece) since the piece delivering the check is the one that moves.
+      Bitboard safe = ~threats.theirTargets;
+      safe |= threats.theirKingTargets & threats.ourDoubleTargets & ~threats.theirDoubleTargets;
+
+      features[EF::PAWN_CHECKS] = std::popcount(pawnChecks & safe);
+      features[EF::KNIGHT_CHECKS] = std::popcount(knightChecks & safe);
+      features[EF::BISHOP_CHECKS] = std::popcount(bishopChecks & safe);
+      features[EF::ROOK_CHECKS] = std::popcount(rookChecks & safe);
+      features[EF::QUEEN_CHECKS] = std::popcount(queenChecks & safe);
+    }
 
     const int16_t ourPiecesRemaining = std::popcount(pos.colorBitboards_[US] & ~ourPawns) + std::popcount(ourQueens) * 2 - 1;
     const int16_t theirPiecesRemaining = std::popcount(pos.colorBitboards_[THEM] & ~theirPawns) + std::popcount(theirQueens) * 2 - 1;
