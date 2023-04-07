@@ -352,9 +352,9 @@ struct Thinker {
       }
     }
 
-    Bitboard ourPieces = pos->colorBitboards_[TURN] & ~pos->pieceBitboards_[coloredPiece<TURN, Piece::PAWN>()];
     const bool inCheck = can_enemy_attack<TURN>(*pos, lsb(pos->pieceBitboards_[moverKing]));
 
+    // Bitboard ourPieces = pos->colorBitboards_[TURN] & ~pos->pieceBitboards_[coloredPiece<TURN, Piece::PAWN>()];
     // Null move pruning doesn't seem to help.
     // if (depth >= 3 && std::popcount(ourPieces) > 1 && !inCheck && !isPV && (it != this->cache.end() && it->second.lowerbound() >= beta)) {
     //   make_nullmove<TURN>(pos);
