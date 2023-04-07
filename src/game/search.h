@@ -27,6 +27,8 @@ enum NodeType {
   NodeTypeAll_UpperBound,
   NodeTypeCut_LowerBound,
   NodeTypePV,
+  NodeTypeQC,
+  NodeTypeQ,
 };
 
 enum SearchType {
@@ -40,10 +42,10 @@ struct CacheResult {
   Move bestMove;
   NodeType nodeType;
   inline Evaluation lowerbound() const {
-    return nodeType == NodeTypeAll_UpperBound ? kMinEval : eval;
+    return (nodeType == NodeTypeAll_UpperBound || nodeType == NodeTypeQ) ? kMinEval : eval;
   }
   inline Evaluation upperbound() const {
-    return nodeType == NodeTypeAll_UpperBound ? kMaxEval : eval;
+    return (nodeType == NodeTypeCut_LowerBound || nodeType == NodeTypeQ) ? kMaxEval : eval;
   }
 };
 
@@ -187,17 +189,19 @@ struct Thinker {
       return SearchResult<TURN>(kMissingKing, kNullMove);
     }
 
-    if (depth > 8) {
-      Evaluation e = this->evaluator.score<TURN>(*pos);
-      return SearchResult<TURN>(e, kNullMove);
-    }
+    const bool lookAtChecksToo = depth < 4;
 
     constexpr Color opposingColor = opposite_color<TURN>();
     constexpr ColoredPiece moverKing = coloredPiece<TURN, Piece::KING>();
     const bool inCheck = can_enemy_attack<TURN>(*pos, lsb(pos->pieceBitboards_[moverKing]));
 
     ExtMove moves[kMaxNumMoves];
-    ExtMove *end = compute_moves<TURN, MoveGenType::CHECKS_AND_CAPTURES>(*pos, moves);
+    ExtMove *end;
+    if (lookAtChecksToo) {
+      end = compute_moves<TURN, MoveGenType::CHECKS_AND_CAPTURES>(*pos, moves);
+    } else {
+      end = compute_moves<TURN, MoveGenType::CAPTURES>(*pos, moves);
+    }
 
     if (moves == end && inCheck) {
       return SearchResult<TURN>(kCheckmate, kNullMove);
