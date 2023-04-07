@@ -214,7 +214,12 @@ CheckMap compute_potential_attackers(const Position& pos, const Square sq) {
 
   // todo: pawns
   r.data[Piece::NO_PIECE] = 0;
-  r.data[Piece::PAWN] = 0;
+
+  if (US == Color::WHITE) {
+    r.data[Piece::PAWN] = shift<Direction::SOUTH_EAST>(loc) | shift<Direction::SOUTH_WEST>(loc);
+  } else {
+    r.data[Piece::PAWN] = shift<Direction::NORTH_EAST>(loc) | shift<Direction::NORTH_WEST>(loc);
+  }
 
   r.data[Piece::ROOK] = 0;
   {

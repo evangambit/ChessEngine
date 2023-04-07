@@ -879,17 +879,24 @@ lonelyKingB = 0;
     // Checks
     const CheckMap checkMap = compute_potential_attackers<US>(pos, theirKingSq);
     {
-      const Bitboard pawnChecks = checkMap.data[Piece::PAWN] & threats.ourPawnTargets;
+      const Bitboard forwardPawns = shift<kForward>(ourPawns) & ~everyone;
+      const Bitboard thirdRank = (US == Color::WHITE ? kRanks[5] : kRanks[2]);
+      const Bitboard pawnCaptureChecks = checkMap.data[Piece::PAWN] & threats.ourPawnTargets & theirMen;
+      Bitboard pawnPushChecks = checkMap.data[Piece::PAWN] & (forwardPawns | (shift<kForward>(forwardPawns) & ~everyone));
       const Bitboard knightChecks = checkMap.data[Piece::KNIGHT] & threats.ourKnightTargets;
       const Bitboard bishopChecks = checkMap.data[Piece::BISHOP] & threats.ourBishopTargets;
       const Bitboard rookChecks = checkMap.data[Piece::ROOK] & threats.ourRookTargets;
       const Bitboard queenChecks = checkMap.data[Piece::QUEEN] & threats.ourQueenTargets;
 
-      // NOTE: we can't use badForOur[Piece::BISHOP] (or any piece) since the piece delivering the check is the one that moves.
+      // NOTE: we can't use badForOur[Piece::BISHOP] (or any piece) since the piece delivering the check
+      // stops protecting the square when it moves.
       Bitboard safe = ~threats.theirTargets;
-      safe |= threats.theirKingTargets & threats.ourDoubleTargets & ~threats.theirDoubleTargets;
+      safe |= (threats.ourTargets & ~threats.theirTargets) | (threats.ourDoubleTargets & ~threats.theirDoubleTargets);
 
-      features[EF::PAWN_CHECKS] = std::popcount(pawnChecks & safe);
+      // NOTE: we *can* use threats.badForOur[Piece::PAWN], since it doesn't count the pawn's forward
+      // push when determining square safety.
+
+      features[EF::PAWN_CHECKS] = std::popcount((pawnPushChecks & ~threats.badForOur[Piece::PAWN]) | (pawnCaptureChecks & safe));
       features[EF::KNIGHT_CHECKS] = std::popcount(knightChecks & safe);
       features[EF::BISHOP_CHECKS] = std::popcount(bishopChecks & safe);
       features[EF::ROOK_CHECKS] = std::popcount(rookChecks & safe);

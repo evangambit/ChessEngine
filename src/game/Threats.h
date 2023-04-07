@@ -109,18 +109,18 @@ struct Threats {
     const Bitboard theirMinorTargets = this->theirKnightTargets | this->theirBishopTargets;
     const Bitboard ourMinorTargets = this->ourKnightTargets | this->ourBishopTargets;
 
-    this->badForOur[Piece::PAWN]   = badForAllOfUs | (this->theirDoubleTargets & ~this->ourDoubleTargets & this->theirPawnTargets);
-    this->badForOur[Piece::KNIGHT] = badForAllOfUs | this->theirPawnTargets | (this->theirDoubleTargets & ~this->ourDoubleTargets & theirMinorTargets);
+    this->badForOur[Piece::PAWN]   = badForAllOfUs | (this->theirDoubleTargets & ~this->ourDoubleTargets);
+    this->badForOur[Piece::KNIGHT] = badForAllOfUs | this->theirPawnTargets | (this->theirDoubleTargets & ~this->ourDoubleTargets);
     this->badForOur[Piece::BISHOP] = this->badForOur[Piece::KNIGHT];
-    this->badForOur[Piece::ROOK]   = badForAllOfUs | this->theirPawnTargets | theirMinorTargets | (this->theirDoubleTargets & ~this->ourDoubleTargets & this->theirRookTargets);
-    this->badForOur[Piece::QUEEN]  = badForAllOfUs | this->theirPawnTargets | theirMinorTargets | this->theirRookTargets | (this->theirDoubleTargets & ~this->ourDoubleTargets & this->theirQueenTargets);
+    this->badForOur[Piece::ROOK]   = badForAllOfUs | this->theirPawnTargets | theirMinorTargets | (this->theirDoubleTargets & ~this->ourDoubleTargets);
+    this->badForOur[Piece::QUEEN]  = badForAllOfUs | this->theirPawnTargets | this->theirRookTargets | (this->theirDoubleTargets & ~this->ourDoubleTargets);
     this->badForOur[Piece::KING]   = this->theirTargets;
 
-    this->badForTheir[Piece::PAWN]   = badForAllOfThem | (this->ourDoubleTargets & ~this->theirDoubleTargets & this->ourPawnTargets);
-    this->badForTheir[Piece::KNIGHT] = badForAllOfThem | this->ourPawnTargets | (this->ourDoubleTargets & ~this->theirDoubleTargets & ourMinorTargets);
+    this->badForTheir[Piece::PAWN]   = badForAllOfThem | (this->ourDoubleTargets & ~this->theirDoubleTargets);
+    this->badForTheir[Piece::KNIGHT] = badForAllOfThem | this->ourPawnTargets | (this->ourDoubleTargets & ~this->theirDoubleTargets);
     this->badForTheir[Piece::BISHOP] = this->badForTheir[Piece::KNIGHT];
     this->badForTheir[Piece::ROOK]   = badForAllOfThem | this->ourPawnTargets | ourMinorTargets | (this->ourDoubleTargets & ~this->theirDoubleTargets & this->ourRookTargets);
-    this->badForTheir[Piece::QUEEN]  = badForAllOfThem | this->ourPawnTargets | ourMinorTargets | this->ourRookTargets | (this->ourDoubleTargets & ~this->theirDoubleTargets & this->ourQueenTargets);
+    this->badForTheir[Piece::QUEEN]  = badForAllOfThem | this->ourPawnTargets | ourMinorTargets | this->ourRookTargets | (this->ourDoubleTargets & ~this->theirDoubleTargets);
     this->badForTheir[Piece::KING]   = this->ourTargets;
   }
 };
