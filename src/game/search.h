@@ -273,6 +273,9 @@ struct Thinker {
     RecommendedMoves recommendedMoves,
     bool isPV) {
 
+    const Evaluation originalAlpha = alpha;
+    const Evaluation originalBeta = beta;
+
     // alpha: a score we're guaranteed to get
     //  beta: a score our opponent is guaranteed to get
     //
@@ -295,6 +298,13 @@ struct Thinker {
       ++this->leafCounter;
       // Quiescence Search (+0.47)
       SearchResult<TURN> r = qsearch<TURN>(pos, 0, alpha, beta);
+
+      NodeType nodeType = NodeTypePV;
+      if (r.score >= originalBeta) {
+        nodeType = NodeTypeCut_LowerBound;
+      } else if (r.score <= originalAlpha) {
+        nodeType = NodeTypeAll_UpperBound;
+      }
 
       const CacheResult cr = CacheResult{
         depth,
@@ -418,8 +428,6 @@ struct Thinker {
 
     RecommendedMoves recommendationsForChildren;
 
-    NodeType nodeType = NodeTypePV;
-
     // Should be optimized away if SEARCH_TYPE != SearchTypeRoot.
     std::vector<SearchResult<TURN>> children;
     size_t numValidMoves = 0;
@@ -473,7 +481,6 @@ struct Thinker {
           r.move = extMove->move;
           recommendationsForChildren.add(a.move);
           if (r.score >= beta) {
-            nodeType = NodeTypeCut_LowerBound;
             this->historyHeuristicTable[TURN][r.move.from][r.move.to] += depth * depth;
             break;
           }
@@ -484,13 +491,16 @@ struct Thinker {
       }
     }
 
-    if (r.score <= alpha) {
-      nodeType = NodeTypeAll_UpperBound;
-    }
-
     if (numValidMoves == 0) {
       r.score = inCheck ? kCheckmate : 0;
       r.move = kNullMove;
+    }
+
+    NodeType nodeType = NodeTypePV;
+    if (r.score >= originalBeta) {
+      nodeType = NodeTypeCut_LowerBound;
+    } else if (r.score <= originalAlpha) {
+      nodeType = NodeTypeAll_UpperBound;
     }
 
     {
