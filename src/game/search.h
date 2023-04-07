@@ -189,7 +189,7 @@ struct Thinker {
       return SearchResult<TURN>(kMissingKing, kNullMove);
     }
 
-    const bool lookAtChecksToo = depth < 4;
+    const bool lookAtChecksToo = depth < 2;
 
     constexpr Color opposingColor = opposite_color<TURN>();
     constexpr ColoredPiece moverKing = coloredPiece<TURN, Piece::KING>();
