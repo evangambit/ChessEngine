@@ -7,13 +7,14 @@ Running 20 iterations on just material weight gave us 0.072 ± 0.019!
 
 import argparse
 import copy
+import math
 import os
 import random
 import re
 import subprocess
 import time
 
-from multiprocessing import Pool
+import multiprocessing as mp
 
 import chess
 import numpy as np
@@ -138,6 +139,12 @@ varnames = [
   "IN_DOUBLE_CHECK",
   "THREATS_NEAR_OUR_KING",
   "THREATS_NEAR_THEIR_KING",
+  "NUM_PIECES_HARRASSABLE_BY_PAWNS",
+  "PAWN_CHECKS",
+  "KNIGHT_CHECKS",
+  "BISHOP_CHECKS",
+  "ROOK_CHECKS",
+  "QUEEN_CHECKS",
 ]
 
 def play_random(board, n):
@@ -166,16 +173,18 @@ def lpad(t, n, c=' '):
 
 # Returns  2 if w0.txt wins both games
 # Returns -2 if w1.txt wins both games
-def thread_main(fen):
+def thread_main(fens):
   command = [
     "./selfplay",
     "weights", "w1.txt", "w0.txt",
     "nodes", "500",
     "maxmoves", "200",
-    "fen", *fen.split(' ')
   ]
+  for fen in fens:
+    command.append("fen")
+    command += fen.split(' ')
   stdout = subprocess.check_output(command).decode()
-  return sum([int(x) for x in stdout.strip().split('\n')])
+  return [int(x) for x in stdout.strip().split('\n')]
 
 kFoo = ['early', 'late', 'clipped', 'lonelyKing']
 
@@ -214,22 +223,62 @@ kFoo = ['early', 'late', 'clipped', 'lonelyKing']
 # 0.0193 ± 0.0114 (95.5%)
 # $ python3 genetic.py --num_trials 4096 --range 10 --step 2 --stage 2 \
 # --variables ISOLATED_PAWNS,DOUBLED_PAWNS,DOUBLE_ISOLATED_PAWNS,PAWNS_CENTER_16,PAWNS_CENTER_4,ADVANCED_PASSED_PAWNS_2,ADVANCED_PASSED_PAWNS_3,ADVANCED_PASSED_PAWNS_4
+#
+# $ python3 -i genetic.py --num_trials 40000 --range 120 --stage 2 \
+# --variables ROOK_CHECKS,QUEEN_CHECKS,IN_DOUBLE_CHECK,IN_TRIVIAL_CHECK
+
+"""
+N = (2 * range + 1) / (step * trialsPerPoint * duplicates)
+
+step = range
+duplicates = 1
+trialsPerPoint = 256
+
+while step > 1 and (2 * range + 1) / (step * trialsPerPoint * duplicates) < N:
+  step -= 1
+
+while (2 * range + 1) / (step * trialsPerPoint * duplicates) < N:
+  duplicates += 1
+
+
+"""
 
 if __name__ == '__main__':
+  mp.set_start_method('spawn')
   parser = argparse.ArgumentParser()
   parser.add_argument("--num_trials", type=int, default=4096, help="Number of duplicate-games to play per generation")
-  parser.add_argument("--threshold", type=float, default=2.0, help="Number of z-scores required to step in a direction")
-  parser.add_argument("--lr", type=float, default=0.05)
+  parser.add_argument("--num_workers", type=int, default=4, help="Number of processes to use")
   parser.add_argument("--variables", type=str, default='')
+  parser.add_argument("--timeout", type=float, default=1.0)
   parser.add_argument("--range", type=int, default=5)
-  parser.add_argument("--step", type=int, default=1)
+  parser.add_argument("--trials_per_point", type=int, default=2000)
   parser.add_argument("--stage", type=int, required=True, help="Integer indicating weight type (early,late,clipped,lonelyKing)")
   args = parser.parse_args()
-  assert args.threshold <= args.num_trials * 2
   assert args.stage >= 0 and args.stage < 4
   if args.variables == '':
     args.variables = ','.join(varnames)
   args.variables = args.variables.split(',')
+
+  kTimeout = args.trials_per_point / args.num_workers / 5 * args.timeout
+
+  kNumSteps = 2
+  numDuplicates = 1
+
+  while kNumSteps < 2 * args.range + 1 and args.trials_per_point * kNumSteps * numDuplicates < args.num_trials:
+    kNumSteps += 1
+
+  deltas = np.concatenate([np.linspace(-args.range, args.range, kNumSteps).astype(np.int32)])
+  deltas = set(deltas)
+  if 0 in deltas:
+    deltas.remove(0)
+  deltas = np.array(list(deltas), dtype=np.int64)
+
+  while args.trials_per_point * len(deltas) * numDuplicates < args.num_trials:
+    numDuplicates += 1
+
+  deltas = np.concatenate([deltas] * numDuplicates)
+
+  print(f"steps = {len(deltas)}; duplicates = {numDuplicates}; trials = {args.trials_per_point * kNumSteps * numDuplicates}; timeout = %.2f secs" % kTimeout)
 
   for vn in args.variables:
     assert vn in varnames
@@ -247,19 +296,33 @@ if __name__ == '__main__':
     py = [0.0]
     pz = [0.0]
 
-    deltas = np.concatenate([np.arange(1, args.range, args.step), np.arange(1, args.range, args.step) * -1])
-    deltas = np.concatenate([deltas, deltas, deltas, deltas, deltas, deltas, deltas, deltas])
-
     for stepsize in tqdm(deltas):
       w1 = w0.copy()
       w1[varidx] += stepsize
 
       save_weights(w1, 'w1.txt')
 
-      fens = [ play_random(chess.Board(), 4) for _ in range(args.num_trials) ]
+      fens = [ play_random(chess.Board(), 4) for _ in range(args.trials_per_point) ]
 
-      with Pool(8) as p:
-        r = p.map(thread_main, fens)
+      # We split fens into equal-sized lists (one for each worker).
+      tmp = [[] for _ in range(args.num_workers)]
+      for i, fen in enumerate(fens):
+        tmp[i % args.num_workers].append(fen)
+      fens = tmp
+
+      t0 = time.time()
+      with mp.Pool(processes=args.num_workers) as pool:
+        # r = p.map(thread_main, fens)
+        res = pool.map_async(thread_main, fens)
+        try:
+          r = res.get(timeout=kTimeout)
+        except mp.context.TimeoutError:
+          print('timeout')
+          continue
+      t1 = time.time()
+
+      # flatten
+      r = sum(r, [])
       r = np.array(r) / 2
 
       avg = r.mean()
@@ -294,7 +357,8 @@ if __name__ == '__main__':
       print(f"w0[{varname}] = {w0[varidx]} + {delta}; increases points by %.4f" % scoreIncrease)
     else:
       print(f'no improvement found for "{varname}"')
-      continue
+      delta = None
+      scoreIncrease = None
 
 
     plt.figure()
@@ -310,6 +374,7 @@ if __name__ == '__main__':
       os.mkdir("optimages")
     plt.savefig(os.path.join("optimages", f"{varname}_{args.stage}.png"))
 
-    w0[varidx] += delta
+    if delta is not None:
+      w0[varidx] += delta
 
 

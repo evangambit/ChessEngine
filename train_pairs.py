@@ -1,3 +1,8 @@
+"""
+TODO: A special evaluation function for opposite-side castling?
+
+"""
+
 from collections import defaultdict
 from itertools import chain
 import os
@@ -243,7 +248,6 @@ for vn in ["OUR_QUEENS", "THEIR_QUEENS"]:
 tmp = torch.tensor(tmp, dtype=torch.int64)
 numQueens = X[:,:,tmp].sum(2)
 
-
 X[:,:,varnames.index('NUM_TARGET_SQUARES')] *= 0.0
 X[:,:,varnames.index('PAWN_V_LONELY_KING')] *= 0.0
 X[:,:,varnames.index('KNIGHTS_V_LONELY_KING')] *= 0.0
@@ -339,7 +343,6 @@ class Model(nn.Module):
     r = early + late
     if 'clipped' in self.w:
       r = r + self.w["clipped"](x).squeeze().clamp_(-1.0, 1.0)
-      # r = r + self.w["clipped"](x).squeeze() * (numQueens == 0).to(torch.float32)
     if 'lonelyKing' in self.w:
       r = r + self.w["lonelyKing"](x).squeeze() * (1 - (numOurPieces != 0).to(torch.float32) * (numTheirPieces != 0).to(torch.float32))
     if 'scale' in self.w:

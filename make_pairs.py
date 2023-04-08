@@ -95,8 +95,8 @@ def analyzer(fenQueue, resultQueue, args):
         stockfish = Stockfish(path=args.stockpath)
 
         if args.quiet != 2:
-          fen1 = make_random(fen, random.randint(1, 4))
-          fen2 = make_random(fen, random.randint(1, 4))
+          fen1 = make_random(fen, random.randint(1, 6))
+          fen2 = make_random(fen, random.randint(1, 6))
         else:
           # Use stockfish to find quiet FENs, which we define as "the best move is not a capture".
           # Try 8 times to generate 2 quiet fens.

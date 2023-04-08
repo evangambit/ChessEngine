@@ -23,7 +23,7 @@ def f(player, fen, moves):
 	if player[1] == 'None':
 		command = [player[0], "mode", "analyze", "nodes", "1000", "fen", *fen.split(' '), "moves", *moves]
 	else:
-		command = [player[0], "loadweights", player[1], "mode", "analyze", "nodes", "10000", "fen", *fen.split(' '), "moves", *moves]
+		command = [player[0], "loadweights", player[1], "mode", "analyze", "nodes", "1000", "fen", *fen.split(' '), "moves", *moves]
 	# command = [player, "mode", "analyze", "time", "5", "fen", *fen.split(' '), "moves", *moves]
 	stdout = subprocess.check_output(command).decode()
 	matches = re.findall(r"\d+ : [^ ]+", stdout)
@@ -88,8 +88,8 @@ def thread_main(fen):
 
 if __name__ == '__main__':
 	t0 = time.time()
-	fens = [play_random(chess.Board(), 4) for _ in range(200)]
-	with Pool(8) as p:
+	fens = [play_random(chess.Board(), 4) for _ in range(800)]
+	with Pool(4) as p:
 	    r = list(tqdm(p.imap(thread_main, fens), total=len(fens)))
 	r = np.array(r, dtype=np.float64).reshape(-1)
 
@@ -101,6 +101,6 @@ if __name__ == '__main__':
 		print('%.1f secs' % dt)
 	else:
 		print('%.1f min' % (dt / 60.0))
-	print('%.3f ± %.3f' % (avg, stderr))
+	print('%.4f ± %.4f' % (avg, stderr))
 	print(stats.norm.cdf(avg / stderr))
 

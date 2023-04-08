@@ -33,6 +33,7 @@ def thread_main(args):
   command = [
     "./selfplay",
     "weights", w0, w1,
+    "maxmoves", "200",
     "fen", *fen.split(' ')
   ]
   stdout = subprocess.check_output(command).decode()
@@ -43,7 +44,7 @@ if __name__ == '__main__':
   parser.add_argument("weights", nargs=2)
   parser.add_argument("--nodes", type=int, default=500)
   parser.add_argument("--num_workers", type=int, default=4)
-  parser.add_argument("--num_trials", type=int, default=400)
+  parser.add_argument("--num_trials", type=int, default=3200)
   args = parser.parse_args()
 
   t0 = time.time()
@@ -52,7 +53,7 @@ if __name__ == '__main__':
     args.weights[0],
     args.weights[1],
   ) for _ in range(args.num_trials)]
-  with Pool(2) as p:
+  with Pool(args.num_workers) as p:
     r = list(tqdm(p.imap(thread_main, thread_arguments), total=args.num_trials))
   r = np.array(r, dtype=np.float64).reshape(-1)
 
@@ -64,6 +65,6 @@ if __name__ == '__main__':
     print('%.1f secs' % dt)
   else:
     print('%.1f min' % (dt / 60.0))
-  print('%.3f ± %.3f' % (avg, stderr))
+  print('%.4f ± %.4f' % (avg, stderr))
   print(stats.norm.cdf(avg / stderr))
 
