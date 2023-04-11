@@ -13,7 +13,7 @@ import sys
 import time
 import numpy as np
 from scipy import stats
-from multiprocessing import Pool
+import multiprocessing as mp
 
 from tqdm import tqdm
 
@@ -40,6 +40,7 @@ def thread_main(args):
   return sum([int(x) for x in stdout.strip().split('\n')]) / 2.0
 
 if __name__ == '__main__':
+  mp.set_start_method('spawn')
   parser = argparse.ArgumentParser()
   parser.add_argument("weights", nargs=2)
   parser.add_argument("--nodes", type=int, default=500)
@@ -53,7 +54,7 @@ if __name__ == '__main__':
     args.weights[0],
     args.weights[1],
   ) for _ in range(args.num_trials)]
-  with Pool(args.num_workers) as p:
+  with mp.Pool(args.num_workers) as p:
     r = list(tqdm(p.imap(thread_main, thread_arguments), total=args.num_trials))
   r = np.array(r, dtype=np.float64).reshape(-1)
 

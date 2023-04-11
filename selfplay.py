@@ -14,16 +14,17 @@ import sys
 import time
 import numpy as np
 from scipy import stats
-from multiprocessing import Pool
+import multiprocessing as mp
 
-from simple_stockfish import Stockfish
+# from simple_stockfish import Stockfish
 from tqdm import tqdm
 
 def f(player, fen, moves):
+	numNodes = "4000"
 	if player[1] == 'None':
-		command = [player[0], "mode", "analyze", "nodes", "1000", "fen", *fen.split(' '), "moves", *moves]
+		command = [player[0], "mode", "analyze", "nodes", numNodes, "fen", *fen.split(' '), "moves", *moves]
 	else:
-		command = [player[0], "loadweights", player[1], "mode", "analyze", "nodes", "1000", "fen", *fen.split(' '), "moves", *moves]
+		command = [player[0], "loadweights", player[1], "mode", "analyze", "nodes", numNodes, "fen", *fen.split(' '), "moves", *moves]
 	# command = [player, "mode", "analyze", "time", "5", "fen", *fen.split(' '), "moves", *moves]
 	stdout = subprocess.check_output(command).decode()
 	matches = re.findall(r"\d+ : [^ ]+", stdout)
@@ -86,12 +87,27 @@ def thread_main(fen):
 	player1, player2 = (sys.argv[1], sys.argv[2]), (sys.argv[3], sys.argv[4])
 	return (play(fen, player1, player2) - play(fen, player2, player1)) / 2.0
 
+def create_fen_batch(n):
+	return [play_random(chess.Board(), 4) for _ in range(n)]
+
 if __name__ == '__main__':
+	mp.set_start_method('spawn')
 	t0 = time.time()
-	fens = [play_random(chess.Board(), 4) for _ in range(800)]
-	with Pool(4) as p:
-	    r = list(tqdm(p.imap(thread_main, fens), total=len(fens)))
-	r = np.array(r, dtype=np.float64).reshape(-1)
+	numWorkers = 12
+	batches = [[]]
+	for i in range(0, 400, numWorkers):
+		batches.append(create_fen_batch(numWorkers))
+
+	R = []
+	with mp.Pool(12) as pool:
+		for batch in tqdm(batches):
+			try:
+				r = pool.map_async(thread_main, batch).get(timeout=20)
+				R += r
+			except mp.context.TimeoutError:
+				print('timeout')
+				pass
+	r = np.array(R, dtype=np.float64).reshape(-1)
 
 	stderr = r.std(ddof=1) / np.sqrt(r.shape[0])
 	avg = r.mean()
