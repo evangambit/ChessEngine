@@ -34,6 +34,7 @@ enum NodeType {
 enum SearchType {
   SearchTypeRoot,
   SearchTypeNormal,
+  SearchTypeNullWindow,
 };
 
 struct CacheResult {
@@ -296,7 +297,7 @@ struct Thinker {
 
     if (depth <= 0) {
       ++this->leafCounter;
-      // Quiescence Search (+0.47)
+      // Quiescence Search (0.4334 ± 0.0053)
       SearchResult<TURN> r = qsearch<TURN>(pos, 0, alpha, beta);
 
       NodeType nodeType = NodeTypePV;
@@ -331,32 +332,28 @@ struct Thinker {
       }
     }
 
-    // Futility pruning (+0.10)
-    // If our depth is 1 or exceeds the transposition table by 1 then we ignore moves that
-    // are sufficiently bad that they are unlikely to be improved by increasing depth by 1.
-    const int numMenLeft = std::popcount(pos->colorBitboards_[Color::WHITE] | pos->colorBitboards_[Color::BLACK]);
-    const Evaluation futilityThreshold = 70;
-    if (it != this->cache.end() && depth - it->second.depth == 1) {
+    // Futility pruning (0.1437 ± 0.0091 or ~53 Elo)
+    // If our depth is 2 or exceeds the transposition table by 2 then we ignore moves that
+    // are sufficiently bad that they are unlikely to be improved by increasing depth by 2.
+    const Evaluation futilityThreshold = 30;
+    if (it != this->cache.end() && depth - it->second.depth <= 2) {
       const CacheResult& cr = it->second;
-      if (cr.lowerbound() >= beta + futilityThreshold || cr.upperbound() <= alpha - futilityThreshold) {
+      if (cr.lowerbound() >= beta + futilityThreshold * (depth - it->second.depth) || cr.upperbound() <= alpha - futilityThreshold * (depth - it->second.depth)) {
         return SearchResult<TURN>(cr.eval, cr.bestMove);
       }
     }
     if (it == this->cache.end() && depth <= 2) {
-      // We assume that you can make a move that improves your position, so comparing against alpha
-      // gets a small bonus.
-      const Evaluation tempoBonus = 20;
       SearchResult<TURN> r = qsearch<TURN>(pos, 0, alpha, beta);
-      if (r.score >= beta + futilityThreshold || r.score + tempoBonus <= alpha - futilityThreshold) {
+      if (r.score >= beta + futilityThreshold * depth || r.score <= alpha - futilityThreshold * depth) {
         return r;
       }
     }
 
     const bool inCheck = can_enemy_attack<TURN>(*pos, lsb(pos->pieceBitboards_[moverKing]));
 
-    // Bitboard ourPieces = pos->colorBitboards_[TURN] & ~pos->pieceBitboards_[coloredPiece<TURN, Piece::PAWN>()];
     // Null move pruning doesn't seem to help.
-    // if (depth >= 3 && std::popcount(ourPieces) > 1 && !inCheck && !isPV && (it != this->cache.end() && it->second.lowerbound() >= beta)) {
+    // const Bitboard ourPieces = pos->colorBitboards_[TURN] & ~pos->pieceBitboards_[coloredPiece<TURN, Piece::PAWN>()];
+    // if (depth == 3 && std::popcount(ourPieces) > 4 && !inCheck && !isPV && (it != this->cache.end() && it->second.lowerbound() - 20 >= beta)) {
     //   make_nullmove<TURN>(pos);
     //   SearchResult<TURN> a = flip(search<opposingColor, SearchTypeNormal>(pos, depth - 3, -beta, -beta+1, RecommendedMoves(), false));
     //   if (a.score >= beta && a.move != kNullMove) {
@@ -367,7 +364,7 @@ struct Thinker {
     // }
 
     // // Null-window search doesn't seem to help,
-    // if (SEARCH_TYPE == SearchTypeNormal && !isPV && (it != this->cache.end() && it->second.upperbound() + 50 < alpha)) {
+    // if (SEARCH_TYPE == SearchTypeNormal && !isPV && (it != this->cache.end() && it->second.upperbound() + 40 < alpha)) {
     //   // Null Window search.
     //   SearchResult<TURN> r = search<TURN, SearchTypeNullWindow>(pos, depth, alpha, alpha + 1, RecommendedMoves(), false);
     //   if (r.score <= alpha) {
@@ -426,6 +423,8 @@ struct Thinker {
       return a.score > b.score;
     });
 
+    bool foo = it != this->cache.end() && it->second.depth >= depth - 1;
+
     RecommendedMoves recommendationsForChildren;
 
     // Should be optimized away if SEARCH_TYPE != SearchTypeRoot.
@@ -448,8 +447,8 @@ struct Thinker {
 
       // This simple, very limited null-window search has negligible effect (-0.003 ± 0.003).
       // SearchResult<TURN> a;
-      // if (SEARCH_TYPE == SearchTypeRoot && depth > 2 && extMove != moves) {
-      //   a = flip(search<opposingColor, SearchTypeNormal>(pos, depth - 1, -(alpha + 1), -alpha, recommendationsForChildren, isPV && (extMove == moves)));
+      // if (SEARCH_TYPE != SearchTypeRoot && extMove != moves && foo && it->second.upperbound() + 50 < alpha) {
+      //   a = flip(search<opposingColor, SearchTypeNullWindow>(pos, depth - 1, -(alpha + 1), -alpha, recommendationsForChildren, isPV && (extMove == moves)));
       //   if (a.score > alpha) {
       //     a = flip(search<opposingColor, SearchTypeNormal>(pos, depth - 1, -beta, -alpha, recommendationsForChildren, isPV && (extMove == moves)));
       //   }
@@ -481,6 +480,8 @@ struct Thinker {
           r.move = extMove->move;
           recommendationsForChildren.add(a.move);
           if (r.score >= beta) {
+            // NOTE: Unlike other engines, we include captures in our history heuristic, as this
+            // order captures that are materially equal.
             this->historyHeuristicTable[TURN][r.move.from][r.move.to] += depth * depth;
             break;
           }

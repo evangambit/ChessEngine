@@ -328,7 +328,7 @@ void mymain(std::vector<Position>& positions, const std::string& mode, double ti
         results = gThinker.search(&pos, i, results);
         if (positions.size() == 1) {
           const double secs = double(clock() - tstart)/CLOCKS_PER_SEC;
-          std::cout << i << " : " << results.move << " : " << results.score << " (" << secs << " secs, " << gThinker.nodeCounter / secs / 1000 << " kNodes/sec)" << std::endl;
+          std::cout << i << " : " << results.move << " : " << results.score << " (" << secs << " secs, " << gThinker.nodeCounter << " nodes, " << gThinker.nodeCounter / secs / 1000 << " kNodes/sec)" << std::endl;
         }
         if (gThinker.nodeCounter >= nodeLimit) {
           break;

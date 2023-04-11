@@ -937,7 +937,7 @@ lonelyKingB = 0;
       eval -= value_or_zero(isOurKPPVK && features[EF::SQUARE_RULE] < 0, 500);
       eval += value_or_zero(isTheirKPPVK && features[EF::SQUARE_RULE] > 0, 500);
 
-      if (isOurKPPVK && std::popcount(ourPawns) == 1) {
+      if (isOurKPPVK && std::popcount(ourPawns) >= 1) {
         int result;
         if (US == Color::WHITE) {
           result = this->known_kpvk_result(ourKingSq, theirKingSq, lsb(ourPawns), true);
@@ -951,7 +951,7 @@ lonelyKingB = 0;
           eval += 1000;
         }
       }
-      if (isTheirKPPVK && std::popcount(theirPawns) == 1) {
+      if (isTheirKPPVK && std::popcount(theirPawns) <= 1) {
         int result;
         if (US == Color::BLACK) {
           result = this->known_kpvk_result(theirKingSq, ourKingSq, lsb(theirPawns), false);
