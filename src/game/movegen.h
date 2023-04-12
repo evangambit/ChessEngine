@@ -26,7 +26,7 @@ void simple_make_move(Position *pos, Square from, Square to) {
   const ColoredPiece capturedPieceCP = pos->tiles_[to];
   pos->tiles_[to] = movingCP;
   pos->tiles_[from] = ColoredPiece::NO_COLORED_PIECE;
-  pos->pieceBitboards_[movingCP] = pos->pieceBitboards_[movingCP] | bb(to) & ~bb(from);
+  pos->pieceBitboards_[movingCP] = (pos->pieceBitboards_[movingCP] | bb(to)) & ~bb(from);
   pos->pieceBitboards_[capturedPieceCP] &= ~bb(to);
 }
 
@@ -35,23 +35,16 @@ void simple_undo_move(Position *pos, Square from, Square to, ColoredPiece captur
   const ColoredPiece movingCP = pos->tiles_[to];
   pos->tiles_[to] = capturedPiece;
   pos->tiles_[from] = movingCP;
-  pos->pieceBitboards_[movingCP] = pos->pieceBitboards_[movingCP] | bb(from) & ~bb(to);
+  pos->pieceBitboards_[movingCP] = (pos->pieceBitboards_[movingCP] | bb(from)) & ~bb(to);
   pos->pieceBitboards_[capturedPiece] |= bb(to);
 }
 
 template<Color US>
 int static_exchange(Position *pos) {
   constexpr ColoredPiece ourPawnCP = coloredPiece<US, Piece::PAWN>();
-  constexpr ColoredPiece ourKnightCP = coloredPiece<US, Piece::KNIGHT>();
-  constexpr ColoredPiece ourBishopCP = coloredPiece<US, Piece::BISHOP>();
-  constexpr ColoredPiece ourRookCP = coloredPiece<US, Piece::ROOK>();
-  constexpr ColoredPiece ourQueenCP = coloredPiece<US, Piece::QUEEN>();
 
   constexpr Color THEM = opposite_color<US>();
   constexpr ColoredPiece theirQueenCP = coloredPiece<THEM, Piece::QUEEN>();
-  constexpr ColoredPiece theirRookCP = coloredPiece<THEM, Piece::ROOK>();
-  constexpr ColoredPiece theirBishopCP = coloredPiece<THEM, Piece::BISHOP>();
-  constexpr ColoredPiece theirKnightCP = coloredPiece<THEM, Piece::KNIGHT>();
 
   constexpr Direction southeast = (US == Color::WHITE ? Direction::SOUTH_EAST : Direction::NORTH_WEST);
   constexpr Direction southwest = (US == Color::WHITE ? Direction::SOUTH_WEST : Direction::NORTH_EAST);
@@ -90,7 +83,7 @@ int static_exchange(Position *pos) {
     Square attackersSq = lsb(pos->pieceBitboards_[ourPawnCP] & (shift<southeast>(targetLoc) | shift<southwest>(targetLoc)));
     simple_make_move<US>(pos, attackersSq, targetSq);
     int r = (kPieceValues[piece] - kPieceValues[Piece::PAWN]) - static_exchange<THEM>(pos);
-    simple_undo_move<US>(pos, attackersSq, targetSq, theirRookCP);
+    simple_undo_move<US>(pos, attackersSq, targetSq, coloredPiece<THEM>(piece));
     return r;
   }
 
@@ -203,8 +196,6 @@ struct CheckMap {
 
 template<Color US>
 CheckMap compute_potential_attackers(const Position& pos, const Square sq) {
-  constexpr Color THEM = opposite_color<US>();
-
   const Location loc = square2location(sq);
 
   const Bitboard file = kFiles[sq % 8];

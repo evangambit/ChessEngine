@@ -19,10 +19,6 @@ Bitboard compute_rooklike_targets(const Position& pos, Bitboard rookLikePieces, 
     const Location fromLoc = square2location(from);
     const unsigned y = from / 8;
     const unsigned x = from % 8;
-    const Bitboard rank = kRanks[y];
-    const Bitboard file = kFiles[x];
-
-    Bitboard tos = kEmptyBitboard;
 
     {  // Compute east/west moves.
       const unsigned rankShift = y * 8;
@@ -69,10 +65,9 @@ ExtMove *compute_rook_like_moves(const Position& pos, ExtMove *moves, Bitboard t
     const Square enemyKingSq = lsb(enemyKing);
     {  // East/west.
       unsigned y = enemyKingSq / 8;
-      const Bitboard rank = kRanks[y];
       const unsigned rankShift = y * 8;
       uint8_t fromByte = enemyKing >> rankShift;
-      uint8_t occupied = (((enemies & ~enemyKing) | friends) & rank) >> rankShift;
+      uint8_t occupied = ((enemies & ~enemyKing) | friends) >> rankShift;
       checkMask |= Bitboard(sliding_moves(fromByte, occupied)) << rankShift;
     }
     {  // North/south
@@ -92,15 +87,13 @@ ExtMove *compute_rook_like_moves(const Position& pos, ExtMove *moves, Bitboard t
     Location fromLoc = square2location(from);
     const unsigned y = from / 8;
     const unsigned x = from % 8;
-    const Bitboard rank = kRanks[y];
-    const Bitboard file = kFiles[x];
 
     Bitboard tos = kEmptyBitboard;
 
     {  // Compute east/west moves.
       const unsigned rankShift = y * 8;
       uint8_t fromByte = fromLoc >> rankShift;
-      uint8_t occByte = ((enemies | (friends & ~fromLoc)) & rank) >> rankShift;
+      uint8_t occByte = (enemies | (friends & ~fromLoc)) >> rankShift;
       tos |= (Bitboard(sliding_moves(fromByte, occByte)) << rankShift) & ~friends;
     }
 

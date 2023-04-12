@@ -238,10 +238,7 @@ Bitboard compute_bishoplike_targets(const Position& pos, Bitboard bishopLikePiec
 
   while (bishopLikePieces) {
     const Square from = pop_lsb(bishopLikePieces);
-    const Piece piece = cp2p(pos.tiles_[from]);
     Location fromLoc = square2location(from);
-    const Bitboard southWestMask = diag::kSouthWestDiagonalMask[from];
-    const Bitboard southEastMask = diag::kSouthEastDiagonalMask[from];
 
     {  // Southeast/Northwest diagonal.
       uint8_t enemiesByte = diag::southeast_diag_to_byte(from, occupied);
@@ -270,6 +267,7 @@ ExtMove *compute_bishop_like_moves(const Position& pos, ExtMove *moves, Bitboard
   constexpr ColoredPiece myQueenPiece = (US == Color::WHITE ? ColoredPiece::WHITE_QUEEN : ColoredPiece::BLACK_QUEEN);
   const Bitboard friends = pos.colorBitboards_[US];
   const Bitboard enemies = pos.colorBitboards_[opposite_color<US>()];
+  const Bitboard everyone = friends | enemies;
   Bitboard bishopLikePieces = pos.pieceBitboards_[myBishopPiece] | pos.pieceBitboards_[myQueenPiece];
 
   // TODO: diagonal pins.
@@ -281,12 +279,12 @@ ExtMove *compute_bishop_like_moves(const Position& pos, ExtMove *moves, Bitboard
     const Bitboard enemyKing = pos.pieceBitboards_[coloredPiece<opposite_color<US>(), Piece::KING>()];
     const Square enemyKingSq = lsb(enemyKing);
     {  // Southeast/Northwest diagonal.
-      uint8_t occupied = diag::southeast_diag_to_byte(enemyKingSq, friends | enemies & ~enemyKing);
+      uint8_t occupied = diag::southeast_diag_to_byte(enemyKingSq, everyone & ~enemyKing);
       uint8_t fromByte = diag::southeast_diag_to_byte(enemyKingSq, enemyKing);
       checkMask |= diag::byte_to_southeast_diag(enemyKingSq, sliding_moves(fromByte, occupied));
     }
     {  // Southwest/Northeast diagonal.
-      uint8_t occupied = diag::southwest_diag_to_byte(enemyKingSq, friends | enemies & ~enemyKing);
+      uint8_t occupied = diag::southwest_diag_to_byte(enemyKingSq, everyone & ~enemyKing);
       uint8_t fromByte = diag::southwest_diag_to_byte(enemyKingSq, enemyKing);
       checkMask |= diag::byte_to_southwest_diag(enemyKingSq, sliding_moves(fromByte, occupied));
     }
@@ -298,8 +296,6 @@ ExtMove *compute_bishop_like_moves(const Position& pos, ExtMove *moves, Bitboard
     const Square from = pop_lsb(bishopLikePieces);
     const Piece piece = cp2p(pos.tiles_[from]);
     Location fromLoc = square2location(from);
-    const Bitboard southWestMask = diag::kSouthWestDiagonalMask[from];
-    const Bitboard southEastMask = diag::kSouthEastDiagonalMask[from];
 
     Bitboard tos = kEmptyBitboard;
 
