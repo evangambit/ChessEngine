@@ -264,11 +264,6 @@ Bitboard compute_bishoplike_targets(const Position& pos, Bitboard bishopLikePiec
   return compute_bishoplike_targets<US>(pos, bishopLikePieces, occupied);
 }
 
-template<Color US>
-Bitboard compute_bishop_targets(const Position& pos, const Bitboard bishopLikePieces) {
-  return compute_bishoplike_targets<US>(pos, pos.pieceBitboards_[coloredPiece<US, Piece::BISHOP>()]);
-}
-
 template<Color US, MoveGenType MGT>
 ExtMove *compute_bishop_like_moves(const Position& pos, ExtMove *moves, Bitboard target, const PinMasks& pm) {
   constexpr ColoredPiece myBishopPiece = (US == Color::WHITE ? ColoredPiece::WHITE_BISHOP : ColoredPiece::BLACK_BISHOP);

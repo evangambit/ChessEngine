@@ -50,12 +50,6 @@ Bitboard compute_rooklike_targets(const Position& pos, Bitboard rookLikePieces) 
   return compute_rooklike_targets<US>(pos, rookLikePieces, occupied);
 }
 
-
-template<Color US>
-Bitboard compute_rook_targets(const Position& pos, const Bitboard bishopLikePieces) {
-  return compute_rooklike_targets<US>(pos, pos.pieceBitboards_[coloredPiece<US, Piece::ROOK>()]);
-}
-
 // Computes moves for rook and rook-like moves for queen.
 template<Color US, MoveGenType MGT>
 ExtMove *compute_rook_like_moves(const Position& pos, ExtMove *moves, Bitboard target, const PinMasks& pm) {
