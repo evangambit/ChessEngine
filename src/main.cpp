@@ -2,7 +2,7 @@
 // g++ src/main.cpp src/game/*.cpp -std=c++20 -O3 -DNDEBUG -o main
 // 
 // Debug:
-// g++ src/main.cpp src/game/*.cpp -std=c++20 -std=c++20 -rdynamic -g1
+// g++ src/main.cpp src/game/*.cpp -std=c++20 -rdynamic -g1
 //
 // To Generate train.txt
 // ./a.out mode printvec fens eval.txt > ./train.txt
@@ -213,12 +213,6 @@ void handler(int sig) {
   // print out all the frames to stderr
   fprintf(stderr, "Error: signal %d:\n", sig);
   backtrace_symbols_fd(array, size, STDERR_FILENO);
-
-  #ifndef NDEBUG
-  for (size_t i = 0; i < gStackDebug.size(); ++i) {
-    std::cout << gStackDebug[i] << std::endl;
-  }
-  #endif
 
   #ifndef NDEBUG
   if (gDebugPos != nullptr) {
