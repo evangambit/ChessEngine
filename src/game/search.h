@@ -300,13 +300,6 @@ struct Thinker {
       // Quiescence Search (0.4334 ± 0.0053)
       SearchResult<TURN> r = qsearch<TURN>(pos, 0, alpha, beta);
 
-      NodeType nodeType = NodeTypePV;
-      if (r.score >= originalBeta) {
-        nodeType = NodeTypeCut_LowerBound;
-      } else if (r.score <= originalAlpha) {
-        nodeType = NodeTypeAll_UpperBound;
-      }
-
       const CacheResult cr = CacheResult{
         depth,
         r.score,
@@ -406,12 +399,10 @@ struct Thinker {
     }
 
     const Move lastMove = pos->history_.size() > 0 ? pos->history_.back().move : kNullMove;
-    size_t numCaptures = 0;
     for (ExtMove *move = moves; move < end; ++move) {
       move->score = 0;
 
       const bool isCapture = (move->capture != Piece::NO_PIECE);
-      numCaptures += isCapture;
 
       // Bonus for capturing a piece.  (+0.136 ± 0.012)
       move->score += kMoveOrderPieceValues[move->capture];
@@ -437,8 +428,6 @@ struct Thinker {
     std::sort(moves, end, [](ExtMove a, ExtMove b) {
       return a.score > b.score;
     });
-
-    bool foo = it != this->cache.end() && it->second.depth >= depth - 1;
 
     RecommendedMoves recommendationsForChildren;
 
