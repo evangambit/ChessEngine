@@ -474,15 +474,9 @@ lonelyKingB = 0;
     const Bitboard ourPieces = ourMajors | ourMinors;
     const Bitboard theirPieces = theirMajors | theirMinors;
 
-    const Bitboard ourRooklikePieces = ourRooks | ourQueens;
-    const Bitboard theirRooklikePieces = theirRooks | theirQueens;
-    const Bitboard ourBishoplikePieces = ourBishops | ourQueens;
-    const Bitboard theirBishoplikePieces = theirBishops | theirQueens;
-
     constexpr Bitboard kOurSide = (US == Color::WHITE ? kWhiteSide : kBlackSide);
     constexpr Bitboard kTheirSide = (US == Color::WHITE ? kBlackSide : kWhiteSide);
     constexpr Direction kForward = (US == Color::WHITE ? Direction::NORTH : Direction::SOUTH);
-    constexpr Direction kForward2 = (US == Color::WHITE ? Direction::NORTHx2 : Direction::SOUTHx2);
     constexpr Direction kBackward = opposite_dir<kForward>();
     constexpr Bitboard kOurBackRanks = (US == Color::WHITE ? kRanks[6] | kRanks[7] : kRanks[1] | kRanks[0]);
     constexpr Bitboard kTheirBackRanks = (US == Color::WHITE ? kRanks[1] | kRanks[0] : kRanks[6] | kRanks[7]);
@@ -547,8 +541,8 @@ lonelyKingB = 0;
       features[EF::MISSING_FIANCHETTO_BISHOP] = 0;
       features[EF::MISSING_FIANCHETTO_BISHOP] += ((ourKings & kOurWhiteCorner) > 0) && ((kMainWhiteDiagonal & ourBishops) == 0) && ((kWhiteSquares & theirBishops) > 0) && ((ourPawns & ourWhiteFianchettoPawn) == 0);
       features[EF::MISSING_FIANCHETTO_BISHOP] += ((ourKings & kOurBlackCorner) > 0) && ((kMainBlackDiagonal & ourBishops) == 0) && ((kBlackSquares & theirBishops) > 0) && ((ourPawns & ourBlackFianchettoPawn) == 0);
-      features[EF::MISSING_FIANCHETTO_BISHOP] -= ((theirKings & kOurWhiteCorner) > 0) && ((kMainWhiteDiagonal & theirBishops) == 0) && ((kWhiteSquares & ourBishops) > 0) && ((theirPawns & theirWhiteFianchettoPawn) == 0);
-      features[EF::MISSING_FIANCHETTO_BISHOP] -= ((theirKings & kOurBlackCorner) > 0) && ((kMainBlackDiagonal & theirBishops) == 0) && ((kBlackSquares & ourBishops) > 0) && ((theirPawns & theirBlackFianchettoPawn) == 0);
+      features[EF::MISSING_FIANCHETTO_BISHOP] -= ((theirKings & kTheirWhiteCorner) > 0) && ((kMainWhiteDiagonal & theirBishops) == 0) && ((kWhiteSquares & ourBishops) > 0) && ((theirPawns & theirWhiteFianchettoPawn) == 0);
+      features[EF::MISSING_FIANCHETTO_BISHOP] -= ((theirKings & kTheirBlackCorner) > 0) && ((kMainBlackDiagonal & theirBishops) == 0) && ((kBlackSquares & ourBishops) > 0) && ((theirPawns & theirBlackFianchettoPawn) == 0);
     }
 
     // Pawns
@@ -824,7 +818,7 @@ lonelyKingB = 0;
       const Bitboard forwardPawns = shift<kForward>(ourPawns) & ~everyone;
       const Bitboard thirdRank = (US == Color::WHITE ? kRanks[5] : kRanks[2]);
       const Bitboard pawnCaptureChecks = checkMap.data[Piece::PAWN] & threats.ourPawnTargets & theirMen;
-      Bitboard pawnPushChecks = checkMap.data[Piece::PAWN] & (forwardPawns | (shift<kForward>(forwardPawns) & ~everyone));
+      Bitboard pawnPushChecks = checkMap.data[Piece::PAWN] & (forwardPawns | (shift<kForward>(forwardPawns & thirdRank) & ~everyone));
       const Bitboard knightChecks = checkMap.data[Piece::KNIGHT] & threats.ourKnightTargets;
       const Bitboard bishopChecks = checkMap.data[Piece::BISHOP] & threats.ourBishopTargets;
       const Bitboard rookChecks = checkMap.data[Piece::ROOK] & threats.ourRookTargets;
@@ -883,7 +877,6 @@ lonelyKingB = 0;
       // KPVK games are winning if square rule is true.
       const bool isOurKPPVK = isKingPawnEndgame && (std::popcount(ourPawns) >= 1) && (theirPawns == 0);
       const bool isTheirKPPVK = isKingPawnEndgame && (std::popcount(theirPawns) >= 1) && (ourPawns == 0);
-      constexpr Bitboard kPromoRanks = kRanks[0] | kRanks[7];
       this->bonus -= value_or_zero(isOurKPPVK && features[EF::SQUARE_RULE] < 0, 500);
       this->bonus += value_or_zero(isTheirKPPVK && features[EF::SQUARE_RULE] > 0, 500);
 

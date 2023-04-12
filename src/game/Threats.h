@@ -34,7 +34,6 @@ struct Threats {
   // TODO: bishops can attack one square through our own pawns.
   Threats(const Position& pos) {
     constexpr Color THEM = opposite_color<US>();
-    constexpr ColoredPiece cp = coloredPiece<US, Piece::PAWN>();
     constexpr Direction kForward = (US == Color::WHITE ? Direction::NORTH : Direction::SOUTH);
     constexpr Direction kForwardRight = (kForward == Direction::NORTH ? Direction::NORTH_EAST : Direction::SOUTH_WEST);
     constexpr Direction kForwardLeft = (kForward == Direction::NORTH ? Direction::NORTH_WEST : Direction::SOUTH_EAST);

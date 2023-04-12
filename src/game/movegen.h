@@ -145,9 +145,6 @@ Bitboard compute_attackers(const Position& pos, const Square sq) {
   const Bitboard enemies = pos.colorBitboards_[US];
   const Bitboard friends = pos.colorBitboards_[THEM] & ~loc;
 
-  const Bitboard file = kFiles[sq % 8];
-  const Bitboard rank = kRanks[sq / 8];
-
   Bitboard attackers = kEmptyBitboard;
   attackers |= (kKnightMoves[sq] & pos.pieceBitboards_[coloredPiece<US, Piece::KNIGHT>()]);
   attackers |= (kKingMoves[sq] & pos.pieceBitboards_[coloredPiece<US, Piece::KING>()]);
@@ -168,7 +165,7 @@ Bitboard compute_attackers(const Position& pos, const Square sq) {
     const uint8_t x = (sq % 8);
     const unsigned columnShift = 7 - x;
     uint8_t fromByte = (((loc << columnShift) & kFiles[7]) * kRookMagic) >> 56;
-    uint8_t occ = (((((enemies | friends) & file) << columnShift) & kFiles[7]) * kRookMagic) >> 56;
+    uint8_t occ = ((((enemies | friends) << columnShift) & kFiles[7]) * kRookMagic) >> 56;
     uint8_t toByte = sliding_moves(fromByte, occ);
     Bitboard to = (((Bitboard(toByte & 254) * kRookMagic) & kFiles[0]) | (toByte & 1)) << x;
     attackers |= (to & ourRooks);
@@ -198,8 +195,6 @@ template<Color US>
 CheckMap compute_potential_attackers(const Position& pos, const Square sq) {
   const Location loc = square2location(sq);
 
-  const Bitboard file = kFiles[sq % 8];
-  const Bitboard rank = kRanks[sq / 8];
   const Bitboard everyone = (pos.colorBitboards_[Color::WHITE] | pos.colorBitboards_[Color::BLACK]) & ~loc;
 
   CheckMap r;
@@ -229,7 +224,7 @@ CheckMap compute_potential_attackers(const Position& pos, const Square sq) {
     const uint8_t x = (sq % 8);
     const unsigned columnShift = 7 - x;
     uint8_t fromByte = (((loc << columnShift) & kFiles[7]) * kRookMagic) >> 56;
-    uint8_t occ = ((((everyone & file) << columnShift) & kFiles[7]) * kRookMagic) >> 56;
+    uint8_t occ = (((everyone << columnShift) & kFiles[7]) * kRookMagic) >> 56;
     uint8_t toByte = sliding_moves(fromByte, occ);
     r.data[Piece::ROOK] |= (((Bitboard(toByte & 254) * kRookMagic) & kFiles[0]) | (toByte & 1)) << x;
   }
@@ -255,7 +250,6 @@ template<Color US>
 PinMasks compute_pin_masks(const Position& pos) {
   constexpr Color THEM = opposite_color<US>();
 
-  const Bitboard ourPieces = pos.colorBitboards_[US];
   const Bitboard occ = pos.colorBitboards_[US] | pos.colorBitboards_[THEM];
   const Bitboard ourKings = pos.pieceBitboards_[coloredPiece<US, Piece::KING>()];
   const Square ourKingSq = lsb(ourKings);
@@ -268,7 +262,6 @@ PinMasks compute_pin_masks(const Position& pos) {
   PinMasks r;
 
   {  // Compute east/west moves.
-    const Bitboard rank = kRanks[y];
     const unsigned rankShift = y * 8;
     uint8_t kingByte = ourKings >> rankShift;
     uint8_t occByte = occ >> rankShift;
@@ -277,7 +270,6 @@ PinMasks compute_pin_masks(const Position& pos) {
   }
 
   {  // Compute north/south moves.
-    const Bitboard file = kFiles[x];
     const unsigned columnShift = 7 - x;
     uint8_t kingByte = (((ourKings << columnShift) & kFiles[7]) * kRookMagic) >> 56;
     uint8_t occByte = (((occ << columnShift) & kFiles[7]) * kRookMagic) >> 56;

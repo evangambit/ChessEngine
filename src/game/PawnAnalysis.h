@@ -49,8 +49,6 @@ struct PawnAnalysis {
         filesWithOurPawns = northFill(aheadOfOurPawns);
         filesWithTheirPawns = southFill(aheadOfTheirPawns);
       }
-      const Bitboard aheadOfOurPawnsFat = fatten(aheadOfOurPawns);
-      const Bitboard aheadOfTheirPawnsFat = fatten(aheadOfTheirPawns);
       filesWithoutOurPawns = ~filesWithOurPawns;
       filesWithoutTheirPawns = ~filesWithTheirPawns;
       ourPassedPawns = ourPawns & ~shift<kBackward>(fatten(aheadOfTheirPawns));
