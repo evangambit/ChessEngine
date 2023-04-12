@@ -13,6 +13,7 @@
 #include "Position.h"
 #include "movegen.h"
 #include "piece_maps.h"
+#include "PawnAnalysis.h"
 
 namespace ChessEngine {
 
@@ -551,99 +552,39 @@ lonelyKingB = 0;
     }
 
     // Pawns
-    const Bitboard ourBlockadedPawns = shift<kBackward>(theirPawns) & ourPawns;
-    const Bitboard theirBlockadedPawns = shift<kForward>(ourPawns) & theirPawns;
-    const Bitboard ourProtectedPawns = ourPawns & threats.ourPawnTargets;
-    const Bitboard theirProtectedPawns = theirPawns & threats.theirPawnTargets;
-    Bitboard ourPassedPawns, theirPassedPawns;
-    Bitboard filesWithoutOurPawns, filesWithoutTheirPawns;
-    Bitboard possibleOutpostsForUs, possibleOutpostsForThem;
+    PawnAnalysis<US> pawnAnalysis(pos, threats);
     {
-      Bitboard aheadOfOurPawns, aheadOfTheirPawns;
-      Bitboard filesWithOurPawns, filesWithTheirPawns;
-      if (US == Color::WHITE) {
-        aheadOfOurPawns = northFill(ourPawns);
-        aheadOfTheirPawns = southFill(theirPawns);
-        filesWithOurPawns = southFill(aheadOfOurPawns);
-        filesWithTheirPawns = northFill(aheadOfTheirPawns);
-      } else {
-        aheadOfOurPawns = southFill(ourPawns);
-        aheadOfTheirPawns = northFill(theirPawns);
-        filesWithOurPawns = northFill(aheadOfOurPawns);
-        filesWithTheirPawns = southFill(aheadOfTheirPawns);
-      }
-      const Bitboard aheadOfOurPawnsFat = fatten(aheadOfOurPawns);
-      const Bitboard aheadOfTheirPawnsFat = fatten(aheadOfTheirPawns);
-      filesWithoutOurPawns = ~filesWithOurPawns;
-      filesWithoutTheirPawns = ~filesWithTheirPawns;
-      ourPassedPawns = ourPawns & ~shift<kBackward>(fatten(aheadOfTheirPawns));
-      theirPassedPawns = theirPawns & ~shift<kForward>(fatten(aheadOfOurPawns));
-      const Bitboard ourIsolatedPawns = ourPawns & ~shift<Direction::WEST>(filesWithOurPawns) & ~shift<Direction::EAST>(filesWithOurPawns);
-      const Bitboard theirIsolatedPawns = theirPawns & ~shift<Direction::WEST>(filesWithTheirPawns) & ~shift<Direction::EAST>(filesWithTheirPawns);
-      const Bitboard ourDoubledPawns = ourPawns & shift<kForward>(aheadOfOurPawns);
-      const Bitboard theirDoubledPawns = theirPawns & shift<kBackward>(aheadOfTheirPawns);
-
-      possibleOutpostsForUs = ~(
-        shift<Direction::EAST>(shift<kBackward>(aheadOfTheirPawns))
-        | shift<Direction::WEST>(shift<kBackward>(aheadOfTheirPawns))
-      ) & ~kTheirBackRanks;
-      possibleOutpostsForThem = ~(
-        shift<Direction::EAST>(shift<kForward>(aheadOfOurPawns))
-        | shift<Direction::WEST>(shift<kForward>(aheadOfOurPawns))
-      ) & ~kOurBackRanks;
-
-      constexpr Bitboard kRookPawns = kFiles[0] | kFiles[7];
-
       features[EF::PAWNS_CENTER_16] = std::popcount(ourPawns & kCenter16) - std::popcount(theirPawns & kCenter16);
       features[EF::PAWNS_CENTER_16] = std::popcount(ourPawns & kCenter16) - std::popcount(theirPawns & kCenter16);
       features[EF::PAWNS_CENTER_4] = std::popcount(ourPawns & kCenter4) - std::popcount(theirPawns & kCenter4);
-      features[EF::OUR_PASSED_PAWNS] = std::popcount(ourPassedPawns);
-      features[EF::THEIR_PASSED_PAWNS] = std::popcount(theirPassedPawns);
-      features[EF::ISOLATED_PAWNS] = std::popcount(ourIsolatedPawns) - std::popcount(theirIsolatedPawns);
-      features[EF::DOUBLED_PAWNS] = std::popcount(ourDoubledPawns) - std::popcount(theirDoubledPawns);
-      features[EF::DOUBLE_ISOLATED_PAWNS] = std::popcount(ourDoubledPawns & ourIsolatedPawns) - std::popcount(theirDoubledPawns & theirIsolatedPawns);
+      features[EF::OUR_PASSED_PAWNS] = std::popcount(pawnAnalysis.ourPassedPawns);
+      features[EF::THEIR_PASSED_PAWNS] = std::popcount(pawnAnalysis.theirPassedPawns);
+      features[EF::ISOLATED_PAWNS] = std::popcount(pawnAnalysis.ourIsolatedPawns) - std::popcount(pawnAnalysis.theirIsolatedPawns);
+      features[EF::DOUBLED_PAWNS] = std::popcount(pawnAnalysis.ourDoubledPawns) - std::popcount(pawnAnalysis.theirDoubledPawns);
+      features[EF::DOUBLE_ISOLATED_PAWNS] = std::popcount(pawnAnalysis.ourDoubledPawns & pawnAnalysis.ourIsolatedPawns) - std::popcount(pawnAnalysis.theirDoubledPawns & pawnAnalysis.theirIsolatedPawns);
       features[EF::ADVANCED_PAWNS_1] = std::popcount(ourPawns & kTheirBackRanks) - std::popcount(theirPawns & kOurBackRanks);
       features[EF::ADVANCED_PAWNS_2] = std::popcount(ourPawns & shift<kBackward>(kTheirBackRanks)) - std::popcount(theirPawns & shift<kForward>(kOurBackRanks));
 
       if (US == Color::WHITE) {
-        features[EF::ADVANCED_PASSED_PAWNS_2] = std::popcount(ourPassedPawns & kRanks[1]) * 2 - std::popcount(theirPassedPawns & kRanks[6]);
-        features[EF::ADVANCED_PASSED_PAWNS_3] = std::popcount(ourPassedPawns & kRanks[2]) * 2 - std::popcount(theirPassedPawns & kRanks[5]);
-        features[EF::ADVANCED_PASSED_PAWNS_4] = std::popcount(ourPassedPawns & kRanks[3]) * 2 - std::popcount(theirPassedPawns & kRanks[4]);
+        features[EF::ADVANCED_PASSED_PAWNS_2] = std::popcount(pawnAnalysis.ourPassedPawns & kRanks[1]) * 2 - std::popcount(pawnAnalysis.theirPassedPawns & kRanks[6]);
+        features[EF::ADVANCED_PASSED_PAWNS_3] = std::popcount(pawnAnalysis.ourPassedPawns & kRanks[2]) * 2 - std::popcount(pawnAnalysis.theirPassedPawns & kRanks[5]);
+        features[EF::ADVANCED_PASSED_PAWNS_4] = std::popcount(pawnAnalysis.ourPassedPawns & kRanks[3]) * 2 - std::popcount(pawnAnalysis.theirPassedPawns & kRanks[4]);
       } else {
-        features[EF::ADVANCED_PASSED_PAWNS_2] = std::popcount(ourPassedPawns & kRanks[6]) * 2 - std::popcount(theirPassedPawns & kRanks[1]);
-        features[EF::ADVANCED_PASSED_PAWNS_3] = std::popcount(ourPassedPawns & kRanks[5]) * 2 - std::popcount(theirPassedPawns & kRanks[2]);
-        features[EF::ADVANCED_PASSED_PAWNS_4] = std::popcount(ourPassedPawns & kRanks[4]) * 2 - std::popcount(theirPassedPawns & kRanks[3]);
+        features[EF::ADVANCED_PASSED_PAWNS_2] = std::popcount(pawnAnalysis.ourPassedPawns & kRanks[6]) * 2 - std::popcount(pawnAnalysis.theirPassedPawns & kRanks[1]);
+        features[EF::ADVANCED_PASSED_PAWNS_3] = std::popcount(pawnAnalysis.ourPassedPawns & kRanks[5]) * 2 - std::popcount(pawnAnalysis.theirPassedPawns & kRanks[2]);
+        features[EF::ADVANCED_PASSED_PAWNS_4] = std::popcount(pawnAnalysis.ourPassedPawns & kRanks[4]) * 2 - std::popcount(pawnAnalysis.theirPassedPawns & kRanks[3]);
       }
 
       features[EF::PAWN_MINOR_CAPTURES] = std::popcount(threats.ourPawnTargets & theirMinors) - std::popcount(threats.theirPawnTargets & ourMinors);
       features[EF::PAWN_MAJOR_CAPTURES] = std::popcount(threats.ourPawnTargets & theirMajors) - std::popcount(threats.theirPawnTargets & ourMajors);
       features[EF::PROTECTED_PAWNS] = std::popcount(ourPawns & threats.ourPawnTargets) - std::popcount(theirPawns & threats.theirPawnTargets);
-      features[EF::PROTECTED_PASSED_PAWNS] = std::popcount(ourPassedPawns & threats.ourPawnTargets) - std::popcount(theirPassedPawns & threats.theirPawnTargets);
+      features[EF::PROTECTED_PASSED_PAWNS] = std::popcount(pawnAnalysis.ourPassedPawns & threats.ourPawnTargets) - std::popcount(pawnAnalysis.theirPassedPawns & threats.theirPawnTargets);
 
-      const Bitboard aheadOfOurPawnHome = (US == Color::WHITE ? kRanks[5] : kRanks[2]);
-      const Bitboard behindTheirPawnHome = (US == Color::WHITE ? kRanks[2] : kRanks[5]);
-
-      Bitboard squaresWeCanAdvancePawnsTo = shift<kForward>(ourPawns) & ~everyone;
-      squaresWeCanAdvancePawnsTo |= shift<kForward>(squaresWeCanAdvancePawnsTo & aheadOfOurPawnHome) & ~everyone;
-      squaresWeCanAdvancePawnsTo &= ~threats.badForOur[Piece::PAWN];
-
-      Bitboard squaresTheyCanAdvancePawnsTo = shift<kBackward>(theirPawns) & ~everyone;
-      squaresTheyCanAdvancePawnsTo |= shift<kBackward>(squaresTheyCanAdvancePawnsTo & behindTheirPawnHome) & ~everyone;
-      squaresTheyCanAdvancePawnsTo &= ~threats.badForTheir[Piece::PAWN];
-
-      constexpr Direction kForwardLeft = (US == Color::WHITE ? Direction::NORTH_WEST : Direction::SOUTH_EAST);
-      constexpr Direction kForwardRight = (US == Color::WHITE ? Direction::NORTH_EAST : Direction::SOUTH_WEST);
-      constexpr Direction kBackwardLeft = opposite_dir<kForwardLeft>();
-      constexpr Direction kBackwardRight = opposite_dir<kForwardRight>();
-
-      Bitboard piecesOurPawnsCanThreaten = (shift<kForwardLeft>(squaresWeCanAdvancePawnsTo) | shift<kForwardRight>(squaresWeCanAdvancePawnsTo)) & theirPieces;
-      Bitboard piecesTheirPawnsCanThreaten = (shift<kBackwardLeft>(squaresTheyCanAdvancePawnsTo) | shift<kBackwardRight>(squaresTheyCanAdvancePawnsTo)) & ourPieces;
-
-      features[EF::NUM_PIECES_HARRASSABLE_BY_PAWNS] = std::popcount(piecesOurPawnsCanThreaten) - std::popcount(piecesTheirPawnsCanThreaten);
+      features[EF::NUM_PIECES_HARRASSABLE_BY_PAWNS] = std::popcount(pawnAnalysis.piecesOurPawnsCanThreaten) - std::popcount(pawnAnalysis.piecesTheirPawnsCanThreaten);
     }
 
-    const Bitboard ourBishopTargetsIgnoringNonBlockades = compute_bishoplike_targets<US>(pos, ourBishops, ourBlockadedPawns);
-    const Bitboard theirBishopTargetsIgnoringNonBlockades = compute_bishoplike_targets<THEM>(pos, theirBishops, theirBlockadedPawns);
+    const Bitboard ourBishopTargetsIgnoringNonBlockades = compute_bishoplike_targets<US>(pos, ourBishops, pawnAnalysis.ourBlockadedPawns);
+    const Bitboard theirBishopTargetsIgnoringNonBlockades = compute_bishoplike_targets<THEM>(pos, theirBishops, pawnAnalysis.theirBlockadedPawns);
     {  // Bishops
       if (US == Color::WHITE) {
         features[EF::BISHOPS_DEVELOPED] = std::popcount(theirBishops & (bb( 2) | bb( 5))) - std::popcount(ourBishops & (bb(58) | bb(61)));
@@ -651,26 +592,26 @@ lonelyKingB = 0;
         features[EF::BISHOPS_DEVELOPED] = std::popcount(theirBishops & (bb(58) | bb(61))) - std::popcount(ourBishops & (bb( 2) | bb( 5)));
       }
       features[EF::BISHOP_PAIR] = (std::popcount(ourBishops) >= 2) - (std::popcount(theirBishops) >= 2);
-      features[EF::BLOCKADED_BISHOPS] = std::popcount(ourBishopTargetsIgnoringNonBlockades & (ourBlockadedPawns | theirProtectedPawns)) - std::popcount(theirBishopTargetsIgnoringNonBlockades & (theirBlockadedPawns | ourProtectedPawns));
+      features[EF::BLOCKADED_BISHOPS] = std::popcount(ourBishopTargetsIgnoringNonBlockades & (pawnAnalysis.ourBlockadedPawns | pawnAnalysis.theirProtectedPawns)) - std::popcount(theirBishopTargetsIgnoringNonBlockades & (pawnAnalysis.theirBlockadedPawns | pawnAnalysis.ourProtectedPawns));
       features[EF::SCARY_BISHOPS] = std::popcount(ourBishopTargetsIgnoringNonBlockades & theirMajors) - std::popcount(theirBishopTargetsIgnoringNonBlockades & ourMajors);
       features[EF::SCARIER_BISHOPS] = std::popcount(ourBishopTargetsIgnoringNonBlockades & theirRoyalty) - std::popcount(theirBishopTargetsIgnoringNonBlockades & ourRoyalty);
-      features[EF::OUTPOSTED_BISHOPS] = std::popcount(ourBishops & possibleOutpostsForUs) - std::popcount(theirBishops & possibleOutpostsForThem);
+      features[EF::OUTPOSTED_BISHOPS] = std::popcount(ourBishops & pawnAnalysis.possibleOutpostsForUs) - std::popcount(theirBishops & pawnAnalysis.possibleOutpostsForThem);
 
       features[EF::BISHOP_PAWN_DISAGREEMENT] = std::popcount(ourBishops & ourPawns & kWhiteSquares) + std::popcount(ourBishops & ourPawns & kBlackSquares);
       features[EF::BISHOP_PAWN_DISAGREEMENT] -= std::popcount(theirBishops & theirPawns & kWhiteSquares) + std::popcount(theirBishops & theirPawns & kBlackSquares);
 
-      features[EF::CLOSED_1] = std::popcount(ourBlockadedPawns | theirBlockadedPawns);
-      features[EF::CLOSED_2] = std::popcount((ourBlockadedPawns | theirBlockadedPawns) & kCenter16);
+      features[EF::CLOSED_1] = std::popcount(pawnAnalysis.ourBlockadedPawns | pawnAnalysis.theirBlockadedPawns);
+      features[EF::CLOSED_2] = std::popcount((pawnAnalysis.ourBlockadedPawns | pawnAnalysis.theirBlockadedPawns) & kCenter16);
       features[EF::CLOSED_3] = std::popcount(
-        ((shift<Direction::NORTH_EAST>(ourBlockadedPawns) | shift<Direction::NORTH_WEST>(ourBlockadedPawns)) & ourBlockadedPawns)
+        ((shift<Direction::NORTH_EAST>(pawnAnalysis.ourBlockadedPawns) | shift<Direction::NORTH_WEST>(pawnAnalysis.ourBlockadedPawns)) & pawnAnalysis.ourBlockadedPawns)
         |
-        ((shift<Direction::NORTH_EAST>(theirBlockadedPawns) | shift<Direction::NORTH_WEST>(theirBlockadedPawns)) & theirBlockadedPawns)
+        ((shift<Direction::NORTH_EAST>(pawnAnalysis.theirBlockadedPawns) | shift<Direction::NORTH_WEST>(pawnAnalysis.theirBlockadedPawns)) & pawnAnalysis.theirBlockadedPawns)
       );
     }
 
     {  // Rooks
-      const Bitboard openFiles = filesWithoutOurPawns & filesWithoutTheirPawns;
-      features[EF::BLOCKADED_ROOKS] = std::popcount(ourRooks & filesWithoutOurPawns) - std::popcount(theirRooks & filesWithoutTheirPawns);
+      const Bitboard openFiles = pawnAnalysis.filesWithoutOurPawns & pawnAnalysis.filesWithoutTheirPawns;
+      features[EF::BLOCKADED_ROOKS] = std::popcount(ourRooks & pawnAnalysis.filesWithoutOurPawns) - std::popcount(theirRooks & pawnAnalysis.filesWithoutTheirPawns);
       features[EF::SCARY_ROOKS] = std::popcount(threats.ourRookTargets & theirRoyalty) - std::popcount(threats.theirRookTargets & ourRoyalty);
       features[EF::INFILTRATING_ROOKS] = std::popcount(ourRooks & kTheirBackRanks) - std::popcount(theirRooks & kOurBackRanks);
       features[EF::OPEN_ROOKS] = std::popcount(ourRooks & openFiles) - std::popcount(theirRooks & openFiles);
@@ -687,7 +628,7 @@ lonelyKingB = 0;
       features[EF::KNIGHTS_CENTER_16] = std::popcount(ourKnights & kCenter16) - std::popcount(theirKnights & kCenter16);
       features[EF::KNIGHTS_CENTER_4] = std::popcount(ourKnights & kCenter4) - std::popcount(theirKnights & kCenter4);
       features[EF::KNIGHT_ON_ENEMY_SIDE] = std::popcount(ourKnights & kTheirSide) - std::popcount(theirKnights & kOurSide);
-      features[EF::OUTPOSTED_KNIGHTS] = std::popcount(ourKnights & possibleOutpostsForUs & kTheirSide) - std::popcount(theirKnights & possibleOutpostsForThem & kOurSide);
+      features[EF::OUTPOSTED_KNIGHTS] = std::popcount(ourKnights & pawnAnalysis.possibleOutpostsForUs & kTheirSide) - std::popcount(theirKnights & pawnAnalysis.possibleOutpostsForThem & kOurSide);
 
       features[EF::BISHOPS_BLOCKING_KNIGHTS] = std::popcount(shift<kForward>(shift<kForward>(shift<kForward>(theirKnights))) & ourBishops) - std::popcount(shift<kForward>(shift<kForward>(shift<kForward>(ourKnights))) & theirBishops);
     }
@@ -756,8 +697,8 @@ lonelyKingB = 0;
     features[EF::KPVK_DEFENSIVE_KEY_SQUARES] = 0;
 
     features[EF::SQUARE_RULE] = 0;
-    features[EF::SQUARE_RULE] += value_or_zero(isKingPawnEndgame, (kSquareRuleTheirTurn[US][theirKingSq] & ourPassedPawns) > 0);
-    features[EF::SQUARE_RULE] -= value_or_zero(isKingPawnEndgame, (kSquareRuleYourTurn[THEM][ourKingSq] & theirPassedPawns) > 0);
+    features[EF::SQUARE_RULE] += value_or_zero(isKingPawnEndgame, (kSquareRuleTheirTurn[US][theirKingSq] & pawnAnalysis.ourPassedPawns) > 0);
+    features[EF::SQUARE_RULE] -= value_or_zero(isKingPawnEndgame, (kSquareRuleYourTurn[THEM][ourKingSq] & pawnAnalysis.theirPassedPawns) > 0);
 
     {  // If we have the pawn in a KPVK engame.
       bool isKPVK = isKingPawnEndgame && (std::popcount(ourPawns) == 1) && (theirPawns == 0);
@@ -784,11 +725,11 @@ lonelyKingB = 0;
 
     Bitboard aheadOfOurPassedPawnsFat, aheadOfTheirPassedPawnsFat;
     if (US == Color::WHITE) {
-      aheadOfOurPassedPawnsFat = fatten(northFill(ourPassedPawns));
-      aheadOfTheirPassedPawnsFat = fatten(southFill(theirPassedPawns));
+      aheadOfOurPassedPawnsFat = fatten(northFill(pawnAnalysis.ourPassedPawns));
+      aheadOfTheirPassedPawnsFat = fatten(southFill(pawnAnalysis.theirPassedPawns));
     } else {
-      aheadOfOurPassedPawnsFat = fatten(southFill(ourPassedPawns));
-      aheadOfTheirPassedPawnsFat = fatten(northFill(theirPassedPawns));
+      aheadOfOurPassedPawnsFat = fatten(southFill(pawnAnalysis.ourPassedPawns));
+      aheadOfTheirPassedPawnsFat = fatten(northFill(pawnAnalysis.theirPassedPawns));
     }
 
     // We split these into two features, the idea being that being ahead of your pawns while your opponent's
@@ -935,7 +876,7 @@ lonelyKingB = 0;
 
     if (std::popcount(everyone & ~(theirPawns | ourPawns)) == 2) {
       // In pawn endgames, the square rule is important. 0.0027 ± 0.0010
-      this->bonus += (((kSquareRuleTheirTurn[US][theirKingSq] & ourPassedPawns) > 0) - ((kSquareRuleYourTurn[THEM][ourKingSq] & theirPassedPawns) > 0)) * 100;
+      this->bonus += (((kSquareRuleTheirTurn[US][theirKingSq] & pawnAnalysis.ourPassedPawns) > 0) - ((kSquareRuleYourTurn[THEM][ourKingSq] & pawnAnalysis.theirPassedPawns) > 0)) * 100;
     }
 
     {
