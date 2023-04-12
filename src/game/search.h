@@ -143,7 +143,6 @@ struct Thinker {
   }
 
   void print_variation(Position* pos, Move move) {
-    uint64_t foo = pos->hash_;
     this->make_move(pos, move);
     auto it = this->cache.find(pos->hash_);
 
@@ -174,7 +173,6 @@ struct Thinker {
       this->undo(pos);
       --counter;
     }
-    uint64_t bar = pos->hash_;
   }
 
   // TODO: qsearch can leave you in check
@@ -220,11 +218,12 @@ struct Thinker {
       r.score = kCheckmate;
     }
 
-    const Bitboard theirTargets = compute_my_targets_except_king<opposingColor>(*pos);
-
     for (ExtMove *move = moves; move < end; ++move) {
       move->score = kQSimplePieceValues[move->capture];
-      move->score -= value_or_zero(((threats.badForOur[move->piece] & bb(move->move.to)) > 0) && ~((threats.badForOur[move->piece] & bb(move->move.from)) > 0), kQSimplePieceValues[move->piece]);
+      move->score -= value_or_zero(
+        ((threats.badForOur[move->piece] & bb(move->move.to)) > 0) && !((threats.badForOur[move->piece] & bb(move->move.from)) > 0),
+        kQSimplePieceValues[move->piece]
+      );
       move->score += (move->capture != Piece::NO_PIECE) * 1000;
     }
 
@@ -404,11 +403,10 @@ struct Thinker {
       }
     }
 
-    const Move lastMove = pos->history_.size() > 0 ? pos->history_.back().move : kNullMove;
+    // const Move lastMove = pos->history_.size() > 0 ? pos->history_.back().move : kNullMove;
+    // TODO: use lastMove (above) to sort better.
     for (ExtMove *move = moves; move < end; ++move) {
       move->score = 0;
-
-      const bool isCapture = (move->capture != Piece::NO_PIECE);
 
       // Bonus for capturing a piece.  (+0.136 ± 0.012)
       move->score += kMoveOrderPieceValues[move->capture];
