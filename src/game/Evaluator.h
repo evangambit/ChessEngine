@@ -319,6 +319,7 @@ lonelyKingB = 0;
   int32_t clippedW[EF::NUM_EVAL_FEATURES];
   int32_t lonelyKingB;
   int32_t lonelyKingW[EF::NUM_EVAL_FEATURES];
+  Evaluation bonus;
 
   void save_weights_to_file(const std::string& filename) {
     std::ofstream myfile;
@@ -923,19 +924,27 @@ lonelyKingB = 0;
 
     int32_t eval = (early * (18 - time) + late * time) / 18 + clipped + lonely_king + pieceMap;
 
+    // Special end-game boosts.
+
+    this->bonus = 0;
 
     const int wx = ourKingSq % 8;
     const int wy = ourKingSq / 8;
     const int bx = theirKingSq % 8;
     const int by = theirKingSq / 8;
 
+    if (std::popcount(everyone & ~(theirPawns | ourPawns)) == 2) {
+      // In pawn endgames, the square rule is important. 0.0027 ± 0.0010
+      this->bonus += (((kSquareRuleTheirTurn[US][theirKingSq] & ourPassedPawns) > 0) - ((kSquareRuleYourTurn[THEM][ourKingSq] & theirPassedPawns) > 0)) * 100;
+    }
+
     {
       // KPVK games are winning if square rule is true.
       const bool isOurKPPVK = isKingPawnEndgame && (std::popcount(ourPawns) >= 1) && (theirPawns == 0);
       const bool isTheirKPPVK = isKingPawnEndgame && (std::popcount(theirPawns) >= 1) && (ourPawns == 0);
       constexpr Bitboard kPromoRanks = kRanks[0] | kRanks[7];
-      eval -= value_or_zero(isOurKPPVK && features[EF::SQUARE_RULE] < 0, 500);
-      eval += value_or_zero(isTheirKPPVK && features[EF::SQUARE_RULE] > 0, 500);
+      this->bonus -= value_or_zero(isOurKPPVK && features[EF::SQUARE_RULE] < 0, 500);
+      this->bonus += value_or_zero(isTheirKPPVK && features[EF::SQUARE_RULE] > 0, 500);
 
       if (isOurKPPVK && std::popcount(ourPawns) >= 1) {
         int result;
@@ -948,7 +957,7 @@ lonelyKingB = 0;
           return 0;
         }
         if (result == 2) {
-          eval += 1000;
+          this->bonus += 1000;
         }
       }
       if (isTheirKPPVK && std::popcount(theirPawns) <= 1) {
@@ -962,7 +971,7 @@ lonelyKingB = 0;
           return 0;
         }
         if (result == 2) {
-          eval -= 1000;
+          this->bonus -= 1000;
         }
       }
     }
@@ -970,31 +979,38 @@ lonelyKingB = 0;
       const bool theyHaveLonelyKing = (theirMen == theirKings) && (features[EF::OUR_KNIGHTS] > 2 || features[EF::OUR_BISHOPS] > 1 || features[EF::OUR_ROOKS] > 0 || features[EF::OUR_QUEENS] > 0);
       const bool weHaveLonelyKing = (ourMen == ourKings) && (features[EF::THEIR_KNIGHTS] > 2 || features[EF::THEIR_BISHOPS] > 1 || features[EF::THEIR_ROOKS] > 0 || features[EF::THEIR_QUEENS] > 0);
 
-      eval += value_or_zero(theyHaveLonelyKing, (3 - kDistToEdge[theirKingSq]) * 50);
-      eval -= value_or_zero(  weHaveLonelyKing, (3 - kDistToEdge[ourKingSq]) * 50);
-      eval += value_or_zero(theyHaveLonelyKing, (3 - kDistToCorner[theirKingSq]) * 50);
-      eval -= value_or_zero(  weHaveLonelyKing, (3 - kDistToCorner[ourKingSq]) * 50);
+      this->bonus += value_or_zero(theyHaveLonelyKing, (3 - kDistToEdge[theirKingSq]) * 50);
+      this->bonus -= value_or_zero(  weHaveLonelyKing, (3 - kDistToEdge[ourKingSq]) * 50);
+      this->bonus += value_or_zero(theyHaveLonelyKing, (3 - kDistToCorner[theirKingSq]) * 50);
+      this->bonus -= value_or_zero(  weHaveLonelyKing, (3 - kDistToCorner[ourKingSq]) * 50);
 
       int dx = std::abs(wx - bx);
       int dy = std::abs(wy - by);
       const bool opposition = (dx == 2 && dy == 0) || (dx == 0 && dy == 2);
 
       // We don't want it to be our turn!
-      eval -= value_or_zero(weHaveLonelyKing && opposition, 75);
+      this->bonus -= value_or_zero(weHaveLonelyKing && opposition, 75);
       // We can achieve opposition from here.
-      eval += value_or_zero(theyHaveLonelyKing && (
+      this->bonus += value_or_zero(theyHaveLonelyKing && (
         (dx == 3 && dy <= 1)
         || (dy == 3 && dx <= 1)
       ), 50);
 
       // And put our king next to the enemy king.
-      eval += value_or_zero(theyHaveLonelyKing, (8 - std::max(dx, dy)) * 50);
-      eval -= value_or_zero(  weHaveLonelyKing, (8 - std::max(dx, dy)) * 50);
-      eval += value_or_zero(theyHaveLonelyKing, (8 - std::min(dx, dy)) * 25);
-      eval -= value_or_zero(  weHaveLonelyKing, (8 - std::min(dx, dy)) * 25);
+      this->bonus += value_or_zero(theyHaveLonelyKing, (8 - std::max(dx, dy)) * 50);
+      this->bonus -= value_or_zero(  weHaveLonelyKing, (8 - std::max(dx, dy)) * 50);
+      this->bonus += value_or_zero(theyHaveLonelyKing, (8 - std::min(dx, dy)) * 25);
+      this->bonus -= value_or_zero(  weHaveLonelyKing, (8 - std::min(dx, dy)) * 25);
     }
 
+    eval += this->bonus;
+
     return std::min(int32_t(-kLongestForcedMate), std::max(int32_t(kLongestForcedMate), eval));
+  }
+
+  template<Color US>
+  Evaluation special_boosts(const Position& pos) {
+
   }
 
   template<Color US>

@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <random>
 #include <fstream>
+#include <deque>
 
 #include <stdio.h>
 #include <execinfo.h>
@@ -272,6 +273,7 @@ void print_feature_vec(Position *pos, const std::string& originalFen, bool human
       const int32_t s = (evaluator.earlyW[i] * x * t + evaluator.lateW[i] * x * (16 - t)) / 16 + evaluator.clippedW[i] * x;
       std::cout << gThinker.evaluator.features[i] << " " << std::setfill(' ') << std::setw(4) << s << " " << EFSTR[i] << std::endl;
     }
+    std::cout << "bonus" << " " << std::setfill(' ') << std::setw(4) << evaluator.bonus << std::endl;
   } else {
     std::cout << pos->fen() << std::endl;
     for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
@@ -565,8 +567,14 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  if (mode != "evaluate" && mode != "analyze" && mode != "play" && mode != "printvec" && mode != "printvec-cpu") {
+  if (mode != "evaluate" && mode != "analyze" && mode != "play" && mode != "printvec" && mode != "printvec-cpu" && mode != "print-weights") {
     throw std::runtime_error("Cannot recognize mode \"" + mode + "\"");
+  }
+  if (mode == "print-weights") {
+    for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
+      std::cout << EFSTR[i] << " " << gThinker.evaluator.earlyW[i] << " " << gThinker.evaluator.lateW[i] << " " << gThinker.evaluator.clippedW[i] << " " << gThinker.evaluator.lonelyKingW[i] << std::endl;
+    }
+    return 0;
   }
   if (fenFile.size() == 0 && fen.size() == 0) {
     fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
