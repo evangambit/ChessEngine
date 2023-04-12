@@ -314,7 +314,7 @@ struct Thinker {
         NodeTypePV,
       };
       auto it = this->cache.find(pos->hash_);
-      if (this->cache.find(pos->hash_) == this->cache.end()) {
+      if (it == this->cache.end()) {
         this->cache.insert(std::make_pair(pos->hash_, cr));
       }
       return r;
@@ -332,17 +332,32 @@ struct Thinker {
       }
     }
 
-    // Futility pruning (0.1437 ± 0.0091 or ~53 Elo)
+    // Futility pruning
+    // Depth Limit 3: (0.1969 ± 0.0119 or ~145 Elo)
+    // Depth Limit 2: (0.1437 ± 0.0091 or ~53 Elo)
     // If our depth is 2 or exceeds the transposition table by 2 then we ignore moves that
     // are sufficiently bad that they are unlikely to be improved by increasing depth by 2.
+
+    // Note that not having *any* depth limit is terrible. For example, if there is a line that
+    // loses a queen in one move but leads to forced mate in K ply, you won't find the forced mate
+    // until you search to (roughly) a depth of "queenValue / futilityThreshold + K". This is
+    // really terrible when you factor in the expoential relationship between depth at time. For
+    // instance, changing the futility pruning depth limit from 2 to 3 makes play, you either get
+    // (-0.0031 ± 0.0057) or (0.0638 ± 0.0127) based on whether you're self-playing with 500 or
+    // 50,000 nodes/move.
+    //
+    // You should try to search a minimum of 2-4 ply deeper than the futility pruning depth limit 
+    // when evaluating its effect on playing strength, or you will frequently play bad moves as a
+    // result of the above effect.
+    constexpr int kFutilityPruningDepthLimit = 3;
     const Evaluation futilityThreshold = 30;
-    if (it != this->cache.end() && depth - it->second.depth <= 2) {
+    if (it != this->cache.end() && depth - it->second.depth <= kFutilityPruningDepthLimit) {
       const CacheResult& cr = it->second;
       if (cr.lowerbound() >= beta + futilityThreshold * (depth - it->second.depth) || cr.upperbound() <= alpha - futilityThreshold * (depth - it->second.depth)) {
         return SearchResult<TURN>(cr.eval, cr.bestMove);
       }
     }
-    if (it == this->cache.end() && depth <= 2) {
+    if (it == this->cache.end() && depth <= kFutilityPruningDepthLimit) {
       SearchResult<TURN> r = qsearch<TURN>(pos, 0, alpha, beta);
       if (r.score >= beta + futilityThreshold * depth || r.score <= alpha - futilityThreshold * depth) {
         return r;
