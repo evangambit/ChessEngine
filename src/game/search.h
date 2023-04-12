@@ -300,11 +300,17 @@ struct Thinker {
       // Quiescence Search (0.4334 ± 0.0053)
       SearchResult<TURN> r = qsearch<TURN>(pos, 0, alpha, beta);
 
+      NodeType nodeType = NodeTypePV;
+      if (r.score >= beta) {
+        nodeType = NodeTypeCut_LowerBound;
+      } else if (r.score <= alpha) {
+        nodeType = NodeTypeAll_UpperBound;
+      }
       const CacheResult cr = CacheResult{
         depth,
         r.score,
         r.move,
-        NodeTypePV,
+        nodeType,
       };
       auto it = this->cache.find(pos->hash_);
       if (it == this->cache.end()) {
