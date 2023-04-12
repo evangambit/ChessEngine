@@ -14,6 +14,10 @@
 
 namespace ChessEngine {
 
+void initialize_movegen() {
+  initialize_sliding();
+}
+
 namespace StaticExchangeAnalysis {
 
 template<Color US>

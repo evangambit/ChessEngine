@@ -53,8 +53,8 @@ constexpr Color opposite_color<Color::BLACK>() {
 template<class T>
 inline T select(bool condition, T a, T b) {
   assert(condition == 0 || condition == 1);
-  T tmp = condition - 1;
-  return (a & ~tmp) | (b & tmp);
+  T tmp = T(condition - 1);
+  return T((a & ~tmp) | (b & tmp));
 }
 
 // Branchless "condition ? value : 0"

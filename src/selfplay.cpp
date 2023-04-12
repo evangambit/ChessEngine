@@ -120,7 +120,7 @@ int play(Thinker *thinkerWhite, Thinker *thinkerBlack, const std::string& fen, c
 int main(int argc, char *argv[]) {
   initialize_geometry();
   initialize_zorbrist();
-  initialize_sliding();
+  initialize_movegen();
 
   std::vector<std::string> args;
   for (size_t i = 1; i < argc; ++i) {

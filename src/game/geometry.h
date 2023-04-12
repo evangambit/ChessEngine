@@ -229,9 +229,17 @@ inline Square lsb(Bitboard b) {
   return Square(__builtin_ctzll(b));
 }
 
+inline Square lsb_or(Bitboard b, Square defaultValue) {
+  return select<Square>(b != 0, Square(__builtin_ctzll(b)), defaultValue);
+}
+
 inline Square msb(Bitboard b) {
   assert(b != 0);
   return Square(63 ^ __builtin_clzll(b));
+}
+
+inline Square msb_or(Bitboard b, Square defaultValue) {
+  return select<Square>(b != 0, Square(63 ^ __builtin_clzll(b)), defaultValue);
 }
 
 inline Square pop_lsb(Bitboard& b) {

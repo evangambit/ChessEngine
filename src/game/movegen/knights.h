@@ -8,7 +8,7 @@ namespace ChessEngine {
 
 namespace {
 
-constexpr Bitboard kKnightMoves[64] = {
+constexpr Bitboard kKnightMoves[Square::NO_SQUARE + 1] = {
   0x0000000000020400,
   0x0000000000050800,
   0x00000000000a1100,
@@ -73,6 +73,7 @@ constexpr Bitboard kKnightMoves[64] = {
   0x0088500000000000,
   0x0010a00000000000,
   0x0020400000000000,
+  0x0000000000000000,  // NO_SQUARE -> empty bitboard
 };
 
 }  // namespace
@@ -81,16 +82,7 @@ template<Color US>
 Bitboard compute_knight_targets(const Position& pos) {
   constexpr ColoredPiece cp = coloredPiece<US, Piece::KNIGHT>();
   const Bitboard knights = pos.pieceBitboards_[cp];
-  Bitboard r = kEmptyBitboard;
-  r |= (knights & ~(kFiles[0] | kRanks[0] | kRanks[1])) >> 17;
-  r |= (knights & ~(kFiles[7] | kRanks[0] | kRanks[1])) >> 15;
-  r |= (knights & ~(kFiles[0] | kFiles[1] | kRanks[0])) >> 10;
-  r |= (knights & ~(kFiles[6] | kFiles[7] | kRanks[0])) >> 6;
-  r |= (knights & ~(kFiles[0] | kFiles[1] | kRanks[7])) << 6;
-  r |= (knights & ~(kFiles[6] | kFiles[7] | kRanks[7])) << 10;
-  r |= (knights & ~(kFiles[0] | kRanks[6] | kRanks[7])) << 15;
-  r |= (knights & ~(kFiles[7] | kRanks[6] | kRanks[7])) << 17;
-  return r;
+  return kKnightMoves[lsb_or(knights, Square::NO_SQUARE)] | kKnightMoves[msb_or(knights, Square::NO_SQUARE)];
 }
 
 template<Color US, MoveGenType MGT>
