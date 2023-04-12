@@ -47,7 +47,7 @@ ExtMove *compute_pawn_moves(const Position& pos, ExtMove *moves, Bitboard target
   const Bitboard pawns = pos.pieceBitboards_[cp] & ~pm.horizontal;
 
   Bitboard checkMask;
-  if (MGT == MoveGenType::CHECKS_AND_CAPTURES) {
+  if (MGT == MoveGenType::CHECKS_AND_CAPTURES || MGT == MoveGenType::CAPTURES) {
     const Bitboard enemyKing = pos.pieceBitboards_[coloredPiece<opposite_color<US>(), Piece::KING>()];
     checkMask = (US == Color::WHITE ? kRanks[0] : kRanks[7]);  // include promotion rank.
     checkMask |= shift<opposite_dir(CAPTURE_NE)>(enemyKing) | shift<opposite_dir(CAPTURE_NW)>(enemyKing);
