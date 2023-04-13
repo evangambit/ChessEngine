@@ -268,7 +268,7 @@ struct Thinker {
 
   template<Color TURN, SearchType SEARCH_TYPE>
   SearchResult<TURN> search(
-    Position* pos, const Depth depth,
+    Position* pos, const Depth depthRemaining,
     Evaluation alpha, const Evaluation beta,
     RecommendedMoves recommendedMoves,
     bool isPV) {
@@ -294,7 +294,7 @@ struct Thinker {
       return SearchResult<TURN>(kMissingKing, kNullMove);
     }
 
-    if (depth <= 0) {
+    if (depthRemaining <= 0) {
       ++this->leafCounter;
       // Quiescence Search (0.4334 ± 0.0053)
       SearchResult<TURN> r = qsearch<TURN>(pos, 0, alpha, beta);
@@ -306,7 +306,7 @@ struct Thinker {
         nodeType = NodeTypeAll_UpperBound;
       }
       const CacheResult cr = CacheResult{
-        depth,
+        depthRemaining,
         r.score,
         r.move,
         nodeType,
@@ -323,8 +323,9 @@ struct Thinker {
     }
 
     auto it = this->cache.find(pos->hash_);
-    if (it != this->cache.end() && it->second.depth >= depth) {
+    if (it != this->cache.end() && it->second.depth >= depthRemaining) {
       const CacheResult& cr = it->second;
+      // todo: upperbound check too :D
       if (cr.nodeType == NodeTypePV || cr.lowerbound() >= beta) {
         return SearchResult<TURN>(cr.eval, cr.bestMove);
       }
@@ -339,8 +340,8 @@ struct Thinker {
     // Note that not having *any* depth limit is terrible. For example, if there is a line that
     // loses a queen in one move but leads to forced mate in K ply, you won't find the forced mate
     // until you search to (roughly) a depth of "queenValue / futilityThreshold + K". This is
-    // really terrible when you factor in the expoential relationship between depth at time. For
-    // instance, changing the futility pruning depth limit from 2 to 3 makes play, you either get
+    // really terrible when you factor in the expoential relationship between depth and time. For
+    // instance, changing the futility pruning depth limit from 2 to 3 makes you either get
     // (-0.0031 ± 0.0057) or (0.0638 ± 0.0127) based on whether you're self-playing with 500 or
     // 50,000 nodes/move.
     //
@@ -349,15 +350,15 @@ struct Thinker {
     // result of the above effect.
     constexpr int kFutilityPruningDepthLimit = 3;
     const Evaluation futilityThreshold = 30;
-    if (it != this->cache.end() && depth - it->second.depth <= kFutilityPruningDepthLimit) {
+    if (it != this->cache.end() && depthRemaining - it->second.depth <= kFutilityPruningDepthLimit) {
       const CacheResult& cr = it->second;
-      if (cr.lowerbound() >= beta + futilityThreshold * (depth - it->second.depth) || cr.upperbound() <= alpha - futilityThreshold * (depth - it->second.depth)) {
+      if (cr.lowerbound() >= beta + futilityThreshold * (depthRemaining - it->second.depth) || cr.upperbound() <= alpha - futilityThreshold * (depthRemaining - it->second.depth)) {
         return SearchResult<TURN>(cr.eval, cr.bestMove);
       }
     }
-    if (it == this->cache.end() && depth <= kFutilityPruningDepthLimit) {
+    if (it == this->cache.end() && depthRemaining <= kFutilityPruningDepthLimit) {
       SearchResult<TURN> r = qsearch<TURN>(pos, 0, alpha, beta);
-      if (r.score >= beta + futilityThreshold * depth || r.score <= alpha - futilityThreshold * depth) {
+      if (r.score >= beta + futilityThreshold * depthRemaining || r.score <= alpha - futilityThreshold * depthRemaining) {
         return r;
       }
     }
@@ -366,9 +367,9 @@ struct Thinker {
 
     // Null move pruning doesn't seem to help.
     // const Bitboard ourPieces = pos->colorBitboards_[TURN] & ~pos->pieceBitboards_[coloredPiece<TURN, Piece::PAWN>()];
-    // if (depth == 3 && std::popcount(ourPieces) > 4 && !inCheck && !isPV && (it != this->cache.end() && it->second.lowerbound() - 20 >= beta)) {
+    // if (depthRemaining == 3 && std::popcount(ourPieces) > 4 && !inCheck && !isPV && (it != this->cache.end() && it->second.lowerbound() - 20 >= beta)) {
     //   make_nullmove<TURN>(pos);
-    //   SearchResult<TURN> a = flip(search<opposingColor, SearchTypeNormal>(pos, depth - 3, -beta, -beta+1, RecommendedMoves(), false));
+    //   SearchResult<TURN> a = flip(search<opposingColor, SearchTypeNormal>(pos, depthRemaining - 3, -beta, -beta+1, RecommendedMoves(), false));
     //   if (a.score >= beta && a.move != kNullMove) {
     //     undo_nullmove<TURN>(pos);
     //     return SearchResult<TURN>(beta + 1, kNullMove);
@@ -379,7 +380,7 @@ struct Thinker {
     // // Null-window search doesn't seem to help,
     // if (SEARCH_TYPE == SearchTypeNormal && !isPV && (it != this->cache.end() && it->second.upperbound() + 40 < alpha)) {
     //   // Null Window search.
-    //   SearchResult<TURN> r = search<TURN, SearchTypeNullWindow>(pos, depth, alpha, alpha + 1, RecommendedMoves(), false);
+    //   SearchResult<TURN> r = search<TURN, SearchTypeNullWindow>(pos, depthRemaining, alpha, alpha + 1, RecommendedMoves(), false);
     //   if (r.score <= alpha) {
     //     return r;
     //   }
@@ -412,9 +413,9 @@ struct Thinker {
       move->score += kMoveOrderPieceValues[move->capture];
 
       // Bonus if it was the last-found best move.  (0.048 ± 0.014)
-      move->score += value_or_zero((move->move == lastFoundBestMove) && (depth == 1), 5000);
-      move->score += value_or_zero((move->move == lastFoundBestMove) && (depth == 2), 5000);
-      move->score += value_or_zero((move->move == lastFoundBestMove) && (depth >= 3), 5000);
+      move->score += value_or_zero((move->move == lastFoundBestMove) && (depthRemaining == 1), 5000);
+      move->score += value_or_zero((move->move == lastFoundBestMove) && (depthRemaining == 2), 5000);
+      move->score += value_or_zero((move->move == lastFoundBestMove) && (depthRemaining >= 3), 5000);
 
       // Bonus if siblings like a move, though this seems statistically insignificant.
       move->score += value_or_zero(move->move == recommendedMoves.moves[0], 50);
@@ -456,14 +457,14 @@ struct Thinker {
       // This simple, very limited null-window search has negligible effect (-0.003 ± 0.003).
       // SearchResult<TURN> a;
       // if (SEARCH_TYPE != SearchTypeRoot && extMove != moves && foo && it->second.upperbound() + 50 < alpha) {
-      //   a = flip(search<opposingColor, SearchTypeNullWindow>(pos, depth - 1, -(alpha + 1), -alpha, recommendationsForChildren, isPV && (extMove == moves)));
+      //   a = flip(search<opposingColor, SearchTypeNullWindow>(pos, depthRemaining - 1, -(alpha + 1), -alpha, recommendationsForChildren, isPV && (extMove == moves)));
       //   if (a.score > alpha) {
-      //     a = flip(search<opposingColor, SearchTypeNormal>(pos, depth - 1, -beta, -alpha, recommendationsForChildren, isPV && (extMove == moves)));
+      //     a = flip(search<opposingColor, SearchTypeNormal>(pos, depthRemaining - 1, -beta, -alpha, recommendationsForChildren, isPV && (extMove == moves)));
       //   }
       // } else {
-      //   a = flip(search<opposingColor, SearchTypeNormal>(pos, depth - 1, -beta, -alpha, recommendationsForChildren, isPV && (extMove == moves)));
+      //   a = flip(search<opposingColor, SearchTypeNormal>(pos, depthRemaining - 1, -beta, -alpha, recommendationsForChildren, isPV && (extMove == moves)));
       // }
-      SearchResult<TURN> a = flip(search<opposingColor, SearchTypeNormal>(pos, depth - 1, -beta, -alpha, recommendationsForChildren, isPV && (extMove == moves)));
+      SearchResult<TURN> a = flip(search<opposingColor, SearchTypeNormal>(pos, depthRemaining - 1, -beta, -alpha, recommendationsForChildren, isPV && (extMove == moves)));
       a.score -= (a.score > -kLongestForcedMate);
       a.score += (a.score < kLongestForcedMate);
 
@@ -490,7 +491,7 @@ struct Thinker {
           if (r.score >= beta) {
             // NOTE: Unlike other engines, we include captures in our history heuristic, as this
             // order captures that are materially equal.
-            this->historyHeuristicTable[TURN][r.move.from][r.move.to] += depth * depth;
+            this->historyHeuristicTable[TURN][r.move.from][r.move.to] += depthRemaining * depthRemaining;
             break;
           }
           if (r.score > alpha) {
@@ -514,7 +515,7 @@ struct Thinker {
 
     {
       const CacheResult cr = CacheResult{
-        depth,
+        depthRemaining,
         r.score,
         r.move,
         nodeType,
@@ -522,7 +523,7 @@ struct Thinker {
       it = this->cache.find(pos->hash_);  // Need to re-search since the iterator may have changed when searching my children.
       if (it == this->cache.end()) {
         this->cache.insert(std::make_pair(pos->hash_, cr));
-      } else if (depth >= it->second.depth) {
+      } else if (depthRemaining >= it->second.depth) {
         // We use ">=" because otherwise if we fail the aspiration window search the table will have
         // stale results.
         it->second = cr;
