@@ -38,7 +38,7 @@ enum SearchType {
 };
 
 struct CacheResult {
-  Depth depth;
+  Depth depthRemaining;
   Evaluation eval;
   Move bestMove;
   NodeType nodeType;
@@ -323,10 +323,9 @@ struct Thinker {
     }
 
     auto it = this->cache.find(pos->hash_);
-    if (it != this->cache.end() && it->second.depth >= depthRemaining) {
+    if (it != this->cache.end() && it->second.depthRemaining >= depthRemaining) {
       const CacheResult& cr = it->second;
-      // todo: upperbound check too :D
-      if (cr.nodeType == NodeTypePV || cr.lowerbound() >= beta) {
+      if (cr.nodeType == NodeTypePV || cr.lowerbound() >= beta || cr.upperbound() <= alpha) {
         return SearchResult<TURN>(cr.eval, cr.bestMove);
       }
     }
@@ -350,9 +349,9 @@ struct Thinker {
     // result of the above effect.
     constexpr int kFutilityPruningDepthLimit = 3;
     const Evaluation futilityThreshold = 30;
-    if (it != this->cache.end() && depthRemaining - it->second.depth <= kFutilityPruningDepthLimit) {
+    if (it != this->cache.end() && depthRemaining - it->second.depthRemaining <= kFutilityPruningDepthLimit) {
       const CacheResult& cr = it->second;
-      if (cr.lowerbound() >= beta + futilityThreshold * (depthRemaining - it->second.depth) || cr.upperbound() <= alpha - futilityThreshold * (depthRemaining - it->second.depth)) {
+      if (cr.lowerbound() >= beta + futilityThreshold * (depthRemaining - it->second.depthRemaining) || cr.upperbound() <= alpha - futilityThreshold * (depthRemaining - it->second.depthRemaining)) {
         return SearchResult<TURN>(cr.eval, cr.bestMove);
       }
     }
@@ -523,7 +522,7 @@ struct Thinker {
       it = this->cache.find(pos->hash_);  // Need to re-search since the iterator may have changed when searching my children.
       if (it == this->cache.end()) {
         this->cache.insert(std::make_pair(pos->hash_, cr));
-      } else if (depthRemaining >= it->second.depth) {
+      } else if (depthRemaining >= it->second.depthRemaining) {
         // We use ">=" because otherwise if we fail the aspiration window search the table will have
         // stale results.
         it->second = cr;
