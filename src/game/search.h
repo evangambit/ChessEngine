@@ -347,6 +347,9 @@ struct Thinker {
     // You should try to search a minimum of 2-4 ply deeper than the futility pruning depth limit 
     // when evaluating its effect on playing strength, or you will frequently play bad moves as a
     // result of the above effect.
+    //
+    // For similar reasons, we should probably disable futility pruning anytime we're running at a
+    // very low depth (e.g. tuning parameters).
     constexpr int kFutilityPruningDepthLimit = 3;
     const Evaluation futilityThreshold = 30;
     if (it != this->cache.end() && depthRemaining - it->second.depthRemaining <= kFutilityPruningDepthLimit) {

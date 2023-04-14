@@ -591,8 +591,10 @@ lonelyKingB = 0;
       features[EF::SCARIER_BISHOPS] = std::popcount(ourBishopTargetsIgnoringNonBlockades & theirRoyalty) - std::popcount(theirBishopTargetsIgnoringNonBlockades & ourRoyalty);
       features[EF::OUTPOSTED_BISHOPS] = std::popcount(ourBishops & pawnAnalysis.possibleOutpostsForUs) - std::popcount(theirBishops & pawnAnalysis.possibleOutpostsForThem);
 
-      features[EF::BISHOP_PAWN_DISAGREEMENT] = std::popcount(ourBishops & ourPawns & kWhiteSquares) + std::popcount(ourBishops & ourPawns & kBlackSquares);
-      features[EF::BISHOP_PAWN_DISAGREEMENT] -= std::popcount(theirBishops & theirPawns & kWhiteSquares) + std::popcount(theirBishops & theirPawns & kBlackSquares);
+      features[EF::BISHOP_PAWN_DISAGREEMENT] =  std::popcount(  ourBishops & kWhiteSquares) * std::popcount(  ourPawns & kWhiteSquares);
+      features[EF::BISHOP_PAWN_DISAGREEMENT] += std::popcount(  ourBishops & kBlackSquares) * std::popcount(  ourPawns & kBlackSquares);
+      features[EF::BISHOP_PAWN_DISAGREEMENT] -= std::popcount(theirBishops & kWhiteSquares) * std::popcount(theirPawns & kWhiteSquares);
+      features[EF::BISHOP_PAWN_DISAGREEMENT] -= std::popcount(theirBishops & kBlackSquares) * std::popcount(theirPawns & kBlackSquares);
 
       features[EF::CLOSED_1] = std::popcount(pawnAnalysis.ourBlockadedPawns | pawnAnalysis.theirBlockadedPawns);
       features[EF::CLOSED_2] = std::popcount((pawnAnalysis.ourBlockadedPawns | pawnAnalysis.theirBlockadedPawns) & kCenter16);
