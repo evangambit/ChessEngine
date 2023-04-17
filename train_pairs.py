@@ -122,10 +122,24 @@ varnames = [
   "THEIR_HANGING_QUEENS_2",
   "QUEEN_THREATS_NEAR_KING",
   "MISSING_FIANCHETTO_BISHOP",
+  "BISHOP_PAWN_DISAGREEMENT",
   "CLOSED_1",
   "CLOSED_2",
   "CLOSED_3",
-  "BISHOP_PAWN_DISAGREEMENT",
+  "NUM_BAD_SQUARES_FOR_PAWNS",
+  "NUM_BAD_SQUARES_FOR_MINORS",
+  "NUM_BAD_SQUARES_FOR_ROOKS",
+  "NUM_BAD_SQUARES_FOR_QUEENS",
+  "IN_TRIVIAL_CHECK",
+  "IN_DOUBLE_CHECK",
+  "THREATS_NEAR_OUR_KING",
+  "THREATS_NEAR_THEIR_KING",
+  "NUM_PIECES_HARRASSABLE_BY_PAWNS",
+  "PAWN_CHECKS",
+  "KNIGHT_CHECKS",
+  "BISHOP_CHECKS",
+  "ROOK_CHECKS",
+  "QUEEN_CHECKS",
 ]
 
 def varnames2mask(names):
@@ -214,11 +228,11 @@ def lpad(t, n, c=' '):
   t = str(t)
   return max(n - len(t), 0) * c + t
 
-X = np.load(os.path.join('traindata', f'x.pair.any_d10_q1_n0.npy')).astype(np.float64)
-Y = np.load(os.path.join('traindata', f'y.pair.any_d10_q1_n0.npy')).astype(np.float64) / 100.0
-F = np.load(os.path.join('traindata', f'fen.pair.any_d10_q1_n0.npy'))
-S = np.load(os.path.join('traindata', f'turn.pair.any_d10_q1_n0.npy')).astype(np.float64) * 2.0 - 1.0
-A = np.load(os.path.join('traindata', f'pm.pair.any_d10_q1_n0.npy')).astype(np.float32)
+X = np.load(os.path.join('traindata', f'x.pair.any_d10_q1_n3.npy')).astype(np.float64)
+Y = np.load(os.path.join('traindata', f'y.pair.any_d10_q1_n3.npy')).astype(np.float64) / 100.0
+F = np.load(os.path.join('traindata', f'fen.pair.any_d10_q1_n3.npy'))
+S = np.load(os.path.join('traindata', f'turn.pair.any_d10_q1_n3.npy')).astype(np.float64) * 2.0 - 1.0
+A = np.load(os.path.join('traindata', f'pm.pair.any_d10_q1_n3.npy')).astype(np.float32)
 cat =  np.concatenate
 # X = cat([X, np.load(os.path.join('traindata', 'x.pair.endgame_d10_q1_n0.npy')).astype(np.float64)], 0)
 # Y = cat([Y, np.load(os.path.join('traindata', 'y.pair.endgame_d10_q1_n0.npy')).astype(np.float64)], 0)
@@ -257,6 +271,12 @@ X[:,:,varnames.index('QUEEN_V_LONELY_KING')] *= 0.0
 X[:,:,varnames.index('KPVK_OFFENSIVE_KEY_SQUARES')] *= 0.0
 X[:,:,varnames.index('KPVK_DEFENSIVE_KEY_SQUARES')] *= 0.0
 X[:,:,varnames.index('SQUARE_RULE')] *= 0.0
+
+# X = X[:,:,:12]
+# varnames = varnames[:12]
+# kEarlyBlacklist = kEarlyBlacklist[0,:12]
+# kPositiveList = kPositiveList[0,:12]
+# kNegativeList = kNegativeList[0,:12]
 
 class PCA:
   def __init__(self, X, reg = 0.0):
@@ -386,7 +406,7 @@ PmLateSampleSizeTh = PmLateSampleSizeTh.reshape((1, 1) + PmLateSampleSizeTh.shap
 
 kAlpha = 0.5  # higher -> more copying stockfish
 bs = min(Xth.shape[0], 50_000)
-maxlr = 0.3
+maxlr = 0.1
 minlr = maxlr / 300
 duration = 30
 
@@ -395,11 +415,17 @@ dataset = tdata.TensorDataset(
   numOurPieces, numTheirPieces, numQueens)
 dataloader = tdata.DataLoader(dataset, batch_size=bs, shuffle=True, drop_last=True)
 
-cross_entropy_loss_fn = nn.CrossEntropyLoss()
+def cross_entropy_loss_fn(yhat, y):
+  b = (y[:,0] < y[:,1]).to(torch.int64)
+  loss = nn.functional.cross_entropy(yhat, b, reduction='none')
+  error = float((yhat.argmax(1) != b).to(torch.float32).mean())
+  scale = torch.abs(y[:,0] - y[:,1])
+  return (loss * scale).mean(), error
 
 metrics = defaultdict(list)
 
-for includePieceMaps in [False, True]:
+# for includePieceMaps in [False, True]:
+for includePieceMaps in [False]:
   if includePieceMaps:
     opt = optim.AdamW(pmModel.parameters(), lr=3e-3, weight_decay=0.001)
   else:
@@ -412,8 +438,8 @@ for includePieceMaps in [False, True]:
       if includePieceMaps:
         yhat = yhat.detach() + pmModel(a, t)
       y = y * s
-      b = (y[:,0] < y[:,1]) * 1
-      loss = cross_entropy_loss_fn(nn.functional.softmax(yhat, 1), b) * (1 - kAlpha)
+      loss, error = cross_entropy_loss_fn(nn.functional.softmax(yhat, 1), y)
+      loss = loss * (1 - kAlpha)
       loss = loss + score_loss_fn(yhat, y) * kAlpha
 
       if includePieceMaps:
@@ -439,8 +465,8 @@ for includePieceMaps in [False, True]:
       loss.backward()
       opt.step()
       metrics['loss'].append(float(loss))
-      metrics['error'].append(float((yhat.argmax(1) != b).to(torch.float32).mean()))
-    print('%.4f %.4f %.4f' % (lr, sum(metrics['loss'][-4:]) / 4, sum(metrics['error'][-4:]) / 4))
+      metrics['error'].append(error)
+    print('lr = %.4f; loss = %.4f; error = %.4f' % (lr, sum(metrics['loss'][-4:]) / 4, sum(metrics['error'][-4:]) / 4))
 
 for k in model.w:
   w = model.w[k].weight.detach().numpy()
@@ -448,7 +474,7 @@ for k in model.w:
   with torch.no_grad():
     model.w[k] = nn.Linear(w.shape[1], w.shape[0])
     model.w[k].weight *= 0
-    model.w[k].weight += torch.tensor(w)
+    model.w[k].weight += torch.tensor(w.astype(np.float32))
 
 W = {}
 for k in model.w:
