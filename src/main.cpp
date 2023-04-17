@@ -236,16 +236,16 @@ void handler(int sig) {
 }
 
 template<Color TURN>
-void print_feature_vec(Position *pos, const std::string& originalFen, bool humanReadable, bool makeQuiet) {
+void print_feature_vec(Position *pos, const std::string& originalFen, bool humanReadable, bool makeQuiet, int depth) {
   if (makeQuiet) {
-    SearchResult<Color::WHITE> r = to_white(gThinker.qsearch<TURN>(pos, 0, kMinEval, kMaxEval));
+    SearchResult<Color::WHITE> r = to_white(gThinker.qsearch<TURN>(pos, depth, kMinEval, kMaxEval));
     if (r.score > kMaxEval - 100 || r.score < kMinEval + 100) {
       std::cout << "PRINT FEATURE VEC FAIL (MATE)" << std::endl;
       return;
     }
     if (r.move != kNullMove) {
       make_move<TURN>(pos, r.move);
-      print_feature_vec<opposite_color<TURN>()>(pos, originalFen, humanReadable, true);
+      print_feature_vec<opposite_color<TURN>()>(pos, originalFen, humanReadable, true, depth + 1);
       undo<TURN>(pos);
       return;
     }
@@ -309,9 +309,9 @@ void mymain(std::vector<Position>& positions, const std::string& mode, double ti
   if (mode == "printvec" || mode == "printvec-cpu") {
     for (auto pos : positions) {
       if (pos.turn_ == Color::WHITE) {
-        print_feature_vec<Color::WHITE>(&pos, pos.fen(), mode == "printvec", makeQuiet);
+        print_feature_vec<Color::WHITE>(&pos, pos.fen(), mode == "printvec", makeQuiet, 0);
       } else {
-        print_feature_vec<Color::BLACK>(&pos, pos.fen(), mode == "printvec", makeQuiet);
+        print_feature_vec<Color::BLACK>(&pos, pos.fen(), mode == "printvec", makeQuiet, 0);
       }
     }
     return;
