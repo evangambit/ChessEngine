@@ -492,7 +492,7 @@ int main(int argc, char *argv[]) {
   std::vector<std::string> uciMoves;
   size_t nodeLimit = -1;
 
-  gThinker.evaluator.load_weights_from_file("weights.txt");
+  gThinker.load_weights_from_file("weights.txt");
 
   while (args.size() > 0) {
     if (args.size() >= 7 && args[0] == "fen") {
@@ -550,10 +550,10 @@ int main(int argc, char *argv[]) {
       makeQuiet = (args[1] == "1");
       args = std::vector<std::string>(args.begin() + 2, args.end());
     } else if (args.size() >= 2 && args[0] == "loadweights") {
-      gThinker.evaluator.load_weights_from_file(args[1]);
+      gThinker.load_weights_from_file(args[1]);
       args = std::vector<std::string>(args.begin() + uciMoves.size() + 2, args.end());
     } else if (args.size() >= 2 && args[0] == "saveweights") {
-      gThinker.evaluator.save_weights_to_file(args[1]);
+      gThinker.save_weights_to_file(args[1]);
       return 0;
     } else {
       std::cout << "Cannot understand arguments" << std::endl;

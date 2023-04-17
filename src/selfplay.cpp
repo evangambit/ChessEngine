@@ -148,8 +148,8 @@ int main(int argc, char *argv[]) {
       }
       args = std::vector<std::string>(args.begin() + 2, args.end());
     } else if (args.size() >= 3 && args[0] == "weights") {
-      thinker1.evaluator.load_weights_from_file(args[1]);
-      thinker2.evaluator.load_weights_from_file(args[2]);
+      thinker1.load_weights_from_file(args[1]);
+      thinker2.load_weights_from_file(args[2]);
       weightsLoaded = true;
       args = std::vector<std::string>(args.begin() + 3, args.end());
     } else if (args.size() >= 2 && args[0] == "maxmoves") {

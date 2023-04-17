@@ -121,6 +121,8 @@ struct Thinker {
   uint32_t historyHeuristicTable[Color::NUM_COLORS][64][64];
   size_t multiPV;
 
+  PieceMaps pieceMaps;
+
   Thinker() {
     reset_stuff();
     multiPV = 1;
@@ -140,6 +142,32 @@ struct Thinker {
     } else {
       undo<Color::BLACK>(pos);
     }
+  }
+
+  void save_weights_to_file(const std::string& filename) {
+    std::ofstream myfile;
+    myfile.open(filename);
+    if (!myfile.is_open()) {
+      std::cout << "Error opening file \"" << filename << "\"" << std::endl;
+      exit(0);
+    }
+    this->evaluator.save_weights_to_file(myfile);
+    this->pieceMaps.save_weights_to_file(myfile);
+    myfile.close();
+  }
+
+
+  void load_weights_from_file(const std::string& filename) {
+    std::ifstream myfile;
+    myfile.open(filename);
+    if (!myfile.is_open()) {
+      std::cout << "Error opening file \"" << filename << "\"" << std::endl;
+      exit(0);
+    }
+    std::cout << "loading weights from \"" << filename << "\"" << std::endl;
+    this->evaluator.load_weights_from_file(myfile);
+    this->pieceMaps.load_weights_from_file(myfile);
+    myfile.close();
   }
 
   void print_variation(Position* pos, Move move) {
@@ -537,6 +565,7 @@ struct Thinker {
 
   template<Color TURN>
   SearchResult<TURN> search_with_aspiration_window(Position* pos, Depth depth, SearchResult<TURN> lastResult) {
+    pos->set_piece_maps(this->pieceMaps);
     // TODO: the aspiration window technique used here should probably be implemented for internal nodes too.
     // Even just using this at the root node gives my engine a +0.25 (n=100) score against itself.
     // Table of historical experiments (program with window vs program without)

@@ -322,14 +322,7 @@ lonelyKingB = 0;
   int32_t lonelyKingW[EF::NUM_EVAL_FEATURES];
   Evaluation bonus;
 
-  void save_weights_to_file(const std::string& filename) {
-    std::ofstream myfile;
-    myfile.open(filename);
-    if (!myfile.is_open()) {
-      std::cout << "Error opening file \"" << filename << "\"" << std::endl;
-      exit(0);
-    }
-
+  void save_weights_to_file(std::ofstream& myfile) {
     myfile << earlyB;
     for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
       myfile << " " << earlyW[i];
@@ -353,18 +346,9 @@ lonelyKingB = 0;
       myfile << " " << lonelyKingW[i];
     }
     myfile << std::endl;
-
-    myfile.close();
   }
 
-  void load_weights_from_file(const std::string& filename) {
-    std::ifstream myfile;
-    myfile.open(filename);
-    if (!myfile.is_open()) {
-      std::cout << "Error opening file \"" << filename << "\"" << std::endl;
-      exit(0);
-    }
-
+  void load_weights_from_file(std::ifstream &myfile) {
     std::string line;
     std::vector<std::string> params;
 
@@ -407,9 +391,6 @@ lonelyKingB = 0;
     for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
       lonelyKingW[i] = stoi(params[i + 1]);
     }
-
-
-    myfile.close();
   }
 
   template<Color US>
