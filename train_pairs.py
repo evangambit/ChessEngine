@@ -417,15 +417,17 @@ dataloader = tdata.DataLoader(dataset, batch_size=bs, shuffle=True, drop_last=Tr
 
 def cross_entropy_loss_fn(yhat, y):
   b = (y[:,0] < y[:,1]).to(torch.int64)
-  loss = nn.functional.cross_entropy(yhat, b, reduction='none')
-  error = float((yhat.argmax(1) != b).to(torch.float32).mean())
-  scale = torch.abs(y[:,0] - y[:,1])
-  return (loss * scale).mean(), error
+  scale = torch.abs(y[:,0].clip(-5, 5) - y[:,1].clip(-5, 5))
+  loss = (nn.functional.cross_entropy(yhat, b, reduction='none') * scale).mean()
+
+  error = (yhat.argmax(1) != b).to(torch.float32)
+  cploss = (error * scale).mean()
+
+  return loss, float(error.mean()), float(cploss)
 
 metrics = defaultdict(list)
 
-# for includePieceMaps in [False, True]:
-for includePieceMaps in [False]:
+for includePieceMaps in [False, True]:
   if includePieceMaps:
     opt = optim.AdamW(pmModel.parameters(), lr=3e-3, weight_decay=0.001)
   else:
@@ -438,7 +440,7 @@ for includePieceMaps in [False]:
       if includePieceMaps:
         yhat = yhat.detach() + pmModel(a, t)
       y = y * s
-      loss, error = cross_entropy_loss_fn(nn.functional.softmax(yhat, 1), y)
+      loss, error, cpLoss = cross_entropy_loss_fn(nn.functional.softmax(yhat, 1), y)
       loss = loss * (1 - kAlpha)
       loss = loss + score_loss_fn(yhat, y) * kAlpha
 
@@ -466,7 +468,9 @@ for includePieceMaps in [False]:
       opt.step()
       metrics['loss'].append(float(loss))
       metrics['error'].append(error)
-    print('lr = %.4f; loss = %.4f; error = %.4f' % (lr, sum(metrics['loss'][-4:]) / 4, sum(metrics['error'][-4:]) / 4))
+      metrics['cpLoss'].append(cpLoss)
+    n = len(metrics['loss'][-4:])
+    print('lr = %.4f; loss = %.4f; error = %.4f; cpLoss = %.4f' % (lr, sum(metrics['loss'][-4:]) / n, sum(metrics['error'][-4:]) / n, sum(metrics['cpLoss'][-4:]) / n))
 
 for k in model.w:
   w = model.w[k].weight.detach().numpy()
@@ -485,33 +489,6 @@ for i in range(W['early'].shape[0]):
   A = [lpad(round(W[k][i] * 100), 5) for k in W]
   A.append(varnames[i])
   print(*A)
-
-datatype = 'int32_t'
-
-for name in model.w:
-  linear = model.w[name]
-  name = name[0].upper() + name[1:]
-  w = linear.weight.squeeze().cpu().detach().numpy()
-  b = linear.bias.squeeze().cpu().detach().numpy()
-  w, b = w.astype(np.float32), b.astype(np.float32)
-  w, b = np.round(w * 100).astype(np.int32), np.round(b * 100).astype(np.int32)
-  if len(b.shape) == 1:
-    print(f'const {datatype} k' + name + f'B0[' + str(w.shape[0]) + '] = {')
-    for i in range(0, len(b), 6):
-      print(','.join(lpad(x, 4) for x in b[i:i+6]) + ',')
-    print('};')
-  else:
-    print(f'const {datatype} k' + name + f'B0 = ' + str(b) + ';')
-  if len(w.shape) == 1:
-    print(f'const {datatype} k' + name + 'W0[EF::NUM_EVAL_FEATURES] = {')
-    for i in range(0, len(w), 6):
-      print(','.join(lpad(x, 4) for x in w[i:i+6]) + ',')
-    print('};')
-  else:
-    print(f'const {datatype} k' + name + f'W0[' + str(w.shape[0]) + '*' + str(w.shape[1]) + '] = {')
-    for i in range(w.shape[0]):
-        print(','.join(str(x) for x in w[i]) + ',')
-    print('};')
 
 print('====' * 6)
 
@@ -535,5 +512,25 @@ for i, pn in enumerate(kPieceName):
     print('// Late Black' + pn.upper())
   for j in range(8):
     print(','.join([lpad(x, n=4) for x in w[i,j]]) + ',')
+
+print("weights.txt")
+
+for name in ['early', 'late', 'clipped', 'lonelyKing']:
+  linear = model.w[name]
+  name = name[0].upper() + name[1:]
+  w = linear.weight.squeeze().cpu().detach().numpy()
+  b = linear.bias.squeeze().cpu().detach().numpy()
+  w, b = w.astype(np.float32), b.astype(np.float32)
+  w, b = np.round(w * 100).astype(np.int32), np.round(b * 100).astype(np.int32)
+  print(' '.join(str(x) for x in [b] + w.tolist()))
+
+kPieceName = 'PNBRQKpnbrqk'
+w = np.round(pmModel.w['early'].weight.reshape(12, 8, 8).detach().numpy() * 100).astype(np.int64)
+w = [0] * 64 + w.flatten().tolist()
+print(' '.join(str(x) for x in w))
+
+w = np.round(pmModel.w['late'].weight.reshape(12, 8, 8).detach().numpy() * 100).astype(np.int64)
+w = [0] * 64 + w.flatten().tolist()
+print(' '.join(str(x) for x in w))
 
 
