@@ -253,7 +253,7 @@ def endgame_iterator():
     yield fen
 
 def get_vec(fen, args):
-  command = ["./a.out", "mode", "printvec-cpu", "fen", *fen.split(' '), "makequiet", "1" if args.quiet == 1 else "0"]
+  command = ["./main", "mode", "printvec-cpu", "fen", *fen.split(' '), "makequiet", "1" if args.quiet == 1 else "0"]
   lines = subprocess.check_output(command).decode().strip().split('\n')
   if lines[0].startswith('PRINT FEATURE VEC FAIL'):
     return None, None
@@ -266,7 +266,7 @@ def get_vecs(fens, args):
   filename = '/tmp/fens.txt'
   with open(filename, 'w+') as f:
     f.write('\n'.join(fens))
-  command = ["./a.out", "mode", "printvec-cpu", "fens", filename, "makequiet", "0"]
+  command = ["./main", "mode", "printvec-cpu", "fens", filename, "makequiet", "0"]
   lines = subprocess.check_output(command).decode().strip().split('\n')
   lines = [line for line in lines if line != 'PRINT FEATURE VEC FAIL (MATE)']
   for i in range(0, len(lines), 2):
@@ -342,7 +342,7 @@ if __name__ == '__main__':
         f.write(fen1 + '\n')
         f.write(fen2 + '\n')
 
-    command = ["./a.out", "mode", "printvec-cpu", "fens", kTmpFn, "makequiet", "0"]
+    command = ["./main", "mode", "printvec-cpu", "fens", kTmpFn, "makequiet", "0"]
     lines = subprocess.check_output(command).decode().strip().split('\n')
     for line in lines:
       assert not line.startswith('PRINT FEATURE VEC FAIL')
