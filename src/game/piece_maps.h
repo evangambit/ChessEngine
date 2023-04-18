@@ -40,12 +40,18 @@ struct PieceMaps {
 
     getline(myfile, line);
     params = split(line, ' ');
+    if (params.size() != 13 * 64) {
+      throw std::runtime_error("");
+    }
     for (size_t i = 0; i < 13 * 64; ++i) {
       earlyPieceMap[i] = stoi(params[i]);
     }
 
     getline(myfile, line);
     params = split(line, ' ');
+    if (params.size() != 13 * 64) {
+      throw std::runtime_error("");
+    }
     for (size_t i = 0; i < 13 * 64; ++i) {
       latePieceMap[i] = stoi(params[i]);
     }

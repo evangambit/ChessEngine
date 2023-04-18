@@ -164,7 +164,6 @@ struct Thinker {
       std::cout << "Error opening file \"" << filename << "\"" << std::endl;
       exit(0);
     }
-    std::cout << "loading weights from \"" << filename << "\"" << std::endl;
     this->evaluator.load_weights_from_file(myfile);
     this->pieceMaps.load_weights_from_file(myfile);
     myfile.close();
@@ -378,6 +377,12 @@ struct Thinker {
     //
     // For similar reasons, we should probably disable futility pruning anytime we're running at a
     // very low depth (e.g. tuning parameters).
+    //
+    // Also note that most people recommend giving a bonus when comparing against beta because we
+    // should be able to find a move that improves our score. In our opinion this is bad because
+    // 1) a good evaluation function should account for a tempo bonus (e.g. we give bonuses for
+    // hanging pieces)
+    // 2) if we're using a score from the transposition table a tempo bonus makes no sense
     constexpr int kFutilityPruningDepthLimit = 3;
     const Evaluation futilityThreshold = 30;
     if (it != this->cache.end() && depthRemaining - it->second.depthRemaining <= kFutilityPruningDepthLimit) {
@@ -565,6 +570,8 @@ struct Thinker {
 
   template<Color TURN>
   SearchResult<TURN> search_with_aspiration_window(Position* pos, Depth depth, SearchResult<TURN> lastResult) {
+    // It's important to call this at the beginning of a search, since if we're sharing Position (e.g. selfplay.cpp) we
+    // need to recompute piece map scores using our own weights.
     pos->set_piece_maps(this->pieceMaps);
     // TODO: the aspiration window technique used here should probably be implemented for internal nodes too.
     // Even just using this at the root node gives my engine a +0.25 (n=100) score against itself.
