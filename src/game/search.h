@@ -359,35 +359,33 @@ struct Thinker {
       }
     }
 
-    // Futility pruning
-    // Depth Limit 3: (0.1969 ± 0.0119 or ~145 Elo)
-    // Depth Limit 2: (0.1437 ± 0.0091 or ~53 Elo)
-    // If our depth is 2 or exceeds the transposition table by 2 then we ignore moves that
-    // are sufficiently bad that they are unlikely to be improved by increasing depth by 2.
-
-    // Note that not having *any* depth limit is terrible. For example, if there is a line that
-    // loses a queen in one move but leads to forced mate in K ply, you won't find the forced mate
-    // until you search to (roughly) a depth of "queenValue / futilityThreshold + K". This is
-    // really terrible when you factor in the expoential relationship between depth and time. For
-    // instance, changing the futility pruning depth limit from 2 to 3 makes you either get
-    // (-0.0031 ± 0.0057) or (0.0638 ± 0.0127) based on whether you're self-playing with 500 or
-    // 50,000 nodes/move.
+    // Futility pruning (0.1892 ± 0.0143 or ~138 Elo with 50k nodes/move)
     //
-    // You should try to search a minimum of 2-4 ply deeper than the futility pruning depth limit 
-    // when evaluating its effect on playing strength, or you will frequently play bad moves as a
-    // result of the above effect.
+    // Note that not having *any* depth limit for futility pruning is terrible. For example, if
+    // there is a line that loses a queen in one move but leads to forced mate in K ply, you won't
+    // find the forced mate until you search to (roughly) a depth of
+    // queenValue / futilityThreshold + K
+    // This is really bad when you factor in the expoential relationship between depth and time.
     //
-    // For similar reasons, we should probably disable futility pruning anytime we're running at a
-    // very low depth (e.g. tuning parameters).
+    // A simple solution is to just require the engine to search to a *least* a given depth (say 7)
+    // when evaluating any position, but this seems hacky and we'd really like to have a strong
+    // engine that works well at any depth (e.g. when we're doing self-play at a shallow depth), so
+    // instead we increase the futility depth limit as a function of the total search depth.
+    // Increasing by 1 every depth falls into the same problem, so instead we decrease by 0.5 every
+    // depth.
     //
     // Also note that most people recommend giving a bonus when comparing against beta because we
-    // should be able to find a move that improves our score. In our opinion this is bad because
-    // 1) a good evaluation function should account for a tempo bonus (e.g. we give bonuses for
+    // should be able to find a quiet move that improves our score. In our opinion this is bad
+    // because:
+    // 1) A good evaluation function should account for a tempo bonus (e.g. we give bonuses for
     // hanging pieces)
-    // 2) if we're using a score from the transposition table a tempo bonus makes no sense
+    // 2) We're not just pruning with depth = 1, so it's not even clear if we have a tempo
+    // advantage
+    // 3) If we're using a score from the transposition table, the previous search already looked
+    // at all of our moves.
     const int totalDepth = plyFromRoot + depthRemaining;
-    constexpr int kFutilityPruningDepthLimitArr[10] = {0, 1, 1, 2, 2, 3, 3, 4, 4, 5};
-    const int kFutilityPruningDepthLimit = kFutilityPruningDepthLimitArr[std::min<int>(totalDepth, 9)];
+    constexpr int kFutilityPruningDepthLimitArr[14] = {0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7};
+    const int kFutilityPruningDepthLimit = kFutilityPruningDepthLimitArr[std::min<int>(totalDepth, 13)];
     const Evaluation futilityThreshold = 30;
     if (it != this->cache.end() && depthRemaining - it->second.depthRemaining <= kFutilityPruningDepthLimit) {
       const CacheResult& cr = it->second;
