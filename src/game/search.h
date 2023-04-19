@@ -295,7 +295,9 @@ struct Thinker {
 
   template<Color TURN, SearchType SEARCH_TYPE>
   SearchResult<TURN> search(
-    Position* pos, const Depth depthRemaining,
+    Position* pos,
+    const Depth depthRemaining,
+    const Depth plyFromRoot,
     Evaluation alpha, const Evaluation beta,
     RecommendedMoves recommendedMoves,
     bool isPV) {
@@ -383,7 +385,8 @@ struct Thinker {
     // 1) a good evaluation function should account for a tempo bonus (e.g. we give bonuses for
     // hanging pieces)
     // 2) if we're using a score from the transposition table a tempo bonus makes no sense
-    constexpr int kFutilityPruningDepthLimit = 3;
+    constexpr int kFutilityPruningDepthLimitArr[4] = {2, 2, 2, 3};
+    const int kFutilityPruningDepthLimit = kFutilityPruningDepthLimitArr[std::min<int>(plyFromRoot, 3)];
     const Evaluation futilityThreshold = 30;
     if (it != this->cache.end() && depthRemaining - it->second.depthRemaining <= kFutilityPruningDepthLimit) {
       const CacheResult& cr = it->second;
@@ -499,7 +502,7 @@ struct Thinker {
       // } else {
       //   a = flip(search<opposingColor, SearchTypeNormal>(pos, depthRemaining - 1, -beta, -alpha, recommendationsForChildren, isPV && (extMove == moves)));
       // }
-      SearchResult<TURN> a = flip(search<opposingColor, SearchTypeNormal>(pos, depthRemaining - 1, -beta, -alpha, recommendationsForChildren, isPV && (extMove == moves)));
+      SearchResult<TURN> a = flip(search<opposingColor, SearchTypeNormal>(pos, depthRemaining - 1, plyFromRoot + 1, -beta, -alpha, recommendationsForChildren, isPV && (extMove == moves)));
       a.score -= (a.score > -kLongestForcedMate);
       a.score += (a.score < kLongestForcedMate);
 
@@ -581,14 +584,14 @@ struct Thinker {
     //  50: 0.105 ± 0.019
     if (multiPV != 1) {
       // Disable aspiration window if we are searching more than one principle variation.
-      return search<TURN, SearchTypeRoot>(pos, depth, kMinEval, kMaxEval, RecommendedMoves(), true);
+      return search<TURN, SearchTypeRoot>(pos, depth, 0, kMinEval, kMaxEval, RecommendedMoves(), true);
     }
     constexpr Evaluation kBuffer = 75;
-    SearchResult<TURN> r = search<TURN, SearchTypeRoot>(pos, depth, lastResult.score - kBuffer, lastResult.score + kBuffer, RecommendedMoves(), true);
+    SearchResult<TURN> r = search<TURN, SearchTypeRoot>(pos, depth, 0, lastResult.score - kBuffer, lastResult.score + kBuffer, RecommendedMoves(), true);
     if (r.score > lastResult.score - kBuffer && r.score < lastResult.score + kBuffer) {
       return r;
     }
-    return search<TURN, SearchTypeRoot>(pos, depth, kMinEval, kMaxEval, RecommendedMoves(), true);
+    return search<TURN, SearchTypeRoot>(pos, depth, 0, kMinEval, kMaxEval, RecommendedMoves(), true);
   }
 
   // Gives scores from white's perspective
