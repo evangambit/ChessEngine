@@ -385,8 +385,9 @@ struct Thinker {
     // 1) a good evaluation function should account for a tempo bonus (e.g. we give bonuses for
     // hanging pieces)
     // 2) if we're using a score from the transposition table a tempo bonus makes no sense
-    constexpr int kFutilityPruningDepthLimitArr[4] = {2, 2, 2, 3};
-    const int kFutilityPruningDepthLimit = kFutilityPruningDepthLimitArr[std::min<int>(plyFromRoot, 3)];
+    const int totalDepth = plyFromRoot + depthRemaining;
+    constexpr int kFutilityPruningDepthLimitArr[10] = {0, 1, 1, 2, 2, 3, 3, 4, 4, 5};
+    const int kFutilityPruningDepthLimit = kFutilityPruningDepthLimitArr[std::min<int>(totalDepth, 9)];
     const Evaluation futilityThreshold = 30;
     if (it != this->cache.end() && depthRemaining - it->second.depthRemaining <= kFutilityPruningDepthLimit) {
       const CacheResult& cr = it->second;
