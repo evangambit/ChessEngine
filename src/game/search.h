@@ -385,7 +385,8 @@ struct Thinker {
     // at all of our moves.
     const int totalDepth = plyFromRoot + depthRemaining;
     constexpr int kFutilityPruningDepthLimitArr[14] = {0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7};
-    const int kFutilityPruningDepthLimit = kFutilityPruningDepthLimitArr[std::min<int>(totalDepth, 13)];
+    constexpr int kFutilityPruningDepthLimitArrLen = sizeof(kFutilityPruningDepthLimitArr) / sizeof(kFutilityPruningDepthLimitArr[0]);
+    const int kFutilityPruningDepthLimit = kFutilityPruningDepthLimitArr[std::min<int>(totalDepth, kFutilityPruningDepthLimitArrLen - 1)];
     const Evaluation futilityThreshold = 30;
     if (it != this->cache.end() && depthRemaining - it->second.depthRemaining <= kFutilityPruningDepthLimit) {
       const CacheResult& cr = it->second;
