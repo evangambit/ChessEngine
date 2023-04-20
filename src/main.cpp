@@ -359,16 +359,16 @@ void mymain(std::vector<Position>& positions, const std::string& mode, double ti
           } else {
             make_move<Color::BLACK>(&pos, move->move);
           }
-          auto it = gThinker.cache.find(pos.hash_);
-          if (it == gThinker.cache.end()) {
+          CacheResult *it = gThinker.cache.find(pos.hash_);
+          if (it == nullptr) {
             std::cout << "missing " << move->move << " " << pos.hash_ << std::endl;
             undo<Color::WHITE>(&pos);
             continue;
           }
           if (pos.turn_ == Color::WHITE) {
-            variations.push_back(SearchResult<Color::WHITE>(it->second.eval, move->move));
+            variations.push_back(SearchResult<Color::WHITE>(it->eval, move->move));
           } else {
-            variations.push_back(SearchResult<Color::WHITE>(-it->second.eval, move->move));
+            variations.push_back(SearchResult<Color::WHITE>(-it->eval, move->move));
           }
           if (pos.turn_ == Color::BLACK) {
             undo<Color::WHITE>(&pos);

@@ -5,7 +5,6 @@
 #include <cstdint>
 
 #include <algorithm>
-#include <unordered_map>
 
 #include "geometry.h"
 #include "utils.h"
@@ -37,17 +36,51 @@ enum SearchType {
   SearchTypeNullWindow,
 };
 
-struct CacheResult {
-  Depth depthRemaining;
-  Evaluation eval;
-  Move bestMove;
-  NodeType nodeType;
+struct CacheResult {  // 16 bytes
+  uint64_t positionHash;  // 8 bytes
+  Depth depthRemaining;   // 1 byte
+  Evaluation eval;        // 2 bytes
+  Move bestMove;          // 2 bytes
+  NodeType nodeType;      // 1 byte
+  uint16_t priority;      // 2 bytes; 65535 if primary variation
   inline Evaluation lowerbound() const {
     return (nodeType == NodeTypeAll_UpperBound || nodeType == NodeTypeQ) ? kMinEval : eval;
   }
   inline Evaluation upperbound() const {
     return (nodeType == NodeTypeCut_LowerBound || nodeType == NodeTypeQ) ? kMaxEval : eval;
   }
+};
+
+struct TranspositionTable {
+  TranspositionTable(size_t kilobytes) {
+    size = kilobytes * 1024 / sizeof(CacheResult);
+    data = new CacheResult[size];
+    this->clear();
+  }
+  TranspositionTable(const TranspositionTable&);  // Not implemented.
+  TranspositionTable& operator=(const TranspositionTable& table);  // Not implemented.
+  ~TranspositionTable() {
+    delete[] data;
+  }
+  void insert(const CacheResult& cr) {
+    CacheResult *it = &data[cr.positionHash % size];
+    if (cr.depthRemaining > it->depthRemaining || (cr.depthRemaining == it->depthRemaining && cr.priority > it->priority)) {
+      *it = cr;
+    }
+  }
+  void clear() {
+    std::fill_n((uint8_t *)data, sizeof(CacheResult) * size, 0);
+  }
+  CacheResult* find(uint64_t hash) {
+    CacheResult *cr = &data[hash % size];
+    if (cr->priority == 0 || cr->positionHash != hash) {
+      return nullptr;
+    }
+    return cr;
+  }
+ private:
+  CacheResult *data;
+  size_t size;
 };
 
 constexpr int kQSimplePieceValues[7] = {
@@ -117,13 +150,13 @@ struct Thinker {
   size_t leafCounter;
   size_t nodeCounter;
   Evaluator evaluator;
-  std::unordered_map<uint64_t, CacheResult> cache;
+  TranspositionTable cache;
   uint32_t historyHeuristicTable[Color::NUM_COLORS][64][64];
   size_t multiPV;
 
   PieceMaps pieceMaps;
 
-  Thinker() {
+  Thinker() : cache(10000) {
     reset_stuff();
     multiPV = 1;
   }
@@ -171,13 +204,13 @@ struct Thinker {
 
   void print_variation(Position* pos, Move move) {
     this->make_move(pos, move);
-    auto it = this->cache.find(pos->hash_);
+    CacheResult *it = this->cache.find(pos->hash_);
 
-    if (it == this->cache.end()) {
+    if (it == nullptr) {
       return;
     }
 
-    Evaluation eval = it->second.eval;
+    Evaluation eval = it->eval;
     if (pos->turn_ == Color::BLACK) {
       eval *= -1;
     }
@@ -189,9 +222,9 @@ struct Thinker {
     }
 
     size_t counter = 1;
-    while (it != this->cache.end() && it->second.bestMove != kNullMove && counter < 10) {
-      std::cout << " " << it->second.bestMove;
-      this->make_move(pos, it->second.bestMove);
+    while (it != nullptr && it->bestMove != kNullMove && counter < 10) {
+      std::cout << " " << it->bestMove;
+      this->make_move(pos, it->bestMove);
       ++counter;
       it = cache.find(pos->hash_);
     }
@@ -300,7 +333,7 @@ struct Thinker {
     const Depth plyFromRoot,
     Evaluation alpha, const Evaluation beta,
     RecommendedMoves recommendedMoves,
-    bool isPV) {
+    uint16_t distFromPV) {
 
     const Evaluation originalAlpha = alpha;
     const Evaluation originalBeta = beta;
@@ -335,15 +368,14 @@ struct Thinker {
         nodeType = NodeTypeAll_UpperBound;
       }
       const CacheResult cr = CacheResult{
+        pos->hash_,
         depthRemaining,
         r.score,
         r.move,
         nodeType,
+        uint16_t(65535 - distFromPV),
       };
-      auto it = this->cache.find(pos->hash_);
-      if (it == this->cache.end()) {
-        this->cache.insert(std::make_pair(pos->hash_, cr));
-      }
+      this->cache.insert(cr);
       return r;
     }
 
@@ -351,11 +383,10 @@ struct Thinker {
       SearchResult<TURN>(Evaluation(0), kNullMove);
     }
 
-    auto it = this->cache.find(pos->hash_);
-    if (it != this->cache.end() && it->second.depthRemaining >= depthRemaining) {
-      const CacheResult& cr = it->second;
-      if (cr.nodeType == NodeTypePV || cr.lowerbound() >= beta || cr.upperbound() <= alpha) {
-        return SearchResult<TURN>(cr.eval, cr.bestMove);
+    CacheResult *it = this->cache.find(pos->hash_);
+    if (it != nullptr && it->depthRemaining >= depthRemaining) {
+      if (it->nodeType == NodeTypePV || it->lowerbound() >= beta || it->upperbound() <= alpha) {
+        return SearchResult<TURN>(it->eval, it->bestMove);
       }
     }
 
@@ -388,13 +419,12 @@ struct Thinker {
     constexpr int kFutilityPruningDepthLimitArrLen = sizeof(kFutilityPruningDepthLimitArr) / sizeof(kFutilityPruningDepthLimitArr[0]);
     const int kFutilityPruningDepthLimit = kFutilityPruningDepthLimitArr[std::min<int>(totalDepth, kFutilityPruningDepthLimitArrLen - 1)];
     const Evaluation futilityThreshold = 30;
-    if (it != this->cache.end() && depthRemaining - it->second.depthRemaining <= kFutilityPruningDepthLimit) {
-      const CacheResult& cr = it->second;
-      if (cr.lowerbound() >= beta + futilityThreshold * (depthRemaining - it->second.depthRemaining) || cr.upperbound() <= alpha - futilityThreshold * (depthRemaining - it->second.depthRemaining)) {
-        return SearchResult<TURN>(cr.eval, cr.bestMove);
+    if (it != nullptr && depthRemaining - it->depthRemaining <= kFutilityPruningDepthLimit) {
+      if (it->lowerbound() >= beta + futilityThreshold * (depthRemaining - it->depthRemaining) || it->upperbound() <= alpha - futilityThreshold * (depthRemaining - it->depthRemaining)) {
+        return SearchResult<TURN>(it->eval, it->bestMove);
       }
     }
-    if (it == this->cache.end() && depthRemaining <= kFutilityPruningDepthLimit) {
+    if (it == nullptr && depthRemaining <= kFutilityPruningDepthLimit) {
       SearchResult<TURN> r = qsearch<TURN>(pos, 0, alpha, beta);
       if (r.score >= beta + futilityThreshold * depthRemaining || r.score <= alpha - futilityThreshold * depthRemaining) {
         return r;
@@ -405,7 +435,7 @@ struct Thinker {
 
     // Null move pruning doesn't seem to help.
     // const Bitboard ourPieces = pos->colorBitboards_[TURN] & ~pos->pieceBitboards_[coloredPiece<TURN, Piece::PAWN>()];
-    // if (depthRemaining == 3 && std::popcount(ourPieces) > 4 && !inCheck && !isPV && (it != this->cache.end() && it->second.lowerbound() - 20 >= beta)) {
+    // if (depthRemaining == 3 && std::popcount(ourPieces) > 4 && !inCheck && !isPV && (it != nullptr && it->lowerbound() - 20 >= beta)) {
     //   make_nullmove<TURN>(pos);
     //   SearchResult<TURN> a = flip(search<opposingColor, SearchTypeNormal>(pos, depthRemaining - 3, -beta, -beta+1, RecommendedMoves(), false));
     //   if (a.score >= beta && a.move != kNullMove) {
@@ -416,7 +446,7 @@ struct Thinker {
     // }
 
     // // Null-window search doesn't seem to help,
-    // if (SEARCH_TYPE == SearchTypeNormal && !isPV && (it != this->cache.end() && it->second.upperbound() + 40 < alpha)) {
+    // if (SEARCH_TYPE == SearchTypeNormal && !isPV && (it != nullptr && it->upperbound() + 40 < alpha)) {
     //   // Null Window search.
     //   SearchResult<TURN> r = search<TURN, SearchTypeNullWindow>(pos, depthRemaining, alpha, alpha + 1, RecommendedMoves(), false);
     //   if (r.score <= alpha) {
@@ -424,7 +454,7 @@ struct Thinker {
     //   }
     // }
 
-    Move lastFoundBestMove = (it != this->cache.end() ? it->second.bestMove : kNullMove);
+    Move lastFoundBestMove = (it != nullptr ? it->bestMove : kNullMove);
 
     SearchResult<TURN> r(
       kMinEval + 1,
@@ -494,7 +524,7 @@ struct Thinker {
 
       // This simple, very limited null-window search has negligible effect (-0.003 ± 0.003).
       // SearchResult<TURN> a;
-      // if (SEARCH_TYPE != SearchTypeRoot && extMove != moves && foo && it->second.upperbound() + 50 < alpha) {
+      // if (SEARCH_TYPE != SearchTypeRoot && extMove != moves && foo && it->upperbound() + 50 < alpha) {
       //   a = flip(search<opposingColor, SearchTypeNullWindow>(pos, depthRemaining - 1, -(alpha + 1), -alpha, recommendationsForChildren, isPV && (extMove == moves)));
       //   if (a.score > alpha) {
       //     a = flip(search<opposingColor, SearchTypeNormal>(pos, depthRemaining - 1, -beta, -alpha, recommendationsForChildren, isPV && (extMove == moves)));
@@ -502,7 +532,7 @@ struct Thinker {
       // } else {
       //   a = flip(search<opposingColor, SearchTypeNormal>(pos, depthRemaining - 1, -beta, -alpha, recommendationsForChildren, isPV && (extMove == moves)));
       // }
-      SearchResult<TURN> a = flip(search<opposingColor, SearchTypeNormal>(pos, depthRemaining - 1, plyFromRoot + 1, -beta, -alpha, recommendationsForChildren, isPV && (extMove == moves)));
+      SearchResult<TURN> a = flip(search<opposingColor, SearchTypeNormal>(pos, depthRemaining - 1, plyFromRoot + 1, -beta, -alpha, recommendationsForChildren, distFromPV + (extMove != moves)));
       a.score -= (a.score > -kLongestForcedMate);
       a.score += (a.score < kLongestForcedMate);
 
@@ -553,19 +583,14 @@ struct Thinker {
 
     {
       const CacheResult cr = CacheResult{
+        pos->hash_,
         depthRemaining,
         r.score,
         r.move,
         nodeType,
+        uint16_t(65535 - distFromPV),
       };
-      it = this->cache.find(pos->hash_);  // Need to re-search since the iterator may have changed when searching my children.
-      if (it == this->cache.end()) {
-        this->cache.insert(std::make_pair(pos->hash_, cr));
-      } else if (depthRemaining >= it->second.depthRemaining) {
-        // We use ">=" because otherwise if we fail the aspiration window search the table will have
-        // stale results.
-        it->second = cr;
-      }
+      this->cache.insert(cr);
     }
 
     return r;
@@ -584,14 +609,14 @@ struct Thinker {
     //  50: 0.105 ± 0.019
     if (multiPV != 1) {
       // Disable aspiration window if we are searching more than one principle variation.
-      return search<TURN, SearchTypeRoot>(pos, depth, 0, kMinEval, kMaxEval, RecommendedMoves(), true);
+      return search<TURN, SearchTypeRoot>(pos, depth, 0, kMinEval, kMaxEval, RecommendedMoves(), 0);
     }
     constexpr Evaluation kBuffer = 75;
-    SearchResult<TURN> r = search<TURN, SearchTypeRoot>(pos, depth, 0, lastResult.score - kBuffer, lastResult.score + kBuffer, RecommendedMoves(), true);
+    SearchResult<TURN> r = search<TURN, SearchTypeRoot>(pos, depth, 0, lastResult.score - kBuffer, lastResult.score + kBuffer, RecommendedMoves(), 0);
     if (r.score > lastResult.score - kBuffer && r.score < lastResult.score + kBuffer) {
       return r;
     }
-    return search<TURN, SearchTypeRoot>(pos, depth, 0, kMinEval, kMaxEval, RecommendedMoves(), true);
+    return search<TURN, SearchTypeRoot>(pos, depth, 0, kMinEval, kMaxEval, RecommendedMoves(), 0);
   }
 
   // Gives scores from white's perspective
