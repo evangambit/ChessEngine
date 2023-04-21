@@ -405,7 +405,7 @@ struct Thinker {
     // engine that works well at any depth (e.g. when we're doing self-play at a shallow depth), so
     // instead we increase the futility depth limit as a function of the total search depth.
     // Increasing by 1 every depth falls into the same problem, so instead we decrease by 0.5 every
-    // depth.
+    // depth. This should guarantee we find any mate-in-n-ply after searching 2*n ply.
     //
     // Also note that most people recommend giving a bonus when comparing against beta because we
     // should be able to find a quiet move that improves our score. In our opinion this is bad
@@ -418,9 +418,7 @@ struct Thinker {
     // at all of our moves.
     #if COMPLEX_SEARCH
     const int totalDepth = plyFromRoot + depthRemaining;
-    constexpr int kFutilityPruningDepthLimitArr[] = {0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7};
-    constexpr int kFutilityPruningDepthLimitArrLen = sizeof(kFutilityPruningDepthLimitArr) / sizeof(kFutilityPruningDepthLimitArr[0]);
-    const int kFutilityPruningDepthLimit = kFutilityPruningDepthLimitArr[std::min<int>(totalDepth, kFutilityPruningDepthLimitArrLen - 1)];
+    const int kFutilityPruningDepthLimit = totalDepth / 2;
     const Evaluation futilityThreshold = 30;
     if (it != nullptr && depthRemaining - it->depthRemaining <= kFutilityPruningDepthLimit) {
       if (it->lowerbound() >= beta + futilityThreshold * (depthRemaining - it->depthRemaining) || it->upperbound() <= alpha - futilityThreshold * (depthRemaining - it->depthRemaining)) {
