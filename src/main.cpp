@@ -334,6 +334,10 @@ void mymain(std::vector<Position>& positions, const std::string& mode, double ti
         }
       }
 
+      if (positions.size() > 1) {
+        std::cout << "FEN: " << pos.fen() << std::endl;
+      }
+
       std::vector<SearchResult<Color::WHITE>> topVariations;
       {
         ExtMove moves[256];
@@ -361,7 +365,6 @@ void mymain(std::vector<Position>& positions, const std::string& mode, double ti
           }
           CacheResult *it = gThinker.cache.find(pos.hash_);
           if (it == nullptr) {
-            std::cout << "missing " << move->move << " " << pos.hash_ << std::endl;
             undo<Color::WHITE>(&pos);
             continue;
           }
@@ -486,7 +489,7 @@ int main(int argc, char *argv[]) {
   std::string mode = "analyze";
   double timeLimitMs = 60000.0;
   std::string fenFile;
-  std::string fen;
+  std::vector<std::string> fens;
   uint64_t limitfens = 999999999;
   bool makeQuiet = false;
   std::vector<std::string> uciMoves;
@@ -498,7 +501,7 @@ int main(int argc, char *argv[]) {
     if (args.size() >= 7 && args[0] == "fen") {
       std::vector<std::string> fenVec(args.begin() + 1, args.begin() + 7);
       args = std::vector<std::string>(args.begin() + 7, args.end());
-      fen = join(fenVec, " ");
+      fens.push_back(join(fenVec, " "));
     } else if (args.size() >= 2 && args[0] == "depth") {
       depth = std::stoi(args[1]);
       if (depth < 0) {
@@ -570,11 +573,11 @@ int main(int argc, char *argv[]) {
     }
     return 0;
   }
-  if (fenFile.size() == 0 && fen.size() == 0) {
-    fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+  if (limitfens < 1) {
+    throw std::runtime_error("limitfens cannot be less than 1");
   }
-  if ((fenFile.size() != 0) == (fen.size() != 0)) {
-    throw std::runtime_error("Cannot provide fen and fens");
+  if (fenFile.size() == 0 && fens.size() == 0) {
+    fens.push_back("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
   }
   if (depth < 0) {
     throw std::runtime_error("invalid depth");
@@ -582,17 +585,22 @@ int main(int argc, char *argv[]) {
 
   std::vector<Position> positions;
 
+  for (const auto& fen : fens) {
+    if (positions.size() >= limitfens) {
+      break;
+    }
+    positions.push_back(Position(fen));
+  }
+
   if (fenFile.size() > 0) {
     std::ifstream infile(fenFile);
     std::string line;
     while (std::getline(infile, line)) {
-      positions.push_back(Position(line));
       if (positions.size() >= limitfens) {
         break;
       }
+      positions.push_back(Position(line));
     }
-  } else {
-    positions.push_back(Position(fen));
   }
 
   if (uciMoves.size() != 0 && positions.size() != 1) {

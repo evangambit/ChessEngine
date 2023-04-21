@@ -484,11 +484,11 @@ lonelyKingB = 0;
       features[EF::IN_CHECK] = (attackingOurKing > 0);
       features[EF::IN_DOUBLE_CHECK] = std::popcount(attackingOurKing) > 1;
 
-      attackingOurKing &= theirQueens & threats.badForTheir[Piece::QUEEN];
-      attackingOurKing &= theirRooks & threats.badForTheir[Piece::ROOK];
-      attackingOurKing &= theirBishops & threats.badForTheir[Piece::BISHOP];
-      attackingOurKing &= theirKnights & threats.badForTheir[Piece::KNIGHT];
-      attackingOurKing &= theirPawns & threats.badForTheir[Piece::PAWN];
+      attackingOurKing &= ~(theirQueens & threats.badForTheir[Piece::QUEEN]);
+      attackingOurKing &= ~(theirRooks & threats.badForTheir[Piece::ROOK]);
+      attackingOurKing &= ~(theirBishops & threats.badForTheir[Piece::BISHOP]);
+      attackingOurKing &= ~(theirKnights & threats.badForTheir[Piece::KNIGHT]);
+      attackingOurKing &= ~(theirPawns & threats.badForTheir[Piece::PAWN]);
 
       // The piece checking our king can simply be captured.
       features[EF::IN_TRIVIAL_CHECK] = features[EF::IN_CHECK] && (attackingOurKing == 0) && !features[EF::IN_DOUBLE_CHECK];

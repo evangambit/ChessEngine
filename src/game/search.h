@@ -13,6 +13,8 @@
 #include "movegen/sliding.h"
 #include "Evaluator.h"
 
+#define COMPLEX_SEARCH 1
+
 namespace ChessEngine {
 
 typedef int8_t Depth;
@@ -414,8 +416,9 @@ struct Thinker {
     // advantage
     // 3) If we're using a score from the transposition table, the previous search already looked
     // at all of our moves.
+    #if COMPLEX_SEARCH
     const int totalDepth = plyFromRoot + depthRemaining;
-    constexpr int kFutilityPruningDepthLimitArr[14] = {0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7};
+    constexpr int kFutilityPruningDepthLimitArr[] = {0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7};
     constexpr int kFutilityPruningDepthLimitArrLen = sizeof(kFutilityPruningDepthLimitArr) / sizeof(kFutilityPruningDepthLimitArr[0]);
     const int kFutilityPruningDepthLimit = kFutilityPruningDepthLimitArr[std::min<int>(totalDepth, kFutilityPruningDepthLimitArrLen - 1)];
     const Evaluation futilityThreshold = 30;
@@ -430,6 +433,7 @@ struct Thinker {
         return r;
       }
     }
+    #endif
 
     const bool inCheck = can_enemy_attack<TURN>(*pos, lsb(pos->pieceBitboards_[moverKing]));
 
@@ -558,7 +562,7 @@ struct Thinker {
           recommendationsForChildren.add(a.move);
           if (r.score >= beta) {
             // NOTE: Unlike other engines, we include captures in our history heuristic, as this
-            // order captures that are materially equal.
+            // orders captures that are materially equal.
             this->historyHeuristicTable[TURN][r.move.from][r.move.to] += depthRemaining * depthRemaining;
             break;
           }
@@ -611,11 +615,13 @@ struct Thinker {
       // Disable aspiration window if we are searching more than one principle variation.
       return search<TURN, SearchTypeRoot>(pos, depth, 0, kMinEval, kMaxEval, RecommendedMoves(), 0);
     }
+    #if COMPLEX_SEARCH
     constexpr Evaluation kBuffer = 75;
     SearchResult<TURN> r = search<TURN, SearchTypeRoot>(pos, depth, 0, lastResult.score - kBuffer, lastResult.score + kBuffer, RecommendedMoves(), 0);
     if (r.score > lastResult.score - kBuffer && r.score < lastResult.score + kBuffer) {
       return r;
     }
+    #endif
     return search<TURN, SearchTypeRoot>(pos, depth, 0, kMinEval, kMaxEval, RecommendedMoves(), 0);
   }
 
