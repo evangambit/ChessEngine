@@ -16,11 +16,10 @@ import numpy as np
 from scipy import stats
 import multiprocessing as mp
 
-# from simple_stockfish import Stockfish
 from tqdm import tqdm
 
 def f(player, fen, moves):
-	numNodes = "4000"
+	numNodes = "300"
 	if player[1] == 'None':
 		command = [player[0], "mode", "analyze", "nodes", numNodes, "fen", *fen.split(' '), "moves", *moves]
 	else:
@@ -93,16 +92,16 @@ def create_fen_batch(n):
 if __name__ == '__main__':
 	mp.set_start_method('spawn')
 	t0 = time.time()
-	numWorkers = 12
+	numWorkers = 4
 	batches = [[]]
-	for i in range(0, 400, numWorkers):
+	for i in range(0, 100, numWorkers):
 		batches.append(create_fen_batch(numWorkers))
 
 	R = []
-	with mp.Pool(12) as pool:
+	with mp.Pool(numWorkers) as pool:
 		for batch in tqdm(batches):
 			try:
-				r = pool.map_async(thread_main, batch).get(timeout=20)
+				r = pool.map_async(thread_main, batch).get(timeout=300)
 				R += r
 			except mp.context.TimeoutError:
 				print('timeout')
