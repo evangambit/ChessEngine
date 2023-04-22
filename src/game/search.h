@@ -392,7 +392,15 @@ struct Thinker {
       }
     }
 
-    // Futility pruning (0.1892 ± 0.0143 or ~138 Elo with 50k nodes/move)
+    // Futility pruning
+    //  nodes/position, gain from futility pruning
+    //   100, -0.0475 ± 0.0215
+    //   300,  0.0325 ± 0.0292
+    //  1000,  0.0800 ± 0.0266
+    //  3000,  0.1325 ± 0.0302
+    // 10000,  0.1630 ± 0.0274
+    // 20000,  0.1761 ± 0.0256
+    // 30000,  0.2292 ± 0.0305
     //
     // Note that not having *any* depth limit for futility pruning is terrible. For example, if
     // there is a line that loses a queen in one move but leads to forced mate in K ply, you won't
