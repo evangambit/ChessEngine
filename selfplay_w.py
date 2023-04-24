@@ -27,22 +27,24 @@ def play_random(board, n):
 # Returns 1 if weights0 wins both games
 # Returns -1 if weights1 wins both games
 def thread_main(args):
-  fen, w0, w1 = args
+  fen, w0, w1, nodes = args
   command = [
     "./selfplay",
     "weights", w0, w1,
     "maxmoves", "200",
-    "fen", *fen.split(' ')
+    "nodes", str(nodes),
+    "fen", *fen.split(' '),
   ]
   stdout = subprocess.check_output(command).decode()
   return sum([int(x) for x in stdout.strip().split('\n')]) / 2.0
 
-def create_fen_batch(n):
+def create_fen_batch(args):
   return [(
     play_random(chess.Board(), 4),
     args.weights[0],
     args.weights[1],
-  ) for _ in range(n)]
+    args.nodes,
+  ) for _ in range(args.num_workers)]
 
 if __name__ == '__main__':
   mp.set_start_method('spawn')
@@ -56,7 +58,9 @@ if __name__ == '__main__':
 
   batches = [[]]
   for i in range(0, args.num_trials // args.num_workers, args.num_workers):
-    batches.append(create_fen_batch(args.num_workers))
+    batches.append(create_fen_batch(args))
+
+  t0 = time.time()
 
   R = []
   with mp.Pool(args.num_workers) as pool:
@@ -69,9 +73,12 @@ if __name__ == '__main__':
         pass
   r = np.array(R, dtype=np.float64).reshape(-1)
 
+  t1 = time.time()
+
   stderr = r.std(ddof=1) / np.sqrt(r.shape[0])
   avg = r.mean()
 
+  print("%.1f secs" % (t1 - t0))
   print('%.4f ± %.4f' % (avg, stderr))
   print(stats.norm.cdf(avg / stderr))
 

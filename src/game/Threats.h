@@ -31,6 +31,39 @@ struct Threats {
   Bitboard badForOur[7];
   Bitboard badForTheir[7];
 
+  template<ColoredPiece cp>
+  Bitboard targets() const {
+    constexpr bool isOurColor = (cp2color(cp) == US);
+    constexpr Piece piece = cp2p(cp);
+    switch (piece) {
+      case Piece::PAWN:
+        return isOurColor ? ourPawnTargets : theirPawnTargets;
+      case Piece::KNIGHT:
+        return isOurColor ? ourKnightTargets : theirKnightTargets;
+      case Piece::BISHOP:
+        return isOurColor ? ourBishopTargets : theirBishopTargets;
+      case Piece::ROOK:
+        return isOurColor ? ourRookTargets : theirRookTargets;
+      case Piece::QUEEN:
+        return isOurColor ? ourQueenTargets : theirQueenTargets;
+      case Piece::KING:
+        return isOurColor ? ourKingTargets : theirKingTargets;
+      case Piece::NO_PIECE:
+        return kEmptyBitboard;
+    }
+  }
+
+  template<ColoredPiece cp>
+  Bitboard badFor() const {
+    constexpr bool isOurColor = (cp2color(cp) == US);
+    constexpr Piece piece = cp2p(cp);
+    if (isOurColor) {
+      return badForOur[piece];
+    } else {
+      return badForTheir[piece];
+    }
+  }
+
   // TODO: bishops can attack one square through our own pawns.
   Threats(const Position& pos) {
     constexpr Color THEM = opposite_color<US>();

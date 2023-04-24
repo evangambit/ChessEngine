@@ -13,7 +13,7 @@
 #include "movegen/sliding.h"
 #include "Evaluator.h"
 
-#define COMPLEX_SEARCH 1
+#define COMPLEX_SEARCH 0
 
 namespace ChessEngine {
 

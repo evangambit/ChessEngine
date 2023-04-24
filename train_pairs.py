@@ -140,6 +140,14 @@ varnames = [
   "BISHOP_CHECKS",
   "ROOK_CHECKS",
   "QUEEN_CHECKS",
+  "BACK_RANK_MATE_THREAT_AGAINST_US",
+  "BACK_RANK_MATE_THREAT_AGAINST_THEM",
+  "OUR_KING_HAS_0_ESCAPE_SQUARES",
+  "THEIR_KING_HAS_0_ESCAPE_SQUARES",
+  "OUR_KING_HAS_1_ESCAPE_SQUARES",
+  "THEIR_KING_HAS_1_ESCAPE_SQUARES",
+  "OUR_KING_HAS_2_ESCAPE_SQUARES",
+  "THEIR_KING_HAS_2_ESCAPE_SQUARES",
 ]
 
 def varnames2mask(names):
@@ -234,11 +242,11 @@ F = np.load(os.path.join('traindata', f'fen.pair.any_d10_q1_n3.npy'))
 S = np.load(os.path.join('traindata', f'turn.pair.any_d10_q1_n3.npy')).astype(np.float64) * 2.0 - 1.0
 A = np.load(os.path.join('traindata', f'pm.pair.any_d10_q1_n3.npy')).astype(np.float32)
 cat =  np.concatenate
-# X = cat([X, np.load(os.path.join('traindata', 'x.pair.endgame_d10_q1_n0.npy')).astype(np.float64)], 0)
-# Y = cat([Y, np.load(os.path.join('traindata', 'y.pair.endgame_d10_q1_n0.npy')).astype(np.float64)], 0)
-# F = cat([F, np.load(os.path.join('traindata', 'fen.pair.endgame_d10_q1_n0.npy'))], 0)
-# S = cat([S, np.load(os.path.join('traindata', 'turn.pair.endgame_d10_q1_n0.npy')).astype(np.float64) * 2.0 - 1.0], 0)
-# A = cat([A, np.load(os.path.join('traindata', 'pm.pair.endgame_d10_q1_n0.npy')).astype(np.float32)], 0)
+X = cat([X, np.load(os.path.join('traindata', 'x.pair.any_d10_q1_n1.npy')).astype(np.float64)], 0)
+Y = cat([Y, np.load(os.path.join('traindata', 'y.pair.any_d10_q1_n1.npy')).astype(np.float64)], 0)
+F = cat([F, np.load(os.path.join('traindata', 'fen.pair.any_d10_q1_n1.npy'))], 0)
+S = cat([S, np.load(os.path.join('traindata', 'turn.pair.any_d10_q1_n1.npy')).astype(np.float64) * 2.0 - 1.0], 0)
+A = cat([A, np.load(os.path.join('traindata', 'pm.pair.any_d10_q1_n1.npy')).astype(np.float32)], 0)
 
 assert X.shape[-1] == len(varnames)
 
@@ -404,11 +412,11 @@ PmEarlySampleSizeTh = PmEarlySampleSizeTh.reshape((1, 1) + PmEarlySampleSizeTh.s
 PmLateSampleSizeTh = torch.tensor((A * T.reshape(T.shape + (1,1)) / 18).sum((0, 1)), dtype=torch.float32)
 PmLateSampleSizeTh = PmLateSampleSizeTh.reshape((1, 1) + PmLateSampleSizeTh.shape)
 
-kAlpha = 0.5  # higher -> more copying stockfish
+kAlpha = 0.9  # higher -> more copying stockfish
 bs = min(Xth.shape[0], 50_000)
 maxlr = 0.1
 minlr = maxlr / 300
-duration = 30
+duration = 40
 
 dataset = tdata.TensorDataset(
   Xth, Tth, Sth, Yth, Ath,
@@ -417,7 +425,7 @@ dataloader = tdata.DataLoader(dataset, batch_size=bs, shuffle=True, drop_last=Tr
 
 def cross_entropy_loss_fn(yhat, y):
   b = (y[:,0] < y[:,1]).to(torch.int64)
-  scale = torch.abs(y[:,0].clip(-5, 5) - y[:,1].clip(-5, 5))
+  scale = torch.abs(y[:,0].clamp(-5, 5) - y[:,1].clamp(-5, 5))
   loss = (nn.functional.cross_entropy(yhat, b, reduction='none') * scale).mean()
 
   error = (yhat.argmax(1) != b).to(torch.float32)
@@ -427,9 +435,9 @@ def cross_entropy_loss_fn(yhat, y):
 
 metrics = defaultdict(list)
 
-for includePieceMaps in [False, True]:
+for includePieceMaps in [True]:
   if includePieceMaps:
-    opt = optim.AdamW(pmModel.parameters(), lr=3e-3, weight_decay=0.001)
+    opt = optim.AdamW(chain(pmModel.parameters(), model.parameters()), lr=3e-3, weight_decay=0.1)
   else:
     opt = optim.AdamW(model.parameters(), lr=3e-3, weight_decay=0.1)
   for lr in cat([np.linspace(minlr, maxlr, int(round(duration * 0.1))), np.linspace(maxlr, minlr, int(round(duration * 0.9)))]):
@@ -438,7 +446,7 @@ for includePieceMaps in [False, True]:
     for x, t, s, y, a, nop, ntp, nq in dataloader:
       yhat = model(x, t, nop, ntp, nq) * s
       if includePieceMaps:
-        yhat = yhat.detach() + pmModel(a, t)
+        yhat = yhat + pmModel(a, t)
       y = y * s
       loss, error, cpLoss = cross_entropy_loss_fn(nn.functional.softmax(yhat, 1), y)
       loss = loss * (1 - kAlpha)
@@ -449,10 +457,15 @@ for includePieceMaps in [False, True]:
         loss = loss + 30.0 * ((pmModel.w["late"].weight.reshape(PmLateSampleSizeTh.shape)**2) / torch.sqrt(PmEarlySampleSizeTh + 1.0)).mean()
 
       w1 = pca.slope_backward(model.w['early'].weight)
-      # w2 = pca.slope_backward(model.w['late'].weight)
-      # w3 = pca.slope_backward(model.w['clipped'].weight)
-      # w4 = pca.slope_backward(model.w['lonelyKing'].weight)
+      w2 = pca.slope_backward(model.w['late'].weight)
+      w3 = pca.slope_backward(model.w['clipped'].weight)
+      w4 = pca.slope_backward(model.w['lonelyKing'].weight)
       loss = loss + torch.abs(w1 * kEarlyBlacklist).mean() * 10.0
+      for w, threshold in [(w1, 10.0), (w2, 10.0), (w3, 10.0), (w4, 3.0)]:
+        loss = loss + torch.relu(w - threshold).mean() * 10
+        loss = loss + torch.relu(-threshold - w).mean() * 10
+
+
       # loss = loss + torch.abs(torch.relu(-(w1 + w3)) * kPositiveList).mean()
       # loss = loss + torch.abs(torch.relu(-(w2 + w3)) * kPositiveList).mean()
       # loss = loss + torch.abs(torch.relu(-(w2 + w3 + w4)) * kPositiveList).mean()
@@ -466,6 +479,7 @@ for includePieceMaps in [False, True]:
       opt.zero_grad()
       loss.backward()
       opt.step()
+
       metrics['loss'].append(float(loss))
       metrics['error'].append(error)
       metrics['cpLoss'].append(cpLoss)

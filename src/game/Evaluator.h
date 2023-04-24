@@ -165,6 +165,16 @@ enum EF {
   ROOK_CHECKS,
   QUEEN_CHECKS,
 
+  BACK_RANK_MATE_THREAT_AGAINST_US,
+  BACK_RANK_MATE_THREAT_AGAINST_THEM,
+
+  OUR_KING_HAS_0_ESCAPE_SQUARES,
+  THEIR_KING_HAS_0_ESCAPE_SQUARES,
+  OUR_KING_HAS_1_ESCAPE_SQUARES,
+  THEIR_KING_HAS_1_ESCAPE_SQUARES,
+  OUR_KING_HAS_2_ESCAPE_SQUARES,
+  THEIR_KING_HAS_2_ESCAPE_SQUARES,
+
   NUM_EVAL_FEATURES,
 };
 
@@ -296,6 +306,14 @@ std::string EFSTR[] = {
   "BISHOP_CHECKS",
   "ROOK_CHECKS",
   "QUEEN_CHECKS",
+  "BACK_RANK_MATE_THREAT_AGAINST_US",
+  "BACK_RANK_MATE_THREAT_AGAINST_THEM",
+  "OUR_KING_HAS_0_ESCAPE_SQUARES",
+  "THEIR_KING_HAS_0_ESCAPE_SQUARES",
+  "OUR_KING_HAS_1_ESCAPE_SQUARES",
+  "THEIR_KING_HAS_1_ESCAPE_SQUARES",
+  "OUR_KING_HAS_2_ESCAPE_SQUARES",
+  "THEIR_KING_HAS_2_ESCAPE_SQUARES",
 };
 
 // captures = difference in values divided by 2
@@ -820,6 +838,40 @@ lonelyKingB = 0;
       features[EF::BISHOP_CHECKS] = std::popcount(bishopChecks & safe);
       features[EF::ROOK_CHECKS] = std::popcount(rookChecks & safe);
       features[EF::QUEEN_CHECKS] = std::popcount(queenChecks & safe);
+    }
+
+    {
+      const Bitboard whitePawns = (US == Color::WHITE ? ourPawns : theirPawns);
+      const Bitboard blackPawns = (US == Color::BLACK ? ourPawns : theirPawns);
+      const Bitboard whiteKingCannotMoveTo = threats.template badFor<ColoredPiece::WHITE_KING>();
+      const Bitboard blackKingCannotMoveTo = threats.template badFor<ColoredPiece::BLACK_KING>();
+      const Square whiteKingSq = (US == Color::WHITE ? ourKingSq : theirKingSq);
+      const Square blackKingSq = (US == Color::BLACK ? ourKingSq : theirKingSq);
+      const Bitboard whiteKingEscapes = compute_king_targets<Color::WHITE>(pos, whiteKingSq) & ~(whiteKingCannotMoveTo | whitePawns);
+      const Bitboard blackKingEscapes = compute_king_targets<Color::BLACK>(pos, blackKingSq) & ~(blackKingCannotMoveTo | blackPawns);
+
+      const bool backRankMateThreatAgainstWhite = (whiteKingSq >= 56 && ((whiteKingEscapes & kRanks[7]) == whiteKingEscapes) && ((threats.template targets<ColoredPiece::BLACK_ROOK>() & kRanks[7]) > 0));
+      const bool backRankMateThreatAgainstBlack = (blackKingSq <=  7 && ((blackKingEscapes & kRanks[0]) == blackKingEscapes) && ((threats.template targets<ColoredPiece::WHITE_ROOK>() & kRanks[0]) > 0));
+
+      if (US == Color::WHITE) {
+        features[EF::BACK_RANK_MATE_THREAT_AGAINST_US] = backRankMateThreatAgainstWhite;
+        features[EF::BACK_RANK_MATE_THREAT_AGAINST_THEM] = backRankMateThreatAgainstBlack;
+      } else {
+        features[EF::BACK_RANK_MATE_THREAT_AGAINST_US] = backRankMateThreatAgainstBlack;
+        features[EF::BACK_RANK_MATE_THREAT_AGAINST_THEM] = backRankMateThreatAgainstWhite;
+      }
+
+      const Bitboard whitePieces = (US == Color::WHITE ? ourPieces : theirPieces);
+      const Bitboard blackPieces = (US == Color::BLACK ? ourPieces : theirPieces);
+      const int ourKingEscapes = std::popcount(US == Color::WHITE ? (whiteKingEscapes & ~whitePieces) : (blackKingEscapes & ~blackPieces));
+      const int theirKingEscapes = std::popcount(US == Color::BLACK ? (whiteKingEscapes & ~whitePieces) : (blackKingEscapes & ~blackPieces));
+
+      features[EF::OUR_KING_HAS_0_ESCAPE_SQUARES] = (ourKingEscapes == 0);
+      features[EF::THEIR_KING_HAS_0_ESCAPE_SQUARES] = (theirKingEscapes == 0);
+      features[EF::OUR_KING_HAS_1_ESCAPE_SQUARES] = (ourKingEscapes == 1);
+      features[EF::THEIR_KING_HAS_1_ESCAPE_SQUARES] = (theirKingEscapes == 1);
+      features[EF::OUR_KING_HAS_2_ESCAPE_SQUARES] = (ourKingEscapes == 2);
+      features[EF::THEIR_KING_HAS_2_ESCAPE_SQUARES] = (theirKingEscapes == 2);
     }
 
     const int16_t ourPiecesRemaining = std::popcount(pos.colorBitboards_[US] & ~ourPawns) + std::popcount(ourQueens) * 2 - 1;
