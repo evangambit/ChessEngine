@@ -19,13 +19,17 @@ import multiprocessing as mp
 from tqdm import tqdm
 
 def f(player, fen, moves):
-	numNodes = "300"
+	numTime = 200
 	if player[1] == 'None':
-		command = [player[0], "mode", "analyze", "nodes", numNodes, "fen", *fen.split(' '), "moves", *moves]
+		command = ["/usr/local/bin/gtimeout", str(numTime / 1000), player[0], "mode", "analyze", "time", str(numTime), "fen", *fen.split(' '), "moves", *moves]
 	else:
-		command = [player[0], "loadweights", player[1], "mode", "analyze", "nodes", numNodes, "fen", *fen.split(' '), "moves", *moves]
+		command = ["/usr/local/bin/gtimeout", str(numTime / 1000), player[0], "loadweights", player[1], "mode", "analyze", "time", str(numTime), "fen", *fen.split(' '), "moves", *moves]
 	# command = [player, "mode", "analyze", "time", "5", "fen", *fen.split(' '), "moves", *moves]
-	stdout = subprocess.check_output(command).decode()
+	try:
+		stdout = subprocess.check_output(command).decode()
+	except Exception as e:
+		stdout = e.stdout.decode()
+	# stdout = subprocess.check_output(command).decode()
 	matches = re.findall(r"\d+ : [^ ]+", stdout)
 	try:
 		return matches[-1].split(' ')[2], command
@@ -92,16 +96,16 @@ def create_fen_batch(n):
 if __name__ == '__main__':
 	mp.set_start_method('spawn')
 	t0 = time.time()
-	numWorkers = 4
+	numWorkers = 8
 	batches = [[]]
-	for i in range(0, 100, numWorkers):
+	for i in range(0, 64, numWorkers):
 		batches.append(create_fen_batch(numWorkers))
 
 	R = []
 	with mp.Pool(numWorkers) as pool:
 		for batch in tqdm(batches):
 			try:
-				r = pool.map_async(thread_main, batch).get(timeout=300)
+				r = pool.map_async(thread_main, batch).get(timeout=120)
 				R += r
 			except mp.context.TimeoutError:
 				print('timeout')
