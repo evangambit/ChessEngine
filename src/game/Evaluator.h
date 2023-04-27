@@ -318,29 +318,6 @@ std::string EFSTR[] = {
 
 // captures = difference in values divided by 2
 
-std::string lpad(int32_t x) {
-  std::string r = std::to_string(x);
-  while (r.size() < 6) {
-    r = " " + r;
-  }
-  return r;
-}
-
-std::string process_with_file_line(const std::string& line) {
-  std::string r = "";
-  for (size_t i = 0; i < line.size(); ++i) {
-    const bool hasNextChar = (i + 1 < line.size());
-    if (line[i] == ' ' && hasNextChar && line[i] == ' ') {
-      continue;
-    }
-    if (line[i] == '/' && hasNextChar && line[i + 1] == '/') {
-      break;
-    }
-    r += line[i];
-  }
-  return r;
-}
-
 struct Evaluator {
   Evaluator() {
     earlyB = 0;

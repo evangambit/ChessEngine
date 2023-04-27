@@ -19,41 +19,65 @@ struct PieceMaps {
   int32_t late_piece_map(ColoredPiece cp, Square sq) const;
 
   void save_weights_to_file(std::ofstream& myfile) {
-    myfile << earlyPieceMap[0];
-    for (size_t i = 1; i < 13 * 64; ++i) {
-      myfile << " " << earlyPieceMap[i];
+    for (size_t i = 0; i < ColoredPiece::NUM_COLORED_PIECES; ++i) {
+      myfile << "// " << colored_piece_to_string(ColoredPiece(i)) << std::endl;
+      for (size_t j = 0; j < 64; ++j) {
+        myfile << lpad(earlyPieceMap[i * 64 + j]);
+        if (j % 8 == 7) {
+          myfile << std::endl;
+        }
+      }
     }
-    myfile << std::endl;
 
-    myfile << latePieceMap[0];
-    for (size_t i = 1; i < 13 * 64; ++i) {
-      myfile << " " << latePieceMap[i];
+    for (size_t i = 0; i < ColoredPiece::NUM_COLORED_PIECES; ++i) {
+      myfile << "// " << colored_piece_to_string(ColoredPiece(i)) << std::endl;
+      for (size_t j = 0; j < 64; ++j) {
+        myfile << lpad(latePieceMap[i * 64 + j]);
+        if (j % 8 == 7) {
+          myfile << std::endl;
+        }
+      }
     }
-    myfile << std::endl;
-
-    myfile.close();
   }
 
   void load_weights_from_file(std::ifstream &myfile) {
     std::string line;
     std::vector<std::string> params;
 
-    getline(myfile, line);
-    params = split(line, ' ');
-    if (params.size() != 13 * 64) {
-      throw std::runtime_error("load_weights_from_file error 1");
-    }
-    for (size_t i = 0; i < 13 * 64; ++i) {
-      earlyPieceMap[i] = stoi(params[i]);
+    for (size_t i = 0; i < ColoredPiece::NUM_COLORED_PIECES; ++i) {
+      getline(myfile, line);
+      if (line.substr(0, 3) != "// ") {
+        throw std::runtime_error("Unexpected weight format; expected \"// \" but got \"" + line.substr(0, 3) + "\"");
+      }
+      for (size_t y = 0; y < 8; ++y) {
+        getline(myfile, line);
+        line = process_with_file_line(line);
+        std::vector<std::string> parts = split(line, ' ');
+        if (parts.size() != 8) {
+          throw std::runtime_error("Expected 8 weights in piece-map row but got " + std::to_string(parts.size()));
+        }
+        for (size_t x = 0; x < 8; ++x) {
+          earlyPieceMap[i * 64 + y * 8 + x] = stoi(parts[x]);
+        }
+      }
     }
 
-    getline(myfile, line);
-    params = split(line, ' ');
-    if (params.size() != 13 * 64) {
-      throw std::runtime_error("load_weights_from_file error 2");
-    }
-    for (size_t i = 0; i < 13 * 64; ++i) {
-      latePieceMap[i] = stoi(params[i]);
+    for (size_t i = 0; i < ColoredPiece::NUM_COLORED_PIECES; ++i) {
+      getline(myfile, line);
+      if (line.substr(0, 3) != "// ") {
+        throw std::runtime_error("Unexpected weight format; expected \"// \" but got \"" + line.substr(0, 3) + "\"");
+      }
+      for (size_t y = 0; y < 8; ++y) {
+        getline(myfile, line);
+        line = process_with_file_line(line);
+        std::vector<std::string> parts = split(line, ' ');
+        if (parts.size() != 8) {
+          throw std::runtime_error("Expected 8 weights in piece-map row but got " + std::to_string(parts.size()));
+        }
+        for (size_t x = 0; x < 8; ++x) {
+          latePieceMap[i * 64 + y * 8 + x] = stoi(parts[x]);
+        }
+      }
     }
 
     myfile.close();
