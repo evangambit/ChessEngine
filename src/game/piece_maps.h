@@ -41,7 +41,7 @@ struct PieceMaps {
     getline(myfile, line);
     params = split(line, ' ');
     if (params.size() != 13 * 64) {
-      throw std::runtime_error("");
+      throw std::runtime_error("load_weights_from_file error 1");
     }
     for (size_t i = 0; i < 13 * 64; ++i) {
       earlyPieceMap[i] = stoi(params[i]);
@@ -50,7 +50,7 @@ struct PieceMaps {
     getline(myfile, line);
     params = split(line, ' ');
     if (params.size() != 13 * 64) {
-      throw std::runtime_error("");
+      throw std::runtime_error("load_weights_from_file error 2");
     }
     for (size_t i = 0; i < 13 * 64; ++i) {
       latePieceMap[i] = stoi(params[i]);

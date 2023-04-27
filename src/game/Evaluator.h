@@ -373,7 +373,7 @@ lonelyKingB = 0;
     getline(myfile, line);
     params = split(line, ' ');
     if (params.size() != EF::NUM_EVAL_FEATURES + 1) {
-      throw std::runtime_error("Invalid weights file");
+      throw std::runtime_error("Invalid weights file; expected " + std::to_string(EF::NUM_EVAL_FEATURES + 1) + " parameters but got " + std::to_string(params.size()));
     }
     earlyB = stoi(params[0]);
     for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
@@ -383,7 +383,7 @@ lonelyKingB = 0;
     getline(myfile, line);
     params = split(line, ' ');
     if (params.size() != EF::NUM_EVAL_FEATURES + 1) {
-      throw std::runtime_error("Invalid weights file");
+      throw std::runtime_error("Invalid weights file; expected " + std::to_string(EF::NUM_EVAL_FEATURES + 1) + " parameters but got " + std::to_string(params.size()));
     }
     lateB = stoi(params[0]);
     for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
@@ -393,7 +393,7 @@ lonelyKingB = 0;
     getline(myfile, line);
     params = split(line, ' ');
     if (params.size() != EF::NUM_EVAL_FEATURES + 1) {
-      throw std::runtime_error("Invalid weights file");
+      throw std::runtime_error("Invalid weights file; expected " + std::to_string(EF::NUM_EVAL_FEATURES + 1) + " parameters but got " + std::to_string(params.size()));
     }
     clippedB = stoi(params[0]);
     for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
@@ -403,7 +403,7 @@ lonelyKingB = 0;
     getline(myfile, line);
     params = split(line, ' ');
     if (params.size() != EF::NUM_EVAL_FEATURES + 1) {
-      throw std::runtime_error("Invalid weights file");
+      throw std::runtime_error("Invalid weights file; expected " + std::to_string(EF::NUM_EVAL_FEATURES + 1) + " parameters but got " + std::to_string(params.size()));
     }
     lonelyKingB = stoi(params[0]);
     for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {

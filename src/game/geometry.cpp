@@ -183,13 +183,13 @@ Square string_to_square(const std::string& string) {
     return Square::NO_SQUARE;
   }
   if (string.size() != 2) {
-    throw std::runtime_error("");
+    throw std::runtime_error("string_to_square error 1");
   }
   if (string[0] < 'a' || string[0] > 'h') {
-    throw std::runtime_error("");
+    throw std::runtime_error("string_to_square error 2");
   }
   if (string[1] < '1' || string[1] > '8') {
-    throw std::runtime_error("");
+    throw std::runtime_error("string_to_square error 3");
   }
   Square sq = Square((7 - (string[1] - '1')) * 8 + (string[0] - 'a'));
   assert(sq >= 0 && sq < kNumSquares);
