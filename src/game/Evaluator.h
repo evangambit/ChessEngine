@@ -318,6 +318,29 @@ std::string EFSTR[] = {
 
 // captures = difference in values divided by 2
 
+std::string lpad(int32_t x) {
+  std::string r = std::to_string(x);
+  while (r.size() < 6) {
+    r = " " + r;
+  }
+  return r;
+}
+
+std::string process_with_file_line(const std::string& line) {
+  std::string r = "";
+  for (size_t i = 0; i < line.size(); ++i) {
+    const bool hasNextChar = (i + 1 < line.size());
+    if (line[i] == ' ' && hasNextChar && line[i] == ' ') {
+      continue;
+    }
+    if (line[i] == '/' && hasNextChar && line[i + 1] == '/') {
+      break;
+    }
+    r += line[i];
+  }
+  return r;
+}
+
 struct Evaluator {
   Evaluator() {
     earlyB = 0;
@@ -341,73 +364,58 @@ lonelyKingB = 0;
   Evaluation bonus;
 
   void save_weights_to_file(std::ofstream& myfile) {
-    myfile << earlyB;
+    myfile << lpad(earlyB) << " // early bias" << std::endl;
     for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
-      myfile << " " << earlyW[i];
+      myfile << lpad(earlyW[i]) << " // early " << EFSTR[i] << std::endl;
     }
-    myfile << std::endl;
 
-    myfile << lateB;
+    myfile << lpad(lateB) << " // late bias" << std::endl;
     for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
-      myfile << " " << lateW[i];
+      myfile << lpad(lateW[i]) << " // late " << EFSTR[i] << std::endl;
     }
-    myfile << std::endl;
 
-    myfile << clippedB;
+    myfile << lpad(clippedB) << " // clipped bias" << std::endl;
     for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
-      myfile << " " << clippedW[i];
+      myfile << lpad(clippedW[i]) << " // clipped " << EFSTR[i] << std::endl;
     }
-    myfile << std::endl;
 
-    myfile << lonelyKingB;
+    myfile << lpad(lonelyKingB) << " // lonely king bias" << std::endl;
     for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
-      myfile << " " << lonelyKingW[i];
+      myfile << lpad(lonelyKingW[i]) << " // lonely king " << EFSTR[i] << std::endl;
     }
-    myfile << std::endl;
   }
 
   void load_weights_from_file(std::ifstream &myfile) {
     std::string line;
     std::vector<std::string> params;
 
+
     getline(myfile, line);
-    params = split(line, ' ');
-    if (params.size() != EF::NUM_EVAL_FEATURES + 1) {
-      throw std::runtime_error("Invalid weights file; expected " + std::to_string(EF::NUM_EVAL_FEATURES + 1) + " parameters but got " + std::to_string(params.size()));
-    }
-    earlyB = stoi(params[0]);
+    earlyB = stoi(process_with_file_line(line));
     for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
-      earlyW[i] = stoi(params[i + 1]);
+      getline(myfile, line);
+      earlyW[i] = stoi(process_with_file_line(line));
     }
 
     getline(myfile, line);
-    params = split(line, ' ');
-    if (params.size() != EF::NUM_EVAL_FEATURES + 1) {
-      throw std::runtime_error("Invalid weights file; expected " + std::to_string(EF::NUM_EVAL_FEATURES + 1) + " parameters but got " + std::to_string(params.size()));
-    }
-    lateB = stoi(params[0]);
+    lateB = stoi(process_with_file_line(line));
     for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
-      lateW[i] = stoi(params[i + 1]);
+      getline(myfile, line);
+      lateW[i] = stoi(process_with_file_line(line));
     }
 
     getline(myfile, line);
-    params = split(line, ' ');
-    if (params.size() != EF::NUM_EVAL_FEATURES + 1) {
-      throw std::runtime_error("Invalid weights file; expected " + std::to_string(EF::NUM_EVAL_FEATURES + 1) + " parameters but got " + std::to_string(params.size()));
-    }
-    clippedB = stoi(params[0]);
+    clippedB = stoi(process_with_file_line(line));
     for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
-      clippedW[i] = stoi(params[i + 1]);
+      getline(myfile, line);
+      clippedW[i] = stoi(process_with_file_line(line));
     }
 
     getline(myfile, line);
-    params = split(line, ' ');
-    if (params.size() != EF::NUM_EVAL_FEATURES + 1) {
-      throw std::runtime_error("Invalid weights file; expected " + std::to_string(EF::NUM_EVAL_FEATURES + 1) + " parameters but got " + std::to_string(params.size()));
-    }
-    lonelyKingB = stoi(params[0]);
+    lonelyKingB = stoi(process_with_file_line(line));
     for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
-      lonelyKingW[i] = stoi(params[i + 1]);
+      getline(myfile, line);
+      lonelyKingW[i] = stoi(process_with_file_line(line));
     }
   }
 
