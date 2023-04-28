@@ -358,6 +358,17 @@ struct Thinker {
       return SearchResult<TURN>(kMissingKing, kNullMove);
     }
 
+    if (pos->is_draw() || this->evaluator.is_material_draw(*pos)) {
+      return SearchResult<TURN>(Evaluation(0), kNullMove);
+    }
+
+    CacheResult *it = this->cache.find(pos->hash_);
+    if (it != nullptr && it->depthRemaining >= depthRemaining) {
+      if (it->nodeType == NodeTypePV || it->lowerbound() >= beta || it->upperbound() <= alpha) {
+        return SearchResult<TURN>(it->eval, it->bestMove);
+      }
+    }
+
     if (depthRemaining <= 0) {
       ++this->leafCounter;
       // Quiescence Search (0.4334 ± 0.0053)
@@ -379,17 +390,6 @@ struct Thinker {
       };
       this->cache.insert(cr);
       return r;
-    }
-
-    if (pos->is_draw() || this->evaluator.is_material_draw(*pos)) {
-      SearchResult<TURN>(Evaluation(0), kNullMove);
-    }
-
-    CacheResult *it = this->cache.find(pos->hash_);
-    if (it != nullptr && it->depthRemaining >= depthRemaining) {
-      if (it->nodeType == NodeTypePV || it->lowerbound() >= beta || it->upperbound() <= alpha) {
-        return SearchResult<TURN>(it->eval, it->bestMove);
-      }
     }
 
     // Futility pruning

@@ -272,7 +272,7 @@ bool Position::is_draw() const {
     return true;
   }
   const size_t n = this->hashes_.size();
-  for (size_t i = n - 2; i < n; i -= 2) {
+  for (size_t i = n - 1; i < n; i -= 1) {
     // TODO: stop looking when we hit a pawn move or capture.
     // TODO: handle 3 move draw for moves before the root.
     if (this->hashes_[i] == this->hash_) {

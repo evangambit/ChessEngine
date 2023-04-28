@@ -175,6 +175,8 @@ enum EF {
   OUR_KING_HAS_2_ESCAPE_SQUARES,
   THEIR_KING_HAS_2_ESCAPE_SQUARES,
 
+  OPPOSITE_SIDE_KINGS_PAWN_STORM,
+
   NUM_EVAL_FEATURES,
 };
 
@@ -314,6 +316,7 @@ std::string EFSTR[] = {
   "THEIR_KING_HAS_1_ESCAPE_SQUARES",
   "OUR_KING_HAS_2_ESCAPE_SQUARES",
   "THEIR_KING_HAS_2_ESCAPE_SQUARES",
+  "OPPOSITE_SIDE_KINGS_PAWN_STORM",
 };
 
 // captures = difference in values divided by 2
@@ -442,6 +445,9 @@ lonelyKingB = 0;
     const Bitboard theirRooks = pos.pieceBitboards_[coloredPiece<THEM, Piece::ROOK>()];
     const Bitboard theirQueens = pos.pieceBitboards_[coloredPiece<THEM, Piece::QUEEN>()];
     const Bitboard theirKings = pos.pieceBitboards_[coloredPiece<THEM, Piece::KING>()];
+
+    const Square whiteKingSq = (US == Color::WHITE ? ourKingSq : theirKingSq);
+    const Square blackKingSq = (US == Color::BLACK ? ourKingSq : theirKingSq);
 
     const Bitboard ourMen = pos.colorBitboards_[US];
     const Bitboard theirMen = pos.colorBitboards_[THEM];
@@ -830,8 +836,6 @@ lonelyKingB = 0;
       const Bitboard blackPawns = (US == Color::BLACK ? ourPawns : theirPawns);
       const Bitboard whiteKingCannotMoveTo = threats.template badFor<ColoredPiece::WHITE_KING>();
       const Bitboard blackKingCannotMoveTo = threats.template badFor<ColoredPiece::BLACK_KING>();
-      const Square whiteKingSq = (US == Color::WHITE ? ourKingSq : theirKingSq);
-      const Square blackKingSq = (US == Color::BLACK ? ourKingSq : theirKingSq);
       const Bitboard whiteKingEscapes = compute_king_targets<Color::WHITE>(pos, whiteKingSq) & ~(whiteKingCannotMoveTo | whitePawns);
       const Bitboard blackKingEscapes = compute_king_targets<Color::BLACK>(pos, blackKingSq) & ~(blackKingCannotMoveTo | blackPawns);
 
@@ -858,6 +862,26 @@ lonelyKingB = 0;
       features[EF::OUR_KING_HAS_2_ESCAPE_SQUARES] = (ourKingEscapes == 2);
       features[EF::THEIR_KING_HAS_2_ESCAPE_SQUARES] = (theirKingEscapes == 2);
     }
+
+    const int kingsOnOppositesSideOfBoard = std::min(std::abs(whiteKingSq % 8 - blackKingSq % 8), 6);
+    Bitboard aheadOfOurKing = fatten(ourKings);
+    Bitboard aheadOfTheirKing = fatten(theirKings);
+    if (US == Color::WHITE) {
+      aheadOfOurKing >>= 8;
+      aheadOfOurKing |= aheadOfOurKing >> 8;
+      aheadOfOurKing |= aheadOfOurKing >> 16;
+      aheadOfTheirKing <<= 8;
+      aheadOfTheirKing |= aheadOfTheirKing << 8;
+      aheadOfTheirKing |= aheadOfTheirKing << 16;
+    } else {
+      aheadOfOurKing <<= 8;
+      aheadOfOurKing |= aheadOfOurKing << 8;
+      aheadOfOurKing |= aheadOfOurKing << 16;
+      aheadOfTheirKing >>= 8;
+      aheadOfTheirKing |= aheadOfTheirKing >> 8;
+      aheadOfTheirKing |= aheadOfTheirKing >> 16;
+    }
+    features[EF::OPPOSITE_SIDE_KINGS_PAWN_STORM] = kingsOnOppositesSideOfBoard * (std::popcount(aheadOfTheirKing & ourPawns) - std::popcount(aheadOfOurKing & theirPawns));
 
     const int16_t ourPiecesRemaining = std::popcount(pos.colorBitboards_[US] & ~ourPawns) + std::popcount(ourQueens) * 2 - 1;
     const int16_t theirPiecesRemaining = std::popcount(pos.colorBitboards_[THEM] & ~theirPawns) + std::popcount(theirQueens) * 2 - 1;
