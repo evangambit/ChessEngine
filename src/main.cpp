@@ -363,15 +363,15 @@ void mymain(std::vector<Position>& positions, const std::string& mode, double ti
           } else {
             make_move<Color::BLACK>(&pos, move->move);
           }
-          CacheResult *it = gThinker.cache.find(pos.hash_);
-          if (it == nullptr) {
+          CacheResult cr = gThinker.cache.find(pos.hash_);
+          if (isNullCacheResult(cr)) {
             undo<Color::WHITE>(&pos);
             continue;
           }
           if (pos.turn_ == Color::WHITE) {
-            variations.push_back(SearchResult<Color::WHITE>(it->eval, move->move));
+            variations.push_back(SearchResult<Color::WHITE>(cr.eval, move->move));
           } else {
-            variations.push_back(SearchResult<Color::WHITE>(-it->eval, move->move));
+            variations.push_back(SearchResult<Color::WHITE>(-cr.eval, move->move));
           }
           if (pos.turn_ == Color::BLACK) {
             undo<Color::WHITE>(&pos);

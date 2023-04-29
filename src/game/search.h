@@ -5,6 +5,7 @@
 #include <cstdint>
 
 #include <algorithm>
+#include <atomic>
 
 #include "geometry.h"
 #include "utils.h"
@@ -14,6 +15,7 @@
 #include "Evaluator.h"
 
 #define COMPLEX_SEARCH 0
+#define PARALLEL 0
 
 namespace ChessEngine {
 
@@ -53,9 +55,30 @@ struct CacheResult {  // 16 bytes
   }
 };
 
+struct SpinLock {
+  std::atomic<bool> lock_ = {false};
+  void lock() { while(lock_.exchange(true)); }
+  void unlock() { lock_.store(false); }
+};
+
+// Transposition table is guaranteed to be a multiple of this.
+constexpr int64_t kTranspositionTableFactor = 256;
+const CacheResult kMissingCacheResult = CacheResult{
+  0,
+  -99,  // depth is -99 so this is always a useless result
+  0, kNullMove, NodeTypePV, 0 // these values should never matter
+};
+inline bool isNullCacheResult(const CacheResult& cr) {
+  return cr.depthRemaining == -1;
+}
+
 struct TranspositionTable {
   TranspositionTable(size_t kilobytes) {
+    if (kilobytes < 1) {
+      kilobytes = 1;
+    }
     size = kilobytes * 1024 / sizeof(CacheResult);
+    size = size / kTranspositionTableFactor * kTranspositionTableFactor;
     data = new CacheResult[size];
     this->clear();
   }
@@ -64,21 +87,33 @@ struct TranspositionTable {
   ~TranspositionTable() {
     delete[] data;
   }
+
+  #if PARALLEL
+  SpinLock spinLocks[kTranspositionTableFactor];
+  #endif
+
   void insert(const CacheResult& cr) {
-    CacheResult *it = &data[cr.positionHash % size];
+    const size_t idx = cr.positionHash % size;
+    CacheResult *it = &data[idx];
+    #if PARALLEL
+    spinLocks[idx % kTranspositionTableFactor].lock();
+    #endif
     if (cr.depthRemaining > it->depthRemaining || (cr.depthRemaining == it->depthRemaining && cr.priority > it->priority)) {
       *it = cr;
     }
+    #if PARALLEL
+    spinLocks[idx % kTranspositionTableFactor].unlock();
+    #endif
   }
   void clear() {
     std::fill_n((uint8_t *)data, sizeof(CacheResult) * size, 0);
   }
-  CacheResult* find(uint64_t hash) {
+  CacheResult find(uint64_t hash) {
     CacheResult *cr = &data[hash % size];
     if (cr->priority == 0 || cr->positionHash != hash) {
-      return nullptr;
+      return kMissingCacheResult;
     }
-    return cr;
+    return *cr;
   }
  private:
   CacheResult *data;
@@ -206,13 +241,13 @@ struct Thinker {
 
   void print_variation(Position* pos, Move move) {
     this->make_move(pos, move);
-    CacheResult *it = this->cache.find(pos->hash_);
+    CacheResult cr = this->cache.find(pos->hash_);
 
-    if (it == nullptr) {
+    if (isNullCacheResult(cr)) {
       return;
     }
 
-    Evaluation eval = it->eval;
+    Evaluation eval = cr.eval;
     if (pos->turn_ == Color::BLACK) {
       eval *= -1;
     }
@@ -224,11 +259,11 @@ struct Thinker {
     }
 
     size_t counter = 1;
-    while (it != nullptr && it->bestMove != kNullMove && counter < 10) {
-      std::cout << " " << it->bestMove;
-      this->make_move(pos, it->bestMove);
+    while (isNullCacheResult(kMissingCacheResult) && cr.bestMove != kNullMove && counter < 10) {
+      std::cout << " " << cr.bestMove;
+      this->make_move(pos, cr.bestMove);
       ++counter;
-      it = cache.find(pos->hash_);
+      cr = cache.find(pos->hash_);
     }
     std::cout << std::endl;
     while (counter > 0) {
@@ -362,10 +397,10 @@ struct Thinker {
       return SearchResult<TURN>(Evaluation(0), kNullMove);
     }
 
-    CacheResult *it = this->cache.find(pos->hash_);
-    if (it != nullptr && it->depthRemaining >= depthRemaining) {
-      if (it->nodeType == NodeTypePV || it->lowerbound() >= beta || it->upperbound() <= alpha) {
-        return SearchResult<TURN>(it->eval, it->bestMove);
+    CacheResult cr = this->cache.find(pos->hash_);
+    if (cr.depthRemaining >= depthRemaining) {
+      if (cr.nodeType == NodeTypePV || cr.lowerbound() >= beta || cr.upperbound() <= alpha) {
+        return SearchResult<TURN>(cr.eval, cr.bestMove);
       }
     }
 
@@ -428,12 +463,12 @@ struct Thinker {
     const int totalDepth = plyFromRoot + depthRemaining;
     const int kFutilityPruningDepthLimit = totalDepth / 2;
     const Evaluation futilityThreshold = 30;
-    if (it != nullptr && depthRemaining - it->depthRemaining <= kFutilityPruningDepthLimit) {
-      if (it->lowerbound() >= beta + futilityThreshold * (depthRemaining - it->depthRemaining) || it->upperbound() <= alpha - futilityThreshold * (depthRemaining - it->depthRemaining)) {
-        return SearchResult<TURN>(it->eval, it->bestMove);
+    if (depthRemaining <= cr.depthRemaining + kFutilityPruningDepthLimit) {
+      if (cr.lowerbound() >= beta + futilityThreshold * (depthRemaining - cr.depthRemaining) || cr.upperbound() <= alpha - futilityThreshold * (depthRemaining - cr.depthRemaining)) {
+        return SearchResult<TURN>(cr.eval, cr.bestMove);
       }
     }
-    if (it == nullptr && depthRemaining <= kFutilityPruningDepthLimit) {
+    if (isNullCacheResult(cr) && depthRemaining <= kFutilityPruningDepthLimit) {
       SearchResult<TURN> r = qsearch<TURN>(pos, 0, alpha, beta);
       if (r.score >= beta + futilityThreshold * depthRemaining || r.score <= alpha - futilityThreshold * depthRemaining) {
         return r;
@@ -456,7 +491,7 @@ struct Thinker {
     // }
 
     // // Null-window search doesn't seem to help,
-    // if (SEARCH_TYPE == SearchTypeNormal && !isPV && (it != nullptr && it->upperbound() + 40 < alpha)) {
+    // if (SEARCH_TYPE == SearchTypeNormal && !isPV && (!isNullCacheResult(cr) && cr->upperbound() + 40 < alpha)) {
     //   // Null Window search.
     //   SearchResult<TURN> r = search<TURN, SearchTypeNullWindow>(pos, depthRemaining, alpha, alpha + 1, RecommendedMoves(), false);
     //   if (r.score <= alpha) {
@@ -464,7 +499,7 @@ struct Thinker {
     //   }
     // }
 
-    Move lastFoundBestMove = (it != nullptr ? it->bestMove : kNullMove);
+    Move lastFoundBestMove = (isNullCacheResult(cr) ? kNullMove : cr.bestMove);
 
     SearchResult<TURN> r(
       kMinEval + 1,
@@ -534,7 +569,7 @@ struct Thinker {
 
       // This simple, very limited null-window search has negligible effect (-0.003 ± 0.003).
       // SearchResult<TURN> a;
-      // if (SEARCH_TYPE != SearchTypeRoot && extMove != moves && foo && it->upperbound() + 50 < alpha) {
+      // if (SEARCH_TYPE != SearchTypeRoot && extMove != moves && foo && cr.upperbound() + 50 < alpha) {
       //   a = flip(search<opposingColor, SearchTypeNullWindow>(pos, depthRemaining - 1, -(alpha + 1), -alpha, recommendationsForChildren, isPV && (extMove == moves)));
       //   if (a.score > alpha) {
       //     a = flip(search<opposingColor, SearchTypeNormal>(pos, depthRemaining - 1, -beta, -alpha, recommendationsForChildren, isPV && (extMove == moves)));
