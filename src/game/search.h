@@ -15,7 +15,7 @@
 #include "Evaluator.h"
 
 #define COMPLEX_SEARCH 0
-#define PARALLEL 1
+#define PARALLEL 0
 
 namespace ChessEngine {
 
@@ -569,13 +569,13 @@ struct Thinker {
 
       // This simple, very limited null-window search has negligible effect (-0.003 ± 0.003).
       // SearchResult<TURN> a;
-      // if (SEARCH_TYPE != SearchTypeRoot && extMove != moves && foo && cr.upperbound() + 50 < alpha) {
-      //   a = flip(search<opposingColor, SearchTypeNullWindow>(pos, depthRemaining - 1, -(alpha + 1), -alpha, recommendationsForChildren, isPV && (extMove == moves)));
+      // if (SEARCH_TYPE != SearchTypeNullWindow && !isNullCacheResult(cr) && cr.upperbound() < alpha - 10) {
+      //   a = flip(search<opposingColor, SearchTypeNullWindow>(pos, depthRemaining - 1, plyFromRoot + 1, -(alpha + 1), -alpha, recommendationsForChildren, distFromPV + (extMove != moves)));
       //   if (a.score > alpha) {
-      //     a = flip(search<opposingColor, SearchTypeNormal>(pos, depthRemaining - 1, -beta, -alpha, recommendationsForChildren, isPV && (extMove == moves)));
+      //     a = flip(search<opposingColor, SearchTypeNormal>(pos, depthRemaining - 1, plyFromRoot + 1, -beta, -alpha, recommendationsForChildren, distFromPV + (extMove != moves)));
       //   }
       // } else {
-      //   a = flip(search<opposingColor, SearchTypeNormal>(pos, depthRemaining - 1, -beta, -alpha, recommendationsForChildren, isPV && (extMove == moves)));
+      //   a = flip(search<opposingColor, SearchTypeNormal>(pos, depthRemaining - 1, plyFromRoot + 1, -beta, -alpha, recommendationsForChildren, distFromPV + (extMove != moves)));
       // }
       SearchResult<TURN> a = flip(search<opposingColor, SearchTypeNormal>(pos, depthRemaining - 1, plyFromRoot + 1, -beta, -alpha, recommendationsForChildren, distFromPV + (extMove != moves)));
       a.score -= (a.score > -kLongestForcedMate);
