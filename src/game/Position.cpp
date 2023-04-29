@@ -84,9 +84,18 @@ uint64_t kZorbristCastling[16];
 uint64_t kZorbristEnpassant[8];
 uint64_t kZorbristTurn;
 
+#define DETERMINISTIC 1
+
 void initialize_zorbrist() {
   std::random_device rd;
-  std::mt19937_64 e2(rd());
+
+  std::mt19937_64 e2
+  #if DETERMINISTIC
+  (32394385);  // Chosen at random by fingers and keyboard.
+  #else
+  (rd());
+  #endif
+
   std::uniform_int_distribution<long long int> dist(uint64_t(0), uint64_t(-1));
   for (ColoredPiece cp = ColoredPiece::NO_COLORED_PIECE; cp < ColoredPiece::NUM_COLORED_PIECES; cp = ColoredPiece(cp + 1)) {
     for (size_t i = 0; i < kNumSquares; ++i) {

@@ -15,7 +15,7 @@
 #include "Evaluator.h"
 
 #define COMPLEX_SEARCH 0
-#define PARALLEL 0
+#define PARALLEL 1
 
 namespace ChessEngine {
 
