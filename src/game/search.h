@@ -356,6 +356,46 @@ struct Thinker {
     return r;
   }
 
+  #if PARALLEL
+  struct SearchManager {
+    uint8_t counters[32768];
+    SpinLock locks[32];
+    bool should_start_searching(uint64_t hash) {
+      size_t idx = hash % 32768;
+      SpinLock& lock = locks[hash % 32];
+      lock.lock();
+      bool r = counters[idx] == 0;
+      if (r) {
+        counters[idx] += 1;
+      }
+      lock.unlock();
+      return r;
+    }
+    void start_searching(uint64_t hash) {
+      size_t idx = hash % 32768;
+      SpinLock& lock = locks[hash % 32];
+      lock.lock();
+      counters[idx] += 1;
+      lock.unlock();
+    }
+    void finished_searching(uint64_t hash) {
+      size_t idx = hash % 32768;
+      SpinLock& lock = locks[hash % 32];
+      lock.lock();
+      counters[idx] -= 1;
+      lock.unlock();
+    }
+  };
+  #else
+  struct SearchManager {
+    bool should_start_searching(uint64_t hash) {
+      return true;
+    }
+    void start_searching(uint64_t hash) {}
+    void finished_searching(uint64_t hash) {}
+  };
+  #endif
+
   void reset_stuff() {
     this->leafCounter = 0;
     this->nodeCounter = 0;
@@ -371,7 +411,8 @@ struct Thinker {
     const Depth plyFromRoot,
     Evaluation alpha, const Evaluation beta,
     RecommendedMoves recommendedMoves,
-    uint16_t distFromPV) {
+    uint16_t distFromPV,
+    uint16_t threadID) {
 
     const Evaluation originalAlpha = alpha;
     const Evaluation originalBeta = beta;
@@ -479,27 +520,6 @@ struct Thinker {
 
     const bool inCheck = can_enemy_attack<TURN>(*pos, lsb(pos->pieceBitboards_[moverKing]));
 
-    // Null move pruning doesn't seem to help.
-    // const Bitboard ourPieces = pos->colorBitboards_[TURN] & ~pos->pieceBitboards_[coloredPiece<TURN, Piece::PAWN>()];
-    // if (depthRemaining == 3 && std::popcount(ourPieces) > 4 && !inCheck && !isPV && (it != nullptr && it->lowerbound() - 20 >= beta)) {
-    //   make_nullmove<TURN>(pos);
-    //   SearchResult<TURN> a = flip(search<opposingColor, SearchTypeNormal>(pos, depthRemaining - 3, -beta, -beta+1, RecommendedMoves(), false));
-    //   if (a.score >= beta && a.move != kNullMove) {
-    //     undo_nullmove<TURN>(pos);
-    //     return SearchResult<TURN>(beta + 1, kNullMove);
-    //   }
-    //   undo_nullmove<TURN>(pos);
-    // }
-
-    // // Null-window search doesn't seem to help,
-    // if (SEARCH_TYPE == SearchTypeNormal && !isPV && (!isNullCacheResult(cr) && cr->upperbound() + 40 < alpha)) {
-    //   // Null Window search.
-    //   SearchResult<TURN> r = search<TURN, SearchTypeNullWindow>(pos, depthRemaining, alpha, alpha + 1, RecommendedMoves(), false);
-    //   if (r.score <= alpha) {
-    //     return r;
-    //   }
-    // }
-
     Move lastFoundBestMove = (isNullCacheResult(cr) ? kNullMove : cr.bestMove);
 
     SearchResult<TURN> r(
@@ -508,9 +528,9 @@ struct Thinker {
     );
 
     ExtMove moves[kMaxNumMoves];
-    ExtMove *end = compute_moves<TURN, MoveGenType::ALL_MOVES>(*pos, moves);
+    ExtMove *movesEnd = compute_moves<TURN, MoveGenType::ALL_MOVES>(*pos, moves);
 
-    if (end - moves == 0) {
+    if (movesEnd - moves == 0) {
       if (inCheck) {
         return SearchResult<TURN>(kCheckmate, kNullMove);
       } else {
@@ -520,7 +540,7 @@ struct Thinker {
 
     // const Move lastMove = pos->history_.size() > 0 ? pos->history_.back().move : kNullMove;
     // TODO: use lastMove (above) to sort better.
-    for (ExtMove *move = moves; move < end; ++move) {
+    for (ExtMove *move = moves; move < movesEnd; ++move) {
       move->score = 0;
 
       // Bonus for capturing a piece.  (+0.136 ± 0.012)
@@ -544,72 +564,80 @@ struct Thinker {
       move->score += value_or_zero(history > 256, 20);
     }
 
-    std::sort(moves, end, [](ExtMove a, ExtMove b) {
+    std::sort(moves, movesEnd, [](ExtMove a, ExtMove b) {
       return a.score > b.score;
     });
 
     RecommendedMoves recommendationsForChildren;
 
+    ExtMove deferredMoves[kMaxNumMoves];
+    ExtMove *deferredMovesEnd = &deferredMoves[0];
+
     // Should be optimized away if SEARCH_TYPE != SearchTypeRoot.
     std::vector<SearchResult<TURN>> children;
     size_t numValidMoves = 0;
-    for (ExtMove *extMove = moves; extMove < end; ++extMove) {
+    for (int isDeferred = 0; isDeferred <= 1; ++isDeferred) {
+      ExtMove *start = (isDeferred ? deferredMoves : &moves[0]);
+      ExtMove *end = (isDeferred ? deferredMovesEnd : movesEnd);
+      for (ExtMove *extMove = start; extMove < end; ++extMove) {
 
-      make_move<TURN>(pos, extMove->move);
+        make_move<TURN>(pos, extMove->move);
 
-      // Don't move into check.
-      if (can_enemy_attack<TURN>(*pos, lsb(pos->pieceBitboards_[moverKing]))) {
+        // Don't move into check.
+        if (can_enemy_attack<TURN>(*pos, lsb(pos->pieceBitboards_[moverKing]))) {
+          undo<TURN>(pos);
+          continue;
+        }
+
+        if (isDeferred == 0) {
+          if (extMove == moves) {
+            _manager.start_searching(pos->hash_);
+          } else if (!_manager.should_start_searching(pos->hash_)) {
+            *(deferredMovesEnd++) = *extMove;
+            undo<TURN>(pos);
+            continue;
+          }
+        } else {
+          _manager.start_searching(pos->hash_);
+        }
+
+        ++numValidMoves;
+
+        SearchResult<TURN> a = flip(search<opposingColor, SearchTypeNormal>(pos, depthRemaining - 1, plyFromRoot + 1, -beta, -alpha, recommendationsForChildren, distFromPV + (extMove != moves), threadID));
+        a.score -= (a.score > -kLongestForcedMate);
+        a.score += (a.score < kLongestForcedMate);
+
+        _manager.finished_searching(pos->hash_);
         undo<TURN>(pos);
-        continue;
-      }
 
-      ++numValidMoves;
-
-      // TODO: why does "./main multiPV 2 moves g1f3 e7e6 d2d4 c7c5 b1c3 g8f6 e2e4 d7d5 depth 8"
-      // return terrible moves for its secondary variation?
-
-      // This simple, very limited null-window search has negligible effect (-0.003 ± 0.003).
-      // SearchResult<TURN> a;
-      // if (SEARCH_TYPE != SearchTypeNullWindow && !isNullCacheResult(cr) && cr.upperbound() < alpha - 10) {
-      //   a = flip(search<opposingColor, SearchTypeNullWindow>(pos, depthRemaining - 1, plyFromRoot + 1, -(alpha + 1), -alpha, recommendationsForChildren, distFromPV + (extMove != moves)));
-      //   if (a.score > alpha) {
-      //     a = flip(search<opposingColor, SearchTypeNormal>(pos, depthRemaining - 1, plyFromRoot + 1, -beta, -alpha, recommendationsForChildren, distFromPV + (extMove != moves)));
-      //   }
-      // } else {
-      //   a = flip(search<opposingColor, SearchTypeNormal>(pos, depthRemaining - 1, plyFromRoot + 1, -beta, -alpha, recommendationsForChildren, distFromPV + (extMove != moves)));
-      // }
-      SearchResult<TURN> a = flip(search<opposingColor, SearchTypeNormal>(pos, depthRemaining - 1, plyFromRoot + 1, -beta, -alpha, recommendationsForChildren, distFromPV + (extMove != moves)));
-      a.score -= (a.score > -kLongestForcedMate);
-      a.score += (a.score < kLongestForcedMate);
-
-      undo<TURN>(pos);
-
-      if (SEARCH_TYPE == SearchTypeRoot) {
-        children.push_back(a);
-        std::sort(children.begin(), children.end());
-        if (a.score > r.score) {
-          r.score = a.score;
-          r.move = extMove->move;
-          recommendationsForChildren.add(a.move);
-          if (children.size() >= multiPV) {
+        if (SEARCH_TYPE == SearchTypeRoot) {
+          children.push_back(a);
+          std::sort(children.begin(), children.end());
+          if (a.score > r.score) {
+            r.score = a.score;
+            r.move = extMove->move;
+            recommendationsForChildren.add(a.move);
+            if (children.size() >= multiPV) {
+              if (r.score > alpha) {
+                alpha = r.score;
+              }
+            }
+          }
+        } else {
+          if (a.score > r.score) {
+            r.score = a.score;
+            r.move = extMove->move;
+            recommendationsForChildren.add(a.move);
+            if (r.score >= beta) {
+              // NOTE: Unlike other engines, we include captures in our history heuristic, as this
+              // orders captures that are materially equal.
+              // TODO: make this thread safe.
+              this->historyHeuristicTable[TURN][r.move.from][r.move.to] += depthRemaining * depthRemaining;
+              break;
+            }
             if (r.score > alpha) {
               alpha = r.score;
             }
-          }
-        }
-      } else {
-        if (a.score > r.score) {
-          r.score = a.score;
-          r.move = extMove->move;
-          recommendationsForChildren.add(a.move);
-          if (r.score >= beta) {
-            // NOTE: Unlike other engines, we include captures in our history heuristic, as this
-            // orders captures that are materially equal.
-            this->historyHeuristicTable[TURN][r.move.from][r.move.to] += depthRemaining * depthRemaining;
-            break;
-          }
-          if (r.score > alpha) {
-            alpha = r.score;
           }
         }
       }
@@ -643,7 +671,7 @@ struct Thinker {
   }
 
   template<Color TURN>
-  static SearchResult<TURN> _search_with_aspiration_window(Thinker* thinker, Position* pos, Depth depth, SearchResult<TURN> lastResult) {
+  static SearchResult<TURN> _search_with_aspiration_window(Thinker* thinker, Position* pos, Depth depth, SearchResult<TURN> lastResult, uint16_t threadID) {
     Position copy(*pos);
     // It's important to call this at the beginning of a search, since if we're sharing Position (e.g. selfplay.cpp) we
     // need to recompute piece map scores using our own weights.
@@ -656,13 +684,15 @@ struct Thinker {
     //  50: 0.105 ± 0.019
     #if COMPLEX_SEARCH
     constexpr Evaluation kBuffer = 75;
-    SearchResult<TURN> r = thinker->search<TURN, SearchTypeRoot>(&copy, depth, 0, lastResult.score - kBuffer, lastResult.score + kBuffer, RecommendedMoves(), 0);
+    SearchResult<TURN> r = thinker->search<TURN, SearchTypeRoot>(&copy, depth, 0, lastResult.score - kBuffer, lastResult.score + kBuffer, RecommendedMoves(), 0, threadID);
     if (r.score > lastResult.score - kBuffer && r.score < lastResult.score + kBuffer) {
       return r;
     }
     #endif
-    return thinker->search<TURN, SearchTypeRoot>(&copy, depth, 0, kMinEval, kMaxEval, RecommendedMoves(), 0);
+    return thinker->search<TURN, SearchTypeRoot>(&copy, depth, 0, kMinEval, kMaxEval, RecommendedMoves(), 0, threadID);
   }
+
+  // TODO: making threads work with multiPV seems really nontrivial.
 
   // Gives scores from white's perspective
   SearchResult<Color::WHITE> search(Position* pos, Depth depth, SearchResult<Color::WHITE> lastResult) {
@@ -672,7 +702,8 @@ struct Thinker {
         this,
         pos,
         depth,
-        lastResult
+        lastResult,
+        0
       );
       t1.join();
     } else {
@@ -681,7 +712,8 @@ struct Thinker {
         this,
         pos,
         depth,
-        flip(lastResult)
+        flip(lastResult),
+        0
       );
       t1.join();
     }
@@ -696,6 +728,8 @@ struct Thinker {
       return flip(SearchResult<Color::BLACK>(cr.eval, cr.bestMove));
     }
   }
+
+  SearchManager _manager;
 
 };
 
