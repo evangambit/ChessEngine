@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <thread>
 
 #include "geometry.h"
 #include "utils.h"
@@ -259,7 +260,7 @@ struct Thinker {
     }
 
     size_t counter = 1;
-    while (isNullCacheResult(kMissingCacheResult) && cr.bestMove != kNullMove && counter < 10) {
+    while (!isNullCacheResult(cr) && cr.bestMove != kNullMove && counter < 10) {
       std::cout << " " << cr.bestMove;
       this->make_move(pos, cr.bestMove);
       ++counter;
@@ -642,36 +643,57 @@ struct Thinker {
   }
 
   template<Color TURN>
-  SearchResult<TURN> search_with_aspiration_window(Position* pos, Depth depth, SearchResult<TURN> lastResult) {
+  static SearchResult<TURN> _search_with_aspiration_window(Thinker* thinker, Position* pos, Depth depth, SearchResult<TURN> lastResult) {
+    Position copy(*pos);
     // It's important to call this at the beginning of a search, since if we're sharing Position (e.g. selfplay.cpp) we
     // need to recompute piece map scores using our own weights.
-    pos->set_piece_maps(this->pieceMaps);
+    copy.set_piece_maps(thinker->pieceMaps);
     // TODO: the aspiration window technique used here should probably be implemented for internal nodes too.
     // Even just using this at the root node gives my engine a +0.25 (n=100) score against itself.
     // Table of historical experiments (program with window vs program without)
     // 100: 0.099 ± 0.021
     //  75: 0.152 ± 0.021
     //  50: 0.105 ± 0.019
-    if (multiPV != 1) {
-      // Disable aspiration window if we are searching more than one principle variation.
-      return search<TURN, SearchTypeRoot>(pos, depth, 0, kMinEval, kMaxEval, RecommendedMoves(), 0);
-    }
     #if COMPLEX_SEARCH
     constexpr Evaluation kBuffer = 75;
-    SearchResult<TURN> r = search<TURN, SearchTypeRoot>(pos, depth, 0, lastResult.score - kBuffer, lastResult.score + kBuffer, RecommendedMoves(), 0);
+    SearchResult<TURN> r = thinker->search<TURN, SearchTypeRoot>(&copy, depth, 0, lastResult.score - kBuffer, lastResult.score + kBuffer, RecommendedMoves(), 0);
     if (r.score > lastResult.score - kBuffer && r.score < lastResult.score + kBuffer) {
       return r;
     }
     #endif
-    return search<TURN, SearchTypeRoot>(pos, depth, 0, kMinEval, kMaxEval, RecommendedMoves(), 0);
+    return thinker->search<TURN, SearchTypeRoot>(&copy, depth, 0, kMinEval, kMaxEval, RecommendedMoves(), 0);
   }
 
   // Gives scores from white's perspective
   SearchResult<Color::WHITE> search(Position* pos, Depth depth, SearchResult<Color::WHITE> lastResult) {
     if (pos->turn_ == Color::WHITE) {
-      return search_with_aspiration_window<Color::WHITE>(pos, depth, lastResult);
+      std::thread t1(
+        Thinker::_search_with_aspiration_window<Color::WHITE>,
+        this,
+        pos,
+        depth,
+        lastResult
+      );
+      t1.join();
     } else {
-      return flip(search_with_aspiration_window<Color::BLACK>(pos, depth, flip(lastResult)));
+      std::thread t1(
+        Thinker::_search_with_aspiration_window<Color::BLACK>,
+        this,
+        pos,
+        depth,
+        flip(lastResult)
+      );
+      t1.join();
+    }
+
+    CacheResult cr = this->cache.find(pos->hash_);
+    if (isNullCacheResult(cr)) {
+      throw std::runtime_error("Null result from search");
+    }
+    if (pos->turn_ == Color::WHITE) {
+      return SearchResult<Color::WHITE>(cr.eval, cr.bestMove);
+    } else {
+      return flip(SearchResult<Color::BLACK>(cr.eval, cr.bestMove));
     }
   }
 
