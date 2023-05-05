@@ -506,13 +506,15 @@ struct Thinker {
     const int kFutilityPruningDepthLimit = totalDepth / 2;
     const Evaluation futilityThreshold = 30;
     if (depthRemaining <= cr.depthRemaining + kFutilityPruningDepthLimit) {
-      if (cr.lowerbound() >= beta + futilityThreshold * (depthRemaining - cr.depthRemaining) || cr.upperbound() <= alpha - futilityThreshold * (depthRemaining - cr.depthRemaining)) {
+      const int delta = futilityThreshold * (depthRemaining - cr.depthRemaining);
+      if (cr.lowerbound() >= beta + delta || cr.upperbound() <= alpha - delta) {
         return SearchResult<TURN>(cr.eval, cr.bestMove);
       }
     }
     if (isNullCacheResult(cr) && depthRemaining <= kFutilityPruningDepthLimit) {
       SearchResult<TURN> r = qsearch<TURN>(pos, 0, alpha, beta);
-      if (r.score >= beta + futilityThreshold * depthRemaining || r.score <= alpha - futilityThreshold * depthRemaining) {
+      const int delta = futilityThreshold * depthRemaining;
+      if (r.score >= beta + delta || r.score <= alpha - delta) {
         return r;
       }
     }
