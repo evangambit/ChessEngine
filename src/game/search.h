@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <chrono>
 #include <thread>
 #include <memory>
 
@@ -810,6 +811,28 @@ struct StopThinkingNodeCountCondition : public StopThinkingCondition {
     return thinker.nodeCounter > this->numNodes;
   }
   size_t numNodes;
+};
+
+struct StopThinkingTimeCondition : public StopThinkingCondition {
+  StopThinkingTimeCondition(uint64_t milliseconds) : milliseconds(milliseconds) {
+    startTime = this->current_time();
+  }
+  uint64_t current_time() const {
+    return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+  }
+  bool should_stop_thinking(const Thinker& thinker) {
+    return this->current_time() - startTime > milliseconds;
+  }
+  uint64_t startTime;
+  uint64_t milliseconds;
+};
+
+struct OrStopCondition : public StopThinkingCondition {
+  OrStopCondition(StopThinkingCondition *a, StopThinkingCondition *b) : a(a), b(b) {}
+  bool should_stop_thinking(const Thinker& thinker) {
+    return a->should_stop_thinking(thinker) || b->should_stop_thinking(thinker);
+  }
+  std::unique_ptr<StopThinkingCondition> a, b;
 };
 
 

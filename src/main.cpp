@@ -15,13 +15,13 @@
 #include <ctime>
 #include <cstdlib>
 
+#include <algorithm>
+#include <deque>
+#include <fstream>
+#include <iostream>
+#include <random>
 #include <string>
 #include <vector>
-#include <iostream>
-#include <algorithm>
-#include <random>
-#include <fstream>
-#include <deque>
 
 #include <stdio.h>
 #include <execinfo.h>
@@ -487,7 +487,7 @@ int main(int argc, char *argv[]) {
 
   Depth depth = 50;
   std::string mode = "analyze";
-  double timeLimitMs = 60000.0;
+  uint64_t timeLimitMs = 60000.0;
   std::string fenFile;
   std::vector<std::string> fens;
   uint64_t limitfens = 999999999;
@@ -564,7 +564,10 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  gThinker.stopThinkingCondition = std::make_unique<StopThinkingNodeCountCondition>(nodeLimit);
+  gThinker.stopThinkingCondition = std::make_unique<OrStopCondition>(
+    new StopThinkingNodeCountCondition(nodeLimit),
+    new StopThinkingTimeCondition(timeLimitMs)
+  );
 
   if (mode != "evaluate" && mode != "analyze" && mode != "play" && mode != "printvec" && mode != "printvec-cpu" && mode != "print-weights") {
     throw std::runtime_error("Cannot recognize mode \"" + mode + "\"");
