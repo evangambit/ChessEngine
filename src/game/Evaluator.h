@@ -354,31 +354,71 @@ lonelyKingB = 0;
 
 
     getline(myfile, line);
-    earlyB = stoi(process_with_file_line(line));
+    try {
+      earlyB = stoi(process_with_file_line(line));
+    } catch (std::invalid_argument& err) {
+      std::cout << "error loading earlyB" << std::endl;
+      throw err;
+    }
     for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
       getline(myfile, line);
-      earlyW[i] = stoi(process_with_file_line(line));
+      try {
+        earlyW[i] = stoi(process_with_file_line(line));
+      } catch (std::invalid_argument& err) {
+        std::cout << "error loading earlyW[i]" << std::endl;
+        throw err;
+      }
     }
 
     getline(myfile, line);
-    lateB = stoi(process_with_file_line(line));
+    try {
+      lateB = stoi(process_with_file_line(line));
+    } catch (std::invalid_argument& err) {
+      std::cout << "error loading lateB" << std::endl;
+      throw err;
+    }
     for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
       getline(myfile, line);
-      lateW[i] = stoi(process_with_file_line(line));
+      try {
+        lateW[i] = stoi(process_with_file_line(line));
+      } catch (std::invalid_argument& err) {
+        std::cout << "error loading lateW[i]" << std::endl;
+        throw err;
+      }
     }
 
     getline(myfile, line);
-    clippedB = stoi(process_with_file_line(line));
+    try {
+      clippedB = stoi(process_with_file_line(line));
+    } catch (std::invalid_argument& err) {
+      std::cout << "error loading clippedB" << std::endl;
+      throw err;
+    }
     for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
       getline(myfile, line);
-      clippedW[i] = stoi(process_with_file_line(line));
+      try {
+        clippedW[i] = stoi(process_with_file_line(line));
+      } catch (std::invalid_argument& err) {
+        std::cout << "error loading clippedW[i]" << std::endl;
+        throw err;
+      }
     }
 
     getline(myfile, line);
-    lonelyKingB = stoi(process_with_file_line(line));
+    try {
+      lonelyKingB = stoi(process_with_file_line(line));
+    } catch (std::invalid_argument& err) {
+      std::cout << "error loading lonelyKingB" << std::endl;
+      throw err;
+    }
     for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
       getline(myfile, line);
-      lonelyKingW[i] = stoi(process_with_file_line(line));
+      try {
+        lonelyKingW[i] = stoi(process_with_file_line(line));
+      } catch (std::invalid_argument& err) {
+        std::cout << "error loading lonelyKingW[i]" << std::endl;
+        throw err;
+      }
     }
   }
 
