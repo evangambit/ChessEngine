@@ -564,6 +564,8 @@ int main(int argc, char *argv[]) {
     }
   }
 
+  gThinker.stopThinkingCondition = std::make_unique<StopThinkingNodeCountCondition>(nodeLimit);
+
   if (mode != "evaluate" && mode != "analyze" && mode != "play" && mode != "printvec" && mode != "printvec-cpu" && mode != "print-weights") {
     throw std::runtime_error("Cannot recognize mode \"" + mode + "\"");
   }

@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <atomic>
 #include <thread>
+#include <memory>
 
 #include "geometry.h"
 #include "utils.h"
@@ -168,12 +169,27 @@ struct RecommendedMoves {
   }
 };
 
+struct Thinker;
+struct StopThinkingCondition {
+  virtual bool should_stop_thinking(const Thinker&) = 0;
+  virtual ~StopThinkingCondition() = default;
+};
+
+struct NeverStopThinkingCondition : public StopThinkingCondition {
+  bool should_stop_thinking(const Thinker&) {
+    return false;
+  }
+};
+
 template<Color PERSPECTIVE>
 struct SearchResult {
   SearchResult() : score(0), move(kNullMove) {}
-  SearchResult(Evaluation score, Move move) : score(score), move(move) {}
+  SearchResult(Evaluation score, Move move) : score(score), move(move), analysisComplete(true) {}
+  SearchResult(Evaluation score, Move move, bool analysisComplete)
+   : score(score), move(move), analysisComplete(analysisComplete) {}
   Evaluation score;
   Move move;
+  bool analysisComplete;
 };
 
 template<Color PERSPECTIVE>
@@ -223,7 +239,7 @@ struct Thinker {
 
   PieceMaps pieceMaps;
 
-  Thinker() : cache(10000) {
+  Thinker() : cache(10000), stopThinkingCondition(new NeverStopThinkingCondition()) {
     reset_stuff();
     multiPV = 1;
   }
@@ -469,9 +485,20 @@ struct Thinker {
     }
 
     CacheResult cr = this->cache.find(pos->hash_);
-    if (cr.depthRemaining >= depthRemaining) {
+    if (!isNullCacheResult(cr) && cr.depthRemaining >= depthRemaining) {
       if (cr.nodeType == NodeTypePV || cr.lowerbound() >= beta || cr.upperbound() <= alpha) {
         return SearchResult<TURN>(cr.eval, cr.bestMove);
+      }
+    }
+
+    if (depthRemaining >= 4 && this->stopThinkingCondition->should_stop_thinking(*this)) {
+      // We add some trivial additional costs here to make sure we don't return completely crazy
+      // evaluations.
+      if (!isNullCacheResult(cr)) {
+        return SearchResult<TURN>(cr.eval, cr.bestMove, false);
+      } else {
+        SearchResult<TURN> r = qsearch<TURN>(pos, 0, alpha, beta);
+        return SearchResult<TURN>(r.score, r.move, false);
       }
     }
 
@@ -641,6 +668,11 @@ struct Thinker {
         _manager.finished_searching(pos->hash_);
         undo<TURN>(pos);
 
+        if (!a.analysisComplete) {
+          r.analysisComplete = false;
+          break;
+        }
+
         if (SEARCH_TYPE == SearchTypeRoot) {
           a.move = extMove->move;
           children.push_back(a);
@@ -768,7 +800,16 @@ struct Thinker {
   }
 
   SearchManager _manager;
+  std::unique_ptr<StopThinkingCondition> stopThinkingCondition;
 
+};
+
+struct StopThinkingNodeCountCondition : public StopThinkingCondition {
+  StopThinkingNodeCountCondition(size_t numNodes) : numNodes(numNodes) {}
+  bool should_stop_thinking(const Thinker& thinker) {
+    return thinker.nodeCounter > this->numNodes;
+  }
+  size_t numNodes;
 };
 
 
