@@ -348,16 +348,8 @@ void mymain(std::vector<Position>& positions, const std::string& mode, double ti
           end = compute_legal_moves<Color::BLACK>(&pos, moves);
         }
 
-        std::deque<SearchResult<Color::WHITE>> variations;
+        std::vector<SearchResult<Color::WHITE>> variations;
         for (ExtMove *move = moves; move < end; ++move) {
-          if (results.move == move->move) {
-            // Skip the best move and add it later so we're guaranteed to print it as PV 1.
-            // Otherwise (e.g.) if multiPV == 1, we may have two moves with the same score:
-            // the real primary variation, and a score that we've merely proven is not any
-            // better. Our variation-sorting code here doesn't understand that that's all we've
-            // proven, so it will consider them both equal.
-            continue;
-          }
           if (pos.turn_ == Color::WHITE) {
             make_move<Color::WHITE>(&pos, move->move);
           } else {
@@ -379,27 +371,25 @@ void mymain(std::vector<Position>& positions, const std::string& mode, double ti
             undo<Color::BLACK>(&pos);
           }
         }
-        // Now add the best move and rely on the stability of std::sort to guarantee it will
-        // be ranked first, even if other moves have the same score.
         if (pos.turn_ == Color::WHITE) {
-          variations.push_back(results);
+          std::sort(
+            variations.begin(), 
+            variations.end(),
+            [](SearchResult<Color::WHITE> a, SearchResult<Color::WHITE> b) -> bool {
+              return a.score > b.score;
+          });
         } else {
-          variations.push_front(results);
+          std::sort(
+            variations.begin(), 
+            variations.end(),
+            [](SearchResult<Color::WHITE> a, SearchResult<Color::WHITE> b) -> bool {
+              return a.score < b.score;
+          });
         }
-        std::sort(variations.begin(), variations.end());
-        if (pos.turn_ == Color::WHITE) {
-          for (size_t i = variations.size() - 1; i < variations.size(); --i) {
-            topVariations.push_back(variations[i]);
-            if (topVariations.size() >= gThinker.multiPV) {
-              break;
-            }
-          }
-        } else {
-          for (size_t i = 0; i < variations.size(); ++i) {
-            topVariations.push_back(variations[i]);
-            if (topVariations.size() >= gThinker.multiPV) {
-              break;
-            }
+        for (size_t i = 0; i < variations.size(); ++i) {
+          topVariations.push_back(variations[i]);
+          if (topVariations.size() >= gThinker.multiPV) {
+            break;
           }
         }
       }

@@ -152,14 +152,19 @@ struct SearchResult {
   Move move;
 };
 
-template<Color color>
-bool operator<(SearchResult<color> a, SearchResult<color> b) {
-  if (color == Color::WHITE) {
-    return a.score < b.score;
-  } else {
-    return a.score > b.score;
-  }
+template<Color PERSPECTIVE>
+std::ostream& operator<<(std::ostream& stream, SearchResult<PERSPECTIVE> sr) {
+  return stream << "(" << sr.move << " " << sr.score << ")" << std::endl;
 }
+
+// template<Color color>
+// bool operator<(SearchResult<color> a, SearchResult<color> b) {
+//   if (color == Color::WHITE) {
+//     return a.score < b.score;
+//   } else {
+//     return a.score > b.score;
+//   }
+// }
 
 std::ostream& operator<<(std::ostream& stream, SearchResult<Color::WHITE> sr) {
   stream << "(" << sr.score << ", " << sr.move << ")";
@@ -613,17 +618,24 @@ struct Thinker {
         undo<TURN>(pos);
 
         if (SEARCH_TYPE == SearchTypeRoot) {
+          a.move = extMove->move;
           children.push_back(a);
-          std::sort(children.begin(), children.end());
+          std::sort(
+            children.begin(),
+            children.end(),
+            [](SearchResult<TURN> a, SearchResult<TURN> b) -> bool {
+              return a.score > b.score;
+          });
+          if (children.size() > multiPV) {
+            children.pop_back();
+          }
           if (a.score > r.score) {
             r.score = a.score;
             r.move = extMove->move;
             recommendationsForChildren.add(a.move);
-            if (children.size() >= multiPV) {
-              if (r.score > alpha) {
-                alpha = r.score;
-              }
-            }
+          }
+          if (children.size() >= multiPV) {
+            alpha = std::max(alpha, children.back().score);
           }
         } else {
           if (a.score > r.score) {
