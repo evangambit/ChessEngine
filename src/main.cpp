@@ -348,7 +348,7 @@ void mymain(std::vector<Position>& positions, const std::string& mode, double ti
           end = compute_legal_moves<Color::BLACK>(&pos, moves);
         }
 
-        std::vector<SearchResult<Color::WHITE>> variations;
+        std::deque<SearchResult<Color::WHITE>> variations;
         for (ExtMove *move = moves; move < end; ++move) {
           if (pos.turn_ == Color::WHITE) {
             make_move<Color::WHITE>(&pos, move->move);
@@ -361,9 +361,17 @@ void mymain(std::vector<Position>& positions, const std::string& mode, double ti
             continue;
           }
           if (pos.turn_ == Color::WHITE) {
-            variations.push_back(SearchResult<Color::WHITE>(cr.eval, move->move));
+            if (move->move == results.move) {
+              variations.push_front(SearchResult<Color::WHITE>(cr.eval, move->move));
+            } else {
+              variations.push_back(SearchResult<Color::WHITE>(cr.eval, move->move));
+            }
           } else {
-            variations.push_back(SearchResult<Color::WHITE>(-cr.eval, move->move));
+            if (move->move == results.move) {
+              variations.push_front(SearchResult<Color::WHITE>(-cr.eval, move->move));
+            } else {
+              variations.push_back(SearchResult<Color::WHITE>(-cr.eval, move->move));
+            }
           }
           if (pos.turn_ == Color::BLACK) {
             undo<Color::WHITE>(&pos);
@@ -373,14 +381,14 @@ void mymain(std::vector<Position>& positions, const std::string& mode, double ti
         }
         if (pos.turn_ == Color::WHITE) {
           std::sort(
-            variations.begin(), 
+            variations.begin() + 1,
             variations.end(),
             [](SearchResult<Color::WHITE> a, SearchResult<Color::WHITE> b) -> bool {
               return a.score > b.score;
           });
         } else {
           std::sort(
-            variations.begin(), 
+            variations.begin() + 1,
             variations.end(),
             [](SearchResult<Color::WHITE> a, SearchResult<Color::WHITE> b) -> bool {
               return a.score < b.score;
