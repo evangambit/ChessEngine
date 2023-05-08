@@ -73,7 +73,7 @@ inline bool isNullCacheResult(const CacheResult& cr) {
   return cr.depthRemaining == -1;
 }
 
-constexpr size_t kTranspositionTableMaxSteps = 2;
+constexpr size_t kTranspositionTableMaxSteps = 3;
 struct TranspositionTable {
   TranspositionTable(size_t kilobytes) {
     if (kilobytes < 1) {

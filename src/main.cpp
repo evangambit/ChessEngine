@@ -361,6 +361,8 @@ void mymain(std::vector<Position>& positions, const std::string& mode, double ti
             continue;
           }
           if (pos.turn_ == Color::WHITE) {
+            // TODO: think about why the multiPVth variation is inaccurate (e.g. if mutliPV = 4, then
+            // the 4th variation's score is inaccurate).
             if (move->move == results.move) {
               variations.push_front(SearchResult<Color::WHITE>(cr.eval, move->move));
             } else {
