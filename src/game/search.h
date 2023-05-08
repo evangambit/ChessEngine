@@ -73,6 +73,7 @@ inline bool isNullCacheResult(const CacheResult& cr) {
   return cr.depthRemaining == -1;
 }
 
+constexpr size_t kTranspositionTableMaxSteps = 2;
 struct TranspositionTable {
   TranspositionTable(size_t kilobytes) {
     if (kilobytes < 1) {
@@ -94,27 +95,41 @@ struct TranspositionTable {
   #endif
 
   void insert(const CacheResult& cr) {
-    const size_t idx = cr.positionHash % size;
-    CacheResult *it = &data[idx];
-    #if PARALLEL
-    spinLocks[idx % kTranspositionTableFactor].lock();
-    #endif
-    if (cr.depthRemaining > it->depthRemaining || (cr.depthRemaining == it->depthRemaining && cr.priority > it->priority)) {
-      *it = cr;
+    size_t idx = cr.positionHash % size;
+    const size_t delta = (cr.positionHash >> 32) % 16;
+
+    for (size_t i = 0; i < kTranspositionTableMaxSteps; ++i) {
+      #if PARALLEL
+      spinLocks[idx % kTranspositionTableFactor].lock();
+      #endif
+      CacheResult *it = &data[idx];
+      if (cr.depthRemaining > it->depthRemaining || (cr.depthRemaining == it->depthRemaining && cr.priority > it->priority)) {
+        *it = cr;
+        #if PARALLEL
+        spinLocks[idx % kTranspositionTableFactor].unlock();
+        #endif
+        return;
+      }
+      #if PARALLEL
+      spinLocks[idx % kTranspositionTableFactor].unlock();
+      #endif
+      idx = (idx + delta) % size;
     }
-    #if PARALLEL
-    spinLocks[idx % kTranspositionTableFactor].unlock();
-    #endif
   }
   void clear() {
     std::fill_n((uint8_t *)data, sizeof(CacheResult) * size, 0);
   }
   CacheResult find(uint64_t hash) {
-    CacheResult *cr = &data[hash % size];
-    if (cr->priority == 0 || cr->positionHash != hash) {
-      return kMissingCacheResult;
+    size_t idx = hash % size;
+    const size_t delta = (hash >> 32) % 16;
+    for (size_t i = 0; i < kTranspositionTableMaxSteps; ++i) {
+      CacheResult *cr = &data[idx];
+      if (cr->priority != 0 && cr->positionHash == hash) {
+        return *cr;
+      }
+      idx = (idx + delta) % size;
     }
-    return *cr;
+    return kMissingCacheResult;
   }
  private:
   CacheResult *data;
