@@ -201,8 +201,7 @@ void Position::place_piece_(ColoredPiece cp, Square square) {
   pieceBitboards_[cp] |= loc;
   colorBitboards_[cp2color(cp)] |= loc;
   hash_ ^= kZorbristNumbers[cp][square];
-  earlyPieceMapScore_ += this->pieceMaps_->early_piece_map(cp, square);
-  latePieceMapScore_ += this->pieceMaps_->late_piece_map(cp, square);
+  this->increment_piece_map(cp, square);
 }
 
 void Position::remove_piece_(Square square) {
@@ -217,8 +216,7 @@ void Position::remove_piece_(Square square) {
   pieceBitboards_[cp] &= antiloc;
   colorBitboards_[cp2color(cp)] &= antiloc;
   hash_ ^= kZorbristNumbers[cp][square];
-  earlyPieceMapScore_ -= this->pieceMaps_->early_piece_map(cp, square);
-  latePieceMapScore_ -= this->pieceMaps_->late_piece_map(cp, square);
+  this->decrement_piece_map(cp, square);
 }
 
 void Position::assert_valid_state() const {

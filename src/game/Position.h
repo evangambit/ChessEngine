@@ -125,12 +125,14 @@ class Position {
   void remove_piece_(Square square);
 
   inline void increment_piece_map(ColoredPiece cp, Square sq) {
-    earlyPieceMapScore_ += pieceMaps_->early_piece_map(cp, sq);
-    latePieceMapScore_ += pieceMaps_->late_piece_map(cp, sq);
+    PieceMapValues v = pieceMaps_->weights(cp, sq);
+    earlyPieceMapScore_ += v.values[0];
+    latePieceMapScore_ += v.values[1];
   }
   inline void decrement_piece_map(ColoredPiece cp, Square sq) {
-    earlyPieceMapScore_ -= pieceMaps_->early_piece_map(cp, sq);
-    latePieceMapScore_ -= pieceMaps_->late_piece_map(cp, sq);
+    PieceMapValues v = pieceMaps_->weights(cp, sq);
+    earlyPieceMapScore_ -= v.values[0];
+    latePieceMapScore_ -= v.values[1];
   }
 
   void assert_valid_state() const;

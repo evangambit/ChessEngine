@@ -247,20 +247,17 @@ const int32_t kLatePieceMap[13*64] = {
 
 }  // namespace
 
-int32_t PieceMaps::early_piece_map(ColoredPiece cp, Square sq) const {
-  assert(cp >= 0);
-  assert(cp < 13);
-  assert(sq >= 0);
-  assert(sq < 64);
-  return earlyPieceMap[cp * 64 + sq];
-}
 
-int32_t PieceMaps::late_piece_map(ColoredPiece cp, Square sq) const {
+PieceMapValues PieceMaps::weights(ColoredPiece cp, Square sq) const {
   assert(cp >= 0);
   assert(cp < 13);
   assert(sq >= 0);
   assert(sq < 64);
-  return latePieceMap[cp * 64 + sq];
+  PieceMapValues r;
+  for (size_t i = 0; i < kNumberOfPieceMaps; ++i) {
+   r.values[i] = pieceMaps[i][cp * 64 + sq];
+  }
+  return r;
 }
 
 }  // namespace ChessEngine
