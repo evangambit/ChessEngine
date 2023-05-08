@@ -97,8 +97,7 @@ class Position {
     earlyPieceMapScore_ = 0;
     latePieceMapScore_ = 0;
     for (size_t i = 0; i < kNumSquares; ++i) {
-      earlyPieceMapScore_ += pieceMaps.early_piece_map(tiles_[i], Square(i));
-      latePieceMapScore_ += pieceMaps.early_piece_map(tiles_[i], Square(i));
+      this->increment_piece_map(tiles_[i], Square(i));
     }
   }
   PieceMaps const * pieceMaps_;
@@ -124,6 +123,15 @@ class Position {
   void place_piece_(ColoredPiece cp, Square square);
 
   void remove_piece_(Square square);
+
+  inline void increment_piece_map(ColoredPiece cp, Square sq) {
+    earlyPieceMapScore_ += pieceMaps_->early_piece_map(cp, sq);
+    latePieceMapScore_ += pieceMaps_->late_piece_map(cp, sq);
+  }
+  inline void decrement_piece_map(ColoredPiece cp, Square sq) {
+    earlyPieceMapScore_ -= pieceMaps_->early_piece_map(cp, sq);
+    latePieceMapScore_ -= pieceMaps_->late_piece_map(cp, sq);
+  }
 
   void assert_valid_state() const;
   void assert_valid_state(const std::string& msg) const;
@@ -199,12 +207,9 @@ void undo(Position *pos) {
   pos->hash_ ^= kZorbristNumbers[movingPiece][move.from];
   pos->hash_ ^= kZorbristNumbers[promoPiece][move.to];
 
-  pos->earlyPieceMapScore_ += pos->pieceMaps_->early_piece_map(movingPiece, move.from);
-  pos->latePieceMapScore_ += pos->pieceMaps_->late_piece_map(movingPiece, move.from);
-  pos->earlyPieceMapScore_ -= pos->pieceMaps_->early_piece_map(promoPiece, move.to);
-  pos->latePieceMapScore_ -= pos->pieceMaps_->late_piece_map(promoPiece, move.to);
-  pos->earlyPieceMapScore_ += pos->pieceMaps_->early_piece_map(capturedPiece, move.to);
-  pos->latePieceMapScore_ += pos->pieceMaps_->late_piece_map(capturedPiece, move.to);
+  pos->increment_piece_map(movingPiece, move.from);
+  pos->decrement_piece_map(promoPiece, move.to);
+  pos->increment_piece_map(capturedPiece, move.to);
 
   const bool hasCapturedPiece = (capturedPiece != ColoredPiece::NO_COLORED_PIECE);
   pos->pieceBitboards_[capturedPiece] |= t;
@@ -234,10 +239,9 @@ void undo(Position *pos) {
     pos->tiles_[rookOrigin] = myRookPiece;
     pos->hash_ ^= kZorbristNumbers[myRookPiece][rookOrigin] * hasCapturedPiece;
     pos->hash_ ^= kZorbristNumbers[myRookPiece][rookDestination] * hasCapturedPiece;
-    pos->earlyPieceMapScore_ += pos->pieceMaps_->early_piece_map(myRookPiece, rookOrigin);
-    pos->latePieceMapScore_ += pos->pieceMaps_->late_piece_map(myRookPiece, rookOrigin);
-    pos->earlyPieceMapScore_ -= pos->pieceMaps_->early_piece_map(myRookPiece, rookDestination);
-    pos->latePieceMapScore_ -= pos->pieceMaps_->late_piece_map(myRookPiece, rookDestination);
+
+    pos->increment_piece_map(myRookPiece, rookOrigin);
+    pos->decrement_piece_map(myRookPiece, rookDestination);
   }
 
   if (move.to == epSquare && movingPiece == coloredPiece<MOVER_TURN, Piece::PAWN>()) {
@@ -261,8 +265,8 @@ void undo(Position *pos) {
     assert(pos->tiles_[enpassantSq] == ColoredPiece::NO_COLORED_PIECE);
     pos->tiles_[enpassantSq] = opposingPawn;
     pos->hash_ ^= kZorbristNumbers[opposingPawn][enpassantSq];
-    pos->earlyPieceMapScore_ += pos->pieceMaps_->early_piece_map(opposingPawn, enpassantSq);
-    pos->latePieceMapScore_ += pos->pieceMaps_->late_piece_map(opposingPawn, enpassantSq);
+
+    pos->increment_piece_map(opposingPawn, enpassantSq);
   }
 
   pos->assert_valid_state();
@@ -399,12 +403,9 @@ void make_move(Position *pos, Move move) {
   const bool hasCapturedPiece = (capturedPiece != ColoredPiece::NO_COLORED_PIECE);
   pos->hash_ ^= kZorbristNumbers[capturedPiece][move.to] * hasCapturedPiece;
 
-  pos->earlyPieceMapScore_ += pos->pieceMaps_->early_piece_map(promoPiece, move.to);
-  pos->latePieceMapScore_ += pos->pieceMaps_->late_piece_map(promoPiece, move.to);
-  pos->earlyPieceMapScore_ -= pos->pieceMaps_->early_piece_map(capturedPiece, move.to);
-  pos->latePieceMapScore_ -= pos->pieceMaps_->late_piece_map(capturedPiece, move.to);
-  pos->earlyPieceMapScore_ -= pos->pieceMaps_->early_piece_map(movingPiece, move.from);
-  pos->latePieceMapScore_ -= pos->pieceMaps_->late_piece_map(movingPiece, move.from);
+  pos->increment_piece_map(promoPiece, move.to);
+  pos->decrement_piece_map(capturedPiece, move.to);
+  pos->decrement_piece_map(movingPiece, move.from);
 
   if (move.moveType == MoveType::CASTLE) {
     // TODO: get rid of if statement
@@ -431,10 +432,8 @@ void make_move(Position *pos, Move move) {
     pos->hash_ ^= kZorbristNumbers[myRookPiece][rookOrigin] * hasCapturedPiece;
     pos->hash_ ^= kZorbristNumbers[myRookPiece][rookDestination] * hasCapturedPiece;
 
-    pos->earlyPieceMapScore_ += pos->pieceMaps_->early_piece_map(myRookPiece, rookDestination);
-    pos->latePieceMapScore_ += pos->pieceMaps_->late_piece_map(myRookPiece, rookDestination);
-    pos->earlyPieceMapScore_ -= pos->pieceMaps_->early_piece_map(myRookPiece, rookOrigin);
-    pos->latePieceMapScore_ -= pos->pieceMaps_->late_piece_map(myRookPiece, rookOrigin);
+    pos->increment_piece_map(myRookPiece, rookDestination);
+    pos->decrement_piece_map(myRookPiece, rookOrigin);
   }
 
   if (move.to == epSquare && movingPiece == coloredPiece<TURN, Piece::PAWN>()) {
@@ -457,8 +456,7 @@ void make_move(Position *pos, Move move) {
     pos->colorBitboards_[opposingColor] &= ~enpassantLocBB;
     pos->tiles_[enpassantSq] = ColoredPiece::NO_COLORED_PIECE;
     pos->hash_ ^= kZorbristNumbers[opposingPawn][enpassantSq];
-    pos->earlyPieceMapScore_ -= pos->pieceMaps_->early_piece_map(opposingPawn, enpassantSq);
-    pos->latePieceMapScore_ -= pos->pieceMaps_->late_piece_map(opposingPawn, enpassantSq);
+    pos->decrement_piece_map(opposingPawn, enpassantSq);
   }
 
   if (TURN == Color::BLACK) {
