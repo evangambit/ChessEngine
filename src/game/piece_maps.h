@@ -10,28 +10,29 @@
 
 namespace ChessEngine {
 
-constexpr size_t kNumberOfPieceMaps = 2;  // early and late
-constexpr size_t kSizeOfPieceMap = 13 * 64;
-
-struct PieceMapValues {
-  int32_t values[kNumberOfPieceMaps];
+enum PieceMapType {
+  PieceMapTypeEarly = 0,
+  PieceMapTypeLate = 1,
+  PieceMapTypeCount = 2,
 };
+
+constexpr size_t kSizeOfPieceMap = 13 * 64;
 
 struct PieceMaps {
   PieceMaps() {
-    for (size_t i = 0; i < kNumberOfPieceMaps; ++i) {
-      std::fill_n(&pieceMaps[i][0], kSizeOfPieceMap, 0);
+    for (size_t i = 0; i < PieceMapType::PieceMapTypeCount; ++i) {
+      std::fill_n(&pieceMaps[0][0], kSizeOfPieceMap * PieceMapType::PieceMapTypeCount, 0);
     }
   }
 
-  PieceMapValues weights(ColoredPiece cp, Square sq) const;
+  int32_t const *weights(ColoredPiece cp, Square sq) const;
 
   void save_weights_to_file(std::ofstream& myfile) {
-    for (size_t k = 0; k < kNumberOfPieceMaps; ++k) {
+    for (size_t k = 0; k < PieceMapType::PieceMapTypeCount; ++k) {
       for (size_t i = 0; i < ColoredPiece::NUM_COLORED_PIECES; ++i) {
         myfile << "// " << colored_piece_to_string(ColoredPiece(i)) << std::endl;
         for (size_t j = 0; j < 64; ++j) {
-          myfile << lpad(pieceMaps[k][i * 64 + j]);
+          myfile << lpad(pieceMaps[i * 64 + j][k]);
           if (j % 8 == 7) {
             myfile << std::endl;
           }
@@ -44,7 +45,7 @@ struct PieceMaps {
     std::string line;
     std::vector<std::string> params;
 
-    for (size_t k = 0; k < kNumberOfPieceMaps; ++k) {
+    for (size_t k = 0; k < PieceMapType::PieceMapTypeCount; ++k) {
       for (size_t i = 0; i < ColoredPiece::NUM_COLORED_PIECES; ++i) {
         getline(myfile, line);
         if (line.substr(0, 3) != "// ") {
@@ -58,7 +59,7 @@ struct PieceMaps {
             throw std::runtime_error("Expected 8 weights in piece-map row but got " + std::to_string(parts.size()));
           }
           for (size_t x = 0; x < 8; ++x) {
-            pieceMaps[k][i * 64 + y * 8 + x] = stoi(parts[x]);
+            pieceMaps[i * 64 + y * 8 + x][k] = stoi(parts[x]);
           }
         }
       }
@@ -68,7 +69,7 @@ struct PieceMaps {
   }
 
  private:
-  int32_t pieceMaps[kNumberOfPieceMaps][kSizeOfPieceMap];
+  int32_t pieceMaps[kSizeOfPieceMap][PieceMapType::PieceMapTypeCount];
 };
 
 const PieceMaps kZeroPieceMap = PieceMaps();

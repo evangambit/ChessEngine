@@ -124,8 +124,9 @@ void Position::_empty_() {
   colorBitboards_[Color::WHITE] = kEmptyBitboard;
   colorBitboards_[Color::BLACK] = kEmptyBitboard;
   currentState_.epSquare = Square::NO_SQUARE;
-  earlyPieceMapScore_ = 0;
-  latePieceMapScore_ = 0;
+  for (int i = 0; i < PieceMapType::PieceMapTypeCount; ++i) {
+    pieceMapScores[i] = 0;
+  }
   hash_ = 0;
 }
 

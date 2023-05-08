@@ -859,7 +859,7 @@ lonelyKingB = 0;
     const int32_t lonely_king = this->lonely_king<US>(pos);
 
     // 0.043 ± 0.019
-    int32_t pieceMap = (pos.earlyPieceMapScore_ * (18 - time) + pos.latePieceMapScore_ * time) / 18;
+    int32_t pieceMap = (pos.pieceMapScores[PieceMapType::PieceMapTypeEarly] * (18 - time) + pos.pieceMapScores[PieceMapType::PieceMapTypeLate] * time) / 18;
     if (US == Color::BLACK) {
       pieceMap *= -1;
     }

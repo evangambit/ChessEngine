@@ -94,8 +94,9 @@ class Position {
 
   void set_piece_maps(const PieceMaps& pieceMaps) {
     pieceMaps_ = &pieceMaps;
-    earlyPieceMapScore_ = 0;
-    latePieceMapScore_ = 0;
+    for (int i = 0; i < PieceMapType::PieceMapTypeCount; ++i) {
+      pieceMapScores[i] = 0;
+    }
     for (size_t i = 0; i < kNumSquares; ++i) {
       this->increment_piece_map(tiles_[i], Square(i));
     }
@@ -109,8 +110,7 @@ class Position {
   Color turn_;
 
   // PieceMap scores from white's perspective.
-  int32_t earlyPieceMapScore_;
-  int32_t latePieceMapScore_;
+  int32_t pieceMapScores[PieceMapType::PieceMapTypeCount];
 
   std::string history_str() const {
     std::string r = "";
@@ -125,14 +125,14 @@ class Position {
   void remove_piece_(Square square);
 
   inline void increment_piece_map(ColoredPiece cp, Square sq) {
-    PieceMapValues v = pieceMaps_->weights(cp, sq);
-    earlyPieceMapScore_ += v.values[0];
-    latePieceMapScore_ += v.values[1];
+    int32_t const *w = pieceMaps_->weights(cp, sq);
+    pieceMapScores[0] += w[0];
+    pieceMapScores[1] += w[1];
   }
   inline void decrement_piece_map(ColoredPiece cp, Square sq) {
-    PieceMapValues v = pieceMaps_->weights(cp, sq);
-    earlyPieceMapScore_ -= v.values[0];
-    latePieceMapScore_ -= v.values[1];
+    int32_t const *w = pieceMaps_->weights(cp, sq);
+    pieceMapScores[0] -= w[0];
+    pieceMapScores[1] -= w[1];
   }
 
   void assert_valid_state() const;
