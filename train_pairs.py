@@ -73,7 +73,6 @@ varnames = [
   "THEIR_HANGING_QUEENS",
   "LONELY_KING_IN_CENTER",
   "LONELY_KING_AWAY_FROM_ENEMY_KING",
-  "NUM_TARGET_SQUARES",
   "TIME",
   "KPVK_OPPOSITION",
   "KPVK_IN_FRONT_OF_PAWN",
@@ -84,15 +83,8 @@ varnames = [
   "ADVANCED_PAWNS_2",
   "OPEN_ROOKS",
   "ROOKS_ON_THEIR_SIDE",
-  "KING_CASTLED",
-  "CASTLING_RIGHTS",
   "KING_IN_FRONT_OF_PASSED_PAWN",
   "KING_IN_FRONT_OF_PASSED_PAWN2",
-  "PAWN_V_LONELY_KING",
-  "KNIGHTS_V_LONELY_KING",
-  "BISHOPS_V_LONELY_KING",
-  "ROOK_V_LONELY_KING",
-  "QUEEN_V_LONELY_KING",
   "OUR_MATERIAL_THREATS",
   "THEIR_MATERIAL_THREATS",
   "LONELY_KING_ON_EDGE",
@@ -242,11 +234,11 @@ F = np.load(os.path.join('traindata', f'fen.pair.any_d10_q1_n3.npy'))
 S = np.load(os.path.join('traindata', f'turn.pair.any_d10_q1_n3.npy')).astype(np.float64) * 2.0 - 1.0
 A = np.load(os.path.join('traindata', f'pm.pair.any_d10_q1_n3.npy')).astype(np.float32)
 cat =  np.concatenate
-X = cat([X, np.load(os.path.join('traindata', 'x.pair.any_d10_q1_n1.npy')).astype(np.float64)], 0)
-Y = cat([Y, np.load(os.path.join('traindata', 'y.pair.any_d10_q1_n1.npy')).astype(np.float64)], 0)
-F = cat([F, np.load(os.path.join('traindata', 'fen.pair.any_d10_q1_n1.npy'))], 0)
-S = cat([S, np.load(os.path.join('traindata', 'turn.pair.any_d10_q1_n1.npy')).astype(np.float64) * 2.0 - 1.0], 0)
-A = cat([A, np.load(os.path.join('traindata', 'pm.pair.any_d10_q1_n1.npy')).astype(np.float32)], 0)
+# X = cat([X, np.load(os.path.join('traindata', 'x.pair.any_d10_q1_n1.npy')).astype(np.float64)], 0)
+# Y = cat([Y, np.load(os.path.join('traindata', 'y.pair.any_d10_q1_n1.npy')).astype(np.float64)], 0)
+# F = cat([F, np.load(os.path.join('traindata', 'fen.pair.any_d10_q1_n1.npy'))], 0)
+# S = cat([S, np.load(os.path.join('traindata', 'turn.pair.any_d10_q1_n1.npy')).astype(np.float64) * 2.0 - 1.0], 0)
+# A = cat([A, np.load(os.path.join('traindata', 'pm.pair.any_d10_q1_n1.npy')).astype(np.float32)], 0)
 
 assert X.shape[-1] == len(varnames)
 
@@ -270,12 +262,6 @@ for vn in ["OUR_QUEENS", "THEIR_QUEENS"]:
 tmp = torch.tensor(tmp, dtype=torch.int64)
 numQueens = X[:,:,tmp].sum(2)
 
-X[:,:,varnames.index('NUM_TARGET_SQUARES')] *= 0.0
-X[:,:,varnames.index('PAWN_V_LONELY_KING')] *= 0.0
-X[:,:,varnames.index('KNIGHTS_V_LONELY_KING')] *= 0.0
-X[:,:,varnames.index('BISHOPS_V_LONELY_KING')] *= 0.0
-X[:,:,varnames.index('ROOK_V_LONELY_KING')] *= 0.0
-X[:,:,varnames.index('QUEEN_V_LONELY_KING')] *= 0.0
 X[:,:,varnames.index('KPVK_OFFENSIVE_KEY_SQUARES')] *= 0.0
 X[:,:,varnames.index('KPVK_DEFENSIVE_KEY_SQUARES')] *= 0.0
 X[:,:,varnames.index('SQUARE_RULE')] *= 0.0
@@ -359,7 +345,7 @@ class Model(nn.Module):
     self.w["late"] = nn.Linear(X.shape[-1], 1)
     self.w["clipped"] = nn.Linear(X.shape[-1], 1)
     # self.w["scale"] = nn.Linear(X.shape[-1], 1)
-    self.w["lonelyKing"] = nn.Linear(X.shape[-1], 1)
+    # self.w["lonelyKing"] = nn.Linear(X.shape[-1], 1)
     for k in self.w:
       nn.init.zeros_(self.w[k].weight)
       nn.init.zeros_(self.w[k].bias)
@@ -416,7 +402,7 @@ kAlpha = 0.9  # higher -> more copying stockfish
 bs = min(Xth.shape[0], 50_000)
 maxlr = 0.1
 minlr = maxlr / 300
-duration = 40
+duration = 60
 
 dataset = tdata.TensorDataset(
   Xth, Tth, Sth, Yth, Ath,
@@ -435,9 +421,10 @@ def cross_entropy_loss_fn(yhat, y):
 
 metrics = defaultdict(list)
 
-for includePieceMaps in [True]:
+for includePieceMaps in [False, True]:
   if includePieceMaps:
-    opt = optim.AdamW(chain(pmModel.parameters(), model.parameters()), lr=3e-3, weight_decay=0.1)
+    # opt = optim.AdamW(chain(pmModel.parameters(), model.parameters()), lr=3e-3, weight_decay=0.1)
+    opt = optim.AdamW(pmModel.parameters(), lr=3e-3, weight_decay=0.1)
   else:
     opt = optim.AdamW(model.parameters(), lr=3e-3, weight_decay=0.1)
   for lr in cat([np.linspace(minlr, maxlr, int(round(duration * 0.1))), np.linspace(maxlr, minlr, int(round(duration * 0.9)))]):
@@ -459,9 +446,9 @@ for includePieceMaps in [True]:
       w1 = pca.slope_backward(model.w['early'].weight)
       w2 = pca.slope_backward(model.w['late'].weight)
       w3 = pca.slope_backward(model.w['clipped'].weight)
-      w4 = pca.slope_backward(model.w['lonelyKing'].weight)
+      # w4 = pca.slope_backward(model.w['lonelyKing'].weight)
       loss = loss + torch.abs(w1 * kEarlyBlacklist).mean() * 10.0
-      for w, threshold in [(w1, 10.0), (w2, 10.0), (w3, 10.0), (w4, 3.0)]:
+      for w, threshold in [(w1, 10.0), (w2, 10.0)]:
         loss = loss + torch.relu(w - threshold).mean() * 10
         loss = loss + torch.relu(-threshold - w).mean() * 10
 
@@ -529,7 +516,7 @@ for i, pn in enumerate(kPieceName):
 
 print("weights.txt")
 
-for name in ['early', 'late', 'clipped', 'lonelyKing']:
+for name in ['early', 'late', 'clipped']:
   linear = model.w[name]
   name = name[0].upper() + name[1:]
   w = linear.weight.squeeze().cpu().detach().numpy()

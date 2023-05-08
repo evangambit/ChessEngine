@@ -66,7 +66,6 @@ varnames = [
   "THEIR_HANGING_QUEENS",
   "LONELY_KING_IN_CENTER",
   "LONELY_KING_AWAY_FROM_ENEMY_KING",
-  "NUM_TARGET_SQUARES",
   "TIME",
   "PAWN_PM",
   "KNIGHT_PM",
@@ -83,15 +82,8 @@ varnames = [
   "ADVANCED_PAWNS_2",
   "OPEN_ROOKS",
   "ROOKS_ON_THEIR_SIDE",
-  "KING_CASTLED",
-  "CASTLING_RIGHTS",
   "KING_IN_FRONT_OF_PASSED_PAWN",
   "KING_IN_FRONT_OF_PASSED_PAWN2",
-  "PAWN_V_LONELY_KING",
-  "KNIGHTS_V_LONELY_KING",
-  "BISHOPS_V_LONELY_KING",
-  "ROOK_V_LONELY_KING",
-  "QUEEN_V_LONELY_KING",
   "OUR_MATERIAL_THREATS",
   "THEIR_MATERIAL_THREATS",
   "LONELY_KING_ON_EDGE",
@@ -134,9 +126,6 @@ cat =  np.concatenate
 # F = cat([F, np.load(os.path.join('traindata', 'f.endgame_d10_q1_n0.npy'))], 0)
 
 T = X[:,varnames.index('TIME')].copy()
-
-X[:, varnames.index('NUM_TARGET_SQUARES')] *= 0.0
-
 
 pca = PCA(X, X.shape[1] - 2)
 

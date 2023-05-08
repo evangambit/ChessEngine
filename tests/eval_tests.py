@@ -112,8 +112,6 @@ class EvalTest(unittest.TestCase):
     self.assertEqual(x["ADVANCED_PAWNS_2"], 0)
     self.assertEqual(x["OPEN_ROOKS"], 1)
     self.assertEqual(x["ROOKS_ON_THEIR_SIDE"], 0)
-    self.assertEqual(x["KING_CASTLED"], -1)
-    self.assertEqual(x["CASTLING_RIGHTS"], 0)
 
   def test1(self):
     x = get_features('r3k2r/p1p1n2p/8/1qp1Rb2/1P1P1BpN/6P1/PP1Q4/2KR4 w kq - 0 22')
@@ -181,8 +179,6 @@ class EvalTest(unittest.TestCase):
     self.assertEqual(x["ADVANCED_PAWNS_2"], 0)
     self.assertEqual(x["OPEN_ROOKS"], 1)
     self.assertEqual(x["ROOKS_ON_THEIR_SIDE"], 1)
-    self.assertEqual(x["KING_CASTLED"], 1)
-    self.assertEqual(x["CASTLING_RIGHTS"], -2)
 
   def test_pawns1(self):
     x = get_features('k7/p7/p7/8/8/8/P6P/7K w - - 0 1')
@@ -275,5 +271,3 @@ class EvalTest(unittest.TestCase):
     self.assertEqual(x["ADVANCED_PAWNS_2"], 0)
     self.assertEqual(x["OPEN_ROOKS"], 0)
     self.assertEqual(x["ROOKS_ON_THEIR_SIDE"], 0)
-    self.assertEqual(x["KING_CASTLED"], 0)
-    self.assertEqual(x["CASTLING_RIGHTS"], 0)

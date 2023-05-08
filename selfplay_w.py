@@ -68,6 +68,9 @@ if __name__ == '__main__':
       try:
         r = pool.map_async(thread_main, batch).get(timeout=args.timeout)
         R += r
+        if len(R) > 0:
+          r = np.array(R, dtype=np.float64).reshape(-1)
+          print("%.4f ± %.4f" % (r.mean(), r.std(ddof=1) / np.sqrt(r.shape[0])))
       except mp.context.TimeoutError:
         print('timeout')
         pass

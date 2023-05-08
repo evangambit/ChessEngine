@@ -19,11 +19,16 @@ import multiprocessing as mp
 from tqdm import tqdm
 
 def f(player, fen, moves):
-	numTime = 200
+	# numTime = 200
+	# if player[1] == 'None':
+	# 	command = ["/usr/local/bin/gtimeout", str(numTime / 1000), player[0], "mode", "analyze", "time", str(numTime), "fen", *fen.split(' '), "moves", *moves]
+	# else:
+	# 	command = ["/usr/local/bin/gtimeout", str(numTime / 1000), player[0], "loadweights", player[1], "mode", "analyze", "time", str(numTime), "fen", *fen.split(' '), "moves", *moves]
+	numNodes = 20000
 	if player[1] == 'None':
-		command = ["/usr/local/bin/gtimeout", str(numTime / 1000), player[0], "mode", "analyze", "time", str(numTime), "fen", *fen.split(' '), "moves", *moves]
+		command = [player[0], "mode", "analyze", "nodes", str(numNodes), "fen", *fen.split(' '), "moves", *moves]
 	else:
-		command = ["/usr/local/bin/gtimeout", str(numTime / 1000), player[0], "loadweights", player[1], "mode", "analyze", "time", str(numTime), "fen", *fen.split(' '), "moves", *moves]
+		command = [player[0], "loadweights", player[1], "mode", "analyze", "nodes", str(numNodes), "fen", *fen.split(' '), "moves", *moves]
 	# command = [player, "mode", "analyze", "time", "5", "fen", *fen.split(' '), "moves", *moves]
 	try:
 		stdout = subprocess.check_output(command).decode()

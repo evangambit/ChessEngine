@@ -86,7 +86,6 @@ enum EF {
   LONELY_KING_IN_CENTER,
 
   LONELY_KING_AWAY_FROM_ENEMY_KING,
-  NUM_TARGET_SQUARES,
   TIME,
   KPVK_OPPOSITION,
   KPVK_IN_FRONT_OF_PAWN,
@@ -99,16 +98,8 @@ enum EF {
   OPEN_ROOKS,
   ROOKS_ON_THEIR_SIDE,
 
-  KING_CASTLED,
-  CASTLING_RIGHTS,
   KING_IN_FRONT_OF_PASSED_PAWN,
   KING_IN_FRONT_OF_PASSED_PAWN2,
-  PAWN_V_LONELY_KING,
-  KNIGHTS_V_LONELY_KING,
-
-  BISHOPS_V_LONELY_KING,
-  ROOK_V_LONELY_KING,
-  QUEEN_V_LONELY_KING,
   OUR_MATERIAL_THREATS,
   THEIR_MATERIAL_THREATS,
   LONELY_KING_ON_EDGE,
@@ -241,7 +232,6 @@ std::string EFSTR[] = {
   "THEIR_HANGING_QUEENS",
   "LONELY_KING_IN_CENTER",
   "LONELY_KING_AWAY_FROM_ENEMY_KING",
-  "NUM_TARGET_SQUARES",
   "TIME",
   "KPVK_OPPOSITION",
   "KPVK_IN_FRONT_OF_PAWN",
@@ -252,15 +242,8 @@ std::string EFSTR[] = {
   "ADVANCED_PAWNS_2",
   "OPEN_ROOKS",
   "ROOKS_ON_THEIR_SIDE",
-  "KING_CASTLED",
-  "CASTLING_RIGHTS",
   "KING_IN_FRONT_OF_PASSED_PAWN",
   "KING_IN_FRONT_OF_PASSED_PAWN2",
-  "PAWN_V_LONELY_KING",
-  "KNIGHTS_V_LONELY_KING",
-  "BISHOPS_V_LONELY_KING",
-  "ROOK_V_LONELY_KING",
-  "QUEEN_V_LONELY_KING",
   "OUR_MATERIAL_THREATS",
   "THEIR_MATERIAL_THREATS",
   "LONELY_KING_ON_EDGE",
@@ -650,14 +633,6 @@ lonelyKingB = 0;
 
       features[EF::LONELY_KING_AWAY_FROM_ENEMY_KING] = value_or_zero(isTheirKingLonely, 8 - kingsDist);
       features[EF::LONELY_KING_AWAY_FROM_ENEMY_KING] -= value_or_zero(isOurKingLonely, 8 - kingsDist);
-
-      features[EF::CASTLING_RIGHTS] = ((cr & kCastlingRights_WhiteKing) > 0);
-      features[EF::CASTLING_RIGHTS] += ((cr & kCastlingRights_WhiteQueen) > 0);
-      features[EF::CASTLING_RIGHTS] -= ((cr & kCastlingRights_BlackKing) > 0);
-      features[EF::CASTLING_RIGHTS] -= ((cr & kCastlingRights_BlackQueen) > 0);
-      features[EF::KING_CASTLED] = std::popcount(ourKings & kHappyKingSquares) - std::popcount(theirKings & kHappyKingSquares);
-
-      features[EF::NUM_TARGET_SQUARES] = std::popcount(threats.ourTargets) - std::popcount(threats.theirTargets);
     }
 
     {
@@ -724,18 +699,6 @@ lonelyKingB = 0;
     features[EF::KING_IN_FRONT_OF_PASSED_PAWN] -= ((theirKings & aheadOfTheirPassedPawnsFat) > 0 && ourQueens == 0);
     features[EF::KING_IN_FRONT_OF_PASSED_PAWN2] = (ourKings & aheadOfTheirPassedPawnsFat) > 0;
     features[EF::KING_IN_FRONT_OF_PASSED_PAWN2] -= (theirKings & aheadOfOurPassedPawnsFat) > 0;
-
-    // Bonus vs lonely king.
-    features[EF::PAWN_V_LONELY_KING] = value_or_zero(isTheirKingLonely, std::popcount(ourPawns));
-    features[EF::PAWN_V_LONELY_KING] -= value_or_zero(isOurKingLonely, std::popcount(theirPawns));
-    features[EF::KNIGHTS_V_LONELY_KING] = value_or_zero(isTheirKingLonely, std::popcount(ourKnights));
-    features[EF::KNIGHTS_V_LONELY_KING] -= value_or_zero(isOurKingLonely, std::popcount(theirKnights));
-    features[EF::BISHOPS_V_LONELY_KING] = value_or_zero(isTheirKingLonely, std::popcount(ourBishops));
-    features[EF::BISHOPS_V_LONELY_KING] -= value_or_zero(isOurKingLonely, std::popcount(theirBishops));
-    features[EF::ROOK_V_LONELY_KING] = value_or_zero(isTheirKingLonely, std::popcount(ourRooks));
-    features[EF::ROOK_V_LONELY_KING] -= value_or_zero(isOurKingLonely, std::popcount(theirRooks));
-    features[EF::QUEEN_V_LONELY_KING] = value_or_zero(isTheirKingLonely, std::popcount(ourQueens));
-    features[EF::QUEEN_V_LONELY_KING] -= value_or_zero(isOurKingLonely, std::popcount(theirQueens));
 
     // loser in center: 0
     // they're lonely on edge: 3

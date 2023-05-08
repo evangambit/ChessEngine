@@ -54,7 +54,6 @@
    -48 // early THEIR_HANGING_QUEENS
     -2 // early LONELY_KING_IN_CENTER
     -6 // early LONELY_KING_AWAY_FROM_ENEMY_KING
-    -1 // early NUM_TARGET_SQUARES
      5 // early TIME
      0 // early KPVK_OPPOSITION
      4 // early KPVK_IN_FRONT_OF_PAWN
@@ -65,15 +64,8 @@
     46 // early ADVANCED_PAWNS_2
     19 // early OPEN_ROOKS
     17 // early ROOKS_ON_THEIR_SIDE
-    17 // early KING_CASTLED
-     0 // early CASTLING_RIGHTS
   -118 // early KING_IN_FRONT_OF_PASSED_PAWN
    -75 // early KING_IN_FRONT_OF_PASSED_PAWN2
-     0 // early PAWN_V_LONELY_KING
-     1 // early KNIGHTS_V_LONELY_KING
-     0 // early BISHOPS_V_LONELY_KING
-     1 // early ROOK_V_LONELY_KING
-     1 // early QUEEN_V_LONELY_KING
     68 // early OUR_MATERIAL_THREATS
    -48 // early THEIR_MATERIAL_THREATS
      0 // early LONELY_KING_ON_EDGE
@@ -129,6 +121,7 @@
      0 // early THEIR_KING_HAS_1_ESCAPE_SQUARES
      0 // early OUR_KING_HAS_2_ESCAPE_SQUARES
      0 // early THEIR_KING_HAS_2_ESCAPE_SQUARES
+     0 // early OPPOSITE_SIDE_KINGS_PAWN_STORM
      5 // late bias
     49 // late OUR_PAWNS
    154 // late OUR_KNIGHTS
@@ -185,7 +178,6 @@
     36 // late THEIR_HANGING_QUEENS
    580 // late LONELY_KING_IN_CENTER
    157 // late LONELY_KING_AWAY_FROM_ENEMY_KING
-     0 // late NUM_TARGET_SQUARES
      1 // late TIME
    158 // late KPVK_OPPOSITION
   1744 // late KPVK_IN_FRONT_OF_PAWN
@@ -196,15 +188,8 @@
     15 // late ADVANCED_PAWNS_2
     -4 // late OPEN_ROOKS
      4 // late ROOKS_ON_THEIR_SIDE
-     3 // late KING_CASTLED
-     1 // late CASTLING_RIGHTS
     57 // late KING_IN_FRONT_OF_PASSED_PAWN
     53 // late KING_IN_FRONT_OF_PASSED_PAWN2
-     0 // late PAWN_V_LONELY_KING
-     0 // late KNIGHTS_V_LONELY_KING
-     0 // late BISHOPS_V_LONELY_KING
-     0 // late ROOK_V_LONELY_KING
-     0 // late QUEEN_V_LONELY_KING
     21 // late OUR_MATERIAL_THREATS
     -7 // late THEIR_MATERIAL_THREATS
   -894 // late LONELY_KING_ON_EDGE
@@ -260,6 +245,7 @@
      0 // late THEIR_KING_HAS_1_ESCAPE_SQUARES
      0 // late OUR_KING_HAS_2_ESCAPE_SQUARES
      0 // late THEIR_KING_HAS_2_ESCAPE_SQUARES
+     0 // late OPPOSITE_SIDE_KINGS_PAWN_STORM
     -5 // clipped bias
     42 // clipped OUR_PAWNS
    148 // clipped OUR_KNIGHTS
@@ -316,7 +302,6 @@
   1519 // clipped THEIR_HANGING_QUEENS
    363 // clipped LONELY_KING_IN_CENTER
     35 // clipped LONELY_KING_AWAY_FROM_ENEMY_KING
-     0 // clipped NUM_TARGET_SQUARES
      0 // clipped TIME
   1601 // clipped KPVK_OPPOSITION
   1708 // clipped KPVK_IN_FRONT_OF_PAWN
@@ -327,15 +312,8 @@
      6 // clipped ADVANCED_PAWNS_2
     -4 // clipped OPEN_ROOKS
      7 // clipped ROOKS_ON_THEIR_SIDE
-     5 // clipped KING_CASTLED
-    -1 // clipped CASTLING_RIGHTS
      2 // clipped KING_IN_FRONT_OF_PASSED_PAWN
      9 // clipped KING_IN_FRONT_OF_PASSED_PAWN2
-     0 // clipped PAWN_V_LONELY_KING
-     0 // clipped KNIGHTS_V_LONELY_KING
-     0 // clipped BISHOPS_V_LONELY_KING
-     0 // clipped ROOK_V_LONELY_KING
-     0 // clipped QUEEN_V_LONELY_KING
     46 // clipped OUR_MATERIAL_THREATS
    -13 // clipped THEIR_MATERIAL_THREATS
   -600 // clipped LONELY_KING_ON_EDGE
@@ -391,6 +369,7 @@
      0 // clipped THEIR_KING_HAS_1_ESCAPE_SQUARES
      0 // clipped OUR_KING_HAS_2_ESCAPE_SQUARES
      0 // clipped THEIR_KING_HAS_2_ESCAPE_SQUARES
+     0 // clipped OPPOSITE_SIDE_KINGS_PAWN_STORM
     -4 // lonely king bias
     33 // lonely king OUR_PAWNS
     54 // lonely king OUR_KNIGHTS
@@ -447,7 +426,6 @@
     94 // lonely king THEIR_HANGING_QUEENS
   -591 // lonely king LONELY_KING_IN_CENTER
   -135 // lonely king LONELY_KING_AWAY_FROM_ENEMY_KING
-     0 // lonely king NUM_TARGET_SQUARES
      2 // lonely king TIME
   -205 // lonely king KPVK_OPPOSITION
  -1854 // lonely king KPVK_IN_FRONT_OF_PAWN
@@ -458,15 +436,8 @@
     -1 // lonely king ADVANCED_PAWNS_2
     12 // lonely king OPEN_ROOKS
     18 // lonely king ROOKS_ON_THEIR_SIDE
-    -4 // lonely king KING_CASTLED
-   -26 // lonely king CASTLING_RIGHTS
    -15 // lonely king KING_IN_FRONT_OF_PASSED_PAWN
     18 // lonely king KING_IN_FRONT_OF_PASSED_PAWN2
-     0 // lonely king PAWN_V_LONELY_KING
-     0 // lonely king KNIGHTS_V_LONELY_KING
-     0 // lonely king BISHOPS_V_LONELY_KING
-     0 // lonely king ROOK_V_LONELY_KING
-     0 // lonely king QUEEN_V_LONELY_KING
   -121 // lonely king OUR_MATERIAL_THREATS
    118 // lonely king THEIR_MATERIAL_THREATS
    928 // lonely king LONELY_KING_ON_EDGE
@@ -522,6 +493,7 @@
      0 // lonely king THEIR_KING_HAS_1_ESCAPE_SQUARES
      0 // lonely king OUR_KING_HAS_2_ESCAPE_SQUARES
      0 // lonely king THEIR_KING_HAS_2_ESCAPE_SQUARES
+     0 // lonely OPPOSITE_SIDE_KINGS_PAWN_STORM
 // ????
      0     0     0     0     0     0     0     0
      0     0     0     0     0     0     0     0
