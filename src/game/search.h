@@ -123,10 +123,19 @@ struct TranspositionTable {
     size_t idx = hash % size;
     const size_t delta = (hash >> 32) % 16;
     for (size_t i = 0; i < kTranspositionTableMaxSteps; ++i) {
+      #if PARALLEL
+      spinLocks[idx % kTranspositionTableFactor].lock();
+      #endif
       CacheResult *cr = &data[idx];
       if (cr->priority != 0 && cr->positionHash == hash) {
+        #if PARALLEL
+        spinLocks[idx % kTranspositionTableFactor].unlock();
+        #endif
         return *cr;
       }
+      #if PARALLEL
+      spinLocks[idx % kTranspositionTableFactor].unlock();
+      #endif
       idx = (idx + delta) % size;
     }
     return kMissingCacheResult;
