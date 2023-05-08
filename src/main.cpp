@@ -321,9 +321,12 @@ void mymain(std::vector<Position>& positions, const std::string& mode, double ti
       SearchResult<Color::WHITE> results(Evaluation(0), kNullMove);
       time_t tstart = clock();
       for (size_t i = 1; i <= depth; ++i) {
-        results = gThinker.search(&pos, i, results);
+        SearchResult<Color::WHITE> r = gThinker.search(&pos, i, results);
+        if (r.analysisComplete) {
+          results = r;
+        }
         if (positions.size() == 1) {
-          const double secs = double(clock() - tstart)/CLOCKS_PER_SEC;
+          const double secs = double(clock() - tstart) / CLOCKS_PER_SEC;
           std::cout << i << " : " << results.move << " : " << results.score << " (" << secs << " secs, " << gThinker.nodeCounter << " nodes, " << gThinker.nodeCounter / secs / 1000 << " kNodes/sec)" << std::endl;
         }
         if (gThinker.nodeCounter >= nodeLimit) {

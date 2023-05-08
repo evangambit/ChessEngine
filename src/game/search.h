@@ -702,10 +702,10 @@ struct Thinker {
         _manager.finished_searching(pos->hash_);
         undo<TURN>(pos);
 
-        if (!a.analysisComplete) {
-          r.analysisComplete = false;
-          break;
-        }
+        // We don't bother to break here, since all of our children will automatically return a low-cost,
+        // good-faith estimate (unless our depth is 4, in which case this will be true for the depth above
+        // us).
+        r.analysisComplete &= a.analysisComplete;
 
         if (SEARCH_TYPE == SearchTypeRoot) {
           a.move = extMove->move;
@@ -759,7 +759,7 @@ struct Thinker {
       nodeType = NodeTypeAll_UpperBound;
     }
 
-    {
+    if (r.analysisComplete) {
       const CacheResult cr = CacheResult{
         pos->hash_,
         depthRemaining,
