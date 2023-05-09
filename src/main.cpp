@@ -318,7 +318,7 @@ void mymain(std::vector<Position>& positions, const std::string& mode, double ti
   } else if (mode == "analyze") {
     for (auto pos : positions) {
       gThinker.reset_stuff();
-      SearchResult<Color::WHITE> results(Evaluation(0), kNullMove);
+      SearchResult<Color::WHITE> results(Evaluation(0), kNullMove, false);
       time_t tstart = clock();
       for (size_t i = 1; i <= depth; ++i) {
         SearchResult<Color::WHITE> r = gThinker.search(&pos, i, results);
