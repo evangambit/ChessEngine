@@ -69,9 +69,10 @@ struct PieceMaps {
   }
 
   void zero_() {
-    for (size_t i = 0; i < 12 * 64; ++i) {
-      earlyPieceMap[i] = 0;
-      latePieceMap[i] = 0;
+    for (size_t i = 0; i < PieceMapType::PieceMapTypeCount; ++i) {
+      for (size_t j = 0; j < 12 * 64; ++j) {
+        pieceMaps[j][i] = 0;
+      }
     }
   }
 
