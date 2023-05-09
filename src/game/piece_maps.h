@@ -68,6 +68,13 @@ struct PieceMaps {
     myfile.close();
   }
 
+  void zero_() {
+    for (size_t i = 0; i < 12 * 64; ++i) {
+      earlyPieceMap[i] = 0;
+      latePieceMap[i] = 0;
+    }
+  }
+
  private:
   int32_t pieceMaps[kSizeOfPieceMap][PieceMapType::PieceMapTypeCount];
 };

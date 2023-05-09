@@ -493,7 +493,7 @@
      0 // lonely king THEIR_KING_HAS_1_ESCAPE_SQUARES
      0 // lonely king OUR_KING_HAS_2_ESCAPE_SQUARES
      0 // lonely king THEIR_KING_HAS_2_ESCAPE_SQUARES
-     0 // lonely OPPOSITE_SIDE_KINGS_PAWN_STORM
+     0 // lonely king OPPOSITE_SIDE_KINGS_PAWN_STORM
 // ????
      0     0     0     0     0     0     0     0
      0     0     0     0     0     0     0     0

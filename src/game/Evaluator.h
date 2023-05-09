@@ -1092,6 +1092,19 @@ lonelyKingB = 0;
     return !isDrawn;
   }
 
+  void zero_() {
+    for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
+      earlyW[i] = 0;
+      lateW[i] = 0;
+      clippedW[i] = 0;
+      lonelyKingW[i] = 0;
+    }
+    earlyB = 0;
+    lateB = 0;
+    clippedB = 0;
+    lonelyKingB = 0;
+  }
+
   Evaluation features[NUM_EVAL_FEATURES];
 };
 

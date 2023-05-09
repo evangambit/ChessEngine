@@ -19,6 +19,7 @@
 
 #define COMPLEX_SEARCH 0
 #define PARALLEL 0
+#define USE_CACHE 1
 
 namespace ChessEngine {
 
@@ -75,21 +76,32 @@ inline bool isNullCacheResult(const CacheResult& cr) {
   return cr.depthRemaining == -1;
 }
 
+#if USE_CACHE
 constexpr size_t kTranspositionTableMaxSteps = 3;
 struct TranspositionTable {
   TranspositionTable(size_t kilobytes) {
     if (kilobytes < 1) {
       kilobytes = 1;
     }
-    size = kilobytes * 1024 / sizeof(CacheResult);
-    size = size / kTranspositionTableFactor * kTranspositionTableFactor;
-    data = new CacheResult[size];
-    this->clear();
+    data = nullptr;
+    this->set_cache_size(kilobytes);
   }
   TranspositionTable(const TranspositionTable&);  // Not implemented.
   TranspositionTable& operator=(const TranspositionTable& table);  // Not implemented.
   ~TranspositionTable() {
     delete[] data;
+  }
+
+  void set_cache_size(size_t kilobytes) {
+    size = kilobytes * 1024 / sizeof(CacheResult);
+    size = size / kTranspositionTableFactor;
+    if (size == 0) {
+      size = 1;
+    }
+    size *= kTranspositionTableFactor;
+    delete[] data;
+    data = new CacheResult[size];
+    this->clear();
   }
 
   #if PARALLEL
@@ -146,6 +158,23 @@ struct TranspositionTable {
   CacheResult *data;
   size_t size;
 };
+#else  // USE_CACHE
+struct TranspositionTable {
+  TranspositionTable(size_t kilobytes) {}
+  TranspositionTable(const TranspositionTable&);  // Not implemented.
+  TranspositionTable& operator=(const TranspositionTable& table);  // Not implemented.
+
+  void set_cache_size(size_t kilobytes) {}
+
+  void insert(const CacheResult& cr) {
+  }
+  void clear() {
+  }
+  CacheResult find(uint64_t hash) {
+    return kMissingCacheResult;
+  }
+};
+#endif  // USE_CACHE
 
 constexpr int kQSimplePieceValues[7] = {
   // Note "NO_PIECE" has a score of 200 since this
@@ -243,6 +272,10 @@ struct Thinker {
   Thinker() : cache(10000), stopThinkingCondition(new NeverStopThinkingCondition()) {
     reset_stuff();
     multiPV = 1;
+  }
+
+  void set_cache_size(size_t kilobytes) {
+    cache.set_cache_size(kilobytes);
   }
 
   void make_move(Position* pos, Move move) {
