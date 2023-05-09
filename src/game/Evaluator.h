@@ -134,10 +134,6 @@ enum EF {
 
   QUEEN_THREATS_NEAR_KING,
   MISSING_FIANCHETTO_BISHOP,
-  BISHOP_PAWN_DISAGREEMENT,
-  CLOSED_1,
-  CLOSED_2,
-  CLOSED_3,
 
   NUM_BAD_SQUARES_FOR_PAWNS,
   NUM_BAD_SQUARES_FOR_MINORS,
@@ -273,10 +269,6 @@ std::string EFSTR[] = {
   "THEIR_HANGING_QUEENS_2",
   "QUEEN_THREATS_NEAR_KING",
   "MISSING_FIANCHETTO_BISHOP",
-  "BISHOP_PAWN_DISAGREEMENT",
-  "CLOSED_1",
-  "CLOSED_2",
-  "CLOSED_3",
   "NUM_BAD_SQUARES_FOR_PAWNS",
   "NUM_BAD_SQUARES_FOR_MINORS",
   "NUM_BAD_SQUARES_FOR_ROOKS",
@@ -603,19 +595,6 @@ lonelyKingB = 0;
       features[EF::SCARY_BISHOPS] = std::popcount(ourBishopTargetsIgnoringNonBlockades & theirMajors) - std::popcount(theirBishopTargetsIgnoringNonBlockades & ourMajors);
       features[EF::SCARIER_BISHOPS] = std::popcount(ourBishopTargetsIgnoringNonBlockades & theirRoyalty) - std::popcount(theirBishopTargetsIgnoringNonBlockades & ourRoyalty);
       features[EF::OUTPOSTED_BISHOPS] = std::popcount(ourBishops & pawnAnalysis.possibleOutpostsForUs) - std::popcount(theirBishops & pawnAnalysis.possibleOutpostsForThem);
-
-      features[EF::BISHOP_PAWN_DISAGREEMENT] =  std::popcount(  ourBishops & kWhiteSquares) * std::popcount(  ourPawns & kWhiteSquares);
-      features[EF::BISHOP_PAWN_DISAGREEMENT] += std::popcount(  ourBishops & kBlackSquares) * std::popcount(  ourPawns & kBlackSquares);
-      features[EF::BISHOP_PAWN_DISAGREEMENT] -= std::popcount(theirBishops & kWhiteSquares) * std::popcount(theirPawns & kWhiteSquares);
-      features[EF::BISHOP_PAWN_DISAGREEMENT] -= std::popcount(theirBishops & kBlackSquares) * std::popcount(theirPawns & kBlackSquares);
-
-      features[EF::CLOSED_1] = std::popcount(pawnAnalysis.ourBlockadedPawns | pawnAnalysis.theirBlockadedPawns);
-      features[EF::CLOSED_2] = std::popcount((pawnAnalysis.ourBlockadedPawns | pawnAnalysis.theirBlockadedPawns) & kCenter16);
-      features[EF::CLOSED_3] = std::popcount(
-        ((shift<Direction::NORTH_EAST>(pawnAnalysis.ourBlockadedPawns) | shift<Direction::NORTH_WEST>(pawnAnalysis.ourBlockadedPawns)) & pawnAnalysis.ourBlockadedPawns)
-        |
-        ((shift<Direction::NORTH_EAST>(pawnAnalysis.theirBlockadedPawns) | shift<Direction::NORTH_WEST>(pawnAnalysis.theirBlockadedPawns)) & pawnAnalysis.theirBlockadedPawns)
-      );
     }
 
     {  // Rooks
