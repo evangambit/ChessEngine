@@ -525,6 +525,17 @@ for name in ['early', 'late', 'clipped']:
   w, b = np.round(w * 100).astype(np.int32), np.round(b * 100).astype(np.int32)
   print(' '.join(str(x) for x in [b] + w.tolist()))
 
+text += """// ????
+     0     0     0     0     0     0     0     0
+     0     0     0     0     0     0     0     0
+     0     0     0     0     0     0     0     0
+     0     0     0     0     0     0     0     0
+     0     0     0     0     0     0     0     0
+     0     0     0     0     0     0     0     0
+     0     0     0     0     0     0     0     0
+     0     0     0     0     0     0     0     0
+"""
+
 kPieceName = 'PNBRQKpnbrqk'
 w = np.round(pmModel.w['early'].weight.reshape(12, 8, 8).detach().numpy() * 100).astype(np.int64)
 w = [0] * 64 + w.flatten().tolist()
