@@ -34,6 +34,8 @@ std::string bstr(uint8_t b) {
 }
 
 int8_t king_dist(Square sq1, Square sq2) {
+  assert(sq1 != Square::NO_SQUARE);
+  assert(sq2 != Square::NO_SQUARE);
   int8_t a = sq1;
   int8_t b = sq2;
   return std::max(std::abs(a % 8 - b % 8), std::abs(a / 8 - b / 8));
