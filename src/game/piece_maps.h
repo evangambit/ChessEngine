@@ -59,7 +59,11 @@ struct PieceMaps {
             throw std::runtime_error("Expected 8 weights in piece-map row but got " + std::to_string(parts.size()));
           }
           for (size_t x = 0; x < 8; ++x) {
+            if (i > ColoredPiece::BLACK_PAWN) {
+              continue;
+            }
             pieceMaps[i * 64 + y * 8 + x][k] = stoi(parts[x]);
+            pieceMaps[(i + ColoredPiece::BLACK_PAWN - ColoredPiece::WHITE_PAWN) * 64 + (7 - y) * 8 + x][k] = -stoi(parts[x]);
           }
         }
       }

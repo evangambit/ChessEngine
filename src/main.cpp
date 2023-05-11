@@ -251,33 +251,33 @@ void print_feature_vec(Position *pos, const std::string& originalFen, bool human
     }
   }
 
-  gThinker.evaluator.features[EF::OUR_PAWNS] = 10;
+  // gThinker.evaluator.features[EF::OUR_PAWNS] = 10;
   Evaluation e = gThinker.evaluator.score<TURN>(*pos);
-  if (gThinker.evaluator.features[EF::OUR_PAWNS] == 10) {
-    std::cout << "PRINT FEATURE VEC FAIL (SHORT-CIRCUIT)" << std::endl;
-  }
-  if (humanReadable) {
-    std::cout << "ORIGINAL_FEN " << originalFen << std::endl;
-    std::cout << "FEN " << pos->fen() << std::endl;
-    std::cout << "SCORE " << e << std::endl;
-    const Evaluator& evaluator = gThinker.evaluator;
-    const int32_t t = evaluator.features[EF::TIME];
-    for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
-      const int32_t x = evaluator.features[i];
-      const int32_t s = (evaluator.earlyW[i] * x * t + evaluator.lateW[i] * x * (16 - t)) / 16 + evaluator.clippedW[i] * x;
-      std::cout << gThinker.evaluator.features[i] << " " << std::setfill(' ') << std::setw(4) << s << " " << EFSTR[i] << std::endl;
-    }
-    std::cout << "bonus" << " " << std::setfill(' ') << std::setw(4) << evaluator.bonus << std::endl;
-  } else {
-    std::cout << pos->fen() << std::endl;
-    for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
-      if (i != 0) {
-        std::cout << " ";
-      }
-      std::cout << gThinker.evaluator.features[i];
-    }
-    std::cout << std::endl;
-  }
+  // if (gThinker.evaluator.features[EF::OUR_PAWNS] == 10) {
+  //   std::cout << "PRINT FEATURE VEC FAIL (SHORT-CIRCUIT)" << std::endl;
+  // }
+  // if (humanReadable) {
+  //   std::cout << "ORIGINAL_FEN " << originalFen << std::endl;
+  //   std::cout << "FEN " << pos->fen() << std::endl;
+  //   std::cout << "SCORE " << e << std::endl;
+  //   const Evaluator& evaluator = gThinker.evaluator;
+  //   const int32_t t = evaluator.features[EF::TIME];
+  //   for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
+  //     const int32_t x = evaluator.features[i];
+  //     const int32_t s = (evaluator.earlyW[i] * x * t + evaluator.lateW[i] * x * (16 - t)) / 16 + evaluator.clippedW[i] * x;
+  //     std::cout << gThinker.evaluator.features[i] << " " << std::setfill(' ') << std::setw(4) << s << " " << EFSTR[i] << std::endl;
+  //   }
+  //   std::cout << "bonus" << " " << std::setfill(' ') << std::setw(4) << evaluator.bonus << std::endl;
+  // } else {
+  //   std::cout << pos->fen() << std::endl;
+  //   for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
+  //     if (i != 0) {
+  //       std::cout << " ";
+  //     }
+  //     std::cout << gThinker.evaluator.features[i];
+  //   }
+  //   std::cout << std::endl;
+  // }
 }
 
 bool is_uci(const std::string& text) {
