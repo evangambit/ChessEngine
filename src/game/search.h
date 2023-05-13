@@ -754,6 +754,8 @@ struct Thinker {
       r.move = kNullMove;
     }
 
+    r.analysisComplete = !this->stopThinkingCondition->should_stop_thinking(*this);
+
     if (r.analysisComplete) {
       NodeType nodeType = NodeTypePV;
       if (r.score >= originalBeta) {
