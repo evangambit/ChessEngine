@@ -544,6 +544,13 @@ lonelyKingB = 0;
     backRankControl += std::popcount(threats.badForTheir[Piece::ROOK] & kTheirBackRanks) - std::popcount(threats.badForOur[Piece::ROOK] & kOurBackRanks);
     backRankControl += std::popcount(threats.badForTheir[Piece::QUEEN] & kTheirBackRanks) - std::popcount(threats.badForOur[Piece::QUEEN] & kOurBackRanks);
 
+    int freedom = 0;
+    freedom += std::popcount(threats.ourPawnTargets & ~threats.badForOur[Piece::PAWN]) - std::popcount(threats.theirPawnTargets & ~threats.badForTheir[Piece::PAWN]);
+    freedom += std::popcount(threats.ourKnightTargets & ~threats.badForOur[Piece::KNIGHT]) - std::popcount(threats.theirKnightTargets & ~threats.badForTheir[Piece::KNIGHT]);
+    freedom += std::popcount(threats.ourBishopTargets & ~threats.badForOur[Piece::BISHOP]) - std::popcount(threats.theirBishopTargets & ~threats.badForTheir[Piece::BISHOP]);
+    freedom += std::popcount(threats.ourRookTargets & ~threats.badForOur[Piece::ROOK]) - std::popcount(threats.theirRookTargets & ~threats.badForTheir[Piece::ROOK]);
+    freedom += std::popcount(threats.ourQueenTargets & ~threats.badForOur[Piece::QUEEN]) - std::popcount(threats.theirQueenTargets & ~threats.badForTheir[Piece::QUEEN]);
+
     int homeQuality;
     {
       // Bonus for king having pawns in front of him, or having pawns in front of him once he castles.
@@ -667,6 +674,7 @@ lonelyKingB = 0;
     base += (features[EF::THEIR_HANGING_QUEENS] > 0) * 450;
     base += (features[EF::THEIR_HANGING_QUEENS] == 0 && features[EF::THEIR_HANGING_ROOKS] > 0) * 250;
     base += (features[EF::THEIR_HANGING_QUEENS] == 0 && features[EF::THEIR_HANGING_ROOKS] == 0 && features[EF::THEIR_HANGING_KNIGHTS] + features[EF::THEIR_HANGING_BISHOPS] > 0) * 150;
+    base += freedom * 3;
 
     early = (early * (18 - time)) / 18;
 
