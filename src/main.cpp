@@ -418,7 +418,10 @@ void mymain(std::vector<Position>& positions, const std::string& mode, double ti
         SearchResult<Color::WHITE> results(Evaluation(0), kNullMove);
         time_t tstart = clock();
         for (size_t i = 1; i <= depth; ++i) {
-          results = gThinker.search(&pos, i, results);
+          SearchResult<Color::WHITE> r = gThinker.search(&pos, i, results);
+          if (r.analysisComplete) {
+            results = r;
+          }
           if (gThinker.nodeCounter >= nodeLimit) {
             break;
           }
