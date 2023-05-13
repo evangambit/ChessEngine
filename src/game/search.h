@@ -519,6 +519,10 @@ struct Thinker {
     constexpr Color opposingColor = opposite_color<TURN>();
     constexpr ColoredPiece moverKing = coloredPiece<TURN, Piece::KING>();
 
+    if (depthRemaining >= 4 && this->stopThinkingCondition->should_stop_thinking(*this)) {
+      return SearchResult<TURN>(0, kNullMove, false);
+    }
+
     if (std::popcount(pos->pieceBitboards_[coloredPiece<TURN, Piece::KING>()]) == 0) {
       return SearchResult<TURN>(kMissingKing, kNullMove);
     }
@@ -531,17 +535,6 @@ struct Thinker {
     if (!isNullCacheResult(cr) && cr.depthRemaining >= depthRemaining) {
       if (cr.nodeType == NodeTypePV || cr.lowerbound() >= beta || cr.upperbound() <= alpha) {
         return SearchResult<TURN>(cr.eval, cr.bestMove);
-      }
-    }
-
-    if (depthRemaining >= 4 && this->stopThinkingCondition->should_stop_thinking(*this)) {
-      // We add some trivial additional costs here to make sure we don't return completely crazy
-      // evaluations.
-      if (!isNullCacheResult(cr)) {
-        return SearchResult<TURN>(cr.eval, cr.bestMove, false);
-      } else {
-        SearchResult<TURN> r = qsearch<TURN>(pos, 0, alpha, beta);
-        return SearchResult<TURN>(r.score, r.move, false);
       }
     }
 
@@ -761,14 +754,13 @@ struct Thinker {
       r.move = kNullMove;
     }
 
-    NodeType nodeType = NodeTypePV;
-    if (r.score >= originalBeta) {
-      nodeType = NodeTypeCut_LowerBound;
-    } else if (r.score <= originalAlpha) {
-      nodeType = NodeTypeAll_UpperBound;
-    }
-
     if (r.analysisComplete) {
+      NodeType nodeType = NodeTypePV;
+      if (r.score >= originalBeta) {
+        nodeType = NodeTypeCut_LowerBound;
+      } else if (r.score <= originalAlpha) {
+        nodeType = NodeTypeAll_UpperBound;
+      }
       const CacheResult cr = CacheResult{
         pos->hash_,
         depthRemaining,

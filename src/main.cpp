@@ -329,10 +329,7 @@ void mymain(std::vector<Position>& positions, const std::string& mode, double ti
           const double secs = double(clock() - tstart) / CLOCKS_PER_SEC;
           std::cout << i << " : " << results.move << " : " << results.score << " (" << secs << " secs, " << gThinker.nodeCounter << " nodes, " << gThinker.nodeCounter / secs / 1000 << " kNodes/sec)" << std::endl;
         }
-        if (gThinker.nodeCounter >= nodeLimit) {
-          break;
-        }
-        if (double(clock() - tstart)/CLOCKS_PER_SEC*1000 >= timeLimitMs) {
+        if (gThinker.stopThinkingCondition->should_stop_thinking(gThinker)) {
           break;
         }
       }
@@ -422,10 +419,7 @@ void mymain(std::vector<Position>& positions, const std::string& mode, double ti
           if (r.analysisComplete) {
             results = r;
           }
-          if (gThinker.nodeCounter >= nodeLimit) {
-            break;
-          }
-          if (double(clock() - tstart)/CLOCKS_PER_SEC*1000 >= timeLimitMs) {
+          if (gThinker.stopThinkingCondition->should_stop_thinking(gThinker)) {
             break;
           }
         }
