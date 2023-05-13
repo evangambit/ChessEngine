@@ -1,0 +1,274 @@
+#import "game/search.h"
+#import "game/Position.h"
+#import "game/movegen.h"
+#import "game/utils.h"
+#import "game/string_utils.h"
+
+#include <deque>
+#include <iostream>
+
+using namespace ChessEngine;
+
+struct UciEngine {
+  Thinker thinker;
+  Position pos;
+  UciEngine() {
+    pos = Position("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+    this->thinker.load_weights_from_file("www.txt");
+  }
+  void start(std::istream& cin) {
+    while (true) {
+      if (std::cin.eof()) {
+        break;
+      }
+      std::string line;
+      getline(std::cin, line);
+      if (line == "quit") {
+        break;
+      }
+
+      // Skip empty lines.
+      if(line.find_first_not_of(' ') == std::string::npos) {
+        continue;
+      }
+
+      this->handle_uci_command(&line);
+    }
+  }
+  void handle_uci_command(std::string *command) {
+    remove_excess_whitespace(command);
+    std::vector<std::string> parts = split(*command, ' ');
+    if (parts[0] == "position") {
+      handle_position(parts);
+    } else if (parts[0] == "go") {
+      handle_go(parts);
+    } else if (parts[0] == "setoption") {
+      handle_set_option(parts);
+    } else if (parts[0] == "ucinewgame") {
+      this->thinker.reset_stuff();
+    } else {
+      std::cout << "Unrecognized command " << repr(*command) << std::endl;
+    }
+  }
+
+  void invalid(const std::string& command) {
+    std::cout << "Invalid use of " << repr(command) << " command" << std::endl;
+  }
+
+  void handle_position(const std::vector<std::string>& command) {
+    if (command.size() < 2) {
+      invalid(join(command, " "));
+      return;
+    }
+    size_t i;
+    if (command[1] == "startpos") {
+      this->pos = Position("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+      i = 2;
+    } else if (command.size() >= 8 && command[1] == "fen") {
+      std::vector<std::string> fen(command.begin() + 2, command.begin() + 8);
+      i = 8;
+      this->pos = Position(join(fen, " "));
+    } else {
+      invalid(join(command, " "));
+      return;
+    }
+    if (i == command.size()) {
+      return;
+    }
+    if (command[i] != "moves") {
+      invalid(join(command, " "));
+      return;
+    }
+    while (++i < command.size()) {
+      std::string uciMove = command[i];
+      ExtMove moves[kMaxNumMoves];
+      ExtMove *end;
+      if (this->pos.turn_ == Color::WHITE) {
+        end = compute_legal_moves<Color::WHITE>(&pos, moves);
+      } else {
+        end = compute_legal_moves<Color::BLACK>(&pos, moves);
+      }
+      bool foundMove = false;
+      for (ExtMove *move = moves; move < end; ++move) {
+        if (move->move.uci() == uciMove) {
+          foundMove = true;
+          if (this->pos.turn_ == Color::WHITE) {
+            make_move<Color::WHITE>(&pos, move->move);
+          } else {
+            make_move<Color::BLACK>(&pos, move->move);
+          }
+          break;
+        }
+      }
+      if (!foundMove) {
+        std::cout << "Could not find move " << repr(uciMove) << std::endl;
+        return;
+      }
+    }
+  }
+
+  void handle_go(const std::vector<std::string>& command) {
+    size_t nodeLimit = size_t(-1);
+    uint64_t depthLimit = 99;
+    uint64_t timeLimitMs = 1000 * 60 * 60;
+
+    if (command.size() != 3) {
+      invalid(join(command, " "));
+      return;
+    }
+
+    if (command[1] == "depth") {
+      depthLimit = stoi(command[2]);
+    }
+    if (command[1] == "nodes") {
+      nodeLimit = stoi(command[2]);
+    }
+
+    this->thinker.nodeCounter = 0;
+    this->thinker.leafCounter = 0;
+
+    SearchResult<Color::WHITE> results(Evaluation(0), kNullMove);
+    time_t tstart = clock();
+    for (size_t depth = 1; depth <= depthLimit; ++depth) {
+      results = this->thinker.search(&this->pos, depth, results);
+      const double secs = double(clock() - tstart)/CLOCKS_PER_SEC;
+      // std::cout << depth << " : " << results.move << " : " << results.score << " (" << secs << " secs, " << this->thinker.nodeCounter << " nodes, " << this->thinker.nodeCounter / secs / 1000 << " kNodes/sec)" << std::endl;
+      this->_print_variations(depth, secs * 1000);
+      if (this->thinker.nodeCounter >= nodeLimit) {
+        break;
+      }
+      if (double(clock() - tstart)/CLOCKS_PER_SEC*1000 >= timeLimitMs) {
+        break;
+      }
+    }
+  }
+
+  void _print_variations(int depth, double secs) {
+    const uint64_t timeMs = secs * 1000;
+    std::vector<SearchResult<Color::WHITE>> variations;
+    {
+      ExtMove moves[256];
+      ExtMove *end;
+      if (pos.turn_ == Color::WHITE) {
+        end = compute_legal_moves<Color::WHITE>(&pos, moves);
+      } else {
+        end = compute_legal_moves<Color::BLACK>(&pos, moves);
+      }
+
+      for (ExtMove *move = moves; move < end; ++move) {
+        if (pos.turn_ == Color::WHITE) {
+          make_move<Color::WHITE>(&pos, move->move);
+        } else {
+          make_move<Color::BLACK>(&pos, move->move);
+        }
+        CacheResult cr = this->thinker.cache.find(pos.hash_);
+        if (isNullCacheResult(cr) || cr.nodeType != NodeTypePV) {
+          undo<Color::WHITE>(&pos);
+          continue;
+        }
+        if (pos.turn_ == Color::WHITE) {
+          variations.push_back(SearchResult<Color::WHITE>(cr.eval, move->move));
+        } else {
+          variations.push_back(SearchResult<Color::WHITE>(-cr.eval, move->move));
+        }
+        if (pos.turn_ == Color::BLACK) {
+          undo<Color::WHITE>(&pos);
+        } else {
+          undo<Color::BLACK>(&pos);
+        }
+      }
+      if (pos.turn_ == Color::WHITE) {
+        std::sort(
+          variations.begin(),
+          variations.end(),
+          [](SearchResult<Color::WHITE> a, SearchResult<Color::WHITE> b) -> bool {
+            return a.score > b.score;
+        });
+      } else {
+        std::sort(
+          variations.begin(),
+          variations.end(),
+          [](SearchResult<Color::WHITE> a, SearchResult<Color::WHITE> b) -> bool {
+            return a.score < b.score;
+        });
+      }
+    }
+    for (size_t i = 0; i < std::min(this->thinker.multiPV, variations.size()); ++i) {
+      std::pair<Evaluation, std::vector<Move>> variation = this->thinker.get_variation(&pos, variations[i].move);
+      std::cout << "info depth " << depth;
+      std::cout << " multipv " << i;
+      std::cout << " score cp " << variation.first;
+      std::cout << " nodes " << this->thinker.nodeCounter;
+      std::cout << " nps " << uint64_t(double(this->thinker.nodeCounter) / secs);
+      std::cout << " time " << timeMs;
+      std::cout << " pv";
+      for (const auto& move : variation.second) {
+        std::cout << " " << move.uci();
+      }
+      std::cout << std::endl;
+    }
+  }
+
+  void handle_set_option(const std::vector<std::string>& command) {
+    if (command.size() != 5 && command.size() != 3) {
+      invalid(join(command, " "));
+      return;
+    }
+    if (command[1] != "name") {
+      invalid(join(command, " "));
+      return;
+    }
+    const std::string name = command[2];
+    if (command.size() == 3) {
+      if (name == "clear-tt") {
+        this->thinker.reset_stuff();
+        return;
+      }
+      std::cout << "Unrecognized option " << repr(name) << std::endl;
+    } else {
+      if (command[3] != "value") {
+        invalid(join(command, " "));
+        return;
+      }
+      const std::string value = command[4];
+      if (name == "MultiPV") {
+        int multiPV;
+        try {
+          multiPV = stoi(value);
+        } catch (std::invalid_argument&) {
+          std::cout << "Value must be an integer" << std::endl;
+          return;
+        }
+        if (multiPV < 1) {
+          std::cout << "Value must be positive" << std::endl;
+          return;
+        }
+        this->thinker.multiPV = multiPV;
+        return;
+      }
+      std::cout << "Unrecognized option " << repr(name) << std::endl;
+    }
+  }
+};
+
+int main(int argc, char *argv[]) {
+  std::cout << "Chess Engine" << std::endl;
+
+  // Wait for "uci" command.
+  while (true) {
+    std::string line;
+    getline(std::cin, line);
+    if (line == "uci") {
+      break;
+    } else {
+      std::cout << "Unrecognized command " << repr(line) << std::endl;
+    }
+  }
+
+  initialize_geometry();
+  initialize_zorbrist();
+  initialize_movegen();
+
+  UciEngine engine;
+  engine.start(std::cin);
+}

@@ -319,37 +319,46 @@ struct Thinker {
     myfile.close();
   }
 
-  void print_variation(Position* pos, Move move) {
+  std::pair<Evaluation, std::vector<Move>> get_variation(Position *pos, Move move) {
+    std::vector<Move> moves = {move};
     this->make_move(pos, move);
     CacheResult cr = this->cache.find(pos->hash_);
-
     if (isNullCacheResult(cr)) {
-      return;
+      this->undo(pos);
+      throw std::runtime_error("Could not get variation starting with " + move.uci());
+      return std::make_pair(Evaluation(0), moves);
     }
-
     Evaluation eval = cr.eval;
     if (pos->turn_ == Color::BLACK) {
       eval *= -1;
     }
-
-    if (eval < 0) {
-      std::cout << eval << " " << move;
-    } else {
-      std::cout << "+" << eval << " " << move;
-    }
-
     size_t counter = 1;
     while (!isNullCacheResult(cr) && cr.bestMove != kNullMove && counter < 10) {
-      std::cout << " " << cr.bestMove;
+      moves.push_back(cr.bestMove);
       this->make_move(pos, cr.bestMove);
       ++counter;
       cr = cache.find(pos->hash_);
     }
-    std::cout << std::endl;
     while (counter > 0) {
       this->undo(pos);
       --counter;
     }
+    return std::make_pair(eval, moves);
+  }
+
+  void print_variation(Position* pos, Move move) {
+    std::pair<Evaluation, std::vector<Move>> variationPair = this->get_variation(pos, move);
+    Evaluation eval = variationPair.first;
+    const std::vector<Move>& variation = variationPair.second;
+    if (eval < 0) {
+      std::cout << eval;
+    } else {
+      std::cout << "+" << eval;
+    }
+    for (const auto& move : variation) {
+      std::cout << " " << move.uci();
+    }
+    std::cout << std::endl;
   }
 
   // TODO: qsearch can leave you in check
