@@ -44,13 +44,15 @@ enum SearchType {
   SearchTypeNullWindow,
 };
 
+const int32_t kMaxCachePriority = 65535;
+
 struct CacheResult {  // 16 bytes
   uint64_t positionHash;  // 8 bytes
   Depth depthRemaining;   // 1 byte
   Evaluation eval;        // 2 bytes
   Move bestMove;          // 2 bytes
   NodeType nodeType;      // 1 byte
-  uint16_t priority;      // 2 bytes; 65535 if primary variation
+  uint16_t priority;      // 2 bytes; kMaxCachePriority if primary variation
   inline Evaluation lowerbound() const {
     return (nodeType == NodeTypeAll_UpperBound || nodeType == NodeTypeQ) ? kMinEval : eval;
   }
@@ -74,6 +76,13 @@ const CacheResult kMissingCacheResult = CacheResult{
 };
 inline bool isNullCacheResult(const CacheResult& cr) {
   return cr.depthRemaining == -1;
+}
+
+std::ostream& operator<<(std::ostream& stream, CacheResult cr) {
+  if (isNullCacheResult(cr)) {
+    return stream << "[NULL]" << std::endl;
+  }
+  return stream << "[ hash:" << cr.positionHash << " depth:" << uint16_t(cr.depthRemaining) << " eval:" << cr.eval << " move:" << cr.bestMove << " nodeType:" << unsigned(cr.nodeType) << " priority:" << unsigned(cr.priority) << " ]";
 }
 
 #if USE_CACHE
@@ -153,6 +162,23 @@ struct TranspositionTable {
       idx = (idx + delta) % size;
     }
     return kMissingCacheResult;
+  }
+
+  CacheResult create_cache_result(
+    uint64_t hash,
+    Depth depthRemaining,
+    Evaluation eval,
+    Move bestMove,
+    NodeType nodeType,
+    int32_t distFromPV) {
+    return CacheResult{
+      hash,
+      depthRemaining,
+      eval,
+      bestMove,
+      nodeType,
+      uint8_t(std::max(0, kMaxCachePriority - distFromPV)),
+    };
   }
  private:
   CacheResult *data;
@@ -268,8 +294,9 @@ struct Thinker {
   size_t multiPV;
 
   PieceMaps pieceMaps;
+  uint64_t lastRootHash;
 
-  Thinker() : cache(10000), stopThinkingCondition(new NeverStopThinkingCondition()) {
+  Thinker() : cache(10000), stopThinkingCondition(new NeverStopThinkingCondition()), lastRootHash(0) {
     reset_stuff();
     multiPV = 1;
   }
@@ -319,46 +346,31 @@ struct Thinker {
     myfile.close();
   }
 
-  std::pair<Evaluation, std::vector<Move>> get_variation(Position *pos, Move move) {
-    std::vector<Move> moves = {move};
-    this->make_move(pos, move);
-    CacheResult cr = this->cache.find(pos->hash_);
+  std::pair<CacheResult, std::vector<Move>> get_variation(Position *pos, Move move) {
+    std::vector<Move> moves;
+    if (move != kNullMove) {
+      moves.push_back(move);
+      this->make_move(pos, move);
+    }
+    CacheResult originalCacheResult = this->cache.find(pos->hash_);
+    CacheResult cr = originalCacheResult;
     if (isNullCacheResult(cr)) {
       this->undo(pos);
       throw std::runtime_error("Could not get variation starting with " + move.uci());
-      return std::make_pair(Evaluation(0), moves);
+      return std::make_pair(kMissingCacheResult, moves);
     }
-    Evaluation eval = cr.eval;
     if (pos->turn_ == Color::BLACK) {
-      eval *= -1;
+      originalCacheResult.eval *= -1;
     }
-    size_t counter = 1;
-    while (!isNullCacheResult(cr) && cr.bestMove != kNullMove && counter < 10) {
+    while (!isNullCacheResult(cr) && cr.bestMove != kNullMove && moves.size() < 10) {
       moves.push_back(cr.bestMove);
       this->make_move(pos, cr.bestMove);
-      ++counter;
       cr = cache.find(pos->hash_);
     }
-    while (counter > 0) {
+    for (size_t i = 0; i < moves.size(); ++i) {
       this->undo(pos);
-      --counter;
     }
-    return std::make_pair(eval, moves);
-  }
-
-  void print_variation(Position* pos, Move move) {
-    std::pair<Evaluation, std::vector<Move>> variationPair = this->get_variation(pos, move);
-    Evaluation eval = variationPair.first;
-    const std::vector<Move>& variation = variationPair.second;
-    if (eval < 0) {
-      std::cout << eval;
-    } else {
-      std::cout << "+" << eval;
-    }
-    for (const auto& move : variation) {
-      std::cout << " " << move.uci();
-    }
-    std::cout << std::endl;
+    return std::make_pair(originalCacheResult, moves);
   }
 
   // TODO: qsearch can leave you in check
@@ -549,14 +561,14 @@ struct Thinker {
       } else if (r.score <= alpha) {
         nodeType = NodeTypeAll_UpperBound;
       }
-      const CacheResult cr = CacheResult{
+      const CacheResult cr = this->cache.create_cache_result(
         pos->hash_,
         depthRemaining,
         r.score,
         r.move,
         nodeType,
-        uint16_t(65535 - distFromPV),
-      };
+        distFromPV
+      );
       this->cache.insert(cr);
       return r;
     }
@@ -763,14 +775,14 @@ struct Thinker {
       } else if (r.score <= originalAlpha) {
         nodeType = NodeTypeAll_UpperBound;
       }
-      const CacheResult cr = CacheResult{
+      const CacheResult cr = this->cache.create_cache_result(
         pos->hash_,
         depthRemaining,
         r.score,
         r.move,
         nodeType,
-        uint16_t(65535 - distFromPV),
-      };
+        distFromPV
+      );
       this->cache.insert(cr);
     }
 

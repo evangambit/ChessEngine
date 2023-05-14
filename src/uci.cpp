@@ -46,6 +46,31 @@ struct UciEngine {
       handle_set_option(parts);
     } else if (parts[0] == "ucinewgame") {
       this->thinker.reset_stuff();
+    } else if (parts[0] == "probe") {
+      // Custom command.
+      Position query = Position::init();
+      size_t i = 1;
+      if (parts[1] == "fen") {
+        std::vector<std::string> fen(parts.begin() + 2, parts.begin() + 8);
+        query = Position(join(fen, " "));
+        i = 8;
+      }
+      if (parts[i] == "moves") {
+        while (++i < parts.size()) {
+          if (!make_uci_move(&query, parts[i])) {
+            std::cout << "Invalid uci move " << repr(parts[i]) << std::endl;
+            return;
+          }
+        }
+      }
+
+      std::pair<CacheResult, std::vector<Move>> variation = this->thinker.get_variation(&query, kNullMove);
+
+      std::cout << variation.first.eval;
+      for (const auto& move : variation.second) {
+        std::cout << " " << move;
+      }
+      std::cout << std::endl;
     } else {
       std::cout << "Unrecognized command " << repr(*command) << std::endl;
     }
@@ -73,6 +98,7 @@ struct UciEngine {
       return;
     }
     if (i == command.size()) {
+      std::cout << "Position set to \"" << this->pos.fen() << std::endl;
       return;
     }
     if (command[i] != "moves") {
@@ -107,6 +133,27 @@ struct UciEngine {
     }
   }
 
+  bool make_uci_move(Position* position, const std::string& uciMove) {
+    ExtMove moves[kMaxNumMoves];
+    ExtMove *end;
+    if (position->turn_ == Color::WHITE) {
+      end = compute_legal_moves<Color::WHITE>(position, moves);
+    } else {
+      end = compute_legal_moves<Color::BLACK>(position, moves);
+    }
+    for (ExtMove *move = moves; move < end; ++move) {
+      if (move->move.uci() == uciMove) {
+        if (position->turn_ == Color::WHITE) {
+          make_move<Color::WHITE>(position, move->move);
+        } else {
+          make_move<Color::BLACK>(position, move->move);
+        }
+        return true;
+      }
+    }
+    return false;
+  }
+
   void handle_go(const std::vector<std::string>& command) {
     size_t nodeLimit = size_t(-1);
     uint64_t depthLimit = 99;
@@ -132,8 +179,7 @@ struct UciEngine {
     for (size_t depth = 1; depth <= depthLimit; ++depth) {
       results = this->thinker.search(&this->pos, depth, results);
       const double secs = double(clock() - tstart)/CLOCKS_PER_SEC;
-      // std::cout << depth << " : " << results.move << " : " << results.score << " (" << secs << " secs, " << this->thinker.nodeCounter << " nodes, " << this->thinker.nodeCounter / secs / 1000 << " kNodes/sec)" << std::endl;
-      this->_print_variations(depth, secs * 1000);
+      this->_print_variations(&pos, depth, secs * 1000, this->thinker.multiPV);
       if (this->thinker.nodeCounter >= nodeLimit) {
         break;
       }
@@ -143,41 +189,45 @@ struct UciEngine {
     }
   }
 
-  void _print_variations(int depth, double secs) {
+  void _print_variations(Position* position, int depth, double secs, size_t multiPV) {
     const uint64_t timeMs = secs * 1000;
     std::vector<SearchResult<Color::WHITE>> variations;
     {
       ExtMove moves[256];
       ExtMove *end;
-      if (pos.turn_ == Color::WHITE) {
-        end = compute_legal_moves<Color::WHITE>(&pos, moves);
+      if (position->turn_ == Color::WHITE) {
+        end = compute_legal_moves<Color::WHITE>(position, moves);
       } else {
-        end = compute_legal_moves<Color::BLACK>(&pos, moves);
+        end = compute_legal_moves<Color::BLACK>(position, moves);
       }
 
       for (ExtMove *move = moves; move < end; ++move) {
-        if (pos.turn_ == Color::WHITE) {
-          make_move<Color::WHITE>(&pos, move->move);
+        if (position->turn_ == Color::WHITE) {
+          make_move<Color::WHITE>(position, move->move);
         } else {
-          make_move<Color::BLACK>(&pos, move->move);
+          make_move<Color::BLACK>(position, move->move);
         }
-        CacheResult cr = this->thinker.cache.find(pos.hash_);
+        CacheResult cr = this->thinker.cache.find(position->hash_);
         if (isNullCacheResult(cr) || cr.nodeType != NodeTypePV) {
-          undo<Color::WHITE>(&pos);
+          if (position->turn_ == Color::WHITE) {
+            undo<Color::BLACK>(position);
+          } else {
+            undo<Color::WHITE>(position);
+          }
           continue;
         }
-        if (pos.turn_ == Color::WHITE) {
+        if (position->turn_ == Color::WHITE) {
           variations.push_back(SearchResult<Color::WHITE>(cr.eval, move->move));
         } else {
           variations.push_back(SearchResult<Color::WHITE>(-cr.eval, move->move));
         }
-        if (pos.turn_ == Color::BLACK) {
-          undo<Color::WHITE>(&pos);
+        if (position->turn_ == Color::WHITE) {
+          undo<Color::BLACK>(position);
         } else {
-          undo<Color::BLACK>(&pos);
+          undo<Color::WHITE>(position);
         }
       }
-      if (pos.turn_ == Color::WHITE) {
+      if (position->turn_ == Color::WHITE) {
         std::sort(
           variations.begin(),
           variations.end(),
@@ -193,11 +243,11 @@ struct UciEngine {
         });
       }
     }
-    for (size_t i = 0; i < std::min(this->thinker.multiPV, variations.size()); ++i) {
-      std::pair<Evaluation, std::vector<Move>> variation = this->thinker.get_variation(&pos, variations[i].move);
+    for (size_t i = 0; i < std::min(multiPV, variations.size()); ++i) {
+      std::pair<CacheResult, std::vector<Move>> variation = this->thinker.get_variation(&pos, variations[i].move);
       std::cout << "info depth " << depth;
       std::cout << " multipv " << i;
-      std::cout << " score cp " << variation.first;
+      std::cout << " score cp " << variation.first.eval;
       std::cout << " nodes " << this->thinker.nodeCounter;
       std::cout << " nps " << uint64_t(double(this->thinker.nodeCounter) / secs);
       std::cout << " time " << timeMs;
@@ -254,16 +304,16 @@ struct UciEngine {
 int main(int argc, char *argv[]) {
   std::cout << "Chess Engine" << std::endl;
 
-  // Wait for "uci" command.
-  while (true) {
-    std::string line;
-    getline(std::cin, line);
-    if (line == "uci") {
-      break;
-    } else {
-      std::cout << "Unrecognized command " << repr(line) << std::endl;
-    }
-  }
+  // // Wait for "uci" command.
+  // while (true) {
+  //   std::string line;
+  //   getline(std::cin, line);
+  //   if (line == "uci") {
+  //     break;
+  //   } else {
+  //     std::cout << "Unrecognized command " << repr(line) << std::endl;
+  //   }
+  // }
 
   initialize_geometry();
   initialize_zorbrist();
