@@ -176,10 +176,11 @@ struct UciEngine {
 
     SearchResult<Color::WHITE> results(Evaluation(0), kNullMove);
     time_t tstart = clock();
+    this->thinker.reset_stuff();
     for (size_t depth = 1; depth <= depthLimit; ++depth) {
       results = this->thinker.search(&this->pos, depth, results);
       const double secs = double(clock() - tstart)/CLOCKS_PER_SEC;
-      this->_print_variations(&pos, depth, secs * 1000, this->thinker.multiPV);
+      this->_print_variations(&pos, depth, secs, this->thinker.multiPV);
       if (this->thinker.nodeCounter >= nodeLimit) {
         break;
       }
