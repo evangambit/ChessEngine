@@ -374,5 +374,15 @@ int main(int argc, char *argv[]) {
   initialize_movegen();
 
   UciEngine engine;
-  engine.start(std::cin);
+  // engine.start(std::cin);
+
+  engine.handle_go({"go", "depth", "7"});
+  std::cout << std::endl;
+  engine.handle_position({"position", "startpos", "moves", "e2e4"});
+  engine.handle_go({"go", "depth", "7"});
+  std::cout << std::endl;
+  engine.handle_set_option({"setoption", "name", "clear-tt"});
+  engine.handle_go({"go", "depth", "7"});
+  std::cout << std::endl;
+
 }
