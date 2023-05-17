@@ -26,7 +26,8 @@ void simple_make_move(Position *pos, Square from, Square to) {
   const ColoredPiece capturedPieceCP = pos->tiles_[to];
   pos->tiles_[to] = movingCP;
   pos->tiles_[from] = ColoredPiece::NO_COLORED_PIECE;
-  pos->pieceBitboards_[movingCP] = (pos->pieceBitboards_[movingCP] | bb(to)) & ~bb(from);
+  pos->pieceBitboards_[movingCP] |= bb(to);
+  pos->pieceBitboards_[movingCP] &= ~bb(from);
   pos->pieceBitboards_[capturedPieceCP] &= ~bb(to);
 }
 
@@ -58,13 +59,13 @@ int static_exchange(Position *pos) {
   // Try all ways to capture enemy queen.
   if (pos->pieceBitboards_[theirQueenCP]) {
     Square queenSq = lsb(pos->pieceBitboards_[theirQueenCP]);
-    Bitboard attackers = compute_attackers<THEM>(*pos, queenSq);
-    for (Piece piece = Piece::PAWN; piece < Piece::QUEEN; piece = Piece(piece + 1)) {
+    Bitboard attackers = compute_attackers<US>(*pos, queenSq);
+    for (Piece piece = Piece::PAWN; piece <= Piece::QUEEN; piece = Piece(piece + 1)) {
       ColoredPiece cp = coloredPiece<US>(piece);
       if (attackers & pos->pieceBitboards_[cp]) {
         Square attackersSq = lsb(attackers & pos->pieceBitboards_[cp]);
         simple_make_move<US>(pos, attackersSq, queenSq);
-        int r = (kPieceValues[Piece::QUEEN] - kPieceValues[Piece::PAWN]) - static_exchange<THEM>(pos);
+        int r = kPieceValues[Piece::QUEEN] - static_exchange<THEM>(pos);
         simple_undo_move<US>(pos, attackersSq, queenSq, theirQueenCP);
         return r;
       }
@@ -82,9 +83,22 @@ int static_exchange(Position *pos) {
     Location targetLoc = bb(targetSq);
     Square attackersSq = lsb(pos->pieceBitboards_[ourPawnCP] & (shift<southeast>(targetLoc) | shift<southwest>(targetLoc)));
     simple_make_move<US>(pos, attackersSq, targetSq);
-    int r = (kPieceValues[piece] - kPieceValues[Piece::PAWN]) - static_exchange<THEM>(pos);
+    int r = kPieceValues[piece] - static_exchange<THEM>(pos);
     simple_undo_move<US>(pos, attackersSq, targetSq, coloredPiece<THEM>(piece));
     return r;
+  }
+
+  Bitboard ourKnights = pos->pieceBitboards_[coloredPiece<US, Piece::KNIGHT>()];
+  const Bitboard theirRooks = pos->pieceBitboards_[coloredPiece<THEM, Piece::ROOK>()];
+  while (ourKnights) {
+    const Square sq = pop_lsb(ourKnights);
+    const Bitboard to = kKnightMoves[sq] & theirRooks;
+    if (to) {
+      simple_make_move<US>(pos, sq, lsb(to));
+      int r = kPieceValues[Piece::ROOK] - static_exchange<THEM>(pos);
+      simple_undo_move<US>(pos, sq, lsb(to), coloredPiece<THEM>(Piece::ROOK));
+      return r;
+    }
   }
 
   // TODO: minor piece capturing a rook.
@@ -140,7 +154,6 @@ Bitboard compute_attackers(const Position& pos, const Square sq) {
 
   const Bitboard ourRooks = pos.pieceBitboards_[coloredPiece<US, Piece::ROOK>()] | pos.pieceBitboards_[coloredPiece<US, Piece::QUEEN>()];
   const Bitboard ourBishops = pos.pieceBitboards_[coloredPiece<US, Piece::BISHOP>()] | pos.pieceBitboards_[coloredPiece<US, Piece::QUEEN>()];
-
   const Location loc = square2location(sq);
   const Bitboard enemies = pos.colorBitboards_[US];
   const Bitboard friends = pos.colorBitboards_[THEM] & ~loc;
@@ -351,17 +364,6 @@ ExtMove* compute_legal_moves(Position *pos, ExtMove *moves) {
     Square sq = lsb(pos->pieceBitboards_[coloredPiece<US,Piece::KING>()]);
     if (can_enemy_attack<US>(*pos, sq) == 0) {
       (*moves++) = *move;
-    // } else {
-    //   undo<US>(pos);
-    //   PinMasks pm = compute_pin_masks<US>(*pos);
-    //   std::cout << bstr(pm.horizontal) << std::endl;
-    //   std::cout << bstr(pm.vertical) << std::endl;
-    //   std::cout << bstr(pm.northeast) << std::endl;
-    //   std::cout << bstr(pm.northwest) << std::endl;
-    //   std::cout << *pos << std::endl;
-    //   std::cout << pos->fen() << std::endl;
-    //   std::cout << *move << std::endl;
-    //   throw std::runtime_error("");
     }
     undo<US>(pos);
   }
