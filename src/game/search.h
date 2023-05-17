@@ -895,7 +895,6 @@ struct Thinker {
   SearchResult<Color::WHITE> search(Position *pos, size_t depthLimit) {
     return this->search(pos, depthLimit, [](Position *position, SearchResult<Color::WHITE> results, size_t depth, double secs) {});
   }
-
   SearchResult<Color::WHITE> _search(Position* pos, Depth depth, SearchResult<Color::WHITE> lastResult) {
     if (pos->turn_ == Color::WHITE) {
       std::thread t1(

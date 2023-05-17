@@ -249,6 +249,13 @@ struct UciEngine {
 
     if (command[1] == "depth") {
       depthLimit = stoi(command[2]);
+    } else if (command[1] == "nodes") {
+      nodeLimit = stoi(command[2]);
+    } else if (command[1] == "time") {
+      timeLimitMs = stoi(command[2]);
+    } else {
+      invalid(join(command, " "));
+      return;
     }
     else if (command[1] == "nodes") {
       nodeLimit = stoi(command[2]);
@@ -374,15 +381,5 @@ int main(int argc, char *argv[]) {
   initialize_movegen();
 
   UciEngine engine;
-  // engine.start(std::cin);
-
-  engine.handle_go({"go", "depth", "7"});
-  std::cout << std::endl;
-  engine.handle_position({"position", "startpos", "moves", "e2e4"});
-  engine.handle_go({"go", "depth", "7"});
-  std::cout << std::endl;
-  engine.handle_set_option({"setoption", "name", "clear-tt"});
-  engine.handle_go({"go", "depth", "7"});
-  std::cout << std::endl;
-
+  engine.start(std::cin);
 }
