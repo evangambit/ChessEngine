@@ -241,15 +241,21 @@ struct UciEngine {
 
     time_t tstart = clock();
 
-    for (size_t i = 0; i < 4; ++i) {
-      const time_t tstart = clock();
-      this->thinker.nodeCounter = 0;
-      this->thinker.leafCounter = 0;
+    Position position(this->pos);
 
-      this->thinker.search(&this->pos, depthLimit, [this](Position *position, SearchResult<Color::WHITE> results, size_t depth, double secs) {
-      });
-      const double secs = double(clock() - tstart)/CLOCKS_PER_SEC*1000;
+    for (size_t i = 0; i < 300; ++i) {
+      SearchResult<Color::WHITE> r = this->thinker.search(&position, depthLimit);
+      if (r.move == kNullMove) {
+        break;
+      }
+      std::cout << " " << r.move << std::flush;
+      if(position.turn_ == Color::WHITE) {
+        make_move<Color::WHITE>(&position, r.move);
+      } else {
+        make_move<Color::BLACK>(&position, r.move);
+      }
     }
+    std::cout << std::endl;
   }
 
   void _print_variations(Position* position, int depth, double secs, size_t multiPV) const {
