@@ -44,7 +44,8 @@ enum SearchType {
   SearchTypeNullWindow,
 };
 
-const int32_t kMaxCachePriority = 65535;
+const int32_t kMaxCachePriority = 16383;
+const int32_t kNumRootCounters = 8;
 
 struct CacheResult {  // 16 bytes
   uint64_t positionHash;  // 8 bytes
@@ -52,7 +53,8 @@ struct CacheResult {  // 16 bytes
   Evaluation eval;        // 2 bytes
   Move bestMove;          // 2 bytes
   NodeType nodeType;      // 1 byte
-  uint16_t priority;      // 2 bytes; kMaxCachePriority if primary variation
+  unsigned priority : 14;      // 2 bytes; kMaxCachePriority if primary variation
+  unsigned rootCounter : 3;
   inline Evaluation lowerbound() const {
     return (nodeType == NodeTypeAll_UpperBound || nodeType == NodeTypeQ) ? kMinEval : eval;
   }
@@ -88,7 +90,7 @@ std::ostream& operator<<(std::ostream& stream, CacheResult cr) {
 #if USE_CACHE
 constexpr size_t kTranspositionTableMaxSteps = 3;
 struct TranspositionTable {
-  TranspositionTable(size_t kilobytes) {
+  TranspositionTable(size_t kilobytes) : rootCounter(0), currentRootHash(0) {
     if (kilobytes < 1) {
       kilobytes = 1;
     }
@@ -99,6 +101,13 @@ struct TranspositionTable {
   TranspositionTable& operator=(const TranspositionTable& table);  // Not implemented.
   ~TranspositionTable() {
     delete[] data;
+  }
+
+  void starting_search(uint64_t rootHash) {
+    if (rootHash != this->currentRootHash) {
+      this->currentRootHash = rootHash;
+      this->rootCounter = (this->rootCounter + 1) % kNumRootCounters;
+    }
   }
 
   void set_cache_size(size_t kilobytes) {
@@ -129,12 +138,23 @@ struct TranspositionTable {
       if (cr.positionHash == it->positionHash) {
         if (cr.depthRemaining > it->depthRemaining || (cr.nodeType == NodeTypePV && it->nodeType != NodeTypePV)) {
           *it = cr;
-          #if PARALLEL
-          spinLocks[idx % kTranspositionTableFactor].unlock();
-          #endif
+        } else {
+          // Mark this entry as "fresh".
+          it->rootCounter = this->rootCounter;
         }
+        #if PARALLEL
+        spinLocks[idx % kTranspositionTableFactor].unlock();
+        #endif
         return;
-      } else if (cr.depthRemaining > it->depthRemaining || (cr.depthRemaining == it->depthRemaining && cr.priority > it->priority)) {
+      } else if (
+        // We add a penalty to entries with a different root so that we slowly remove stale entries
+        // from the table.
+        // TODO: maybe penalty should depend on distance from rootCounter to more aggressively
+        // remove very old entries. For example:
+        // (this->rootCounter - it->rootCounter + kNumRootCounters) % kNumRootCounters
+        cr.depthRemaining > it->depthRemaining - (it->rootCounter != this->rootCounter)
+        ||
+        (cr.depthRemaining == it->depthRemaining && cr.priority > it->priority)) {
         *it = cr;
         #if PARALLEL
         spinLocks[idx % kTranspositionTableFactor].unlock();
@@ -186,9 +206,12 @@ struct TranspositionTable {
       bestMove,
       nodeType,
       uint8_t(std::max(0, kMaxCachePriority - distFromPV)),
+      this->rootCounter,
     };
   }
  private:
+  uint64_t currentRootHash;
+  unsigned rootCounter;
   CacheResult *data;
   size_t size;
 };
@@ -829,6 +852,7 @@ struct Thinker {
     this->nodeCounter = 0;
     this->leafCounter = 0;
     stopThinkingCondition->start_thinking(*this);
+    this->cache.starting_search(pos->hash_);
 
     SearchResult<Color::WHITE> results(Evaluation(0), kNullMove);
     for (size_t depth = 1; depth <= depthLimit; ++depth) {
