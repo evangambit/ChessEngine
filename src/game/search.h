@@ -823,8 +823,7 @@ struct Thinker {
 
   // TODO: making threads work with multiPV seems really nontrivial.
 
-  // Gives scores from white's perspective
-  SearchResult<Color::WHITE> search(Position* pos, size_t depthLimit, std::function<void(Position *, size_t, double)> callback) {
+  SearchResult<Color::WHITE> search(Position* pos, size_t depthLimit, std::function<void(Position *, SearchResult<Color::WHITE>, size_t, double)> callback) {
     time_t tstart = clock();
 
     this->nodeCounter = 0;
@@ -838,13 +837,17 @@ struct Thinker {
         results = r;
       }
       const double secs = double(clock() - tstart)/CLOCKS_PER_SEC;
-      callback(pos, depth, secs);
+      callback(pos, results, depth, secs);
       if (this->stopThinkingCondition->should_stop_thinking(*this)) {
         break;
       }
     }
 
     return results;
+  }
+
+  SearchResult<Color::WHITE> search(Position *pos, size_t depthLimit) {
+    return this->search(pos, depthLimit, [](Position *position, SearchResult<Color::WHITE> results, size_t depth, double secs) {});
   }
 
   SearchResult<Color::WHITE> _search(Position* pos, Depth depth, SearchResult<Color::WHITE> lastResult) {

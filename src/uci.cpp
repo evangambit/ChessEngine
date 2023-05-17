@@ -206,7 +206,7 @@ struct UciEngine {
       new StopThinkingTimeCondition(timeLimitMs)
     );
 
-    this->thinker.search(&this->pos, depthLimit, [this](Position *position, size_t depth, double secs) {
+    this->thinker.search(&this->pos, depthLimit, [this](Position *position, SearchResult<Color::WHITE> results, size_t depth, double secs) {
       this->_print_variations(position, depth, secs, this->thinker.multiPV);
     });
   }
@@ -246,7 +246,7 @@ struct UciEngine {
       this->thinker.nodeCounter = 0;
       this->thinker.leafCounter = 0;
 
-      this->thinker.search(&this->pos, depthLimit, [this](Position *position, size_t depth, double secs) {
+      this->thinker.search(&this->pos, depthLimit, [this](Position *position, SearchResult<Color::WHITE> results, size_t depth, double secs) {
       });
       const double secs = double(clock() - tstart)/CLOCKS_PER_SEC*1000;
     }
