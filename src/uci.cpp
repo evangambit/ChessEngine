@@ -204,6 +204,33 @@ struct UciEngine {
       invalid(join(command, " "));
       return;
     }
+
+    this->thinker.stopThinkingCondition = std::make_unique<OrStopCondition>(
+      new StopThinkingNodeCountCondition(nodeLimit),
+      new StopThinkingTimeCondition(timeLimitMs)
+    );
+
+    this->thinker.search(&this->pos, depthLimit, [this](Position *position, SearchResult<Color::WHITE> results, size_t depth, double secs) {
+      this->_print_variations(position, depth, secs, this->thinker.multiPV);
+    });
+  }
+
+  void handle_play(const std::vector<std::string>& command) {
+    size_t nodeLimit = size_t(-1);
+    uint64_t depthLimit = 99;
+    uint64_t timeLimitMs = 1000 * 60 * 60;
+
+    if (command.size() != 3) {
+      invalid(join(command, " "));
+      return;
+    }
+
+    if (command[1] == "depth") {
+      depthLimit = stoi(command[2]);
+    }
+    else if (command[1] == "nodes") {
+      nodeLimit = stoi(command[2]);
+    }
     else if (command[1] == "time") {
       timeLimitMs = stoi(command[2]);
     } else {
