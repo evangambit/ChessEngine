@@ -204,6 +204,12 @@ struct UciEngine {
       invalid(join(command, " "));
       return;
     }
+    else if (command[1] == "time") {
+      timeLimitMs = stoi(command[2]);
+    } else {
+      invalid(join(command, " "));
+      return;
+    }
 
     this->thinker.stopThinkingCondition = std::make_unique<OrStopCondition>(
       new StopThinkingNodeCountCondition(nodeLimit),
@@ -236,7 +242,7 @@ struct UciEngine {
     std::cout << std::endl;
   }
 
-  void _print_variations(Position* position, int depth, double secs, size_t multiPV) {
+  void _print_variations(Position* position, int depth, double secs, size_t multiPV) const {
     const uint64_t timeMs = secs * 1000;
     std::vector<SearchResult<Color::WHITE>> variations;
     for_all_moves(position, [&variations, this](Position *position, ExtMove move) mutable {
@@ -354,15 +360,5 @@ int main(int argc, char *argv[]) {
   initialize_movegen();
 
   UciEngine engine;
-  // engine.start(std::cin);
-
-  engine.handle_go({"go", "depth", "7"});
-  std::cout << std::endl;
-  engine.handle_position({"position", "startpos", "moves", "e2e4"});
-  engine.handle_go({"go", "depth", "7"});
-  std::cout << std::endl;
-  engine.handle_set_option({"setoption", "name", "clear-tt"});
-  engine.handle_go({"go", "depth", "7"});
-  std::cout << std::endl;
-
+  engine.start(std::cin);
 }
