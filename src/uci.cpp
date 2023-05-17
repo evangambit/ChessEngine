@@ -70,6 +70,8 @@ struct UciEngine {
       handle_set_option(parts);
     } else if (parts[0] == "ucinewgame") {
       this->thinker.reset_stuff();
+    } else if (parts[0] == "play") {
+      handle_play(parts);
     } else if (parts[0] == "probe") {
       // Custom command.
       Position query = Position::init();
@@ -190,31 +192,67 @@ struct UciEngine {
 
     if (command[1] == "depth") {
       depthLimit = stoi(command[2]);
+    } else if (command[1] == "nodes") {
+      nodeLimit = stoi(command[2]);
+    } else if (command[1] == "time") {
+      timeLimitMs = stoi(command[2]);
+    } else {
+      invalid(join(command, " "));
+      return;
     }
-    if (command[1] == "nodes") {
+
+    this->thinker.stopThinkingCondition = std::make_unique<OrStopCondition>(
+      new StopThinkingNodeCountCondition(nodeLimit),
+      new StopThinkingTimeCondition(timeLimitMs)
+    );
+
+    this->thinker.search(&this->pos, depthLimit, [this](Position *position, size_t depth, double secs) {
+      this->_print_variations(position, depth, secs, this->thinker.multiPV);
+    });
+  }
+
+  void handle_play(const std::vector<std::string>& command) {
+    size_t nodeLimit = size_t(-1);
+    uint64_t depthLimit = 99;
+    uint64_t timeLimitMs = 1000 * 60 * 60;
+
+    if (command.size() != 3) {
+      invalid(join(command, " "));
+      return;
+    }
+
+    if (command[1] == "depth") {
+      depthLimit = stoi(command[2]);
+    }
+    else if (command[1] == "nodes") {
       nodeLimit = stoi(command[2]);
     }
+    else if (command[1] == "time") {
+      timeLimitMs = stoi(command[2]);
+    } else {
+      invalid(join(command, " "));
+      return;
+    }
 
-    this->thinker.nodeCounter = 0;
-    this->thinker.leafCounter = 0;
+    this->thinker.stopThinkingCondition = std::make_unique<OrStopCondition>(
+      new StopThinkingNodeCountCondition(nodeLimit),
+      new StopThinkingTimeCondition(timeLimitMs)
+    );
 
-    SearchResult<Color::WHITE> results(Evaluation(0), kNullMove);
     time_t tstart = clock();
-    // this->thinker.reset_stuff();
-    for (size_t depth = 1; depth <= depthLimit; ++depth) {
-      results = this->thinker.search(&this->pos, depth, results);
-      const double secs = double(clock() - tstart)/CLOCKS_PER_SEC;
-      this->_print_variations(&pos, depth, secs, this->thinker.multiPV);
-      if (this->thinker.nodeCounter >= nodeLimit) {
-        break;
-      }
-      if (double(clock() - tstart)/CLOCKS_PER_SEC*1000 >= timeLimitMs) {
-        break;
-      }
+
+    for (size_t i = 0; i < 4; ++i) {
+      const time_t tstart = clock();
+      this->thinker.nodeCounter = 0;
+      this->thinker.leafCounter = 0;
+
+      this->thinker.search(&this->pos, depthLimit, [this](Position *position, size_t depth, double secs) {
+      });
+      const double secs = double(clock() - tstart)/CLOCKS_PER_SEC*1000;
     }
   }
 
-  void _print_variations(Position* position, int depth, double secs, size_t multiPV) {
+  void _print_variations(Position* position, int depth, double secs, size_t multiPV) const {
     const uint64_t timeMs = secs * 1000;
     std::vector<SearchResult<Color::WHITE>> variations;
     for_all_moves(position, [&variations, this](Position *position, ExtMove move) mutable {
@@ -247,7 +285,7 @@ struct UciEngine {
       throw std::runtime_error("No variations found!");
     }
     for (size_t i = 0; i < std::min(multiPV, variations.size()); ++i) {
-      std::pair<CacheResult, std::vector<Move>> variation = this->thinker.get_variation(&pos, variations[i].move);
+      std::pair<CacheResult, std::vector<Move>> variation = this->thinker.get_variation(position, variations[i].move);
       std::cout << "info depth " << depth;
       std::cout << " multipv " << i;
       std::cout << " score cp " << variation.first.eval;
@@ -323,15 +361,5 @@ int main(int argc, char *argv[]) {
   initialize_movegen();
 
   UciEngine engine;
-  // engine.start(std::cin);
-
-  engine.handle_go({"go", "depth", "7"});
-  std::cout << std::endl;
-  engine.handle_position({"position", "startpos", "moves", "e2e4"});
-  engine.handle_go({"go", "depth", "7"});
-  std::cout << std::endl;
-  engine.handle_set_option({"setoption", "name", "clear-tt"});
-  engine.handle_go({"go", "depth", "7"});
-  std::cout << std::endl;
-
+  engine.start(std::cin);
 }
