@@ -236,50 +236,37 @@ struct UciEngine {
     std::cout << std::endl;
   }
 
-  void handle_play(const std::vector<std::string>& command) {
-    size_t nodeLimit = size_t(-1);
-    uint64_t depthLimit = 99;
-    uint64_t timeLimitMs = 1000 * 60 * 60;
-
-    if (command.size() != 3) {
-      invalid(join(command, " "));
-      return;
-    }
-
-    if (command[1] == "depth") {
-      depthLimit = stoi(command[2]);
-    }
-    else if (command[1] == "nodes") {
-      nodeLimit = stoi(command[2]);
-    }
-    else if (command[1] == "time") {
-      timeLimitMs = stoi(command[2]);
-    } else {
-      invalid(join(command, " "));
-      return;
-    }
-
-    this->thinker.stopThinkingCondition = std::make_unique<OrStopCondition>(
-      new StopThinkingNodeCountCondition(nodeLimit),
-      new StopThinkingTimeCondition(timeLimitMs)
-    );
-
-    time_t tstart = clock();
-
-    Position position(this->pos);
-
-    for (size_t i = 0; i < 300; ++i) {
-      SearchResult<Color::WHITE> r = this->thinker.search(&position, depthLimit);
-      if (r.move == kNullMove) {
-        std::cout << "Error: null move";
-        break;
+  void _print_variations(Position* position, int depth, double secs, size_t multiPV) {
+    const uint64_t timeMs = secs * 1000;
+    std::vector<SearchResult<Color::WHITE>> variations;
+    for_all_moves(position, [&variations, this](Position *position, ExtMove move) mutable {
+      CacheResult cr = this->thinker.cache.find(position->hash_);
+      if (isNullCacheResult(cr) || cr.nodeType != NodeTypePV) {
+        return;
       }
-      std::cout << " " << r.move << std::flush;
-      if(position.turn_ == Color::WHITE) {
-        make_move<Color::WHITE>(&position, r.move);
+      if (position->turn_ == Color::WHITE) {
+        variations.push_back(SearchResult<Color::WHITE>(cr.eval, move.move));
       } else {
-        make_move<Color::BLACK>(&position, r.move);
+        variations.push_back(SearchResult<Color::WHITE>(-cr.eval, move.move));
       }
+    });
+    if (position->turn_ == Color::WHITE) {
+      std::sort(
+        variations.begin(),
+        variations.end(),
+        [](SearchResult<Color::WHITE> a, SearchResult<Color::WHITE> b) -> bool {
+          return a.score > b.score;
+      });
+    } else {
+      std::sort(
+        variations.begin(),
+        variations.end(),
+        [](SearchResult<Color::WHITE> a, SearchResult<Color::WHITE> b) -> bool {
+          return a.score < b.score;
+      });
+    }
+    if (variations.size() == 0) {
+      throw std::runtime_error("No variations found!");
     }
     std::cout << std::endl;
   }
@@ -367,5 +354,15 @@ int main(int argc, char *argv[]) {
   initialize_movegen();
 
   UciEngine engine;
-  engine.start(std::cin);
+  // engine.start(std::cin);
+
+  engine.handle_go({"go", "depth", "7"});
+  std::cout << std::endl;
+  engine.handle_position({"position", "startpos", "moves", "e2e4"});
+  engine.handle_go({"go", "depth", "7"});
+  std::cout << std::endl;
+  engine.handle_set_option({"setoption", "name", "clear-tt"});
+  engine.handle_go({"go", "depth", "7"});
+  std::cout << std::endl;
+
 }
