@@ -150,7 +150,7 @@ struct TranspositionTable {
   void clear() {
     std::fill_n((uint8_t *)data, sizeof(CacheResult) * size, 0);
   }
-  CacheResult find(uint64_t hash) {
+  CacheResult find(uint64_t hash) const {
     size_t idx = hash % size;
     const size_t delta = (hash >> 32) % 16;
     for (size_t i = 0; i < kTranspositionTableMaxSteps; ++i) {
@@ -235,11 +235,13 @@ struct RecommendedMoves {
 
 struct Thinker;
 struct StopThinkingCondition {
+  virtual void start_thinking(const Thinker& thinker) = 0;
   virtual bool should_stop_thinking(const Thinker&) = 0;
   virtual ~StopThinkingCondition() = default;
 };
 
 struct NeverStopThinkingCondition : public StopThinkingCondition {
+  void start_thinking(const Thinker& thinker) {}
   bool should_stop_thinking(const Thinker&) {
     return false;
   }
@@ -313,7 +315,7 @@ struct Thinker {
     cache.set_cache_size(kilobytes);
   }
 
-  void make_move(Position* pos, Move move) {
+  void make_move(Position* pos, Move move) const {
     if (pos->turn_ == Color::WHITE) {
       make_move<Color::WHITE>(pos, move);
     } else {
@@ -321,7 +323,7 @@ struct Thinker {
     }
   }
 
-  void undo(Position* pos) {
+  void undo(Position* pos) const {
     if (pos->turn_ == Color::BLACK) {
       undo<Color::WHITE>(pos);
     } else {
@@ -354,7 +356,7 @@ struct Thinker {
     myfile.close();
   }
 
-  std::pair<CacheResult, std::vector<Move>> get_variation(Position *pos, Move move) {
+  std::pair<CacheResult, std::vector<Move>> get_variation(Position *pos, Move move) const {
     std::vector<Move> moves;
     if (move != kNullMove) {
       moves.push_back(move);
@@ -822,7 +824,30 @@ struct Thinker {
   // TODO: making threads work with multiPV seems really nontrivial.
 
   // Gives scores from white's perspective
-  SearchResult<Color::WHITE> search(Position* pos, Depth depth, SearchResult<Color::WHITE> lastResult) {
+  SearchResult<Color::WHITE> search(Position* pos, size_t depthLimit, std::function<void(Position *, size_t, double)> callback) {
+    time_t tstart = clock();
+
+    this->nodeCounter = 0;
+    this->leafCounter = 0;
+    stopThinkingCondition->start_thinking(*this);
+
+    SearchResult<Color::WHITE> results(Evaluation(0), kNullMove);
+    for (size_t depth = 1; depth <= depthLimit; ++depth) {
+      SearchResult<Color::WHITE> r = this->_search(pos, Depth(depth), results);
+      if (r.analysisComplete) {
+        results = r;
+      }
+      const double secs = double(clock() - tstart)/CLOCKS_PER_SEC;
+      callback(pos, depth, secs);
+      if (this->stopThinkingCondition->should_stop_thinking(*this)) {
+        break;
+      }
+    }
+
+    return results;
+  }
+
+  SearchResult<Color::WHITE> _search(Position* pos, Depth depth, SearchResult<Color::WHITE> lastResult) {
     if (pos->turn_ == Color::WHITE) {
       std::thread t1(
         Thinker::_search_with_aspiration_window<Color::WHITE>,
@@ -862,22 +887,30 @@ struct Thinker {
 };
 
 struct StopThinkingNodeCountCondition : public StopThinkingCondition {
-  StopThinkingNodeCountCondition(size_t numNodes) : numNodes(numNodes) {}
-  bool should_stop_thinking(const Thinker& thinker) {
-    return thinker.nodeCounter > this->numNodes;
+  StopThinkingNodeCountCondition(size_t numNodes)
+  : numNodes(numNodes) {}
+  void start_thinking(const Thinker& thinker) {
+    offset = thinker.nodeCounter;
   }
+  bool should_stop_thinking(const Thinker& thinker) {
+    assert(thinker.nodeCounter >= offset);
+    return thinker.nodeCounter - offset > this->numNodes;
+  }
+  size_t offset;
   size_t numNodes;
 };
 
 struct StopThinkingTimeCondition : public StopThinkingCondition {
-  StopThinkingTimeCondition(uint64_t milliseconds) : milliseconds(milliseconds) {
+  StopThinkingTimeCondition(uint64_t milliseconds) : milliseconds(milliseconds) {}
+  void start_thinking(const Thinker& thinker) {
     startTime = this->current_time();
   }
   uint64_t current_time() const {
     return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
   }
   bool should_stop_thinking(const Thinker& thinker) {
-    return this->current_time() - startTime > milliseconds;
+    uint64_t dt = this->current_time() - startTime;
+    return dt > milliseconds;
   }
   uint64_t startTime;
   uint64_t milliseconds;
@@ -885,6 +918,10 @@ struct StopThinkingTimeCondition : public StopThinkingCondition {
 
 struct OrStopCondition : public StopThinkingCondition {
   OrStopCondition(StopThinkingCondition *a, StopThinkingCondition *b) : a(a), b(b) {}
+  void start_thinking(const Thinker& thinker) {
+    a->start_thinking(thinker);
+    b->start_thinking(thinker);
+  }
   bool should_stop_thinking(const Thinker& thinker) {
     return a->should_stop_thinking(thinker) || b->should_stop_thinking(thinker);
   }
