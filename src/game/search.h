@@ -126,7 +126,15 @@ struct TranspositionTable {
       spinLocks[idx % kTranspositionTableFactor].lock();
       #endif
       CacheResult *it = &data[idx];
-      if (cr.depthRemaining > it->depthRemaining || (cr.depthRemaining == it->depthRemaining && cr.priority > it->priority)) {
+      if (cr.positionHash == it->positionHash) {
+        if (cr.depthRemaining > it->depthRemaining || (cr.nodeType == NodeTypePV && it->nodeType != NodeTypePV)) {
+          *it = cr;
+          #if PARALLEL
+          spinLocks[idx % kTranspositionTableFactor].unlock();
+          #endif
+        }
+        return;
+      } else if (cr.depthRemaining > it->depthRemaining || (cr.depthRemaining == it->depthRemaining && cr.priority > it->priority)) {
         *it = cr;
         #if PARALLEL
         spinLocks[idx % kTranspositionTableFactor].unlock();
