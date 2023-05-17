@@ -333,21 +333,11 @@ void mymain(std::vector<Position>& positions, const std::string& mode, double ti
   } else if (mode == "analyze") {
     for (auto pos : positions) {
       gThinker.reset_stuff();
-      SearchResult<Color::WHITE> results(Evaluation(0), kNullMove, false);
-      time_t tstart = clock();
-      for (size_t i = 1; i <= depth; ++i) {
-        SearchResult<Color::WHITE> r = gThinker.search(&pos, i, results);
-        if (r.analysisComplete) {
-          results = r;
-        }
+      SearchResult<Color::WHITE> results = gThinker.search(&pos, depth, [positions](Position *position, SearchResult<Color::WHITE> results, size_t depth, double secs) {
         if (positions.size() == 1) {
-          const double secs = double(clock() - tstart) / CLOCKS_PER_SEC;
-          std::cout << i << " : " << results.move << " : " << results.score << " (" << secs << " secs, " << gThinker.nodeCounter << " nodes, " << gThinker.nodeCounter / secs / 1000 << " kNodes/sec)" << std::endl;
+          std::cout << depth << " : " << results.move << " : " << results.score << " (" << secs << " secs, " << gThinker.nodeCounter << " nodes, " << gThinker.nodeCounter / secs / 1000 << " kNodes/sec)" << std::endl;
         }
-        if (gThinker.stopThinkingCondition->should_stop_thinking(gThinker)) {
-          break;
-        }
-      }
+      });
 
       if (positions.size() > 1) {
         std::cout << "FEN: " << pos.fen() << std::endl;
@@ -427,17 +417,7 @@ void mymain(std::vector<Position>& positions, const std::string& mode, double ti
     for (auto pos : positions) {
       while (true) {
         gThinker.reset_stuff();
-        SearchResult<Color::WHITE> results(Evaluation(0), kNullMove);
-        time_t tstart = clock();
-        for (size_t i = 1; i <= depth; ++i) {
-          SearchResult<Color::WHITE> r = gThinker.search(&pos, i, results);
-          if (r.analysisComplete) {
-            results = r;
-          }
-          if (gThinker.stopThinkingCondition->should_stop_thinking(gThinker)) {
-            break;
-          }
-        }
+        SearchResult<Color::WHITE> results = gThinker.search(&pos, depth);
         if (results.move == kNullMove) {
           break;
         }
