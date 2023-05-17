@@ -305,6 +305,21 @@ bool is_uci(const std::string& text) {
   return text[4] == 'n' || text[4] == 'b' || text[4] == 'r' || text[4] == 'q';
 }
 
+void print_variation(Thinker *thinker, Position* pos, Move move) {
+  std::pair<CacheResult, std::vector<Move>> variationPair = thinker->get_variation(pos, move);
+  Evaluation eval = variationPair.first.eval;
+  const std::vector<Move>& variation = variationPair.second;
+  if (eval < 0) {
+    std::cout << eval;
+  } else {
+    std::cout << "+" << eval;
+  }
+  for (const auto& move : variation) {
+    std::cout << " " << move.uci();
+  }
+  std::cout << std::endl;
+}
+
 void mymain(std::vector<Position>& positions, const std::string& mode, double timeLimitMs, Depth depth, uint64_t nodeLimit, bool makeQuiet) {
   if (mode == "printvec" || mode == "printvec-cpu") {
     for (auto pos : positions) {
@@ -405,7 +420,7 @@ void mymain(std::vector<Position>& positions, const std::string& mode, double ti
       }
       for (size_t i = 0; i < topVariations.size(); ++i) {
         std::cout << "PV " << (i + 1) << ": ";
-        gThinker.print_variation(&pos, topVariations[i].move);
+        print_variation(&gThinker, &pos, topVariations[i].move);
       }
     }
   } else if (mode == "play") {
