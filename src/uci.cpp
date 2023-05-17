@@ -9,6 +9,30 @@
 
 using namespace ChessEngine;
 
+template<class F>
+void for_all_moves(Position *position, F&& f) {
+  ExtMove moves[kMaxNumMoves];
+  ExtMove *end;
+  if (position->turn_ == Color::WHITE) {
+    end = compute_legal_moves<Color::WHITE>(position, moves);
+  } else {
+    end = compute_legal_moves<Color::BLACK>(position, moves);
+  }
+  for (ExtMove *move = moves; move < end; ++move) {
+    if (position->turn_ == Color::WHITE) {
+      make_move<Color::WHITE>(position, move->move);
+    } else {
+      make_move<Color::BLACK>(position, move->move);
+    }
+    f(position, *move);
+    if (position->turn_ == Color::WHITE) {
+      undo<Color::BLACK>(position);
+    } else {
+      undo<Color::WHITE>(position);
+    }
+  }
+}
+
 struct UciEngine {
   Thinker thinker;
   Position pos;
@@ -176,7 +200,7 @@ struct UciEngine {
 
     SearchResult<Color::WHITE> results(Evaluation(0), kNullMove);
     time_t tstart = clock();
-    this->thinker.reset_stuff();
+    // this->thinker.reset_stuff();
     for (size_t depth = 1; depth <= depthLimit; ++depth) {
       results = this->thinker.search(&this->pos, depth, results);
       const double secs = double(clock() - tstart)/CLOCKS_PER_SEC;
@@ -193,56 +217,34 @@ struct UciEngine {
   void _print_variations(Position* position, int depth, double secs, size_t multiPV) {
     const uint64_t timeMs = secs * 1000;
     std::vector<SearchResult<Color::WHITE>> variations;
-    {
-      ExtMove moves[256];
-      ExtMove *end;
-      if (position->turn_ == Color::WHITE) {
-        end = compute_legal_moves<Color::WHITE>(position, moves);
-      } else {
-        end = compute_legal_moves<Color::BLACK>(position, moves);
-      }
-
-      for (ExtMove *move = moves; move < end; ++move) {
-        if (position->turn_ == Color::WHITE) {
-          make_move<Color::WHITE>(position, move->move);
-        } else {
-          make_move<Color::BLACK>(position, move->move);
-        }
-        CacheResult cr = this->thinker.cache.find(position->hash_);
-        if (isNullCacheResult(cr) || cr.nodeType != NodeTypePV) {
-          if (position->turn_ == Color::WHITE) {
-            undo<Color::BLACK>(position);
-          } else {
-            undo<Color::WHITE>(position);
-          }
-          continue;
-        }
-        if (position->turn_ == Color::WHITE) {
-          variations.push_back(SearchResult<Color::WHITE>(cr.eval, move->move));
-        } else {
-          variations.push_back(SearchResult<Color::WHITE>(-cr.eval, move->move));
-        }
-        if (position->turn_ == Color::WHITE) {
-          undo<Color::BLACK>(position);
-        } else {
-          undo<Color::WHITE>(position);
-        }
+    for_all_moves(position, [&variations, this](Position *position, ExtMove move) mutable {
+      CacheResult cr = this->thinker.cache.find(position->hash_);
+      if (isNullCacheResult(cr) || cr.nodeType != NodeTypePV) {
+        return;
       }
       if (position->turn_ == Color::WHITE) {
-        std::sort(
-          variations.begin(),
-          variations.end(),
-          [](SearchResult<Color::WHITE> a, SearchResult<Color::WHITE> b) -> bool {
-            return a.score > b.score;
-        });
+        variations.push_back(SearchResult<Color::WHITE>(cr.eval, move.move));
       } else {
-        std::sort(
-          variations.begin(),
-          variations.end(),
-          [](SearchResult<Color::WHITE> a, SearchResult<Color::WHITE> b) -> bool {
-            return a.score < b.score;
-        });
+        variations.push_back(SearchResult<Color::WHITE>(-cr.eval, move.move));
       }
+    });
+    if (position->turn_ == Color::WHITE) {
+      std::sort(
+        variations.begin(),
+        variations.end(),
+        [](SearchResult<Color::WHITE> a, SearchResult<Color::WHITE> b) -> bool {
+          return a.score > b.score;
+      });
+    } else {
+      std::sort(
+        variations.begin(),
+        variations.end(),
+        [](SearchResult<Color::WHITE> a, SearchResult<Color::WHITE> b) -> bool {
+          return a.score < b.score;
+      });
+    }
+    if (variations.size() == 0) {
+      throw std::runtime_error("No variations found!");
     }
     for (size_t i = 0; i < std::min(multiPV, variations.size()); ++i) {
       std::pair<CacheResult, std::vector<Move>> variation = this->thinker.get_variation(&pos, variations[i].move);
@@ -321,5 +323,15 @@ int main(int argc, char *argv[]) {
   initialize_movegen();
 
   UciEngine engine;
-  engine.start(std::cin);
+  // engine.start(std::cin);
+
+  engine.handle_go({"go", "depth", "7"});
+  std::cout << std::endl;
+  engine.handle_position({"position", "startpos", "moves", "e2e4"});
+  engine.handle_go({"go", "depth", "7"});
+  std::cout << std::endl;
+  engine.handle_set_option({"setoption", "name", "clear-tt"});
+  engine.handle_go({"go", "depth", "7"});
+  std::cout << std::endl;
+
 }
