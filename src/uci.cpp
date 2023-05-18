@@ -92,6 +92,10 @@ struct UciEngine {
 
       std::pair<CacheResult, std::vector<Move>> variation = this->thinker.get_variation(&query, kNullMove);
 
+      if (isNullCacheResult(variation.first)) {
+        std::cout << "Cache result for " << query.fen() << " is missing" << std::endl;
+      }
+
       std::cout << variation.first.eval;
       for (const auto& move : variation.second) {
         std::cout << " " << move;
@@ -206,9 +210,30 @@ struct UciEngine {
       new StopThinkingTimeCondition(timeLimitMs)
     );
 
-    this->thinker.search(&this->pos, depthLimit, [this](Position *position, SearchResult<Color::WHITE> results, size_t depth, double secs) {
+    // TODO: get rid of this (selfplay2 sometimes crashes when we try to get rid of it now).
+    this->thinker.reset_stuff();
+
+    SearchResult<Color::WHITE> result = this->thinker.search(&this->pos, depthLimit, [this](Position *position, SearchResult<Color::WHITE> results, size_t depth, double secs) {
       this->_print_variations(position, depth, secs, this->thinker.multiPV);
     });
+
+    if (this->pos.turn_ == Color::WHITE) {
+      make_move<Color::WHITE>(&this->pos, result.move);
+    } else {
+      make_move<Color::BLACK>(&this->pos, result.move);
+    }
+    CacheResult cr = this->thinker.cache.find(this->pos.hash_);
+    if (this->pos.turn_ == Color::WHITE) {
+      undo<Color::BLACK>(&this->pos);
+    } else {
+      undo<Color::WHITE>(&this->pos);
+    }
+
+    std::cout << "bestmove " << result.move;
+    if (!isNullCacheResult(cr)) {
+      std::cout << " ponder " << cr.bestMove;
+    }
+    std::cout << std::endl;
   }
 
   void handle_play(const std::vector<std::string>& command) {
@@ -246,6 +271,7 @@ struct UciEngine {
     for (size_t i = 0; i < 300; ++i) {
       SearchResult<Color::WHITE> r = this->thinker.search(&position, depthLimit);
       if (r.move == kNullMove) {
+        std::cout << "Error: null move";
         break;
       }
       std::cout << " " << r.move << std::flush;
