@@ -87,6 +87,16 @@ std::ostream& operator<<(std::ostream& stream, CacheResult cr) {
   return stream << "[ hash:" << cr.positionHash << " depth:" << uint16_t(cr.depthRemaining) << " eval:" << cr.eval << " move:" << cr.bestMove << " nodeType:" << unsigned(cr.nodeType) << " priority:" << unsigned(cr.priority) << " ]";
 }
 
+// TODO: it's possible for the same position to occur multiple times in this table.
+// 1) Insert P1
+// 2) Insert P2, which collides with P1, so it goes to it's second spot
+// 3) make a move
+// 4) Insert P2; it's first spot is free so it is inserted
+//
+// The saving grace is that it's second spot is still marked as obsolete, so it should be cleared eventually,
+// but this kind of behavior seems really scary. I should a *least* write some tests for the transposition table,
+// and possible refactor how it handles duplicates.
+
 #if USE_CACHE
 constexpr size_t kTranspositionTableMaxSteps = 3;
 struct TranspositionTable {
