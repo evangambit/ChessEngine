@@ -343,71 +343,7 @@ void mymain(std::vector<Position>& positions, const std::string& mode, double ti
         std::cout << "FEN: " << pos.fen() << std::endl;
       }
 
-      std::vector<SearchResult<Color::WHITE>> topVariations;
-      {
-        ExtMove moves[256];
-        ExtMove *end;
-        if (pos.turn_ == Color::WHITE) {
-          end = compute_legal_moves<Color::WHITE>(&pos, moves);
-        } else {
-          end = compute_legal_moves<Color::BLACK>(&pos, moves);
-        }
-
-        std::deque<SearchResult<Color::WHITE>> variations;
-        for (ExtMove *move = moves; move < end; ++move) {
-          if (pos.turn_ == Color::WHITE) {
-            make_move<Color::WHITE>(&pos, move->move);
-          } else {
-            make_move<Color::BLACK>(&pos, move->move);
-          }
-          CacheResult cr = gThinker.cache.find(pos.hash_);
-          if (isNullCacheResult(cr)) {
-            undo<Color::WHITE>(&pos);
-            continue;
-          }
-          if (pos.turn_ == Color::WHITE) {
-            // TODO: think about why the multiPVth variation is inaccurate (e.g. if mutliPV = 4, then
-            // the 4th variation's score is inaccurate).
-            if (move->move == results.move) {
-              variations.push_front(SearchResult<Color::WHITE>(cr.eval, move->move));
-            } else {
-              variations.push_back(SearchResult<Color::WHITE>(cr.eval, move->move));
-            }
-          } else {
-            if (move->move == results.move) {
-              variations.push_front(SearchResult<Color::WHITE>(-cr.eval, move->move));
-            } else {
-              variations.push_back(SearchResult<Color::WHITE>(-cr.eval, move->move));
-            }
-          }
-          if (pos.turn_ == Color::BLACK) {
-            undo<Color::WHITE>(&pos);
-          } else {
-            undo<Color::BLACK>(&pos);
-          }
-        }
-        if (pos.turn_ == Color::WHITE) {
-          std::sort(
-            variations.begin() + 1,
-            variations.end(),
-            [](SearchResult<Color::WHITE> a, SearchResult<Color::WHITE> b) -> bool {
-              return a.score > b.score;
-          });
-        } else {
-          std::sort(
-            variations.begin() + 1,
-            variations.end(),
-            [](SearchResult<Color::WHITE> a, SearchResult<Color::WHITE> b) -> bool {
-              return a.score < b.score;
-          });
-        }
-        for (size_t i = 0; i < variations.size(); ++i) {
-          topVariations.push_back(variations[i]);
-          if (topVariations.size() >= gThinker.multiPV) {
-            break;
-          }
-        }
-      }
+      std::vector<SearchResult<Color::WHITE>> topVariations(gThinker.variations);
       for (size_t i = 0; i < topVariations.size(); ++i) {
         std::cout << "PV " << (i + 1) << ": ";
         print_variation(&gThinker, &pos, topVariations[i].move);

@@ -673,11 +673,6 @@ struct Thinker {
 
     Move lastFoundBestMove = (isNullCacheResult(cr) ? kNullMove : cr.bestMove);
 
-    SearchResult<TURN> r(
-      kMinEval + 1,
-      kNullMove
-    );
-
     ExtMove moves[kMaxNumMoves];
     ExtMove *movesEnd = compute_moves<TURN, MoveGenType::ALL_MOVES>(*pos, moves);
 
@@ -723,6 +718,11 @@ struct Thinker {
 
     ExtMove deferredMoves[kMaxNumMoves];
     ExtMove *deferredMovesEnd = &deferredMoves[0];
+
+    SearchResult<TURN> r(
+      kMinEval + 1,
+      kNullMove
+    );
 
     // Should be optimized away if SEARCH_TYPE != SearchTypeRoot.
     std::vector<SearchResult<TURN>> children;
@@ -773,16 +773,13 @@ struct Thinker {
             [](SearchResult<TURN> a, SearchResult<TURN> b) -> bool {
               return a.score > b.score;
           });
-          if (children.size() > multiPV) {
-            children.pop_back();
-          }
           if (a.score > r.score) {
             r.score = a.score;
             r.move = extMove->move;
             recommendationsForChildren.add(a.move);
           }
           if (children.size() >= multiPV) {
-            alpha = std::max(alpha, children.back().score);
+            alpha = std::max(alpha, children[multiPV - 1].score);
           }
         } else {
           if (a.score > r.score) {
@@ -801,6 +798,19 @@ struct Thinker {
             }
           }
         }
+      }
+      #if !PARALLEL
+        break;
+      #endif
+    }
+
+    if (SEARCH_TYPE == SearchTypeRoot) {
+      // We rely on the stability of std::sort to guarantee that children that
+      // are PV nodes are sorted above children that are not PV nodes (but have
+      // the same score).
+      this->variations.clear();
+      for (size_t i = 0; i < std::min(children.size(), this->multiPV); ++i) {
+        this->variations.push_back(to_white(children[i]));
       }
     }
 
@@ -831,6 +841,8 @@ struct Thinker {
 
     return r;
   }
+
+  std::vector<SearchResult<Color::WHITE>> variations;
 
   template<Color TURN>
   static SearchResult<TURN> _search_with_aspiration_window(Thinker* thinker, Position* pos, Depth depth, SearchResult<TURN> lastResult, uint16_t threadID) {
