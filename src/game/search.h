@@ -444,7 +444,9 @@ struct Thinker {
     }
 
     if (moves == end && inCheck) {
-      return SearchResult<TURN>(kCheckmate, kNullMove);
+      // Mates in qsearch are given "kLongestForcedMate" since they are worse
+      // than mates found via normal search.
+      return SearchResult<TURN>(kLongestForcedMate, kNullMove);
     }
 
     // If we can stand pat for a beta cutoff, or if we have no moves, return.
@@ -456,7 +458,7 @@ struct Thinker {
 
     if (inCheck) {
       // Cannot stand pat if you're in check.
-      r.score = kCheckmate;
+      r.score = kLongestForcedMate;
     }
 
     for (ExtMove *move = moves; move < end; ++move) {
@@ -681,7 +683,7 @@ struct Thinker {
 
     if (movesEnd - moves == 0) {
       if (inCheck) {
-        return SearchResult<TURN>(kCheckmate, kNullMove);
+        return SearchResult<TURN>(kCheckmate + plyFromRoot, kNullMove);
       } else {
         return SearchResult<TURN>(Evaluation(0), kNullMove);
       }
@@ -753,8 +755,6 @@ struct Thinker {
         ++numValidMoves;
 
         SearchResult<TURN> a = flip(search<opposingColor, SearchTypeNormal>(pos, depthRemaining - 1, plyFromRoot + 1, -beta, -alpha, recommendationsForChildren, distFromPV + (extMove != moves), threadID));
-        a.score -= (a.score > -kLongestForcedMate);
-        a.score += (a.score < kLongestForcedMate);
 
         _manager.finished_searching(pos->hash_);
         undo<TURN>(pos);
@@ -805,7 +805,7 @@ struct Thinker {
     }
 
     if (numValidMoves == 0) {
-      r.score = inCheck ? kCheckmate : 0;
+      r.score = inCheck ? kCheckmate + plyFromRoot : 0;
       r.move = kNullMove;
     }
 
