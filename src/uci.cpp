@@ -286,33 +286,7 @@ struct UciEngine {
 
   void _print_variations(Position* position, int depth, double secs, size_t multiPV) const {
     const uint64_t timeMs = secs * 1000;
-    std::vector<SearchResult<Color::WHITE>> variations;
-    for_all_moves(position, [&variations, this](Position *position, ExtMove move) mutable {
-      CacheResult cr = this->thinker.cache.find(position->hash_);
-      if (isNullCacheResult(cr) || cr.nodeType != NodeTypePV) {
-        return;
-      }
-      if (position->turn_ == Color::WHITE) {
-        variations.push_back(SearchResult<Color::WHITE>(cr.eval, move.move));
-      } else {
-        variations.push_back(SearchResult<Color::WHITE>(-cr.eval, move.move));
-      }
-    });
-    if (position->turn_ == Color::WHITE) {
-      std::sort(
-        variations.begin(),
-        variations.end(),
-        [](SearchResult<Color::WHITE> a, SearchResult<Color::WHITE> b) -> bool {
-          return a.score > b.score;
-      });
-    } else {
-      std::sort(
-        variations.begin(),
-        variations.end(),
-        [](SearchResult<Color::WHITE> a, SearchResult<Color::WHITE> b) -> bool {
-          return a.score < b.score;
-      });
-    }
+    std::vector<SearchResult<Color::WHITE>> variations = this->thinker.variations;
     if (variations.size() == 0) {
       throw std::runtime_error("No variations found!");
     }
