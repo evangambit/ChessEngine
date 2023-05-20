@@ -200,11 +200,7 @@ struct UciEngine {
       nodeLimit = stoi(command.at(2));
     } else if (command.at(1) == "time") {
       timeLimitMs = stoi(command.at(2));
-    } else {
-      invalid(join(command, " "));
-      return;
-    }
-    else if (command[1] == "time") {
+    } else if (command[1] == "time") {
       timeLimitMs = stoi(command[2]);
     } else {
       invalid(join(command, " "));
