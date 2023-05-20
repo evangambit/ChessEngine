@@ -38,7 +38,7 @@ struct UciEngine {
   Position pos;
   UciEngine() {
     pos = Position("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
-    this->thinker.load_weights_from_file("www.txt");
+    this->thinker.load_weights_from_file("weights.txt");
   }
   void start(std::istream& cin) {
     while (true) {
@@ -140,18 +140,18 @@ struct UciEngine {
       ExtMove moves[kMaxNumMoves];
       ExtMove *end;
       if (this->pos.turn_ == Color::WHITE) {
-        end = compute_legal_moves<Color::WHITE>(&pos, moves);
+        end = compute_legal_moves<Color::WHITE>(&this->pos, moves);
       } else {
-        end = compute_legal_moves<Color::BLACK>(&pos, moves);
+        end = compute_legal_moves<Color::BLACK>(&this->pos, moves);
       }
       bool foundMove = false;
       for (ExtMove *move = moves; move < end; ++move) {
         if (move->move.uci() == uciMove) {
           foundMove = true;
           if (this->pos.turn_ == Color::WHITE) {
-            make_move<Color::WHITE>(&pos, move->move);
+            make_move<Color::WHITE>(&this->pos, move->move);
           } else {
-            make_move<Color::BLACK>(&pos, move->move);
+            make_move<Color::BLACK>(&this->pos, move->move);
           }
           break;
         }
@@ -194,12 +194,12 @@ struct UciEngine {
       return;
     }
 
-    if (command[1] == "depth") {
-      depthLimit = stoi(command[2]);
-    } else if (command[1] == "nodes") {
-      nodeLimit = stoi(command[2]);
-    } else if (command[1] == "time") {
-      timeLimitMs = stoi(command[2]);
+    if (command.at(1) == "depth") {
+      depthLimit = stoi(command.at(2));
+    } else if (command.at(1) == "nodes") {
+      nodeLimit = stoi(command.at(2));
+    } else if (command.at(1) == "time") {
+      timeLimitMs = stoi(command.at(2));
     } else {
       invalid(join(command, " "));
       return;
@@ -286,41 +286,6 @@ struct UciEngine {
     std::cout << "bestmove " << result.move;
     if (!isNullCacheResult(cr)) {
       std::cout << " ponder " << cr.bestMove;
-    }
-    std::cout << std::endl;
-  }
-
-  void _print_variations(Position* position, int depth, double secs, size_t multiPV) const {
-    const uint64_t timeMs = secs * 1000;
-    std::vector<SearchResult<Color::WHITE>> variations;
-    for_all_moves(position, [&variations, this](Position *position, ExtMove move) mutable {
-      CacheResult cr = this->thinker.cache.find(position->hash_);
-      if (isNullCacheResult(cr) || cr.nodeType != NodeTypePV) {
-        return;
-      }
-      if (position->turn_ == Color::WHITE) {
-        variations.push_back(SearchResult<Color::WHITE>(cr.eval, move.move));
-      } else {
-        variations.push_back(SearchResult<Color::WHITE>(-cr.eval, move.move));
-      }
-    });
-    if (position->turn_ == Color::WHITE) {
-      std::sort(
-        variations.begin(),
-        variations.end(),
-        [](SearchResult<Color::WHITE> a, SearchResult<Color::WHITE> b) -> bool {
-          return a.score > b.score;
-      });
-    } else {
-      std::sort(
-        variations.begin(),
-        variations.end(),
-        [](SearchResult<Color::WHITE> a, SearchResult<Color::WHITE> b) -> bool {
-          return a.score < b.score;
-      });
-    }
-    if (variations.size() == 0) {
-      throw std::runtime_error("No variations found!");
     }
     std::cout << std::endl;
   }
