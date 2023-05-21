@@ -967,13 +967,6 @@ lonelyKingB = 0;
 
 #else  // #ifndef SquareControl
 
-    int32_t base = 0;
-    base += (features[EF::OUR_PAWNS] - features[EF::THEIR_PAWNS]) * 100;
-    base += (features[EF::OUR_KNIGHTS] - features[EF::THEIR_KNIGHTS]) * 300;
-    base += (features[EF::OUR_BISHOPS] - features[EF::THEIR_BISHOPS]) * 300;
-    base += (features[EF::OUR_ROOKS] - features[EF::THEIR_ROOKS]) * 500;
-    base += (features[EF::OUR_QUEENS] - features[EF::THEIR_QUEENS]) * 900;
-
     int32_t pieceMap = (pos.pieceMapScores[PieceMapType::PieceMapTypeEarly] * (18 - time) + pos.pieceMapScores[PieceMapType::PieceMapTypeLate] * time) / 18;
     if (US == Color::BLACK) {
       pieceMap *= -1;
@@ -1121,22 +1114,27 @@ lonelyKingB = 0;
       7) overworked
     */
 
-    int early = 0;
+    int32_t early = 0;
     early += centerControl * 3;
     early += domination * 3;
     early += backRankControl * 3;
     early += homeQuality * 3;
 
-    base += (features[EF::THEIR_HANGING_QUEENS] > 0) * 450;
+    int32_t base = 0;
+    base += (features[EF::OUR_PAWNS] - features[EF::THEIR_PAWNS]) * 90;
+    base += (features[EF::OUR_KNIGHTS] - features[EF::THEIR_KNIGHTS]) * 300;
+    base += (features[EF::OUR_BISHOPS] - features[EF::THEIR_BISHOPS]) * 300;
+    base += (features[EF::OUR_ROOKS] - features[EF::THEIR_ROOKS]) * 400;
+    base += (features[EF::OUR_QUEENS] - features[EF::THEIR_QUEENS]) * 900;    base += (features[EF::THEIR_HANGING_QUEENS] > 0) * 450;
     base += (features[EF::THEIR_HANGING_QUEENS] == 0 && features[EF::THEIR_HANGING_ROOKS] > 0) * 250;
     base += (features[EF::THEIR_HANGING_QUEENS] == 0 && features[EF::THEIR_HANGING_ROOKS] == 0 && features[EF::THEIR_HANGING_KNIGHTS] + features[EF::THEIR_HANGING_BISHOPS] > 0) * 150;
     base += freedom * 3;
 
-    early = (early * (18 - time)) / 18;
-
     int32_t late = 0;
     late += (progressOfOurClosestPassedPawn - progressOfTheirClosestPassedPawn) * 20;
     late += (theirDistToClosestPassedPawn - ourDistToClosestPassedPawn) * 25;
+
+    early = (early * (18 - time)) / 18;
     late = (late * time) / 18;
 
     return base + pieceMap + early + late + this->bonus;

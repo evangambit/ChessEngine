@@ -46,7 +46,7 @@ struct PieceMaps {
     std::vector<std::string> params;
 
     for (size_t k = 0; k < PieceMapType::PieceMapTypeCount; ++k) {
-      for (size_t i = 0; i < ColoredPiece::NUM_COLORED_PIECES; ++i) {
+      for (size_t i = NO_COLORED_PIECE; i <= WHITE_KING; ++i) {
         getline(myfile, line);
         if (line.substr(0, 3) != "// ") {
           throw std::runtime_error("Unexpected weight format; expected \"// \" but got \"" + line + "\"");
