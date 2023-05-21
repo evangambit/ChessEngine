@@ -74,6 +74,8 @@ struct UciEngine {
       handle_set_option(parts);
     } else if (parts[0] == "ucinewgame") {
       this->thinker.reset_stuff();
+    } else if (parts[0] == "loadweights") {  // Custom commands below this line.
+      this->thinker.load_weights_from_file(parts[1]);
     } else if (parts[0] == "play") {
       handle_play(parts);
     } else if (parts[0] == "probe") {
