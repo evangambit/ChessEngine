@@ -356,16 +356,16 @@ struct UciEngine {
 int main(int argc, char *argv[]) {
   std::cout << "Chess Engine" << std::endl;
 
-  // // Wait for "uci" command.
-  // while (true) {
-  //   std::string line;
-  //   getline(std::cin, line);
-  //   if (line == "uci") {
-  //     break;
-  //   } else {
-  //     std::cout << "Unrecognized command " << repr(line) << std::endl;
-  //   }
-  // }
+  // Wait for "uci" command.
+  while (true) {
+    std::string line;
+    getline(std::cin, line);
+    if (line == "uci") {
+      break;
+    } else {
+      std::cout << "Unrecognized command " << repr(line) << std::endl;
+    }
+  }
 
   initialize_geometry();
   initialize_zorbrist();
