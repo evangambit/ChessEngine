@@ -145,7 +145,7 @@ struct Threats {
     this->badForOur[Piece::KNIGHT] = badForAllOfUs | this->theirPawnTargets | (this->theirDoubleTargets & ~this->ourDoubleTargets);
     this->badForOur[Piece::BISHOP] = this->badForOur[Piece::KNIGHT];
     this->badForOur[Piece::ROOK]   = badForAllOfUs | this->theirPawnTargets | theirMinorTargets | (this->theirDoubleTargets & ~this->ourDoubleTargets);
-    this->badForOur[Piece::QUEEN]  = badForAllOfUs | this->theirPawnTargets | this->theirRookTargets | (this->theirDoubleTargets & ~this->ourDoubleTargets);
+    this->badForOur[Piece::QUEEN]  = badForAllOfUs | this->theirPawnTargets | theirMinorTargets | this->theirRookTargets | (this->theirDoubleTargets & ~this->ourDoubleTargets);
     this->badForOur[Piece::KING]   = this->theirTargets;
 
     this->badForTheir[Piece::PAWN]   = badForAllOfThem | (this->ourDoubleTargets & ~this->theirDoubleTargets);

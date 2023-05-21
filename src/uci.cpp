@@ -38,7 +38,11 @@ struct UciEngine {
   Position pos;
   UciEngine() {
     pos = Position("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+    #ifndef SquareControl
     this->thinker.load_weights_from_file("weights.txt");
+    #else
+    this->thinker.load_weights_from_file("weights-square-control.txt");
+    #endif
   }
   void start(std::istream& cin) {
     while (true) {

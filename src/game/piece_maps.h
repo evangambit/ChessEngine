@@ -49,7 +49,7 @@ struct PieceMaps {
       for (size_t i = 0; i < ColoredPiece::NUM_COLORED_PIECES; ++i) {
         getline(myfile, line);
         if (line.substr(0, 3) != "// ") {
-          throw std::runtime_error("Unexpected weight format; expected \"// \" but got \"" + line.substr(0, 3) + "\"");
+          throw std::runtime_error("Unexpected weight format; expected \"// \" but got \"" + line + "\"");
         }
         for (size_t y = 0; y < 8; ++y) {
           getline(myfile, line);

@@ -95,10 +95,6 @@
    129 // early THEIR_HANGING_QUEENS_2
   -184 // early QUEEN_THREATS_NEAR_KING
    -14 // early MISSING_FIANCHETTO_BISHOP
-     0 // early BISHOP_PAWN_DISAGREEMENT
-     1 // early CLOSED_1
-    -1 // early CLOSED_2
-     1 // early CLOSED_3
     -1 // early NUM_BAD_SQUARES_FOR_PAWNS
     -1 // early NUM_BAD_SQUARES_FOR_MINORS
     -1 // early NUM_BAD_SQUARES_FOR_ROOKS
@@ -219,10 +215,6 @@
     18 // late THEIR_HANGING_QUEENS_2
   -157 // late QUEEN_THREATS_NEAR_KING
      4 // late MISSING_FIANCHETTO_BISHOP
-     0 // late BISHOP_PAWN_DISAGREEMENT
-     0 // late CLOSED_1
-    -1 // late CLOSED_2
-     2 // late CLOSED_3
      0 // late NUM_BAD_SQUARES_FOR_PAWNS
      0 // late NUM_BAD_SQUARES_FOR_MINORS
      0 // late NUM_BAD_SQUARES_FOR_ROOKS
@@ -343,10 +335,6 @@
   -574 // clipped THEIR_HANGING_QUEENS_2
   2720 // clipped QUEEN_THREATS_NEAR_KING
     -5 // clipped MISSING_FIANCHETTO_BISHOP
-     0 // clipped BISHOP_PAWN_DISAGREEMENT
-     0 // clipped CLOSED_1
-     0 // clipped CLOSED_2
-    -1 // clipped CLOSED_3
      0 // clipped NUM_BAD_SQUARES_FOR_PAWNS
      0 // clipped NUM_BAD_SQUARES_FOR_MINORS
      0 // clipped NUM_BAD_SQUARES_FOR_ROOKS
@@ -467,10 +455,6 @@
   1107 // lonely king THEIR_HANGING_QUEENS_2
     -1 // lonely king QUEEN_THREATS_NEAR_KING
    -13 // lonely king MISSING_FIANCHETTO_BISHOP
-     0 // lonely king BISHOP_PAWN_DISAGREEMENT
-     1 // lonely king CLOSED_1
-    -3 // lonely king CLOSED_2
-     4 // lonely king CLOSED_3
      0 // lonely king NUM_BAD_SQUARES_FOR_PAWNS
      0 // lonely king NUM_BAD_SQUARES_FOR_MINORS
      0 // lonely king NUM_BAD_SQUARES_FOR_ROOKS
