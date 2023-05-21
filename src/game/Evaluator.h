@@ -1,7 +1,7 @@
 #ifndef EVALUATOR_H
 #define EVALUATOR_H
 
-#define EVAL_VERSION 2
+#define EVAL_VERSION 1
 
 #if EVAL_VERSION == 1
 
