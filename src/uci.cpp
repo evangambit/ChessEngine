@@ -249,6 +249,60 @@ struct UciEngine {
 
     if (command[1] == "depth") {
       depthLimit = stoi(command[2]);
+    }
+    else if (command[1] == "nodes") {
+      nodeLimit = stoi(command[2]);
+    }
+    else if (command[1] == "time") {
+      timeLimitMs = stoi(command[2]);
+    } else {
+      invalid(join(command, " "));
+      return;
+    }
+
+    this->thinker.stopThinkingCondition = std::make_unique<OrStopCondition>(
+      new StopThinkingNodeCountCondition(nodeLimit),
+      new StopThinkingTimeCondition(timeLimitMs)
+    );
+
+    // TODO: get rid of this (selfplay2 sometimes crashes when we try to get rid of it now).
+    this->thinker.reset_stuff();
+
+    SearchResult<Color::WHITE> result = this->thinker.search(&this->pos, depthLimit, [this](Position *position, SearchResult<Color::WHITE> results, size_t depth, double secs) {
+      this->_print_variations(position, depth, secs, this->thinker.multiPV);
+    });
+
+    if (this->pos.turn_ == Color::WHITE) {
+      make_move<Color::WHITE>(&this->pos, result.move);
+    } else {
+      make_move<Color::BLACK>(&this->pos, result.move);
+    }
+    CacheResult cr = this->thinker.cache.find(this->pos.hash_);
+    if (this->pos.turn_ == Color::WHITE) {
+      undo<Color::BLACK>(&this->pos);
+    } else {
+      undo<Color::WHITE>(&this->pos);
+    }
+
+    std::cout << "bestmove " << result.move;
+    if (!isNullCacheResult(cr)) {
+      std::cout << " ponder " << cr.bestMove;
+    }
+    std::cout << std::endl;
+  }
+
+  void handle_play(const std::vector<std::string>& command) {
+    size_t nodeLimit = size_t(-1);
+    uint64_t depthLimit = 99;
+    uint64_t timeLimitMs = 1000 * 60 * 60;
+
+    if (command.size() != 3) {
+      invalid(join(command, " "));
+      return;
+    }
+
+    if (command[1] == "depth") {
+      depthLimit = stoi(command[2]);
     } else if (command[1] == "nodes") {
       nodeLimit = stoi(command[2]);
     } else if (command[1] == "time") {
