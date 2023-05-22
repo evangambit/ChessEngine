@@ -18,6 +18,9 @@
 
 namespace ChessEngine {
 
+// Arbitrary constant that our "special_boosts" will never accidentally return.
+static const Evaluation kKnownDraw = kMinEval + 10;
+
 enum EF {
   OUR_PAWNS,
   OUR_KNIGHTS,
@@ -1058,8 +1061,11 @@ lonelyKingB = 0;
     const Bitboard ourPassedPawns = ourPawns & ~fatten(aheadOfTheirPawns);
     const Bitboard theirPassedPawns = theirPawns & ~fatten(aheadOfOurPawns);
 
-    const Bitboard ourWeakPawns = ourPawns & ~(shift<Direction::WEST>(aheadOfOurPawns) | shift<Direction::EAST>(aheadOfOurPawns));
-    const Bitboard theirWeakPawns = theirPawns & ~(shift<Direction::WEST>(aheadOfTheirPawns) | shift<Direction::EAST>(aheadOfTheirPawns));
+    const Bitboard filesWithoutOurPawns = ~(US == Color::WHITE ? southFill(aheadOfOurPawns) : northFill(aheadOfOurPawns));
+    const Bitboard filesWithoutTheirPawns = ~(US == Color::BLACK ? northFill(aheadOfTheirPawns) : southFill(aheadOfTheirPawns));
+
+    const Bitboard ourIsolatedPawns = ourPawns & (shift<Direction::WEST>(filesWithoutOurPawns) & shift<Direction::EAST>(filesWithoutOurPawns));
+    const Bitboard theirIsolatedPawns = theirPawns & (shift<Direction::WEST>(filesWithoutTheirPawns) & shift<Direction::EAST>(filesWithoutTheirPawns));
 
     // 0: no passed pawn
     // 6: passed pawn on the 7th rank
@@ -1125,7 +1131,8 @@ lonelyKingB = 0;
     base += (features[EF::OUR_KNIGHTS] - features[EF::THEIR_KNIGHTS]) * 300;
     base += (features[EF::OUR_BISHOPS] - features[EF::THEIR_BISHOPS]) * 300;
     base += (features[EF::OUR_ROOKS] - features[EF::THEIR_ROOKS]) * 400;
-    base += (features[EF::OUR_QUEENS] - features[EF::THEIR_QUEENS]) * 900;    base += (features[EF::THEIR_HANGING_QUEENS] > 0) * 450;
+    base += (features[EF::OUR_QUEENS] - features[EF::THEIR_QUEENS]) * 900;
+    base += (features[EF::THEIR_HANGING_QUEENS] > 0) * 450;
     base += (features[EF::THEIR_HANGING_QUEENS] == 0 && features[EF::THEIR_HANGING_ROOKS] > 0) * 250;
     base += (features[EF::THEIR_HANGING_QUEENS] == 0 && features[EF::THEIR_HANGING_ROOKS] == 0 && features[EF::THEIR_HANGING_KNIGHTS] + features[EF::THEIR_HANGING_BISHOPS] > 0) * 150;
     base += freedom * 3;
@@ -1137,13 +1144,19 @@ lonelyKingB = 0;
     early = (early * (18 - time)) / 18;
     late = (late * time) / 18;
 
-    return base + pieceMap + early + late + this->special_boosts<US>(pos);
+    Evaluation special = this->special_boosts<US>(pos);
+    if (special == kKnownDraw) {
+      return 0;
+    }
+
+    return base + pieceMap + early + late + special;
 #endif  // #ifndef SquareControl
   }
 
   template<Color US>
   Evaluation special_boosts(const Position& pos) {
     constexpr Color THEM = opposite_color<US>();
+    constexpr Evaluation kKnownWinBonus = 1000;
 
     const Square ourKingSq = lsb(pos.pieceBitboards_[coloredPiece<US, Piece::KING>()]);
     const Square theirKingSq = lsb(pos.pieceBitboards_[coloredPiece<THEM, Piece::KING>()]);
@@ -1173,7 +1186,7 @@ lonelyKingB = 0;
         result = known_kpvk_result(Square(63 - ourKingSq), Square(63 - theirKingSq), Square(63 - lsb(ourPawns)), true);
       }
       if (result == 0) {
-        return 0;
+        return kKnownDraw;
       }
       if (result == 2) {
         return 1000;
@@ -1187,13 +1200,49 @@ lonelyKingB = 0;
         result = known_kpvk_result(Square(63 - theirKingSq), Square(63 - ourKingSq), Square(63 - lsb(theirPawns)), false);
       }
       if (result == 0) {
-        return 0;
+        return kKnownDraw;
       }
       if (result == 2) {
         return -1000;
       }
     }
-    return 0;
+
+    const int wx = ourKingSq % 8;
+    const int wy = ourKingSq / 8;
+    const int bx = theirKingSq % 8;
+    const int by = theirKingSq / 8;
+
+    Evaluation r = 0;
+
+    {
+      const bool theyHaveLonelyKing = (theirMen == theirKings);
+      const bool weHaveLonelyKing = (ourMen == ourKings);
+      const bool weHaveMaterialToMate = (features[EF::OUR_QUEENS] > 0 || features[EF::OUR_ROOKS] > 0 || features[EF::OUR_BISHOPS] > 1 || (features[EF::OUR_KNIGHTS] > 0 && features[EF::OUR_BISHOPS] > 0));
+      const bool theyHaveMaterialToMate = (features[EF::THEIR_QUEENS] > 0 || features[EF::THEIR_ROOKS] > 0 || features[EF::THEIR_BISHOPS] > 1 || (features[EF::THEIR_KNIGHTS] > 0 && features[EF::THEIR_BISHOPS] > 0));
+
+      r += value_or_zero(theyHaveLonelyKing && weHaveMaterialToMate, kKnownWinBonus);
+      r -= value_or_zero(weHaveLonelyKing && theyHaveMaterialToMate, kKnownWinBonus);
+
+      r += value_or_zero(theyHaveLonelyKing, (3 - kDistToEdge[theirKingSq]) * 50);
+      r -= value_or_zero(  weHaveLonelyKing, (3 - kDistToEdge[ourKingSq]) * 50);
+      r += value_or_zero(theyHaveLonelyKing, (3 - kDistToCorner[theirKingSq]) * 50);
+      r -= value_or_zero(  weHaveLonelyKing, (3 - kDistToCorner[ourKingSq]) * 50);
+
+      int dx = std::abs(wx - bx);
+      int dy = std::abs(wy - by);
+      const bool opposition = (dx == 2 && dy == 0) || (dx == 0 && dy == 2);
+
+      // We don't want it to be our turn if they have the opposition.
+      r -= value_or_zero(weHaveLonelyKing && opposition, 75);
+
+      // And put our king next to the enemy king.
+      r += value_or_zero(theyHaveLonelyKing, (8 - std::max(dx, dy)) * 50);
+      r -= value_or_zero(  weHaveLonelyKing, (8 - std::max(dx, dy)) * 50);
+      r += value_or_zero(theyHaveLonelyKing, (8 - std::min(dx, dy)) * 25);
+      r -= value_or_zero(  weHaveLonelyKing, (8 - std::min(dx, dy)) * 25);
+    }
+
+    return r;
   }
 
   template<Color US>

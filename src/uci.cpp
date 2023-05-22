@@ -1,3 +1,6 @@
+// g++ src/uci.cpp src/game/*.cpp -std=c++20 -O3 -DNDEBUG -o main
+// g++ src/uci.cpp src/game/*.cpp -std=c++20 -O3 -DNDEBUG -DSquareControl -o sc-old
+
 #import "game/search.h"
 #import "game/Position.h"
 #import "game/movegen.h"
@@ -78,8 +81,14 @@ struct UciEngine {
       this->thinker.load_weights_from_file(parts[1]);
     } else if (parts[0] == "play") {
       handle_play(parts);
+    } else if (parts[0] == "eval") {
+      Evaluator& evaulator = this->thinker.evaluator;
+      if (this->pos.turn_ == Color::WHITE) {
+        std::cout << evaulator.score<Color::WHITE>(this->pos) << std::endl;
+      } else {
+        std::cout << evaulator.score<Color::BLACK>(this->pos) << std::endl;
+      }
     } else if (parts[0] == "probe") {
-      // Custom command.
       Position query = Position::init();
       size_t i = 1;
       if (parts[1] == "fen") {
@@ -363,15 +372,15 @@ int main(int argc, char *argv[]) {
   std::cout << "Chess Engine" << std::endl;
 
   // Wait for "uci" command.
-  // while (true) {
-  //   std::string line;
-  //   getline(std::cin, line);
-  //   if (line == "uci") {
-  //     break;
-  //   } else {
-  //     std::cout << "Unrecognized command " << repr(line) << std::endl;
-  //   }
-  // }
+  while (true) {
+    std::string line;
+    getline(std::cin, line);
+    if (line == "uci") {
+      break;
+    } else {
+      std::cout << "Unrecognized command " << repr(line) << std::endl;
+    }
+  }
 
   initialize_geometry();
   initialize_zorbrist();
@@ -379,7 +388,4 @@ int main(int argc, char *argv[]) {
 
   UciEngine engine;
   engine.start(std::cin);
-
-  // engine.handle_position(split("position fen 8/8/4k3/8/3K4/2P5/8/8 w - - 0 1", ' '));
-  // engine.handle_go(split("go depth 1", ' '));
 }
