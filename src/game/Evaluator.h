@@ -8,6 +8,7 @@
 #include <string>
 
 #include "geometry.h"
+#include "kpvk.h"
 #include "utils.h"
 #include "Threats.h"
 #include "Position.h"
@@ -312,7 +313,6 @@ lonelyKingB = 0;
   int32_t clippedW[EF::NUM_EVAL_FEATURES];
   int32_t lonelyKingB;
   int32_t lonelyKingW[EF::NUM_EVAL_FEATURES];
-  Evaluation bonus;
 
   void save_weights_to_file(std::ofstream& myfile) {
     myfile << lpad(earlyB) << " // early bias" << std::endl;
@@ -885,7 +885,7 @@ lonelyKingB = 0;
 
     // Special end-game boosts.
 
-    this->bonus = 0;
+    Evaluation bonus = 0;
 
     const int wx = ourKingSq % 8;
     const int wy = ourKingSq / 8;
@@ -894,42 +894,42 @@ lonelyKingB = 0;
 
     if (std::popcount(everyone & ~(theirPawns | ourPawns)) == 2) {
       // In pawn endgames, the square rule is important. 0.0027 ± 0.0010
-      this->bonus += (((kSquareRuleTheirTurn[US][theirKingSq] & pawnAnalysis.ourPassedPawns) > 0) - ((kSquareRuleYourTurn[THEM][ourKingSq] & pawnAnalysis.theirPassedPawns) > 0)) * 100;
+      bonus += (((kSquareRuleTheirTurn[US][theirKingSq] & pawnAnalysis.ourPassedPawns) > 0) - ((kSquareRuleYourTurn[THEM][ourKingSq] & pawnAnalysis.theirPassedPawns) > 0)) * 100;
     }
 
     {
       // KPVK games are winning if square rule is true.
       const bool isOurKPPVK = isKingPawnEndgame && (std::popcount(ourPawns) >= 1) && (theirPawns == 0);
       const bool isTheirKPPVK = isKingPawnEndgame && (std::popcount(theirPawns) >= 1) && (ourPawns == 0);
-      this->bonus -= value_or_zero(isOurKPPVK && features[EF::SQUARE_RULE] < 0, 500);
-      this->bonus += value_or_zero(isTheirKPPVK && features[EF::SQUARE_RULE] > 0, 500);
+      bonus -= value_or_zero(isOurKPPVK && features[EF::SQUARE_RULE] < 0, 500);
+      bonus += value_or_zero(isTheirKPPVK && features[EF::SQUARE_RULE] > 0, 500);
 
       if (isOurKPPVK && std::popcount(ourPawns) >= 1) {
         int result;
         if (US == Color::WHITE) {
-          result = this->known_kpvk_result(ourKingSq, theirKingSq, lsb(ourPawns), true);
+          result = known_kpvk_result(ourKingSq, theirKingSq, lsb(ourPawns), true);
         } else {
-          result = this->known_kpvk_result(Square(63 - ourKingSq), Square(63 - theirKingSq), Square(63 - lsb(ourPawns)), true);
+          result = known_kpvk_result(Square(63 - ourKingSq), Square(63 - theirKingSq), Square(63 - lsb(ourPawns)), true);
         }
         if (result == 0) {
           return 0;
         }
         if (result == 2) {
-          this->bonus += 1000;
+          bonus += 1000;
         }
       }
       if (isTheirKPPVK && std::popcount(theirPawns) <= 1) {
         int result;
         if (US == Color::BLACK) {
-          result = this->known_kpvk_result(theirKingSq, ourKingSq, lsb(theirPawns), false);
+          result = known_kpvk_result(theirKingSq, ourKingSq, lsb(theirPawns), false);
         } else {
-          result = this->known_kpvk_result(Square(63 - theirKingSq), Square(63 - ourKingSq), Square(63 - lsb(theirPawns)), false);
+          result = known_kpvk_result(Square(63 - theirKingSq), Square(63 - ourKingSq), Square(63 - lsb(theirPawns)), false);
         }
         if (result == 0) {
           return 0;
         }
         if (result == 2) {
-          this->bonus -= 1000;
+          bonus -= 1000;
         }
       }
     }
@@ -937,31 +937,31 @@ lonelyKingB = 0;
       const bool theyHaveLonelyKing = (theirMen == theirKings) && (features[EF::OUR_KNIGHTS] > 2 || features[EF::OUR_BISHOPS] > 1 || features[EF::OUR_ROOKS] > 0 || features[EF::OUR_QUEENS] > 0);
       const bool weHaveLonelyKing = (ourMen == ourKings) && (features[EF::THEIR_KNIGHTS] > 2 || features[EF::THEIR_BISHOPS] > 1 || features[EF::THEIR_ROOKS] > 0 || features[EF::THEIR_QUEENS] > 0);
 
-      this->bonus += value_or_zero(theyHaveLonelyKing, (3 - kDistToEdge[theirKingSq]) * 50);
-      this->bonus -= value_or_zero(  weHaveLonelyKing, (3 - kDistToEdge[ourKingSq]) * 50);
-      this->bonus += value_or_zero(theyHaveLonelyKing, (3 - kDistToCorner[theirKingSq]) * 50);
-      this->bonus -= value_or_zero(  weHaveLonelyKing, (3 - kDistToCorner[ourKingSq]) * 50);
+      bonus += value_or_zero(theyHaveLonelyKing, (3 - kDistToEdge[theirKingSq]) * 50);
+      bonus -= value_or_zero(  weHaveLonelyKing, (3 - kDistToEdge[ourKingSq]) * 50);
+      bonus += value_or_zero(theyHaveLonelyKing, (3 - kDistToCorner[theirKingSq]) * 50);
+      bonus -= value_or_zero(  weHaveLonelyKing, (3 - kDistToCorner[ourKingSq]) * 50);
 
       int dx = std::abs(wx - bx);
       int dy = std::abs(wy - by);
       const bool opposition = (dx == 2 && dy == 0) || (dx == 0 && dy == 2);
 
       // We don't want it to be our turn!
-      this->bonus -= value_or_zero(weHaveLonelyKing && opposition, 75);
+      bonus -= value_or_zero(weHaveLonelyKing && opposition, 75);
       // We can achieve opposition from here.
-      this->bonus += value_or_zero(theyHaveLonelyKing && (
+      bonus += value_or_zero(theyHaveLonelyKing && (
         (dx == 3 && dy <= 1)
         || (dy == 3 && dx <= 1)
       ), 50);
 
       // And put our king next to the enemy king.
-      this->bonus += value_or_zero(theyHaveLonelyKing, (8 - std::max(dx, dy)) * 50);
-      this->bonus -= value_or_zero(  weHaveLonelyKing, (8 - std::max(dx, dy)) * 50);
-      this->bonus += value_or_zero(theyHaveLonelyKing, (8 - std::min(dx, dy)) * 25);
-      this->bonus -= value_or_zero(  weHaveLonelyKing, (8 - std::min(dx, dy)) * 25);
+      bonus += value_or_zero(theyHaveLonelyKing, (8 - std::max(dx, dy)) * 50);
+      bonus -= value_or_zero(  weHaveLonelyKing, (8 - std::max(dx, dy)) * 50);
+      bonus += value_or_zero(theyHaveLonelyKing, (8 - std::min(dx, dy)) * 25);
+      bonus -= value_or_zero(  weHaveLonelyKing, (8 - std::min(dx, dy)) * 25);
     }
 
-    eval += this->bonus;
+    eval += bonus;
 
     return std::min(int32_t(-kLongestForcedMate), std::max(int32_t(kLongestForcedMate), eval));
 
@@ -1137,13 +1137,63 @@ lonelyKingB = 0;
     early = (early * (18 - time)) / 18;
     late = (late * time) / 18;
 
-    return base + pieceMap + early + late + this->bonus;
+    return base + pieceMap + early + late + this->special_boosts<US>(pos);
 #endif  // #ifndef SquareControl
   }
 
   template<Color US>
   Evaluation special_boosts(const Position& pos) {
+    constexpr Color THEM = opposite_color<US>();
 
+    const Square ourKingSq = lsb(pos.pieceBitboards_[coloredPiece<US, Piece::KING>()]);
+    const Square theirKingSq = lsb(pos.pieceBitboards_[coloredPiece<THEM, Piece::KING>()]);
+
+    const Bitboard ourPawns = pos.pieceBitboards_[coloredPiece<US, Piece::PAWN>()];
+    const Bitboard ourKings = pos.pieceBitboards_[coloredPiece<US, Piece::KING>()];
+
+    const Bitboard theirPawns = pos.pieceBitboards_[coloredPiece<THEM, Piece::PAWN>()];
+    const Bitboard theirKings = pos.pieceBitboards_[coloredPiece<THEM, Piece::KING>()];
+
+    const Square whiteKingSq = (US == Color::WHITE ? ourKingSq : theirKingSq);
+    const Square blackKingSq = (US == Color::BLACK ? ourKingSq : theirKingSq);
+
+    const Bitboard ourMen = pos.colorBitboards_[US];
+    const Bitboard theirMen = pos.colorBitboards_[THEM];
+    const Bitboard everyone = ourMen | theirMen;
+
+    const bool doWeOnlyHavePawnsLeft = (ourMen & ~(ourPawns | ourKings)) == 0;
+    const bool doTheyOnlyHavePawnsLeft = (theirMen & ~(theirPawns | theirKings)) == 0;
+    const bool isKingPawnEndgame = doWeOnlyHavePawnsLeft && doTheyOnlyHavePawnsLeft;
+
+    if (isKingPawnEndgame && (std::popcount(ourPawns) == 1) && (theirPawns == 0)) {
+      int result;
+      if (US == Color::WHITE) {
+        result = known_kpvk_result(ourKingSq, theirKingSq, lsb(ourPawns), true);
+      } else {
+        result = known_kpvk_result(Square(63 - ourKingSq), Square(63 - theirKingSq), Square(63 - lsb(ourPawns)), true);
+      }
+      if (result == 0) {
+        return 0;
+      }
+      if (result == 2) {
+        return 1000;
+      }
+    }
+    else if (isKingPawnEndgame && (std::popcount(theirPawns) == 1) && (ourPawns == 0)) {
+      int result;
+      if (US == Color::BLACK) {
+        result = known_kpvk_result(theirKingSq, ourKingSq, lsb(theirPawns), false);
+      } else {
+        result = known_kpvk_result(Square(63 - theirKingSq), Square(63 - ourKingSq), Square(63 - lsb(theirPawns)), false);
+      }
+      if (result == 0) {
+        return 0;
+      }
+      if (result == 2) {
+        return -1000;
+      }
+    }
+    return 0;
   }
 
   template<Color US>
@@ -1185,63 +1235,6 @@ lonelyKingB = 0;
 
     // todo: value_or_zero
     return r * (1 - (ourPieces != 0) * (theirPieces != 0));
-  }
-
-  // Assumes white has the pawn.
-  // Returns 2 if white wins
-  // Returns 0 if white draws
-  // Returns 1 if unknown
-  int known_kpvk_result(Square yourKing, Square theirKing, Square yourPawn, bool yourMove) {
-    const int wx = yourKing % 8;
-    const int wy = yourKing / 8;
-    const int bx = theirKing % 8;
-    const int by = theirKing / 8;
-    const int px = yourPawn % 8;
-    const int py = yourPawn / 8;
-
-    const int wdist = std::max(std::abs(wx - px), std::abs(wy - py));
-    const int bdist = std::max(std::abs(bx - px), std::abs(by - py));
-
-
-    bool isWinning = false;
-    {  // Square rule
-      const int theirDistFromPromoSquare = std::max(std::abs(bx - px), by) - !yourMove;
-      isWinning |= theirDistFromPromoSquare > py;
-    }
-
-    isWinning |= (wy == py - 2 && std::abs(wx - px) == 1 && bdist + yourMove > 1);
-
-    // Horizontally symmetric is a win for white.
-    isWinning |= (wx - px == px - bx && wy == by);
-
-    if (isWinning) {
-      return 2;
-    }
-
-    // if (wx == bx && wy >= py - 1 && by == wy - 2 && by != 0 && yourMove) {
-    //   return 0;
-    // }
-
-    bool isDrawn = false;
-
-    // Black king in front of pawn.
-    isDrawn |= (bx == px && by == py - 1);
-
-    // Black king two in front of pawn and not on back rank.
-    isDrawn |= (by == py - 2 && by != 0);
-
-    // Distance Rule:
-    //   1) Compute the distance between your king and your pawn
-    //   2) Compute the distance between the enemy king and your pawn
-    //   3) Subtract 1 from your distance if it's your turn
-    //   4) Add 1 to your enemy's distance if they're in front of your pawn and on a diagonal with it.
-    // If your distance is greater than your opponent's, then it's a draw.
-    isDrawn |= (wdist - yourMove > bdist + ((bx + by == wx + wy) || (bx - by == wx - wy)));
-
-    // No-zones when you're behind your pawn.
-    isDrawn |= (wy > py && py > by) && (std::abs(px - bx) - !yourMove <= wy - py);
-
-    return !isDrawn;
   }
 
   void zero_() {

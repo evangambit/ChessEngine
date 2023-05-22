@@ -363,15 +363,15 @@ int main(int argc, char *argv[]) {
   std::cout << "Chess Engine" << std::endl;
 
   // Wait for "uci" command.
-  while (true) {
-    std::string line;
-    getline(std::cin, line);
-    if (line == "uci") {
-      break;
-    } else {
-      std::cout << "Unrecognized command " << repr(line) << std::endl;
-    }
-  }
+  // while (true) {
+  //   std::string line;
+  //   getline(std::cin, line);
+  //   if (line == "uci") {
+  //     break;
+  //   } else {
+  //     std::cout << "Unrecognized command " << repr(line) << std::endl;
+  //   }
+  // }
 
   initialize_geometry();
   initialize_zorbrist();
@@ -379,4 +379,7 @@ int main(int argc, char *argv[]) {
 
   UciEngine engine;
   engine.start(std::cin);
+
+  // engine.handle_position(split("position fen 8/8/4k3/8/3K4/2P5/8/8 w - - 0 1", ' '));
+  // engine.handle_go(split("go depth 1", ' '));
 }

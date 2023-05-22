@@ -3,6 +3,7 @@
 
 #include "utils.h"
 #include "geometry.h"
+#include "Position.h"
 
 namespace ChessEngine {
 
