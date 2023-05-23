@@ -13,11 +13,12 @@ from scipy import stats
 import numpy as np
 
 class UciPlayer:
-  def __init__(self, path):
+  def __init__(self, path, weights):
     self._p = subprocess.Popen(path, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
     self.allin = []
     self.allout = []
     self.command("uci")
+    self.command(f"loadweights {weights}")
 
   def command(self, text):
     self.allin.append(text)
@@ -33,6 +34,7 @@ class UciPlayer:
     else:
       self.command(f"position fen {fen} moves {' '.join(moves)}")
     self.command(f"go nodes {nodes}")
+    # self.command(f"go time 50")
     lines = []
     while True:
       line = self._p.stdout.readline().decode()
@@ -132,8 +134,8 @@ def play_random(board, n):
   return play_random(board, n - 1)
 
 def thread_main(fen):
-  player1 = UciPlayer(sys.argv[1])
-  player2 = UciPlayer(sys.argv[2])
+  player1 = UciPlayer(sys.argv[1], sys.argv[2])
+  player2 = UciPlayer(sys.argv[3], sys.argv[4])
   return (play(fen, player1, player2) - play(fen, player2, player1)) / 2.0
 
 def create_fen_batch(n):
@@ -144,7 +146,7 @@ if __name__ == '__main__':
   t0 = time.time()
   numWorkers = 8
   batches = [[]]
-  for i in range(0, 64, numWorkers):
+  for i in range(0, 256, numWorkers):
     batches.append(create_fen_batch(numWorkers))
 
   R = []

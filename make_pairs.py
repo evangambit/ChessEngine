@@ -387,8 +387,8 @@ if __name__ == '__main__':
         int(' w ' in fen2),
       ])
 
-    kPieceName = 'PNBRQKpnbrqk'
-    A = np.zeros((len(F), 2, 12, 64), dtype=np.int8)
+    kPieceName = 'PNBRQK'
+    A = np.zeros((len(F), 2, 6, 64), dtype=np.int8)
     for i in range(len(F)):
       if i % 5000 == 0:
         print(i, len(F))
@@ -399,7 +399,10 @@ if __name__ == '__main__':
         for y in range(8):
           for x in range(8):
             if tiles[y][x] != '.':
-              A[i, j, kPieceName.index(tiles[y][x]), y * 8 + x] = 1
+              if tiles[y][x] == tiles[y][x].upper():
+                A[i, j, kPieceName.index(tiles[y][x]), y * 8 + x] += 1
+              else:
+                A[i, j, kPieceName.index(tiles[y][x].upper()), (7 - y) * 8 + x] -= -1
 
     X = np.array(X, dtype=np.int16)
     Y = np.array(Y, dtype=np.int16)
