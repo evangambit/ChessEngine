@@ -260,14 +260,14 @@ CheckMap compute_potential_attackers(const Position& pos, const Square sq) {
 }
 
 template<Color US>
-PinMasks compute_pin_masks(const Position& pos) {
+PinMasks compute_pin_masks(const Position& pos, const Square sq) {
+  assert(sq != Square::NO_SQUARE);
   constexpr Color THEM = opposite_color<US>();
 
   const Bitboard occ = pos.colorBitboards_[US] | pos.colorBitboards_[THEM];
-  const Bitboard ourKings = pos.pieceBitboards_[coloredPiece<US, Piece::KING>()];
-  const Square ourKingSq = lsb(ourKings);
-  const unsigned y = ourKingSq / 8;
-  const unsigned x = ourKingSq % 8;
+  const Bitboard sqBitboard = bb(sq);
+  const unsigned y = sq / 8;
+  const unsigned x = sq % 8;
 
   const Bitboard enemyRooks = pos.pieceBitboards_[coloredPiece<THEM, Piece::ROOK>()] | pos.pieceBitboards_[coloredPiece<THEM, Piece::QUEEN>()];
   const Bitboard enemyBishops = pos.pieceBitboards_[coloredPiece<THEM, Piece::BISHOP>()] | pos.pieceBitboards_[coloredPiece<THEM, Piece::QUEEN>()];
@@ -276,7 +276,7 @@ PinMasks compute_pin_masks(const Position& pos) {
 
   {  // Compute east/west moves.
     const unsigned rankShift = y * 8;
-    uint8_t kingByte = ourKings >> rankShift;
+    uint8_t kingByte = sqBitboard >> rankShift;
     uint8_t occByte = occ >> rankShift;
     uint8_t enemiesByte = enemyRooks >> rankShift;
     r.horizontal = Bitboard(sliding_pinmask(kingByte, occByte, enemiesByte)) << rankShift;
@@ -284,7 +284,7 @@ PinMasks compute_pin_masks(const Position& pos) {
 
   {  // Compute north/south moves.
     const unsigned columnShift = 7 - x;
-    uint8_t kingByte = (((ourKings << columnShift) & kFiles[7]) * kRookMagic) >> 56;
+    uint8_t kingByte = (((sqBitboard << columnShift) & kFiles[7]) * kRookMagic) >> 56;
     uint8_t occByte = (((occ << columnShift) & kFiles[7]) * kRookMagic) >> 56;
     uint8_t enemiesByte = (((enemyRooks << columnShift) & kFiles[7]) * kRookMagic) >> 56;
     uint8_t toByte = sliding_pinmask(kingByte, occByte, enemiesByte);
@@ -292,21 +292,26 @@ PinMasks compute_pin_masks(const Position& pos) {
   }
 
   {  // Southeast/Northwest diagonal.
-    uint8_t occByte = diag::southeast_diag_to_byte(ourKingSq, occ);
-    uint8_t kingByte = diag::southeast_diag_to_byte(ourKingSq, ourKings);
-    uint8_t enemiesByte = diag::southeast_diag_to_byte(ourKingSq, enemyBishops);
-    r.northwest = diag::byte_to_southeast_diag(ourKingSq, sliding_pinmask(kingByte, occByte, enemiesByte));
+    uint8_t occByte = diag::southeast_diag_to_byte(sq, occ);
+    uint8_t kingByte = diag::southeast_diag_to_byte(sq, sqBitboard);
+    uint8_t enemiesByte = diag::southeast_diag_to_byte(sq, enemyBishops);
+    r.northwest = diag::byte_to_southeast_diag(sq, sliding_pinmask(kingByte, occByte, enemiesByte));
   }
   {  // Southwest/Northeast diagonal.
-    uint8_t occByte = diag::southwest_diag_to_byte(ourKingSq, occ);
-    uint8_t kingByte = diag::southwest_diag_to_byte(ourKingSq, ourKings);
-    uint8_t enemiesByte = diag::southwest_diag_to_byte(ourKingSq, enemyBishops);
-    r.northeast = diag::byte_to_southwest_diag(ourKingSq, sliding_pinmask(kingByte, occByte, enemiesByte));
+    uint8_t occByte = diag::southwest_diag_to_byte(sq, occ);
+    uint8_t kingByte = diag::southwest_diag_to_byte(sq, sqBitboard);
+    uint8_t enemiesByte = diag::southwest_diag_to_byte(sq, enemyBishops);
+    r.northeast = diag::byte_to_southwest_diag(sq, sliding_pinmask(kingByte, occByte, enemiesByte));
   }
 
   r.all = r.horizontal | r.vertical | r.northwest | r.northeast;
 
   return r;
+}
+
+template<Color US>
+PinMasks compute_absolute_pin_masks(const Position& pos) {
+  return compute_pin_masks<US>(pos, lsb(pos.pieceBitboards_[coloredPiece<US, Piece::KING>()]));
 }
 
 // We take the liberty of ignoring MGT if you're in check.
@@ -322,7 +327,7 @@ ExtMove* compute_moves(const Position& pos, ExtMove *moves) {
   }
   const Square ourKing = lsb(ourKings);
   Bitboard checkers = compute_attackers<enemyColor>(pos, ourKing);
-  const PinMasks pm = compute_pin_masks<US>(pos);
+  const PinMasks pm = compute_absolute_pin_masks<US>(pos);
 
   const unsigned numCheckers = std::popcount(checkers);
 
