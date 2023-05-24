@@ -39,7 +39,9 @@ void for_all_moves(Position *position, F&& f) {
 struct UciEngine {
   Thinker thinker;
   Position pos;
-  UciEngine() {
+  std::shared_ptr<StopThinkingSwitch> stopThinkingSwitch;
+  std::thread *thinkingThread;
+  UciEngine() : stopThinkingSwitch(nullptr), thinkingThread(nullptr) {
     pos = Position("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
     #ifndef SquareControl
     this->thinker.load_weights_from_file("weights.txt");
@@ -55,6 +57,7 @@ struct UciEngine {
       std::string line;
       getline(std::cin, line);
       if (line == "quit") {
+        exit(0);
         break;
       }
 
@@ -77,10 +80,12 @@ struct UciEngine {
       handle_set_option(parts);
     } else if (parts[0] == "ucinewgame") {
       this->thinker.reset_stuff();
+    } else if (parts[0] == "stop") {
+      if (this->stopThinkingSwitch != nullptr) {
+        this->stopThinkingSwitch->stop();
+      }
     } else if (parts[0] == "loadweights") {  // Custom commands below this line.
       this->thinker.load_weights_from_file(parts[1]);
-    } else if (parts[0] == "play") {
-      handle_play(parts);
     } else if (parts[0] == "eval") {
       Evaluator& evaulator = this->thinker.evaluator;
       if (this->pos.turn_ == Color::WHITE) {
@@ -221,87 +226,51 @@ struct UciEngine {
       return;
     }
 
-    this->thinker.stopThinkingCondition = std::make_unique<OrStopCondition>(
-      new StopThinkingNodeCountCondition(nodeLimit),
-      new StopThinkingTimeCondition(timeLimitMs)
-    );
-
-    // TODO: get rid of this (selfplay2 sometimes crashes when we try to get rid of it now).
-    this->thinker.reset_stuff();
-
-    SearchResult<Color::WHITE> result = this->thinker.search(&this->pos, depthLimit, [this](Position *position, SearchResult<Color::WHITE> results, size_t depth, double secs) {
-      this->_print_variations(position, depth, secs, this->thinker.multiPV);
-    });
-
-    if (this->pos.turn_ == Color::WHITE) {
-      make_move<Color::WHITE>(&this->pos, result.move);
-    } else {
-      make_move<Color::BLACK>(&this->pos, result.move);
-    }
-    CacheResult cr = this->thinker.cache.find(this->pos.hash_);
-    if (this->pos.turn_ == Color::WHITE) {
-      undo<Color::BLACK>(&this->pos);
-    } else {
-      undo<Color::WHITE>(&this->pos);
-    }
-
-    std::cout << "bestmove " << result.move;
-    if (!isNullCacheResult(cr)) {
-      std::cout << " ponder " << cr.bestMove;
-    }
-    std::cout << std::endl;
+    this->kick_off_analysis(nodeLimit, depthLimit, timeLimitMs);
   }
 
-  void handle_play(const std::vector<std::string>& command) {
-    size_t nodeLimit = size_t(-1);
-    uint64_t depthLimit = 99;
-    uint64_t timeLimitMs = 1000 * 60 * 60;
-
-    if (command.size() != 3) {
-      invalid(join(command, " "));
+  void kick_off_analysis(size_t nodeLimit, uint64_t depthLimit, uint64_t timeLimitMs) {
+    if (this->stopThinkingSwitch != nullptr) {
+      // TODO: handle concurrent thinking? or enque it?
+      std::cout << "ERROR: cannot \"go\" since we're already thinking" << std::endl;
       return;
     }
-
-    if (command[1] == "depth") {
-      depthLimit = stoi(command[2]);
-    } else if (command[1] == "nodes") {
-      nodeLimit = stoi(command[2]);
-    } else if (command[1] == "time") {
-      timeLimitMs = stoi(command[2]);
-    } else {
-      invalid(join(command, " "));
-      return;
-    }
+    this->stopThinkingSwitch = std::make_shared<StopThinkingSwitch>();
 
     this->thinker.stopThinkingCondition = std::make_unique<OrStopCondition>(
-      new StopThinkingNodeCountCondition(nodeLimit),
-      new StopThinkingTimeCondition(timeLimitMs)
+      std::make_shared<StopThinkingNodeCountCondition>(nodeLimit),
+      std::make_shared<StopThinkingTimeCondition>(timeLimitMs),
+      this->stopThinkingSwitch
     );
 
     // TODO: get rid of this (selfplay2 sometimes crashes when we try to get rid of it now).
     this->thinker.reset_stuff();
 
-    SearchResult<Color::WHITE> result = this->thinker.search(&this->pos, depthLimit, [this](Position *position, SearchResult<Color::WHITE> results, size_t depth, double secs) {
-      this->_print_variations(position, depth, secs, this->thinker.multiPV);
+    this->thinkingThread = new std::thread([this, depthLimit]() {
+      SearchResult<Color::WHITE> result = this->thinker.search(&this->pos, depthLimit, [this](Position *position, SearchResult<Color::WHITE> results, size_t depth, double secs) {
+        this->_print_variations(position, depth, secs, this->thinker.multiPV);
+      });
+
+      if (this->pos.turn_ == Color::WHITE) {
+        make_move<Color::WHITE>(&this->pos, result.move);
+      } else {
+        make_move<Color::BLACK>(&this->pos, result.move);
+      }
+      CacheResult cr = this->thinker.cache.find(this->pos.hash_);
+      if (this->pos.turn_ == Color::WHITE) {
+        undo<Color::BLACK>(&this->pos);
+      } else {
+        undo<Color::WHITE>(&this->pos);
+      }
+
+      std::cout << "bestmove " << result.move;
+      if (!isNullCacheResult(cr)) {
+        std::cout << " ponder " << cr.bestMove;
+      }
+      std::cout << std::endl;
+
+      this->stopThinkingSwitch = nullptr;
     });
-
-    if (this->pos.turn_ == Color::WHITE) {
-      make_move<Color::WHITE>(&this->pos, result.move);
-    } else {
-      make_move<Color::BLACK>(&this->pos, result.move);
-    }
-    CacheResult cr = this->thinker.cache.find(this->pos.hash_);
-    if (this->pos.turn_ == Color::WHITE) {
-      undo<Color::BLACK>(&this->pos);
-    } else {
-      undo<Color::WHITE>(&this->pos);
-    }
-
-    std::cout << "bestmove " << result.move;
-    if (!isNullCacheResult(cr)) {
-      std::cout << " ponder " << cr.bestMove;
-    }
-    std::cout << std::endl;
   }
 
   void _print_variations(Position* position, int depth, double secs, size_t multiPV) const {
