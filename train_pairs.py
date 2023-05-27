@@ -357,12 +357,14 @@ class Model(nn.Module):
     self.w["clipped"] = nn.Linear(X.shape[-1], 1)
     # self.w["scale"] = nn.Linear(X.shape[-1], 1)
     self.w["lonelyKing"] = nn.Linear(X.shape[-1], 1)
+    self.dropout = nn.Dropout(p=0.01)
     for k in self.w:
       nn.init.zeros_(self.w[k].weight)
       nn.init.zeros_(self.w[k].bias)
 
   def forward(self, x, t, numOurPieces, numTheirPieces, numQueens):
     # t = t.clip(0, 18)
+    x = torch.cat([x[:,:11], self.dropout(x[:, 11:])], 1)
     early = self.w["early"](x).squeeze() * (18 - t) / 18
     late = self.w["late"](x).squeeze() * t / 18
     r = early + late
@@ -381,18 +383,21 @@ class PieceMapModel(nn.Module):
     self.w = nn.ModuleDict()
     self.w["early"] = nn.Linear(k, 1, bias=False)
     self.w["late"] = nn.Linear(k, 1, bias=False)
+    self.dropout = nn.Dropout(p=0.01)
     nn.init.zeros_(self.w["early"].weight)
     nn.init.zeros_(self.w["late"].weight)
 
   def forward(self, x, t):
     t = t / 18
     x = x.reshape(x.shape[0], 2, 6 * 64)
+    x = self.dropout(x)
     early = self.w["early"](x).squeeze() * (1 - t)
     late = self.w["late"](x).squeeze() * t
     return early + late
 
 model = Model()
 pmModel = PieceMapModel()
+stdModel = nn.Linear(X.shape[-1], 1)
 
 Xth = torch.tensor(X, dtype=torch.float32)
 Yth = torch.tensor(Y, dtype=torch.float32)
@@ -459,10 +464,14 @@ metrics = defaultdict(list)
 pf = PiecewiseFunction([0, numIters // 10, numIters], [minlr, maxlr, minlr])
 
 if os.path.exists('model.pth'):
-  model.load_state_dict(torch.load('model.pth'))
-  pmModel.load_state_dict(torch.load('pmModel.pth'))
+  s = torch.load('model.pth')
+  if 'lonelyKing' not in model.w and 'lonelyKing' in s:
+    del s['w.lonelyKing.bias']
+    del s['w.lonelyKing.weight']
+  model.load_state_dict(s, strict=False)
+  pmModel.load_state_dict(torch.load('pmModel.pth'), strict=False)
 
-opt = optim.AdamW(chain(pmModel.parameters(), model.parameters()), lr=3e-3, weight_decay=0.1)
+opt = optim.AdamW(chain(pmModel.parameters(), model.parameters(), stdModel.parameters()), lr=3e-2, weight_decay=0.1)
 for it, (x, t, s, y, a, nop, ntp, nq) in tqdm(enumerate(loop(dataloader, numIters)), total=numIters):
   lr = pf(it)
   if it % 10 == 0:
@@ -470,14 +479,17 @@ for it, (x, t, s, y, a, nop, ntp, nq) in tqdm(enumerate(loop(dataloader, numIter
       pg['lr'] = lr
 
   yhat = model(x, t, nop, ntp, nq) * s
-  yhat = yhat + pmModel(a, t)
+  # yhat = yhat + pmModel(a, t)
   y = y * s
   loss, error, cpLoss = cross_entropy_loss_fn(nn.functional.softmax(yhat, 1), y)
   loss = loss * (1 - kAlpha)
   loss = loss + score_loss_fn(yhat, y) * kAlpha
 
-  loss = loss + 30.0 * ((pmModel.w["early"].weight.reshape(PmEarlySampleSizeTh.shape)**2) / torch.sqrt(PmEarlySampleSizeTh + 1.0)).mean()
-  loss = loss + 30.0 * ((pmModel.w["late"].weight.reshape(PmLateSampleSizeTh.shape)**2) / torch.sqrt(PmEarlySampleSizeTh + 1.0)).mean()
+  # stdhat = nn.functional.leaky_relu(stdModel(x)).squeeze()
+  # loss = loss + score_loss_fn(stdhat, torch.abs(soft_clip(yhat) - soft_clip(y)))
+
+  loss = loss + 10.0 * ((pmModel.w["early"].weight.reshape(PmEarlySampleSizeTh.shape)**2) / torch.sqrt(PmEarlySampleSizeTh + 1.0)).mean()
+  loss = loss + 10.0 * ((pmModel.w["late"].weight.reshape(PmLateSampleSizeTh.shape)**2) / torch.sqrt(PmEarlySampleSizeTh + 1.0)).mean()
 
   w1 = pca.slope_backward(model.w['early'].weight)
   w2 = pca.slope_backward(model.w['late'].weight)
@@ -526,7 +538,11 @@ W = {}
 for k in model.w:
   W[k] = model.w[k].weight.detach().numpy().squeeze()
 
-K = ['early', 'late', 'clipped', 'lonelyKing']
+stdw = pca.slope_backward(stdModel.weight).detach().numpy().squeeze()
+for i in range(len(varnames)):
+  print(lpad(round(stdw[i] * 100), 5) + '  // ' + varnames[i])
+
+K = ['early', 'late', 'clipped'] #, 'lonelyKing']
 
 print(' '.join(K))
 for i in range(len(varnames)):

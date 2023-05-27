@@ -14,27 +14,31 @@ import numpy as np
 
 class UciPlayer:
   def __init__(self, path, weights):
+    self.name = (path, weights)
     self._p = subprocess.Popen(path, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
     self.allin = []
     self.allout = []
     self.command("uci")
-    self.command(f"loadweights {weights}")
+    if weights.lower() != 'none':
+      self.command(f"loadweights {weights}")
+
+  def __del__(self):
+    self._p.terminate()
 
   def command(self, text):
     self.allin.append(text)
     self._p.stdin.write((text + '\n').encode())
     self._p.stdin.flush()
 
-  def __del__(self):
-    self._p.terminate()
-
-  def analyze(self, fen, nodes, moves = [], from_whites_perspective = True):
+  def best_move(self, fen, nodes, moves = [], from_whites_perspective = True):
     if len(moves) == 0:
       self.command(f"position fen {fen}")
     else:
       self.command(f"position fen {fen} moves {' '.join(moves)}")
-    self.command(f"go nodes {nodes}")
-    # self.command(f"go time 50")
+    if 'stockfish' in self.name[0]:
+      self.command(f"go nodes {nodes}")
+    else:
+      self.command(f"go depth 2")
     lines = []
     while True:
       line = self._p.stdout.readline().decode()
@@ -51,40 +55,8 @@ class UciPlayer:
       if line.startswith('bestmove '):
         break
 
-    lines = [l for l in lines if re.match(r"^info depth \d+ ", l)]
-    lines = [l for l in lines if 'lowerbound' not in l]
-    lines = [l for l in lines if 'upperbound' not in l]
-    if len(lines) == 0:
-      raise RuntimeError('no lines')
-
-    line = lines[-1]
-    parts = line.split(' ')[1:]
-
-    r = {}
-    i = 0
-    while i < len(parts):
-      if parts[i] == 'pv':
-        r['pv'] = parts[i+1:]
-        break
-      if parts[i] == 'score':
-        assert parts[i + 1] in ['cp', 'mate']
-        r['score'] = parts[i+1:i+3]
-        i += 3
-        continue
-      r[parts[i]] = parts[i + 1]
-      i += 2
-
-    intkeys = set(['depth', 'seldepth', 'multipv', 'nodes', 'nps', 'hashfull', 'tbhits', 'time'])
-    for k in r:
-      if k in intkeys:
-        r[k] = int(r[k])
-
-    r['score'][1] = int(r['score'][1])
-
-    if not from_whites_perspective and ' b ' in fen:
-      r['score'][1] *= -1
-
-    return r
+    assert 'bestmove ' in lines[-1] # e.g. "bestmove h6h7 ponder a2a3"
+    return lines[-1].split(' ')[1]
 
 def play(fen0, player1, player2):
   player1.command("setoption name clear-tt")
@@ -95,7 +67,7 @@ def play(fen0, player1, player2):
   mover, waiter = player1, player2
   while not board.can_claim_draw() and not board.is_stalemate() and not board.is_checkmate():
     try:
-      move = mover.analyze(fen0, 50000, moves)['pv'][0]
+      move = mover.best_move(fen0, 500000, moves)
     except Exception as e:
       print('a')
       print('isPlayer1', mover == player1)
@@ -110,14 +82,23 @@ def play(fen0, player1, player2):
     try:
       board.push_uci(move)
     except (ValueError) as e:
+      print('=====')
       print('c', board.fen(), move)
+      print(fen0 + ' ' + ' '.join(moves))
       print('isPlayer1', mover == player1)
+      print('=====')
       raise e
     mover, waiter = waiter, mover
     if len(moves) > 250:
       print('d', board.fen(), move)
       print('isPlayer1', mover == player1)
       break
+
+  if isPlayer1White:
+    print(player1.name, player2.name)
+  else:
+    print(player2.name, player1.name)
+  print(fen0 + ' ' + ' '.join(moves))
 
   if board.is_checkmate():
     if waiter == player1:
@@ -136,7 +117,13 @@ def play_random(board, n):
 def thread_main(fen):
   player1 = UciPlayer(sys.argv[1], sys.argv[2])
   player2 = UciPlayer(sys.argv[3], sys.argv[4])
-  return (play(fen, player1, player2) - play(fen, player2, player1)) / 2.0
+  try:
+    a = play(fen, player1, player2)
+    b = play(fen, player2, player1)
+  except:
+    print('!!!!    ERROR    !!!!')
+    return 0
+  return (a - b) / 2.0
 
 def create_fen_batch(n):
   return [play_random(chess.Board(), 4) for _ in range(n)]

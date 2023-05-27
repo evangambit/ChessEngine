@@ -304,8 +304,6 @@ struct Evaluator {
     std::fill_n(lateW, EF::NUM_EVAL_FEATURES, 0);
     clippedB = 0;
     std::fill_n(clippedW, EF::NUM_EVAL_FEATURES, 0);
-lonelyKingB = 0;
-    std::fill_n(lonelyKingW, EF::NUM_EVAL_FEATURES, 0);
   }
 
   int32_t earlyB;
@@ -314,8 +312,6 @@ lonelyKingB = 0;
   int32_t lateW[EF::NUM_EVAL_FEATURES];
   int32_t clippedB;
   int32_t clippedW[EF::NUM_EVAL_FEATURES];
-  int32_t lonelyKingB;
-  int32_t lonelyKingW[EF::NUM_EVAL_FEATURES];
 
   void save_weights_to_file(std::ofstream& myfile) {
     myfile << lpad(earlyB) << " // early bias" << std::endl;
@@ -331,11 +327,6 @@ lonelyKingB = 0;
     myfile << lpad(clippedB) << " // clipped bias" << std::endl;
     for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
       myfile << lpad(clippedW[i]) << " // clipped " << EFSTR[i] << std::endl;
-    }
-
-    myfile << lpad(lonelyKingB) << " // lonely king bias" << std::endl;
-    for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
-      myfile << lpad(lonelyKingW[i]) << " // lonely king " << EFSTR[i] << std::endl;
     }
   }
 
@@ -391,23 +382,6 @@ lonelyKingB = 0;
         clippedW[i] = stoi(process_with_file_line(line));
       } catch (std::invalid_argument& err) {
         std::cout << "error loading clippedW[i]" << std::endl;
-        throw err;
-      }
-    }
-
-    getline(myfile, line);
-    try {
-      lonelyKingB = stoi(process_with_file_line(line));
-    } catch (std::invalid_argument& err) {
-      std::cout << "error loading lonelyKingB" << std::endl;
-      throw err;
-    }
-    for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
-      getline(myfile, line);
-      try {
-        lonelyKingW[i] = stoi(process_with_file_line(line));
-      } catch (std::invalid_argument& err) {
-        std::cout << "error loading lonelyKingW[i]" << std::endl;
         throw err;
       }
     }
@@ -876,7 +850,6 @@ lonelyKingB = 0;
     const int32_t early = this->early<US>(pos);
     const int32_t late = this->late<US>(pos);
     const int32_t clipped = this->clipped<US>(pos);
-    const int32_t lonely_king = this->lonely_king<US>(pos);
 
     // 0.043 ± 0.019
     int32_t pieceMap = (pos.pieceMapScores[PieceMapType::PieceMapTypeEarly] * (18 - time) + pos.pieceMapScores[PieceMapType::PieceMapTypeLate] * time) / 18;
@@ -884,7 +857,7 @@ lonelyKingB = 0;
       pieceMap *= -1;
     }
 
-    int32_t eval = (early * (18 - time) + late * time) / 18 + clipped + lonely_king + pieceMap;
+    int32_t eval = (early * (18 - time) + late * time) / 18 + clipped + pieceMap;
 
     // Special end-game boosts.
 
@@ -1272,31 +1245,15 @@ lonelyKingB = 0;
     return std::max(-100, std::min(100, r));
   }
 
-  template<Color US>
-  Evaluation lonely_king(const Position& pos) const {
-    int32_t r = lonelyKingB;
-    for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
-      r += features[i] * lonelyKingW[i];
-    }
-
-    const int32_t ourPieces = features[EF::OUR_KNIGHTS] + features[EF::OUR_BISHOPS] + features[EF::OUR_ROOKS] + features[EF::OUR_QUEENS];
-    const int32_t theirPieces = features[EF::THEIR_KNIGHTS] + features[EF::THEIR_BISHOPS] + features[EF::THEIR_ROOKS] + features[EF::THEIR_QUEENS];
-
-    // todo: value_or_zero
-    return r * (1 - (ourPieces != 0) * (theirPieces != 0));
-  }
-
   void zero_() {
     for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
       earlyW[i] = 0;
       lateW[i] = 0;
       clippedW[i] = 0;
-      lonelyKingW[i] = 0;
     }
     earlyB = 0;
     lateB = 0;
     clippedB = 0;
-    lonelyKingB = 0;
   }
 
   Evaluation features[NUM_EVAL_FEATURES];
