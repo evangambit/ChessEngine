@@ -129,7 +129,7 @@ void initialize_geometry() {
     }
   }
 
-  std::fill_n(&kKingHome[0], kNumSquares, 0);
+  std::fill_n(&kKingHome[0], kNumSquares, kEmptyBitboard);
   kKingHome[Square::A1] = bb(Square::A2) | bb(Square::A3)
     | bb(Square::B2) | bb(Square::B3);
   kKingHome[Square::B1] = bb(Square::A2) | bb(Square::A3)

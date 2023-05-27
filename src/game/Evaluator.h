@@ -751,8 +751,8 @@ struct Evaluator {
       value_or_zero((cr & kCastlingRights_WhiteQueen) > 0, std::popcount(kKingHome[Square::B1] & ourPawns))
     );
     const Evaluation blackPotentialHome = std::max(
-      value_or_zero((cr & kCastlingRights_BlackKing) > 0, std::popcount(kKingHome[Square::G8] & ourPawns)),
-      value_or_zero((cr & kCastlingRights_BlackQueen) > 0, std::popcount(kKingHome[Square::B8] & ourPawns))
+      value_or_zero((cr & kCastlingRights_BlackKing) > 0, std::popcount(kKingHome[Square::G8] & theirPawns)),
+      value_or_zero((cr & kCastlingRights_BlackQueen) > 0, std::popcount(kKingHome[Square::B8] & theirPawns))
     );
     if (US == Color::WHITE) {
       features[EF::KING_HOME_QUALITY] += whitePotentialHome - blackPotentialHome;

@@ -263,7 +263,7 @@ void print_feature_vec(Position *pos, const std::string& originalFen, bool human
     const int32_t t = evaluator.features[EF::TIME];
     for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
       const int32_t x = evaluator.features[i];
-      const int32_t s = (evaluator.earlyW[i] * x * t + evaluator.lateW[i] * x * (16 - t)) / 16 + evaluator.clippedW[i] * x;
+      const int32_t s = (evaluator.earlyW[i] * x * t + evaluator.lateW[i] * x * (18 - t)) / 18 + evaluator.clippedW[i] * x;
       std::cout << gThinker.evaluator.features[i] << " " << std::setfill(' ') << std::setw(4) << s << " " << EFSTR[i] << std::endl;
     }
   } else {
@@ -503,7 +503,7 @@ int main(int argc, char *argv[]) {
   }
   if (mode == "print-weights") {
     for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
-      std::cout << EFSTR[i] << " " << gThinker.evaluator.earlyW[i] << " " << gThinker.evaluator.lateW[i] << " " << gThinker.evaluator.clippedW[i] << " " << gThinker.evaluator.lonelyKingW[i] << std::endl;
+      std::cout << EFSTR[i] << " " << gThinker.evaluator.earlyW[i] << " " << gThinker.evaluator.lateW[i] << " " << gThinker.evaluator.clippedW[i] << std::endl;
     }
     return 0;
   }
