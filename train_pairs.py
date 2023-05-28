@@ -155,6 +155,12 @@ kEarlyBlacklist = torch.tensor(varnames2mask([
   "KPVK_DEFENSIVE_KEY_SQUARES",
   "SQUARE_RULE",
   "LONELY_KING_ON_EDGE",
+  "OUR_KING_HAS_0_ESCAPE_SQUARES",
+  "THEIR_KING_HAS_0_ESCAPE_SQUARES",
+  "OUR_KING_HAS_1_ESCAPE_SQUARES",
+  "THEIR_KING_HAS_1_ESCAPE_SQUARES",
+  "OUR_KING_HAS_2_ESCAPE_SQUARES",
+  "THEIR_KING_HAS_2_ESCAPE_SQUARES",
 ]).reshape(1, -1), dtype=torch.float32)
 
 kPositiveList = torch.tensor(varnames2mask([
@@ -267,6 +273,11 @@ for vn in ["THEIR_KNIGHTS", "THEIR_BISHOPS", "THEIR_ROOKS", "THEIR_QUEENS"]:
 tmp = torch.tensor(tmp, dtype=torch.int64)
 numTheirPieces = X[:,:,tmp].sum(2)
 
+# Remove positions where one side only has a king.
+isLonelyKing = (1 - (numOurPieces != 0) * (numTheirPieces != 0)).astype(bool)
+I = isLonelyKing.sum(1) == 0
+X, Y, F, S, A, T = X[I], Y[I], F[I], S[I], A[I], T[I]
+
 tmp = []
 for vn in ["OUR_QUEENS", "THEIR_QUEENS"]:
   tmp.append(varnames.index(vn))
@@ -276,6 +287,8 @@ numQueens = X[:,:,tmp].sum(2)
 X[:,:,varnames.index('KPVK_OFFENSIVE_KEY_SQUARES')] *= 0.0
 X[:,:,varnames.index('KPVK_DEFENSIVE_KEY_SQUARES')] *= 0.0
 X[:,:,varnames.index('SQUARE_RULE')] *= 0.0
+
+
 
 # X = X[:,:,:12]
 # varnames = varnames[:12]
@@ -356,13 +369,12 @@ class Model(nn.Module):
     self.w["late"] = nn.Linear(X.shape[-1], 1)
     self.w["clipped"] = nn.Linear(X.shape[-1], 1)
     # self.w["scale"] = nn.Linear(X.shape[-1], 1)
-    self.w["lonelyKing"] = nn.Linear(X.shape[-1], 1)
     self.dropout = nn.Dropout(p=0.01)
     for k in self.w:
       nn.init.zeros_(self.w[k].weight)
       nn.init.zeros_(self.w[k].bias)
 
-  def forward(self, x, t, numOurPieces, numTheirPieces, numQueens):
+  def forward(self, x, t, numQueens):
     # t = t.clip(0, 18)
     x = torch.cat([x[:,:11], self.dropout(x[:, 11:])], 1)
     early = self.w["early"](x).squeeze() * (18 - t) / 18
@@ -370,8 +382,6 @@ class Model(nn.Module):
     r = early + late
     if 'clipped' in self.w:
       r = r + self.w["clipped"](x).squeeze().clamp_(-1.0, 1.0)
-    if 'lonelyKing' in self.w:
-      r = r + self.w["lonelyKing"](x).squeeze() * (1 - (numOurPieces != 0).to(torch.float32) * (numTheirPieces != 0).to(torch.float32))
     if 'scale' in self.w:
       r = r * (torch.sigmoid(self.w["scale"](x).squeeze()) + 0.2)
     return r
@@ -404,8 +414,6 @@ Yth = torch.tensor(Y, dtype=torch.float32)
 Tth = torch.tensor(T, dtype=torch.float32)
 Sth = torch.tensor(S, dtype=torch.float32)
 Ath = torch.tensor(A, dtype=torch.float32)
-numOurPieces = torch.tensor(numOurPieces, dtype=torch.float32)
-numTheirPieces = torch.tensor(numTheirPieces, dtype=torch.float32)
 numQueens = torch.tensor(numQueens, dtype=torch.float32)
 
 PmEarlySampleSizeTh = torch.tensor((A * (1.0 - T.reshape(T.shape + (1,1)) / 18)).sum((0, 1)), dtype=torch.float32)
@@ -420,9 +428,7 @@ maxlr = 0.1
 minlr = maxlr / 300
 numIters = 20000
 
-dataset = tdata.TensorDataset(
-  Xth, Tth, Sth, Yth, Ath,
-  numOurPieces, numTheirPieces, numQueens)
+dataset = tdata.TensorDataset(Xth, Tth, Sth, Yth, Ath, numQueens)
 dataloader = tdata.DataLoader(dataset, batch_size=bs, shuffle=True, drop_last=True, num_workers=4)
 
 def loop(iterable, n):
@@ -472,13 +478,13 @@ if os.path.exists('model.pth'):
   pmModel.load_state_dict(torch.load('pmModel.pth'), strict=False)
 
 opt = optim.AdamW(chain(pmModel.parameters(), model.parameters(), stdModel.parameters()), lr=3e-2, weight_decay=0.1)
-for it, (x, t, s, y, a, nop, ntp, nq) in tqdm(enumerate(loop(dataloader, numIters)), total=numIters):
+for it, (x, t, s, y, a, nq) in tqdm(enumerate(loop(dataloader, numIters)), total=numIters):
   lr = pf(it)
   if it % 10 == 0:
     for pg in opt.param_groups:
       pg['lr'] = lr
 
-  yhat = model(x, t, nop, ntp, nq) * s
+  yhat = model(x, t, nq) * s
   # yhat = yhat + pmModel(a, t)
   y = y * s
   loss, error, cpLoss = cross_entropy_loss_fn(nn.functional.softmax(yhat, 1), y)
@@ -494,11 +500,15 @@ for it, (x, t, s, y, a, nop, ntp, nq) in tqdm(enumerate(loop(dataloader, numIter
   w1 = pca.slope_backward(model.w['early'].weight)
   w2 = pca.slope_backward(model.w['late'].weight)
   w3 = pca.slope_backward(model.w['clipped'].weight)
-  # w4 = pca.slope_backward(model.w['lonelyKing'].weight)
   loss = loss + torch.abs(w1 * kEarlyBlacklist).mean() * 10.0
-  for w, threshold in [(w1, 10.0), (w2, 10.0)]:
+  for w, threshold in [(w1, 10.0), (w2, 10.0), (w3, 10.0)]:
     loss = loss + torch.relu(w - threshold).mean() * 10
     loss = loss + torch.relu(-threshold - w).mean() * 10
+    loss = loss + ((w[0, varnames.index('OUR_PAWNS'  )] + w[0, varnames.index('THEIR_PAWNS'  )])**2).mean() * 1
+    loss = loss + ((w[0, varnames.index('OUR_KNIGHTS')] + w[0, varnames.index('THEIR_KNIGHTS')])**2).mean() * 1
+    loss = loss + ((w[0, varnames.index('OUR_BISHOPS')] + w[0, varnames.index('THEIR_BISHOPS')])**2).mean() * 1
+    loss = loss + ((w[0, varnames.index('OUR_ROOKS'  )] + w[0, varnames.index('THEIR_ROOKS'  )])**2).mean() * 1
+    loss = loss + ((w[0, varnames.index('OUR_QUEENS' )] + w[0, varnames.index('THEIR_QUEENS' )])**2).mean() * 1
 
 
   # loss = loss + torch.abs(torch.relu(-(w1 + w3)) * kPositiveList).mean()
@@ -542,7 +552,7 @@ stdw = pca.slope_backward(stdModel.weight).detach().numpy().squeeze()
 for i in range(len(varnames)):
   print(lpad(round(stdw[i] * 100), 5) + '  // ' + varnames[i])
 
-K = ['early', 'late', 'clipped'] #, 'lonelyKing']
+K = ['early', 'late', 'clipped']
 
 print(' '.join(K))
 for i in range(len(varnames)):
