@@ -38,7 +38,7 @@ class UciPlayer:
     if 'stockfish' in self.name[0]:
       self.command(f"go nodes {nodes}")
     else:
-      self.command(f"go depth 2")
+      self.command(f"go nodes {nodes}")
     lines = []
     while True:
       line = self._p.stdout.readline().decode()
@@ -67,7 +67,7 @@ def play(fen0, player1, player2):
   mover, waiter = player1, player2
   while not board.can_claim_draw() and not board.is_stalemate() and not board.is_checkmate():
     try:
-      move = mover.best_move(fen0, 500000, moves)
+      move = mover.best_move(fen0, 100_000, moves)
     except Exception as e:
       print('a')
       print('isPlayer1', mover == player1)
@@ -134,7 +134,7 @@ if __name__ == '__main__':
   t0 = time.time()
   numWorkers = 8
   batches = [[]]
-  for i in range(0, 256, numWorkers):
+  for i in range(0, 128, numWorkers):
     batches.append(create_fen_batch(numWorkers))
 
   R = []

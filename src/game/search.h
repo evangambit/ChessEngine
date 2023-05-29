@@ -17,7 +17,7 @@
 #include "movegen/sliding.h"
 #include "Evaluator.h"
 
-#define COMPLEX_SEARCH 0
+#define COMPLEX_SEARCH 1  // 0.0508 ± 0.0226
 #define PARALLEL 0
 #define USE_CACHE 1
 
@@ -617,13 +617,7 @@ struct Thinker {
 
     // Futility pruning
     //  nodes/position, gain from futility pruning
-    //   100, -0.0475 ± 0.0215
-    //   300,  0.0325 ± 0.0292
-    //  1000,  0.0800 ± 0.0266
-    //  3000,  0.1325 ± 0.0302
-    // 10000,  0.1630 ± 0.0274
-    // 20000,  0.1761 ± 0.0256
-    // 30000,  0.2292 ± 0.0305
+    // 100_000, 0.0703 ± 0.0218
     //
     // Note that not having *any* depth limit for futility pruning is terrible. For example, if
     // there is a line that loses a queen in one move but leads to forced mate in K ply, you won't
@@ -650,7 +644,7 @@ struct Thinker {
     #if COMPLEX_SEARCH
     const int totalDepth = plyFromRoot + depthRemaining;
     const int kFutilityPruningDepthLimit = totalDepth / 2;
-    const Evaluation futilityThreshold = 30;
+    const Evaluation futilityThreshold = 100;
     if (depthRemaining <= cr.depthRemaining + kFutilityPruningDepthLimit) {
       const int delta = futilityThreshold * (depthRemaining - cr.depthRemaining);
       if (cr.lowerbound() >= beta + delta || cr.upperbound() <= alpha - delta) {
@@ -848,19 +842,7 @@ struct Thinker {
     // It's important to call this at the beginning of a search, since if we're sharing Position (e.g. selfplay.cpp) we
     // need to recompute piece map scores using our own weights.
     copy.set_piece_maps(thinker->pieceMaps);
-    // TODO: the aspiration window technique used here should probably be implemented for internal nodes too.
-    // Even just using this at the root node gives my engine a +0.25 (n=100) score against itself.
-    // Table of historical experiments (program with window vs program without)
-    // 100: 0.099 ± 0.021
-    //  75: 0.152 ± 0.021
-    //  50: 0.105 ± 0.019
-    #if COMPLEX_SEARCH
-    constexpr Evaluation kBuffer = 75;
-    SearchResult<TURN> r = thinker->search<TURN, SearchTypeRoot>(&copy, depth, 0, lastResult.score - kBuffer, lastResult.score + kBuffer, RecommendedMoves(), 0, threadID);
-    if (r.score > lastResult.score - kBuffer && r.score < lastResult.score + kBuffer) {
-      return r;
-    }
-    #endif
+    // TODO: aspiration window
     return thinker->search<TURN, SearchTypeRoot>(&copy, depth, 0, kMinEval, kMaxEval, RecommendedMoves(), 0, threadID);
   }
 
