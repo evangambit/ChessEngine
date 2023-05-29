@@ -275,19 +275,21 @@ void Position::assert_valid_state(const std::string& msg) const {
   #endif
 }
 
-bool Position::is_draw() const {
+bool Position::is_draw(unsigned plyFromRoot) const {
   if (this->currentState_.halfMoveCounter >= 100) {
     return true;
   }
   const size_t n = this->hashes_.size();
+  size_t counter = 0;
   for (size_t i = n - 1; i < n; i -= 1) {
     // TODO: stop looking when we hit a pawn move or capture.
     // TODO: handle 3 move draw for moves before the root.
-    if (this->hashes_[i] == this->hash_) {
-      return true;
+    counter += (this->hashes_[i] == this->hash_);
+    if (this->history_[i].capture != Piece::NO_PIECE || this->history_[i].piece == Piece::PAWN) {
+      break;
     }
   }
-  return false;
+  return counter >= 3;
 }
 
 std::string Position::fen() const {

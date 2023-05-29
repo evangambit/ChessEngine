@@ -421,10 +421,6 @@ struct Thinker {
   SearchResult<TURN> qsearch(Position *pos, int32_t depth, Evaluation alpha, Evaluation beta) {
     ++this->nodeCounter;
 
-    if (pos->is_draw()) {
-      return SearchResult<TURN>(0, kNullMove);
-    }
-
     if (std::popcount(pos->pieceBitboards_[coloredPiece<TURN, Piece::KING>()]) == 0) {
       return SearchResult<TURN>(kMissingKing, kNullMove);
     }
@@ -559,6 +555,7 @@ struct Thinker {
     uint16_t distFromPV,
     uint16_t threadID) {
 
+
     const Evaluation originalAlpha = alpha;
     const Evaluation originalBeta = beta;
 
@@ -584,7 +581,7 @@ struct Thinker {
       return SearchResult<TURN>(kMissingKing, kNullMove);
     }
 
-    if (pos->is_draw() || this->evaluator.is_material_draw(*pos)) {
+    if (pos->is_draw(plyFromRoot) || this->evaluator.is_material_draw(*pos)) {
       return SearchResult<TURN>(Evaluation(0), kNullMove);
     }
 
@@ -838,6 +835,7 @@ struct Thinker {
       );
       this->cache.insert(cr);
     }
+
 
     return r;
   }

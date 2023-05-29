@@ -83,9 +83,10 @@ def play(fen0, player1, player2):
       board.push_uci(move)
     except (ValueError) as e:
       print('=====')
+      print(player1.name, player2.name)
+      print(mover.name)
       print('c', board.fen(), move)
       print(fen0 + ' ' + ' '.join(moves))
-      print('isPlayer1', mover == player1)
       print('=====')
       raise e
     mover, waiter = waiter, mover
@@ -94,11 +95,11 @@ def play(fen0, player1, player2):
       print('isPlayer1', mover == player1)
       break
 
-  if isPlayer1White:
-    print(player1.name, player2.name)
-  else:
-    print(player2.name, player1.name)
-  print(fen0 + ' ' + ' '.join(moves))
+  # if isPlayer1White:
+  #   print(player1.name, player2.name)
+  # else:
+  #   print(player2.name, player1.name)
+  # print(fen0 + ' ' + ' '.join(moves))
 
   if board.is_checkmate():
     if waiter == player1:

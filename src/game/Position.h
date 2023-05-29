@@ -138,7 +138,7 @@ class Position {
   void assert_valid_state() const;
   void assert_valid_state(const std::string& msg) const;
 
-  bool is_draw() const;
+  bool is_draw(unsigned plyFromRoot) const;
 
   void update_hash_on_state_change(PositionState a, PositionState b);
 
