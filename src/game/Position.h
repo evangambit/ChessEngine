@@ -138,7 +138,7 @@ class Position {
   void assert_valid_state() const;
   void assert_valid_state(const std::string& msg) const;
 
-  bool is_draw() const;
+  bool is_draw(unsigned plyFromRoot) const;
 
   void update_hash_on_state_change(PositionState a, PositionState b);
 
@@ -371,6 +371,7 @@ void make_move(Position *pos, Move move) {
   pos->currentState_.castlingRights &= ~four_corners_to_byte(f);
   pos->currentState_.castlingRights &= ~four_corners_to_byte(t);
 
+  // TODO: Set epSquare to NO_SQUARE if there is now way your opponent can play en passant next move.
   const Square epSquare = pos->currentState_.epSquare;
   if (TURN == Color::WHITE) {
     bool cond = (movingPiece == coloredPiece<TURN, Piece::PAWN>() && move.from - move.to == 16);
