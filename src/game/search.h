@@ -19,7 +19,6 @@
 
 #define COMPLEX_SEARCH 0
 #define PARALLEL 0
-#define USE_CACHE 1
 
 namespace ChessEngine {
 
@@ -97,7 +96,6 @@ std::ostream& operator<<(std::ostream& stream, CacheResult cr) {
 // but this kind of behavior seems really scary. I should a *least* write some tests for the transposition table,
 // and possible refactor how it handles duplicates.
 
-#if USE_CACHE
 constexpr size_t kTranspositionTableMaxSteps = 3;
 struct TranspositionTable {
   TranspositionTable(size_t kilobytes) : rootCounter(0), currentRootHash(0) {
@@ -225,23 +223,6 @@ struct TranspositionTable {
   CacheResult *data;
   size_t size;
 };
-#else  // USE_CACHE
-struct TranspositionTable {
-  TranspositionTable(size_t kilobytes) {}
-  TranspositionTable(const TranspositionTable&);  // Not implemented.
-  TranspositionTable& operator=(const TranspositionTable& table);  // Not implemented.
-
-  void set_cache_size(size_t kilobytes) {}
-
-  void insert(const CacheResult& cr) {
-  }
-  void clear() {
-  }
-  CacheResult find(uint64_t hash) {
-    return kMissingCacheResult;
-  }
-};
-#endif  // USE_CACHE
 
 constexpr int kQSimplePieceValues[7] = {
   // Note "NO_PIECE" has a score of 200 since this
