@@ -418,8 +418,8 @@ struct Thinker {
 
   // TODO: qsearch can leave you in check
   template<Color TURN>
-  SearchResult<TURN> qsearch(Position *pos, int32_t depth, Evaluation alpha, Evaluation beta) {
-    ++this->nodeCounter;
+  static SearchResult<TURN> qsearch(Thinker *thinker, Position *pos, int32_t depth, Evaluation alpha, Evaluation beta) {
+    ++thinker->nodeCounter;
 
     if (std::popcount(pos->pieceBitboards_[coloredPiece<TURN, Piece::KING>()]) == 0) {
       return SearchResult<TURN>(kMissingKing, kNullMove);
@@ -447,7 +447,7 @@ struct Thinker {
 
     // If we can stand pat for a beta cutoff, or if we have no moves, return.
     Threats<TURN> threats(*pos);
-    SearchResult<TURN> r(this->evaluator.score<TURN>(*pos, threats), kNullMove);
+    SearchResult<TURN> r(thinker->evaluator.score<TURN>(*pos, threats), kNullMove);
     if (moves == end || r.score >= beta) {
       return r;
     }
@@ -477,7 +477,7 @@ struct Thinker {
 
       make_move<TURN>(pos, move->move);
 
-      SearchResult<TURN> child = flip(qsearch<opposingColor>(pos, depth + 1, -beta, -alpha));
+      SearchResult<TURN> child = flip(Thinker::qsearch<opposingColor>(thinker, pos, depth + 1, -beta, -alpha));
       child.score -= (child.score > -kLongestForcedMate);
       child.score += (child.score < kLongestForcedMate);
 
@@ -546,7 +546,8 @@ struct Thinker {
   }
 
   template<Color TURN, SearchType SEARCH_TYPE>
-  SearchResult<TURN> search(
+  static SearchResult<TURN> search(
+    Thinker *thinker,
     Position* pos,
     const Depth depthRemaining,
     const Depth plyFromRoot,
@@ -563,17 +564,17 @@ struct Thinker {
     //  beta: a score our opponent is guaranteed to get
     //
     // if r.score >= beta
-    //   we know our opponent will never let this position occur
+    //   we know our opponent will never let thinker position occur
     //
     // if r.score >= alpha
     //   we have just found a way to do better
 
-    ++this->nodeCounter;
+    ++thinker->nodeCounter;
 
     constexpr Color opposingColor = opposite_color<TURN>();
     constexpr ColoredPiece moverKing = coloredPiece<TURN, Piece::KING>();
 
-    if (depthRemaining >= 4 && this->stopThinkingCondition->should_stop_thinking(*this)) {
+    if (depthRemaining >= 4 && thinker->stopThinkingCondition->should_stop_thinking(*thinker)) {
       return SearchResult<TURN>(0, kNullMove, false);
     }
 
@@ -581,11 +582,11 @@ struct Thinker {
       return SearchResult<TURN>(kMissingKing, kNullMove);
     }
 
-    if (pos->is_draw(plyFromRoot) || this->evaluator.is_material_draw(*pos)) {
+    if (pos->is_draw(plyFromRoot) || thinker->evaluator.is_material_draw(*pos)) {
       return SearchResult<TURN>(Evaluation(0), kNullMove);
     }
 
-    CacheResult cr = this->cache.find(pos->hash_);
+    CacheResult cr = thinker->cache.find(pos->hash_);
     if (!isNullCacheResult(cr) && cr.depthRemaining >= depthRemaining) {
       if (cr.nodeType == NodeTypePV || cr.lowerbound() >= beta || cr.upperbound() <= alpha) {
         return SearchResult<TURN>(cr.eval, cr.bestMove);
@@ -593,9 +594,9 @@ struct Thinker {
     }
 
     if (depthRemaining <= 0) {
-      ++this->leafCounter;
+      ++thinker->leafCounter;
       // Quiescence Search (0.4334 ± 0.0053)
-      SearchResult<TURN> r = qsearch<TURN>(pos, 0, alpha, beta);
+      SearchResult<TURN> r = Thinker::qsearch<TURN>(thinker, pos, 0, alpha, beta);
 
       NodeType nodeType = NodeTypePV;
       if (r.score >= beta) {
@@ -603,7 +604,7 @@ struct Thinker {
       } else if (r.score <= alpha) {
         nodeType = NodeTypeAll_UpperBound;
       }
-      const CacheResult cr = this->cache.create_cache_result(
+      const CacheResult cr = thinker->cache.create_cache_result(
         pos->hash_,
         depthRemaining,
         r.score,
@@ -611,7 +612,7 @@ struct Thinker {
         nodeType,
         distFromPV
       );
-      this->cache.insert(cr);
+      thinker->cache.insert(cr);
       return r;
     }
 
@@ -629,17 +630,17 @@ struct Thinker {
     // there is a line that loses a queen in one move but leads to forced mate in K ply, you won't
     // find the forced mate until you search to (roughly) a depth of
     // queenValue / futilityThreshold + K
-    // This is really bad when you factor in the expoential relationship between depth and time.
+    // thinker is really bad when you factor in the expoential relationship between depth and time.
     //
     // A simple solution is to just require the engine to search to a *least* a given depth (say 7)
-    // when evaluating any position, but this seems hacky and we'd really like to have a strong
+    // when evaluating any position, but thinker seems hacky and we'd really like to have a strong
     // engine that works well at any depth (e.g. when we're doing self-play at a shallow depth), so
     // instead we increase the futility depth limit as a function of the total search depth.
     // Increasing by 1 every depth falls into the same problem, so instead we decrease by 0.5 every
-    // depth. This should guarantee we find any mate-in-n-ply after searching 2*n ply.
+    // depth. thinker should guarantee we find any mate-in-n-ply after searching 2*n ply.
     //
     // Also note that most people recommend giving a bonus when comparing against beta because we
-    // should be able to find a quiet move that improves our score. In our opinion this is bad
+    // should be able to find a quiet move that improves our score. In our opinion thinker is bad
     // because:
     // 1) A good evaluation function should account for a tempo bonus (e.g. we give bonuses for
     // hanging pieces)
@@ -658,7 +659,7 @@ struct Thinker {
       }
     }
     if (isNullCacheResult(cr) && depthRemaining <= kFutilityPruningDepthLimit) {
-      SearchResult<TURN> r = qsearch<TURN>(pos, 0, alpha, beta);
+      SearchResult<TURN> r = Thinker::qsearch<TURN>(thinker, pos, 0, alpha, beta);
       const int delta = futilityThreshold * depthRemaining;
       if (r.score >= beta + delta || r.score <= alpha - delta) {
         return r;
@@ -694,12 +695,12 @@ struct Thinker {
       move->score += value_or_zero((move->move == lastFoundBestMove) && (depthRemaining == 2), 5000);
       move->score += value_or_zero((move->move == lastFoundBestMove) && (depthRemaining >= 3), 5000);
 
-      // Bonus if siblings like a move, though this seems statistically insignificant.
+      // Bonus if siblings like a move, though thinker seems statistically insignificant.
       move->score += value_or_zero(move->move == recommendedMoves.moves[0], 50);
       move->score += value_or_zero(move->move == recommendedMoves.moves[1], 50);
 
       // History Heuristic (+0.10)
-      const int32_t history = this->historyHeuristicTable[TURN][move->move.from][move->move.to];
+      const int32_t history = thinker->historyHeuristicTable[TURN][move->move.from][move->move.to];
       move->score += value_or_zero(history > 0, 20);
       move->score += value_or_zero(history > 4, 20);
       move->score += value_or_zero(history > 16, 20);
@@ -739,25 +740,25 @@ struct Thinker {
 
         if (isDeferred == 0) {
           if (extMove == moves) {
-            _manager.start_searching(pos->hash_);
-          } else if (!_manager.should_start_searching(pos->hash_)) {
+            thinker->_manager.start_searching(pos->hash_);
+          } else if (!thinker->_manager.should_start_searching(pos->hash_)) {
             *(deferredMovesEnd++) = *extMove;
             undo<TURN>(pos);
             continue;
           }
         } else {
-          _manager.start_searching(pos->hash_);
+          thinker->_manager.start_searching(pos->hash_);
         }
 
         ++numValidMoves;
 
-        SearchResult<TURN> a = flip(search<opposingColor, SearchTypeNormal>(pos, depthRemaining - 1, plyFromRoot + 1, -beta, -alpha, recommendationsForChildren, distFromPV + (extMove != moves), threadID));
+        SearchResult<TURN> a = flip(Thinker::search<opposingColor, SearchTypeNormal>(thinker, pos, depthRemaining - 1, plyFromRoot + 1, -beta, -alpha, recommendationsForChildren, distFromPV + (extMove != moves), threadID));
 
-        _manager.finished_searching(pos->hash_);
+        thinker->_manager.finished_searching(pos->hash_);
         undo<TURN>(pos);
 
         // We don't bother to break here, since all of our children will automatically return a low-cost,
-        // good-faith estimate (unless our depth is 4, in which case this will be true for the depth above
+        // good-faith estimate (unless our depth is 4, in which case thinker will be true for the depth above
         // us).
         r.analysisComplete &= a.analysisComplete;
 
@@ -775,8 +776,8 @@ struct Thinker {
             r.move = extMove->move;
             recommendationsForChildren.add(a.move);
           }
-          if (children.size() >= multiPV) {
-            alpha = std::max(alpha, children[multiPV - 1].score);
+          if (children.size() >= thinker->multiPV) {
+            alpha = std::max(alpha, children[thinker->multiPV - 1].score);
           }
         } else {
           if (a.score > r.score) {
@@ -784,8 +785,8 @@ struct Thinker {
             r.move = extMove->move;
             recommendationsForChildren.add(a.move);
             if (r.score >= beta) {
-              // TODO: make this thread safe.
-              this->historyHeuristicTable[TURN][r.move.from][r.move.to] += value_or_zero(extMove->capture == Piece::NO_PIECE, depthRemaining * depthRemaining);
+              // TODO: make thinker thread safe.
+              thinker->historyHeuristicTable[TURN][r.move.from][r.move.to] += value_or_zero(extMove->capture == Piece::NO_PIECE, depthRemaining * depthRemaining);
               break;
             }
             if (r.score > alpha) {
@@ -803,9 +804,9 @@ struct Thinker {
       // We rely on the stability of std::sort to guarantee that children that
       // are PV nodes are sorted above children that are not PV nodes (but have
       // the same score).
-      this->variations.clear();
-      for (size_t i = 0; i < std::min(children.size(), this->multiPV); ++i) {
-        this->variations.push_back(to_white(children[i]));
+      thinker->variations.clear();
+      for (size_t i = 0; i < std::min(children.size(), thinker->multiPV); ++i) {
+        thinker->variations.push_back(to_white(children[i]));
       }
     }
 
@@ -814,7 +815,7 @@ struct Thinker {
       r.move = kNullMove;
     }
 
-    r.analysisComplete = !this->stopThinkingCondition->should_stop_thinking(*this);
+    r.analysisComplete = !thinker->stopThinkingCondition->should_stop_thinking(*thinker);
 
     if (r.analysisComplete) {
       NodeType nodeType = NodeTypePV;
@@ -823,7 +824,7 @@ struct Thinker {
       } else if (r.score <= originalAlpha) {
         nodeType = NodeTypeAll_UpperBound;
       }
-      const CacheResult cr = this->cache.create_cache_result(
+      const CacheResult cr = thinker->cache.create_cache_result(
         pos->hash_,
         depthRemaining,
         r.score,
@@ -831,7 +832,7 @@ struct Thinker {
         nodeType,
         distFromPV
       );
-      this->cache.insert(cr);
+      thinker->cache.insert(cr);
     }
 
 
@@ -841,7 +842,7 @@ struct Thinker {
   std::vector<SearchResult<Color::WHITE>> variations;
 
   template<Color TURN>
-  static SearchResult<TURN> _search_with_aspiration_window(Thinker* thinker, Position* pos, Depth depth, SearchResult<TURN> lastResult, uint16_t threadID) {
+  static void _search_with_aspiration_window(Thinker* thinker, Position* pos, Depth depth, SearchResult<TURN> lastResult, uint16_t threadID) {
     Position copy(*pos);
     // It's important to call this at the beginning of a search, since if we're sharing Position (e.g. selfplay.cpp) we
     // need to recompute piece map scores using our own weights.
@@ -854,12 +855,25 @@ struct Thinker {
     //  50: 0.105 ± 0.019
     #if COMPLEX_SEARCH
     constexpr Evaluation kBuffer = 75;
-    SearchResult<TURN> r = thinker->search<TURN, SearchTypeRoot>(&copy, depth, 0, lastResult.score - kBuffer, lastResult.score + kBuffer, RecommendedMoves(), 0, threadID);
+    SearchResult<TURN> r = Thinker::search<TURN, SearchTypeRoot>(thinker, &copy, depth, 0, lastResult.score - kBuffer, lastResult.score + kBuffer, RecommendedMoves(), 0, threadID);
     if (r.score > lastResult.score - kBuffer && r.score < lastResult.score + kBuffer) {
       return r;
     }
     #endif
-    return thinker->search<TURN, SearchTypeRoot>(&copy, depth, 0, kMinEval, kMaxEval, RecommendedMoves(), 0, threadID);
+
+    std::thread t1(
+      Thinker::search<TURN, SearchTypeRoot>,
+      thinker,
+      &copy,
+      depth,
+      0,
+      kMinEval,
+      kMaxEval,
+      RecommendedMoves(),
+      0,
+      0
+    );
+    t1.join();
   }
 
   // TODO: making threads work with multiPV seems really nontrivial.
@@ -893,25 +907,9 @@ struct Thinker {
   }
   SearchResult<Color::WHITE> _search(Position* pos, Depth depth, SearchResult<Color::WHITE> lastResult) {
     if (pos->turn_ == Color::WHITE) {
-      std::thread t1(
-        Thinker::_search_with_aspiration_window<Color::WHITE>,
-        this,
-        pos,
-        depth,
-        lastResult,
-        0
-      );
-      t1.join();
+      Thinker::_search_with_aspiration_window<Color::WHITE>(this, pos, depth, lastResult, 0);
     } else {
-      std::thread t1(
-        Thinker::_search_with_aspiration_window<Color::BLACK>,
-        this,
-        pos,
-        depth,
-        flip(lastResult),
-        0
-      );
-      t1.join();
+      Thinker::_search_with_aspiration_window<Color::BLACK>(this, pos, depth, flip(lastResult), 0);
     }
 
     CacheResult cr = this->cache.find(pos->hash_);
