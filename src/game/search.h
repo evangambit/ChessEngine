@@ -784,10 +784,8 @@ struct Thinker {
             r.move = extMove->move;
             recommendationsForChildren.add(a.move);
             if (r.score >= beta) {
-              // NOTE: Unlike other engines, we include captures in our history heuristic, as this
-              // orders captures that are materially equal.
               // TODO: make this thread safe.
-              this->historyHeuristicTable[TURN][r.move.from][r.move.to] += depthRemaining * depthRemaining;
+              this->historyHeuristicTable[TURN][r.move.from][r.move.to] += value_or_zero(extMove->capture == Piece::NO_PIECE, depthRemaining * depthRemaining);
               break;
             }
             if (r.score > alpha) {
