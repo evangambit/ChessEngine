@@ -842,7 +842,7 @@ struct Thinker {
   std::vector<SearchResult<Color::WHITE>> variations;
 
   template<Color TURN>
-  static void _search_with_aspiration_window(Thinker* thinker, Position* pos, Depth depth, SearchResult<TURN> lastResult, uint16_t threadID) {
+  static void _search_with_aspiration_window(Thinker* thinker, Position* pos, Depth depth) {
     Position copy(*pos);
     // It's important to call this at the beginning of a search, since if we're sharing Position (e.g. selfplay.cpp) we
     // need to recompute piece map scores using our own weights.
@@ -853,11 +853,16 @@ struct Thinker {
     // 100: 0.099 ± 0.021
     //  75: 0.152 ± 0.021
     //  50: 0.105 ± 0.019
+
+    CacheResult cr = thinker->cache.find(pos->hash_);
+
     #if COMPLEX_SEARCH
-    constexpr Evaluation kBuffer = 75;
-    SearchResult<TURN> r = Thinker::search<TURN, SearchTypeRoot>(thinker, &copy, depth, 0, lastResult.score - kBuffer, lastResult.score + kBuffer, RecommendedMoves(), 0, threadID);
-    if (r.score > lastResult.score - kBuffer && r.score < lastResult.score + kBuffer) {
-      return r;
+    if (!isNullCacheResult(cr)) {
+      constexpr Evaluation kBuffer = 75;
+      SearchResult<TURN> r = Thinker::search<TURN, SearchTypeRoot>(thinker, &copy, depth, 0, cr.eval - kBuffer, cr.eval + kBuffer, RecommendedMoves(), 0, 0);
+      if (r.score > cr.eval - kBuffer && r.score < cr.eval + kBuffer) {
+        return;
+      }
     }
     #endif
 
@@ -888,7 +893,7 @@ struct Thinker {
 
     SearchResult<Color::WHITE> results(Evaluation(0), kNullMove);
     for (size_t depth = 1; depth <= depthLimit; ++depth) {
-      SearchResult<Color::WHITE> r = this->_search(pos, Depth(depth), results);
+      SearchResult<Color::WHITE> r = this->_search(pos, Depth(depth));
       if (r.analysisComplete) {
         results = r;
       }
@@ -905,11 +910,11 @@ struct Thinker {
   SearchResult<Color::WHITE> search(Position *pos, size_t depthLimit) {
     return this->search(pos, depthLimit, [](Position *position, SearchResult<Color::WHITE> results, size_t depth, double secs) {});
   }
-  SearchResult<Color::WHITE> _search(Position* pos, Depth depth, SearchResult<Color::WHITE> lastResult) {
+  SearchResult<Color::WHITE> _search(Position* pos, Depth depth) {
     if (pos->turn_ == Color::WHITE) {
-      Thinker::_search_with_aspiration_window<Color::WHITE>(this, pos, depth, lastResult, 0);
+      Thinker::_search_with_aspiration_window<Color::WHITE>(this, pos, depth);
     } else {
-      Thinker::_search_with_aspiration_window<Color::BLACK>(this, pos, depth, flip(lastResult), 0);
+      Thinker::_search_with_aspiration_window<Color::BLACK>(this, pos, depth);
     }
 
     CacheResult cr = this->cache.find(pos->hash_);
