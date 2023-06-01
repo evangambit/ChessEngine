@@ -18,6 +18,8 @@ import torch
 from torch import nn, optim
 import torch.utils.data as tdata
 
+kIncludePiecemaps = False
+
 varnames = [
   "OUR_PAWNS",
   "OUR_KNIGHTS",
@@ -234,7 +236,9 @@ def lpad(t, n, c=' '):
 
 cat =  np.concatenate
 
-X, Y, F, S, A = [], [], [], [], []
+X, Y, F, S = [], [], [], []
+if kIncludePiecemaps:
+  A = []
 for fn in [
   "x.pair.any_d8_q1_n1.npy",
   "x.pair.any_d8_q1_n2.npy",
@@ -246,13 +250,15 @@ for fn in [
     Y = np.load(os.path.join('traindata', fn.replace('x', 'y')))
     F = np.load(os.path.join('traindata', fn.replace('x', 'fen')))
     S = np.load(os.path.join('traindata', fn.replace('x', 'turn')))
-    A = np.load(os.path.join('traindata', fn.replace('x', 'pm')))
+    if kIncludePiecemaps:
+      A = np.load(os.path.join('traindata', fn.replace('x', 'pm')))
   else:
     X = cat([X, np.load(os.path.join('traindata', fn)).astype(np.float64)], 0)
     Y = cat([Y, np.load(os.path.join('traindata', fn.replace('x', 'y'))).astype(np.float64)], 0)
     F = cat([F, np.load(os.path.join('traindata', fn.replace('x', 'fen')))], 0)
     S = cat([S, np.load(os.path.join('traindata', fn.replace('x', 'turn'))).astype(np.float64) * 2.0 - 1.0], 0)
-    A = cat([A, np.load(os.path.join('traindata', fn.replace('x', 'pm'))).astype(np.float32)], 0)
+    if kIncludePiecemaps:
+      A = cat([A, np.load(os.path.join('traindata', fn.replace('x', 'pm'))).astype(np.float32)], 0)
 
 X = X.astype(np.float32)
 Y = Y.astype(np.float32)
@@ -276,7 +282,10 @@ numTheirPieces = X[:,:,tmp].sum(2)
 # Remove positions where one side only has a king.
 isLonelyKing = (1 - (numOurPieces != 0) * (numTheirPieces != 0)).astype(bool)
 I = isLonelyKing.sum(1) == 0
-X, Y, F, S, A, T = X[I], Y[I], F[I], S[I], A[I], T[I]
+
+X, Y, F, S, T = X[I], Y[I], F[I], S[I], T[I]
+if kIncludePiecemaps:
+  A = A[I]
 
 tmp = []
 for vn in ["OUR_QUEENS", "THEIR_QUEENS"]:
@@ -413,14 +422,15 @@ Xth = torch.tensor(X, dtype=torch.float32)
 Yth = torch.tensor(Y, dtype=torch.float32)
 Tth = torch.tensor(T, dtype=torch.float32)
 Sth = torch.tensor(S, dtype=torch.float32)
-Ath = torch.tensor(A, dtype=torch.float32)
+if kIncludePiecemaps:
+  Ath = torch.tensor(A, dtype=torch.float32)
 numQueens = torch.tensor(numQueens, dtype=torch.float32)
 
-PmEarlySampleSizeTh = torch.tensor((A * (1.0 - T.reshape(T.shape + (1,1)) / 18)).sum((0, 1)), dtype=torch.float32)
-PmEarlySampleSizeTh = PmEarlySampleSizeTh.reshape((1, 1) + PmEarlySampleSizeTh.shape)
-
-PmLateSampleSizeTh = torch.tensor((A * T.reshape(T.shape + (1,1)) / 18).sum((0, 1)), dtype=torch.float32)
-PmLateSampleSizeTh = PmLateSampleSizeTh.reshape((1, 1) + PmLateSampleSizeTh.shape)
+if kIncludePiecemaps:
+  PmEarlySampleSizeTh = torch.tensor((A * (1.0 - T.reshape(T.shape + (1,1)) / 18)).sum((0, 1)), dtype=torch.float32)
+  PmEarlySampleSizeTh = PmEarlySampleSizeTh.reshape((1, 1) + PmEarlySampleSizeTh.shape)
+  PmLateSampleSizeTh = torch.tensor((A * T.reshape(T.shape + (1,1)) / 18).sum((0, 1)), dtype=torch.float32)
+  PmLateSampleSizeTh = PmLateSampleSizeTh.reshape((1, 1) + PmLateSampleSizeTh.shape)
 
 kAlpha = 0.9  # higher -> more copying stockfish
 bs = min(Xth.shape[0], 10_000)
@@ -428,8 +438,11 @@ maxlr = 0.1
 minlr = maxlr / 300
 numIters = 20000
 
-dataset = tdata.TensorDataset(Xth, Tth, Sth, Yth, Ath, numQueens)
-dataloader = tdata.DataLoader(dataset, batch_size=bs, shuffle=True, drop_last=True, num_workers=4)
+if kIncludePiecemaps:
+  dataset = tdata.TensorDataset(Xth, Tth, Sth, Yth, Ath, numQueens)
+else:
+  dataset = tdata.TensorDataset(Xth, Tth, Sth, Yth, numQueens)
+dataloader = tdata.DataLoader(dataset, batch_size=bs, shuffle=True, drop_last=True, num_workers=12)
 
 def loop(iterable, n):
   it = 0
@@ -478,14 +491,19 @@ if os.path.exists('model.pth'):
   pmModel.load_state_dict(torch.load('pmModel.pth'), strict=False)
 
 opt = optim.AdamW(chain(pmModel.parameters(), model.parameters(), stdModel.parameters()), lr=3e-2, weight_decay=0.1)
-for it, (x, t, s, y, a, nq) in tqdm(enumerate(loop(dataloader, numIters)), total=numIters):
+for it, batch in tqdm(enumerate(loop(dataloader, numIters)), total=numIters):
+  if len(batch) == 6:
+    x, t, s, y, a, nq = batch
+  else:
+    x, t, s, y, nq = batch
   lr = pf(it)
   if it % 10 == 0:
     for pg in opt.param_groups:
       pg['lr'] = lr
 
   yhat = model(x, t, nq) * s
-  # yhat = yhat + pmModel(a, t)
+  if kIncludePiecemaps:
+    yhat = yhat + pmModel(a, t)
   y = y * s
   loss, error, cpLoss = cross_entropy_loss_fn(nn.functional.softmax(yhat, 1), y)
   loss = loss * (1 - kAlpha)
@@ -494,8 +512,9 @@ for it, (x, t, s, y, a, nq) in tqdm(enumerate(loop(dataloader, numIters)), total
   # stdhat = nn.functional.leaky_relu(stdModel(x)).squeeze()
   # loss = loss + score_loss_fn(stdhat, torch.abs(soft_clip(yhat) - soft_clip(y)))
 
-  loss = loss + 10.0 * ((pmModel.w["early"].weight.reshape(PmEarlySampleSizeTh.shape)**2) / torch.sqrt(PmEarlySampleSizeTh + 1.0)).mean()
-  loss = loss + 10.0 * ((pmModel.w["late"].weight.reshape(PmLateSampleSizeTh.shape)**2) / torch.sqrt(PmEarlySampleSizeTh + 1.0)).mean()
+  if kIncludePiecemaps:
+    loss = loss + 10.0 * ((pmModel.w["early"].weight.reshape(PmEarlySampleSizeTh.shape)**2) / torch.sqrt(PmEarlySampleSizeTh + 1.0)).mean()
+    loss = loss + 10.0 * ((pmModel.w["late"].weight.reshape(PmLateSampleSizeTh.shape)**2) / torch.sqrt(PmEarlySampleSizeTh + 1.0)).mean()
 
   w1 = pca.slope_backward(model.w['early'].weight)
   w2 = pca.slope_backward(model.w['late'].weight)
