@@ -35,10 +35,10 @@ class UciPlayer:
       self.command(f"position fen {fen}")
     else:
       self.command(f"position fen {fen} moves {' '.join(moves)}")
-    if 'stockfish' in self.name[0]:
+    if 'stockfish' not in self.name[0]:
       self.command(f"go nodes {nodes}")
     else:
-      self.command(f"go nodes {nodes}")
+      self.command(f"go depth 3")
     lines = []
     while True:
       line = self._p.stdout.readline().decode()
@@ -67,7 +67,7 @@ def play(fen0, player1, player2):
   mover, waiter = player1, player2
   while not board.can_claim_draw() and not board.is_stalemate() and not board.is_checkmate():
     try:
-      move = mover.best_move(fen0, 100_000, moves)
+      move = mover.best_move(fen0, 50_000, moves)
     except Exception as e:
       print('a')
       print('isPlayer1', mover == player1)
@@ -132,7 +132,7 @@ def create_fen_batch(n):
 if __name__ == '__main__':
   mp.set_start_method('spawn')
   t0 = time.time()
-  numWorkers = 8
+  numWorkers = 16
   batches = [[]]
   for i in range(0, 128, numWorkers):
     batches.append(create_fen_batch(numWorkers))
