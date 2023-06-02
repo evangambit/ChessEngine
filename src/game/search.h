@@ -563,11 +563,16 @@ struct Thinker {
       return SearchResult<TURN>(kMissingKing, kNullMove);
     }
 
-    if (pos->is_draw(plyFromRoot) || thinker->evaluator.is_material_draw(*pos)) {
+    if (pos->is_draw(plyFromRoot)) {
+      return SearchResult<TURN>(Evaluation(0), kNullMove);
+    }
+    if (SEARCH_TYPE != SearchTypeRoot && thinker->evaluator.is_material_draw(*pos)) {
       return SearchResult<TURN>(Evaluation(0), kNullMove);
     }
 
     CacheResult cr = thinker->cache.find(pos->hash_);
+    // Short-circuiting due to a cached result.
+    // (+0.0254 ± 0.0148) after 256 games at 50,000 nodes/move
     if (!isNullCacheResult(cr) && cr.depthRemaining >= depthRemaining) {
       if (cr.nodeType == NodeTypePV || cr.lowerbound() >= beta || cr.upperbound() <= alpha) {
         return SearchResult<TURN>(cr.eval, cr.bestMove);
@@ -576,7 +581,8 @@ struct Thinker {
 
     if (depthRemaining <= 0) {
       ++thinker->leafCounter;
-      // Quiescence Search (0.4334 ± 0.0053)
+      // Quiescence Search
+      // (+0.4453 ± 0.0072) after 256 games at 50,000 nodes/move
       SearchResult<TURN> r = Thinker::qsearch<TURN>(thinker, pos, 0, alpha, beta);
 
       NodeType nodeType = NodeTypePV;
@@ -668,19 +674,21 @@ struct Thinker {
     for (ExtMove *move = moves; move < movesEnd; ++move) {
       move->score = 0;
 
-      // Bonus for capturing a piece.  (+0.136 ± 0.012)
+      // Bonus for capturing a piece.
+      // (+0.1042 ± 0.0146) after 256 games at 50,000 nodes/move
       move->score += kMoveOrderPieceValues[move->capture];
 
-      // Bonus if it was the last-found best move.  (0.048 ± 0.014)
-      move->score += value_or_zero((move->move == lastFoundBestMove) && (depthRemaining == 1), 5000);
-      move->score += value_or_zero((move->move == lastFoundBestMove) && (depthRemaining == 2), 5000);
-      move->score += value_or_zero((move->move == lastFoundBestMove) && (depthRemaining >= 3), 5000);
+      // Bonus if it was the last-found best move.
+      // (+0.0703 ± 0.0148) after 256 games at 50,000 nodes/move
+      move->score += value_or_zero((move->move == lastFoundBestMove) && (depthRemaining >= 1), 5000);
 
-      // Bonus if siblings like a move, though thinker seems statistically insignificant.
+      // Bonus if siblings like a move, though seems statistically insignificant.
+      // (0.0010 ± 0.0059) after 1024 games at 50,000 nodes/move
       move->score += value_or_zero(move->move == recommendedMoves.moves[0], 50);
       move->score += value_or_zero(move->move == recommendedMoves.moves[1], 50);
 
-      // History Heuristic (+0.10)
+      // History Heuristic
+      // (+0.0310 ± 0.0073) after 1024 games at 50,000 nodes/move
       const int32_t history = thinker->historyHeuristicTable[TURN][move->move.from][move->move.to];
       move->score += value_or_zero(history > 0, 20);
       move->score += value_or_zero(history > 4, 20);
@@ -733,7 +741,17 @@ struct Thinker {
 
         ++numValidMoves;
 
-        SearchResult<TURN> a = flip(Thinker::search<opposingColor, SearchTypeNormal>(thinker, pos, depthRemaining - 1, plyFromRoot + 1, -beta, -alpha, recommendationsForChildren, distFromPV + (extMove != moves), threadID));
+        // Null-window search.
+        // (+0.0269 ± 0.0072) after 1024 games at 50,000 nodes/move
+        SearchResult<TURN> a(0, kNullMove);
+        if (extMove == moves) {
+          a = flip(Thinker::search<opposingColor, SearchTypeNormal>(thinker, pos, depthRemaining - 1, plyFromRoot + 1, -beta, -alpha, recommendationsForChildren, distFromPV + (extMove != moves), threadID));
+        } else {
+          a = flip(Thinker::search<opposingColor, SearchTypeNullWindow>(thinker, pos, depthRemaining - 1, plyFromRoot + 1, -alpha - 1, -alpha, recommendationsForChildren, distFromPV + (extMove != moves), threadID));
+          if (a.score > alpha && a.score < beta) {
+            a = flip(Thinker::search<opposingColor, SearchTypeNormal>(thinker, pos, depthRemaining - 1, plyFromRoot + 1, -beta, -alpha, recommendationsForChildren, distFromPV + (extMove != moves), threadID));
+          }
+        }
 
         thinker->_manager.finished_searching(pos->hash_);
         undo<TURN>(pos);

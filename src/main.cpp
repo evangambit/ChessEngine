@@ -238,7 +238,7 @@ void handler(int sig) {
 template<Color TURN>
 void print_feature_vec(Position *pos, const std::string& originalFen, bool humanReadable, bool makeQuiet, int depth) {
   if (makeQuiet) {
-    SearchResult<Color::WHITE> r = to_white(gThinker.qsearch<TURN>(pos, depth, kMinEval, kMaxEval));
+    SearchResult<Color::WHITE> r = to_white(Thinker::qsearch<TURN>(&gThinker, pos, depth, kMinEval, kMaxEval));
     if (r.score > kMaxEval - 100 || r.score < kMinEval + 100) {
       std::cout << "PRINT FEATURE VEC FAIL (MATE)" << std::endl;
       return;
