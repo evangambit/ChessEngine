@@ -327,6 +327,7 @@ struct Thinker {
   TranspositionTable cache;
   uint32_t historyHeuristicTable[Color::NUM_COLORS][64][64];
   size_t multiPV;
+  size_t numThreads;
 
   PieceMaps pieceMaps;
   uint64_t lastRootHash;
@@ -334,6 +335,7 @@ struct Thinker {
   Thinker() : cache(10000), stopThinkingCondition(new NeverStopThinkingCondition()), lastRootHash(0) {
     reset_stuff();
     multiPV = 1;
+    numThreads = 1;
   }
 
   void set_cache_size(size_t kilobytes) {
@@ -875,7 +877,7 @@ struct Thinker {
     }
     #endif
 
-    if (thinker->multiPV <= 1) {
+    if (thinker->numThreads <= 1) {
       std::thread t1(
         Thinker::search<TURN, SearchTypeRoot, false>,
         thinker,
@@ -890,10 +892,16 @@ struct Thinker {
       );
       t1.join();
     } else {
+      Position copy1(*pos);
+      copy1.set_piece_maps(thinker->pieceMaps);
+
+      Position copy2(*pos);
+      copy2.set_piece_maps(thinker->pieceMaps);
+
       std::thread t1(
         Thinker::search<TURN, SearchTypeRoot, true>,
         thinker,
-        &copy,
+        &copy1,
         depth,
         0,
         kMinEval,
@@ -902,7 +910,20 @@ struct Thinker {
         0,
         0
       );
+      std::thread t2(
+        Thinker::search<TURN, SearchTypeRoot, true>,
+        thinker,
+        &copy2,
+        depth,
+        0,
+        kMinEval,
+        kMaxEval,
+        RecommendedMoves(),
+        0,
+        1
+      );
       t1.join();
+      t2.join();
     }
   }
 

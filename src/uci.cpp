@@ -315,6 +315,20 @@ struct UciEngine {
         }
         this->thinker.multiPV = multiPV;
         return;
+      } else if (name == "Threads") {
+        int numThreads;
+        try {
+          numThreads = stoi(value);
+        } catch (std::invalid_argument&) {
+          std::cout << "Value must be an integer" << std::endl;
+          return;
+        }
+        if (numThreads < 1) {
+          std::cout << "Value must be positive" << std::endl;
+          return;
+        }
+        this->thinker.numThreads = numThreads;
+        return;
       }
       std::cout << "Unrecognized option " << repr(name) << std::endl;
     }
