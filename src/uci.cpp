@@ -71,7 +71,12 @@ struct UciEngine {
       if (this->pos.turn_ == Color::WHITE) {
         std::cout << evaulator.score<Color::WHITE>(this->pos) << std::endl;
       } else {
-        std::cout << evaulator.score<Color::BLACK>(this->pos) << std::endl;
+        std::cout << -evaulator.score<Color::BLACK>(this->pos) << std::endl;
+      }
+      for (int i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
+        if (evaulator.features[i] != 0) {
+          std::cout << evaulator.features[i] << " " << EFSTR[i] << std::endl;
+        }
       }
     } else if (parts[0] == "probe") {
       Position query = Position::init();
@@ -288,34 +293,33 @@ struct UciEngine {
       return;
     }
 
-    this->thinker.stopThinkingCondition = std::make_unique<OrStopCondition>(
-      new StopThinkingNodeCountCondition(nodeLimit),
-      new StopThinkingTimeCondition(timeLimitMs)
->>>>>>> a914a28 (Use incomplete search results (+0.087))
-    );
+    Position pos(this->pos);
 
-    // TODO: get rid of this (selfplay2 sometimes crashes when we try to get rid of it now).
-    this->thinker.reset_stuff();
+    while (true) {
+      this->thinker.stopThinkingCondition = std::make_unique<OrStopCondition>(
+        std::make_shared<StopThinkingNodeCountCondition>(nodeLimit),
+        std::make_shared<StopThinkingTimeCondition>(timeLimitMs)
+      );
 
-    SearchResult<Color::WHITE> result = this->thinker.search(&this->pos, depthLimit, [this](Position *position, SearchResult<Color::WHITE> results, size_t depth, double secs) {
-      this->_print_variations(position, depth, secs, this->thinker.multiPV);
-    });
+      // TODO: get rid of this (selfplay2 sometimes crashes when we try to get rid of it now).
+      this->thinker.reset_stuff();
 
-    if (this->pos.turn_ == Color::WHITE) {
-      make_move<Color::WHITE>(&this->pos, result.move);
-    } else {
-      make_move<Color::BLACK>(&this->pos, result.move);
-    }
-    CacheResult cr = this->thinker.cache.find<false>(this->pos.hash_);
-    if (this->pos.turn_ == Color::WHITE) {
-      undo<Color::BLACK>(&this->pos);
-    } else {
-      undo<Color::WHITE>(&this->pos);
-    }
-
-    std::cout << "bestmove " << result.move;
-    if (!isNullCacheResult(cr)) {
-      std::cout << " ponder " << cr.bestMove;
+      SearchResult<Color::WHITE> result = this->thinker.search(&pos, depthLimit);
+      if (result.move == kNullMove) {
+        break;
+      }
+      std::cout << " " << result.move << std::flush;
+      if (pos.turn_ == Color::WHITE) {
+        make_move<Color::WHITE>(&pos, result.move);
+        if (is_checkmate<Color::BLACK>(&pos)) {
+          break;
+        }
+      } else {
+        make_move<Color::BLACK>(&pos, result.move);
+        if (is_checkmate<Color::WHITE>(&pos)) {
+          break;
+        }
+      }
     }
     std::cout << std::endl;
   }

@@ -375,6 +375,17 @@ ExtMove* compute_legal_moves(Position *pos, ExtMove *moves) {
   return moves;
 }
 
+template<Color TURN>
+bool is_checkmate(Position *pos) {
+  ExtMove moves[kMaxNumMoves];
+  ExtMove *end = compute_legal_moves<TURN>(pos, &moves[0]);
+  if (end - moves != 0) {
+    return false;
+  }
+  Square sq = lsb(pos->pieceBitboards_[coloredPiece<TURN,Piece::KING>()]);
+  return can_enemy_attack<TURN>(*pos, sq);
+}
+
 }  // namespace ChessEngine
 
 #endif  // MOVEGEN_H
