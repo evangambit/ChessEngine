@@ -843,17 +843,23 @@ struct Thinker {
     // TODO: the aspiration window technique used here should probably be implemented for internal nodes too.
     // Even just using this at the root node gives my engine a +0.25 (n=100) score against itself.
     // Table of historical experiments (program with window vs program without)
-    // 100: 0.099 ± 0.021
-    //  75: 0.152 ± 0.021
-    //  50: 0.105 ± 0.019
+    // The following metrics come from 1024 self-play games with/without aspiration search,
+    // with 10,000 nodes/move.
+    //  400: +0.1738 ± 0.0081
+    //  350: +0.1868 ± 0.0078
+    //  300: +0.1826 ± 0.0082
+    //  250: +0.1626 ± 0.0084
+    //  200: +0.1599 ± 0.0084
+    //  150: +0.1152 ± 0.0090
 
     CacheResult cr = thinker->cache.find(pos->hash_);
 
     #if COMPLEX_SEARCH
     if (!isNullCacheResult(cr)) {
-      constexpr Evaluation kBuffer = 75;
+      constexpr int32_t kBuffer = 350;
       SearchResult<TURN> r = Thinker::search<TURN, SearchTypeRoot>(thinker, &copy, depth, 0, cr.eval - kBuffer, cr.eval + kBuffer, RecommendedMoves(), 0, 0);
-      if (r.score > cr.eval - kBuffer && r.score < cr.eval + kBuffer) {
+      if (r.score > std::min<int32_t>(kMaxEval, cr.eval - kBuffer)
+        && r.score < std::max<int32_t>(kMinEval, cr.eval + kBuffer)) {
         return;
       }
     }
