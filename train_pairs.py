@@ -488,7 +488,8 @@ if os.path.exists('model.pth'):
     del s['w.lonelyKing.bias']
     del s['w.lonelyKing.weight']
   model.load_state_dict(s, strict=False)
-  pmModel.load_state_dict(torch.load('pmModel.pth'), strict=False)
+  if kIncludePiecemaps:
+    pmModel.load_state_dict(torch.load('pmModel.pth'), strict=False)
 
 opt = optim.AdamW(chain(pmModel.parameters(), model.parameters(), stdModel.parameters()), lr=3e-2, weight_decay=0.1)
 for it, batch in tqdm(enumerate(loop(dataloader, numIters)), total=numIters):
@@ -553,7 +554,8 @@ for it, batch in tqdm(enumerate(loop(dataloader, numIters)), total=numIters):
     print('lr = %.4f; loss = %.4f; error = %.4f; cpLoss = %.4f' % (lr, sum(metrics['loss'][-4:]) / n, sum(metrics['error'][-4:]) / n, sum(metrics['cpLoss'][-4:]) / n))
 
 torch.save(model.state_dict(), 'model.pth')
-torch.save(pmModel.state_dict(), 'pmModel.pth')
+if kIncludePiecemaps:
+  torch.save(pmModel.state_dict(), 'pmModel.pth')
 
 for k in model.w:
   w = model.w[k].weight.detach().numpy()
