@@ -21,6 +21,29 @@
 
 namespace ChessEngine {
 
+void for_all_moves(Position *position, std::function<void(const Position&, ExtMove)> f) {
+  ExtMove moves[kMaxNumMoves];
+  ExtMove *end;
+  if (position->turn_ == Color::WHITE) {
+    end = compute_legal_moves<Color::WHITE>(position, moves);
+  } else {
+    end = compute_legal_moves<Color::BLACK>(position, moves);
+  }
+  for (ExtMove *move = moves; move < end; ++move) {
+    if (position->turn_ == Color::WHITE) {
+      make_move<Color::WHITE>(position, move->move);
+    } else {
+      make_move<Color::BLACK>(position, move->move);
+    }
+    f(*position, *move);
+    if (position->turn_ == Color::WHITE) {
+      undo<Color::BLACK>(position);
+    } else {
+      undo<Color::WHITE>(position);
+    }
+  }
+}
+
 typedef int8_t Depth;
 
 // PV-nodes ("principal variation" nodes) have a score that lies between alpha and beta; their scores are exact.
@@ -640,7 +663,7 @@ struct Thinker {
     #if COMPLEX_SEARCH
     const int totalDepth = plyFromRoot + depthRemaining;
     const int kFutilityPruningDepthLimit = totalDepth / 2;
-    const Evaluation futilityThreshold = 100;
+    const int32_t futilityThreshold = 100;
     if (depthRemaining <= cr.depthRemaining + kFutilityPruningDepthLimit) {
       const int delta = futilityThreshold * (depthRemaining - cr.depthRemaining);
       if (cr.lowerbound() >= beta + delta || cr.upperbound() <= alpha - delta) {
@@ -649,7 +672,7 @@ struct Thinker {
     }
     if (isNullCacheResult(cr) && depthRemaining <= kFutilityPruningDepthLimit) {
       SearchResult<TURN> r = Thinker::qsearch<TURN>(thinker, pos, 0, alpha, beta);
-      const int delta = futilityThreshold * depthRemaining;
+      const int32_t delta = futilityThreshold * depthRemaining;
       if (r.score >= beta + delta || r.score <= alpha - delta) {
         return r;
       }
@@ -809,6 +832,7 @@ struct Thinker {
       // We rely on the stability of std::sort to guarantee that children that
       // are PV nodes are sorted above children that are not PV nodes (but have
       // the same score).
+      // TODO: make this thread safe.
       thinker->variations.clear();
       for (size_t i = 0; i < std::min(children.size(), thinker->multiPV); ++i) {
         thinker->variations.push_back(to_white(children[i]));
@@ -937,20 +961,76 @@ struct Thinker {
     stopThinkingCondition->start_thinking(*this);
     this->cache.starting_search(pos->hash_);
 
-    SearchResult<Color::WHITE> results(Evaluation(0), kNullMove);
-    for (size_t depth = 1; depth <= depthLimit; ++depth) {
-      SearchResult<Color::WHITE> r = this->_search(pos, Depth(depth));
-      if (r.analysisComplete) {
-        results = r;
-      }
+    size_t depth;
+    bool stoppedEarly = false;
+    for (depth = 1; depth <= depthLimit; ++depth) {
+      this->_search(pos, Depth(depth));
       const double secs = double(clock() - tstart)/CLOCKS_PER_SEC;
-      callback(pos, results, depth, secs);
       if (this->stopThinkingCondition->should_stop_thinking(*this)) {
+        stoppedEarly = true;
         break;
+      }
+      callback(pos, this->variations[0], depth, secs);
+    }
+
+    // Before we return, we make one last pass through our children. This is important if our interrupted search has proven
+    // our old best move was terrible, but isn't done analyzing all its siblings yet.
+    // (+0.0869 ± 0.0160) after 256 games at 50,000 nodes/move
+    if (stoppedEarly) {
+      std::vector<SearchResult<Color::WHITE>> children;
+      for_all_moves(pos, [this, &children](const Position& pos, ExtMove move) {
+        CacheResult cr = this->cache.unsafe_find(pos.hash_);
+        if (isNullCacheResult(cr)) {
+          return;
+        }
+        if (cr.nodeType != NodeTypePV) {
+          return;
+        }
+        Evaluation eval = cr.lowerbound();
+        if (pos.turn_ == Color::BLACK) {
+          eval *= -1;
+        }
+        children.push_back(SearchResult<Color::WHITE>(eval, move.move));
+      });
+      if (pos->turn_ == Color::WHITE) {
+        std::sort(
+          children.begin(),
+          children.end(),
+          [](SearchResult<Color::WHITE> a, SearchResult<Color::WHITE> b) -> bool {
+            return a.score > b.score;
+        });
+      } else {
+        std::sort(
+          children.begin(),
+          children.end(),
+          [](SearchResult<Color::WHITE> a, SearchResult<Color::WHITE> b) -> bool {
+            return a.score < b.score;
+        });
+      }
+
+      // This may not always be true. For instance, if we're using an aspiration window,
+      // we might stop after analyzing the first move, and the first move may fail low,
+      // in which case we will have no primary variations in the cache. In this case,
+      // we simply use the result of the last search. Unfortunately this means using
+      // a move whose score just dropped, but since all our other moves only have bounds
+      // (not exact scores) it's not clear that we can do better than this. Also this
+      // function probably plays weirdly with incomplete, multi-pv, aspiration-window
+      // searches, since the 1st PV might be completely searched, worse than the
+      // aspiration bounds, and marked as non-PV, while the 5th PV hasn't been searched
+      // at this depth yet, and so it is considered "better" than the 1st PV. If might
+      // be worth using special PV-ness logic for in the root node to prevent this, but
+      // for now we're focused on improving the performance when multiPV=1.
+      if (children.size() > 0) {
+        this->variations.clear();
+        for (size_t i = 0; i < std::min(children.size(), this->multiPV); ++i) {
+          this->variations.push_back(children[i]);
+        }
+        const double secs = double(clock() - tstart)/CLOCKS_PER_SEC;
+        callback(pos, this->variations[0], depth, secs);
       }
     }
 
-    return results;
+    return this->variations[0];
   }
 
   SearchResult<Color::WHITE> search(Position *pos, size_t depthLimit) {

@@ -12,30 +12,6 @@
 
 using namespace ChessEngine;
 
-template<class F>
-void for_all_moves(Position *position, F&& f) {
-  ExtMove moves[kMaxNumMoves];
-  ExtMove *end;
-  if (position->turn_ == Color::WHITE) {
-    end = compute_legal_moves<Color::WHITE>(position, moves);
-  } else {
-    end = compute_legal_moves<Color::BLACK>(position, moves);
-  }
-  for (ExtMove *move = moves; move < end; ++move) {
-    if (position->turn_ == Color::WHITE) {
-      make_move<Color::WHITE>(position, move->move);
-    } else {
-      make_move<Color::BLACK>(position, move->move);
-    }
-    f(position, *move);
-    if (position->turn_ == Color::WHITE) {
-      undo<Color::BLACK>(position);
-    } else {
-      undo<Color::WHITE>(position);
-    }
-  }
-}
-
 struct UciEngine {
   Thinker thinker;
   Position pos;
@@ -86,6 +62,10 @@ struct UciEngine {
       }
     } else if (parts[0] == "loadweights") {  // Custom commands below this line.
       this->thinker.load_weights_from_file(parts[1]);
+    } else if (parts[0] == "play") {
+      handle_play(parts);
+    } else if (parts[0] == "move") {
+      handle_move(parts);
     } else if (parts[0] == "eval") {
       Evaluator& evaulator = this->thinker.evaluator;
       if (this->pos.turn_ == Color::WHITE) {
@@ -229,6 +209,89 @@ struct UciEngine {
     this->thinker.stopThinkingCondition = std::make_unique<OrStopCondition>(
       std::make_shared<StopThinkingNodeCountCondition>(nodeLimit),
       std::make_shared<StopThinkingTimeCondition>(timeLimitMs)
+    );
+
+    // TODO: get rid of this (selfplay2 sometimes crashes when we try to get rid of it now).
+    this->thinker.reset_stuff();
+
+    SearchResult<Color::WHITE> result = this->thinker.search(&this->pos, depthLimit, [this](Position *position, SearchResult<Color::WHITE> results, size_t depth, double secs) {
+      this->_print_variations(position, depth, secs, this->thinker.multiPV);
+    });
+
+    if (this->pos.turn_ == Color::WHITE) {
+      make_move<Color::WHITE>(&this->pos, result.move);
+    } else {
+      make_move<Color::BLACK>(&this->pos, result.move);
+    }
+    CacheResult cr = this->thinker.cache.find<false>(this->pos.hash_);
+    if (this->pos.turn_ == Color::WHITE) {
+      undo<Color::BLACK>(&this->pos);
+    } else {
+      undo<Color::WHITE>(&this->pos);
+    }
+
+    std::cout << "bestmove " << result.move;
+    if (!isNullCacheResult(cr)) {
+      std::cout << " ponder " << cr.bestMove;
+    }
+    std::cout << std::endl;
+  }
+
+  void handle_move(const std::vector<std::string>& command) {
+    size_t i = 0;
+    while (++i < command.size()) {
+      std::string uciMove = command[i];
+      ExtMove moves[kMaxNumMoves];
+      ExtMove *end;
+      if (this->pos.turn_ == Color::WHITE) {
+        end = compute_legal_moves<Color::WHITE>(&this->pos, moves);
+      } else {
+        end = compute_legal_moves<Color::BLACK>(&this->pos, moves);
+      }
+      bool foundMove = false;
+      for (ExtMove *move = moves; move < end; ++move) {
+        if (move->move.uci() == uciMove) {
+          foundMove = true;
+          if (this->pos.turn_ == Color::WHITE) {
+            make_move<Color::WHITE>(&this->pos, move->move);
+          } else {
+            make_move<Color::BLACK>(&this->pos, move->move);
+          }
+          break;
+        }
+      }
+      if (!foundMove) {
+        std::cout << "Could not find move " << repr(uciMove) << std::endl;
+        return;
+      }
+    }
+  }
+
+  void handle_play(const std::vector<std::string>& command) {
+    size_t nodeLimit = size_t(-1);
+    uint64_t depthLimit = 99;
+    uint64_t timeLimitMs = 1000 * 60 * 60;
+
+    if (command.size() != 3) {
+      invalid(join(command, " "));
+      return;
+    }
+
+    if (command[1] == "depth") {
+      depthLimit = stoi(command[2]);
+    } else if (command[1] == "nodes") {
+      nodeLimit = stoi(command[2]);
+    } else if (command[1] == "time") {
+      timeLimitMs = stoi(command[2]);
+    } else {
+      invalid(join(command, " "));
+      return;
+    }
+
+    this->thinker.stopThinkingCondition = std::make_unique<OrStopCondition>(
+      new StopThinkingNodeCountCondition(nodeLimit),
+      new StopThinkingTimeCondition(timeLimitMs)
+>>>>>>> a914a28 (Use incomplete search results (+0.087))
     );
 
     // TODO: get rid of this (selfplay2 sometimes crashes when we try to get rid of it now).
