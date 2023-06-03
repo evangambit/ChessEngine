@@ -226,51 +226,35 @@ struct UciEngine {
       return;
     }
 
-    this->kick_off_analysis(nodeLimit, depthLimit, timeLimitMs);
-  }
-
-  void kick_off_analysis(size_t nodeLimit, uint64_t depthLimit, uint64_t timeLimitMs) {
-    if (this->stopThinkingSwitch != nullptr) {
-      // TODO: handle concurrent thinking? or enque it?
-      std::cout << "ERROR: cannot \"go\" since we're already thinking" << std::endl;
-      return;
-    }
-    this->stopThinkingSwitch = std::make_shared<StopThinkingSwitch>();
-
     this->thinker.stopThinkingCondition = std::make_unique<OrStopCondition>(
       std::make_shared<StopThinkingNodeCountCondition>(nodeLimit),
-      std::make_shared<StopThinkingTimeCondition>(timeLimitMs),
-      this->stopThinkingSwitch
+      std::make_shared<StopThinkingTimeCondition>(timeLimitMs)
     );
 
     // TODO: get rid of this (selfplay2 sometimes crashes when we try to get rid of it now).
     this->thinker.reset_stuff();
 
-    this->thinkingThread = new std::thread([this, depthLimit]() {
-      SearchResult<Color::WHITE> result = this->thinker.search(&this->pos, depthLimit, [this](Position *position, SearchResult<Color::WHITE> results, size_t depth, double secs) {
-        this->_print_variations(position, depth, secs, this->thinker.multiPV);
-      });
-
-      if (this->pos.turn_ == Color::WHITE) {
-        make_move<Color::WHITE>(&this->pos, result.move);
-      } else {
-        make_move<Color::BLACK>(&this->pos, result.move);
-      }
-      CacheResult cr = this->thinker.cache.find(this->pos.hash_);
-      if (this->pos.turn_ == Color::WHITE) {
-        undo<Color::BLACK>(&this->pos);
-      } else {
-        undo<Color::WHITE>(&this->pos);
-      }
-
-      std::cout << "bestmove " << result.move;
-      if (!isNullCacheResult(cr)) {
-        std::cout << " ponder " << cr.bestMove;
-      }
-      std::cout << std::endl;
-
-      this->stopThinkingSwitch = nullptr;
+    SearchResult<Color::WHITE> result = this->thinker.search(&this->pos, depthLimit, [this](Position *position, SearchResult<Color::WHITE> results, size_t depth, double secs) {
+      this->_print_variations(position, depth, secs, this->thinker.multiPV);
     });
+
+    if (this->pos.turn_ == Color::WHITE) {
+      make_move<Color::WHITE>(&this->pos, result.move);
+    } else {
+      make_move<Color::BLACK>(&this->pos, result.move);
+    }
+    CacheResult cr = this->thinker.cache.find<false>(this->pos.hash_);
+    if (this->pos.turn_ == Color::WHITE) {
+      undo<Color::BLACK>(&this->pos);
+    } else {
+      undo<Color::WHITE>(&this->pos);
+    }
+
+    std::cout << "bestmove " << result.move;
+    if (!isNullCacheResult(cr)) {
+      std::cout << " ponder " << cr.bestMove;
+    }
+    std::cout << std::endl;
   }
 
   void _print_variations(Position* position, int depth, double secs, size_t multiPV) const {

@@ -17,8 +17,7 @@
 #include "movegen/sliding.h"
 #include "Evaluator.h"
 
-#define COMPLEX_SEARCH 1  // 0.0508 ± 0.0226
-#define PARALLEL 0
+#define COMPLEX_SEARCH 0
 
 namespace ChessEngine {
 
@@ -130,18 +129,17 @@ struct TranspositionTable {
     this->clear();
   }
 
-  #if PARALLEL
   SpinLock spinLocks[kTranspositionTableFactor];
-  #endif
 
+  template<bool IS_PARALLEL>
   void insert(const CacheResult& cr) {
     size_t idx = cr.positionHash % size;
     const size_t delta = (cr.positionHash >> 32) % 16;
 
     for (size_t i = 0; i < kTranspositionTableMaxSteps; ++i) {
-      #if PARALLEL
-      spinLocks[idx % kTranspositionTableFactor].lock();
-      #endif
+      if (IS_PARALLEL) {
+        spinLocks[idx % kTranspositionTableFactor].lock();
+      }
       CacheResult *it = &data[idx];
       if (cr.positionHash == it->positionHash) {
         if (cr.depthRemaining > it->depthRemaining || (cr.nodeType == NodeTypePV && it->nodeType != NodeTypePV)) {
@@ -150,9 +148,9 @@ struct TranspositionTable {
           // Mark this entry as "fresh".
           it->rootCounter = this->rootCounter;
         }
-        #if PARALLEL
-        spinLocks[idx % kTranspositionTableFactor].unlock();
-        #endif
+        if (IS_PARALLEL) {
+          spinLocks[idx % kTranspositionTableFactor].unlock();
+        }
         return;
       } else if (
         // We add a penalty to entries with a different root so that we slowly remove stale entries
@@ -164,37 +162,50 @@ struct TranspositionTable {
         ||
         (cr.depthRemaining == it->depthRemaining && cr.priority > it->priority)) {
         *it = cr;
-        #if PARALLEL
-        spinLocks[idx % kTranspositionTableFactor].unlock();
-        #endif
+        if (IS_PARALLEL) {
+          spinLocks[idx % kTranspositionTableFactor].unlock();
+        }
         return;
       }
-      #if PARALLEL
-      spinLocks[idx % kTranspositionTableFactor].unlock();
-      #endif
+      if (IS_PARALLEL) {
+        spinLocks[idx % kTranspositionTableFactor].unlock();
+      }
       idx = (idx + delta) % size;
     }
   }
   void clear() {
     std::fill_n((uint8_t *)data, sizeof(CacheResult) * size, 0);
   }
-  CacheResult find(uint64_t hash) const {
+  template<bool IS_PARALLEL>
+  CacheResult find(uint64_t hash) {
     size_t idx = hash % size;
     const size_t delta = (hash >> 32) % 16;
     for (size_t i = 0; i < kTranspositionTableMaxSteps; ++i) {
-      #if PARALLEL
-      spinLocks[idx % kTranspositionTableFactor].lock();
-      #endif
+      if (IS_PARALLEL) {
+        spinLocks[idx % kTranspositionTableFactor].lock();
+      }
       CacheResult *cr = &data[idx];
       if (cr->priority != 0 && cr->positionHash == hash) {
-        #if PARALLEL
-        spinLocks[idx % kTranspositionTableFactor].unlock();
-        #endif
+        if (IS_PARALLEL) {
+          spinLocks[idx % kTranspositionTableFactor].unlock();
+        }
         return *cr;
       }
-      #if PARALLEL
-      spinLocks[idx % kTranspositionTableFactor].unlock();
-      #endif
+      if (IS_PARALLEL) {
+        spinLocks[idx % kTranspositionTableFactor].unlock();
+      }
+      idx = (idx + delta) % size;
+    }
+    return kMissingCacheResult;
+  }
+  CacheResult unsafe_find(uint64_t hash) const {
+    size_t idx = hash % size;
+    const size_t delta = (hash >> 32) % 16;
+    for (size_t i = 0; i < kTranspositionTableMaxSteps; ++i) {
+      CacheResult *cr = &data[idx];
+      if (cr->priority != 0 && cr->positionHash == hash) {
+        return *cr;
+      }
       idx = (idx + delta) % size;
     }
     return kMissingCacheResult;
@@ -376,7 +387,7 @@ struct Thinker {
       moves.push_back(move);
       this->make_move(pos, move);
     }
-    CacheResult originalCacheResult = this->cache.find(pos->hash_);
+    CacheResult originalCacheResult = this->cache.unsafe_find(pos->hash_);
     CacheResult cr = originalCacheResult;
     if (isNullCacheResult(cr)) {
       this->undo(pos);
@@ -389,7 +400,7 @@ struct Thinker {
     while (!isNullCacheResult(cr) && cr.bestMove != kNullMove && moves.size() < 10) {
       moves.push_back(cr.bestMove);
       this->make_move(pos, cr.bestMove);
-      cr = cache.find(pos->hash_);
+      cr = cache.unsafe_find(pos->hash_);
     }
     for (size_t i = 0; i < moves.size(); ++i) {
       this->undo(pos);
@@ -478,13 +489,17 @@ struct Thinker {
     return r;
   }
 
-  #if PARALLEL
+  static constexpr unsigned kNumSearchManagerCounters = 32768;
+  static constexpr unsigned kNumSearchManagerLocks = 32;
   struct SearchManager {
-    uint8_t counters[32768];
-    SpinLock locks[32];
+    uint8_t counters[kNumSearchManagerCounters];
+    SpinLock locks[kNumSearchManagerLocks];
+    SearchManager() {
+      std::fill_n(counters, kNumSearchManagerCounters, 0);
+    }
     bool should_start_searching(uint64_t hash) {
-      size_t idx = hash % 32768;
-      SpinLock& lock = locks[hash % 32];
+      size_t idx = hash % kNumSearchManagerCounters;
+      SpinLock& lock = locks[hash % kNumSearchManagerLocks];
       lock.lock();
       bool r = counters[idx] == 0;
       if (r) {
@@ -494,29 +509,20 @@ struct Thinker {
       return r;
     }
     void start_searching(uint64_t hash) {
-      size_t idx = hash % 32768;
-      SpinLock& lock = locks[hash % 32];
+      size_t idx = hash % kNumSearchManagerCounters;
+      SpinLock& lock = locks[hash % kNumSearchManagerLocks];
       lock.lock();
       counters[idx] += 1;
       lock.unlock();
     }
     void finished_searching(uint64_t hash) {
-      size_t idx = hash % 32768;
-      SpinLock& lock = locks[hash % 32];
+      size_t idx = hash % kNumSearchManagerCounters;
+      SpinLock& lock = locks[hash % kNumSearchManagerLocks];
       lock.lock();
       counters[idx] -= 1;
       lock.unlock();
     }
   };
-  #else
-  struct SearchManager {
-    bool should_start_searching(uint64_t hash) {
-      return true;
-    }
-    void start_searching(uint64_t hash) {}
-    void finished_searching(uint64_t hash) {}
-  };
-  #endif
 
   void reset_stuff() {
     this->leafCounter = 0;
@@ -526,7 +532,7 @@ struct Thinker {
     std::fill_n(historyHeuristicTable[Color::BLACK][0], 64 * 64, 0);
   }
 
-  template<Color TURN, SearchType SEARCH_TYPE>
+  template<Color TURN, SearchType SEARCH_TYPE, bool IS_PARALLEL>
   static SearchResult<TURN> search(
     Thinker *thinker,
     Position* pos,
@@ -570,7 +576,7 @@ struct Thinker {
       return SearchResult<TURN>(Evaluation(0), kNullMove);
     }
 
-    CacheResult cr = thinker->cache.find(pos->hash_);
+    CacheResult cr = thinker->cache.find<IS_PARALLEL>(pos->hash_);
     // Short-circuiting due to a cached result.
     // (+0.0254 ± 0.0148) after 256 games at 50,000 nodes/move
     if (!isNullCacheResult(cr) && cr.depthRemaining >= depthRemaining) {
@@ -599,7 +605,7 @@ struct Thinker {
         nodeType,
         distFromPV
       );
-      thinker->cache.insert(cr);
+      thinker->cache.insert<IS_PARALLEL>(cr);
       return r;
     }
 
@@ -721,16 +727,18 @@ struct Thinker {
           continue;
         }
 
-        if (isDeferred == 0) {
-          if (extMove == moves) {
+        if (IS_PARALLEL) {
+          if (depthRemaining > 3 && isDeferred == 0) {
+            if (extMove == moves) {
+              thinker->_manager.start_searching(pos->hash_);
+            } else if (!thinker->_manager.should_start_searching(pos->hash_)) {
+              *(deferredMovesEnd++) = *extMove;
+              undo<TURN>(pos);
+              continue;
+            }
+          } else {
             thinker->_manager.start_searching(pos->hash_);
-          } else if (!thinker->_manager.should_start_searching(pos->hash_)) {
-            *(deferredMovesEnd++) = *extMove;
-            undo<TURN>(pos);
-            continue;
           }
-        } else {
-          thinker->_manager.start_searching(pos->hash_);
         }
 
         ++numValidMoves;
@@ -739,15 +747,17 @@ struct Thinker {
         // (+0.0269 ± 0.0072) after 1024 games at 50,000 nodes/move
         SearchResult<TURN> a(0, kNullMove);
         if (extMove == moves) {
-          a = flip(Thinker::search<opposingColor, SearchTypeNormal>(thinker, pos, depthRemaining - 1, plyFromRoot + 1, -beta, -alpha, recommendationsForChildren, distFromPV + (extMove != moves), threadID));
+          a = flip(Thinker::search<opposingColor, SearchTypeNormal, IS_PARALLEL>(thinker, pos, depthRemaining - 1, plyFromRoot + 1, -beta, -alpha, recommendationsForChildren, distFromPV + (extMove != moves), threadID));
         } else {
-          a = flip(Thinker::search<opposingColor, SearchTypeNullWindow>(thinker, pos, depthRemaining - 1, plyFromRoot + 1, -alpha - 1, -alpha, recommendationsForChildren, distFromPV + (extMove != moves), threadID));
+          a = flip(Thinker::search<opposingColor, SearchTypeNullWindow, IS_PARALLEL>(thinker, pos, depthRemaining - 1, plyFromRoot + 1, -alpha - 1, -alpha, recommendationsForChildren, distFromPV + (extMove != moves), threadID));
           if (a.score > alpha && a.score < beta) {
-            a = flip(Thinker::search<opposingColor, SearchTypeNormal>(thinker, pos, depthRemaining - 1, plyFromRoot + 1, -beta, -alpha, recommendationsForChildren, distFromPV + (extMove != moves), threadID));
+            a = flip(Thinker::search<opposingColor, SearchTypeNormal, IS_PARALLEL>(thinker, pos, depthRemaining - 1, plyFromRoot + 1, -beta, -alpha, recommendationsForChildren, distFromPV + (extMove != moves), threadID));
           }
         }
 
-        thinker->_manager.finished_searching(pos->hash_);
+        if (IS_PARALLEL) {
+          thinker->_manager.finished_searching(pos->hash_);
+        }
         undo<TURN>(pos);
 
         // We don't bother to break here, since all of our children will automatically return a low-cost,
@@ -788,9 +798,9 @@ struct Thinker {
           }
         }
       }
-      #if !PARALLEL
+      if (!IS_PARALLEL) {
         break;
-      #endif
+      }
     }
 
     if (SEARCH_TYPE == SearchTypeRoot) {
@@ -825,7 +835,7 @@ struct Thinker {
         nodeType,
         distFromPV
       );
-      thinker->cache.insert(cr);
+      thinker->cache.insert<IS_PARALLEL>(cr);
     }
 
 
@@ -852,7 +862,7 @@ struct Thinker {
     //  200: +0.1599 ± 0.0084
     //  150: +0.1152 ± 0.0090
 
-    CacheResult cr = thinker->cache.find(pos->hash_);
+    CacheResult cr = thinker->cache.find<false>(pos->hash_);
 
     #if COMPLEX_SEARCH
     if (!isNullCacheResult(cr)) {
@@ -865,19 +875,35 @@ struct Thinker {
     }
     #endif
 
-    std::thread t1(
-      Thinker::search<TURN, SearchTypeRoot>,
-      thinker,
-      &copy,
-      depth,
-      0,
-      kMinEval,
-      kMaxEval,
-      RecommendedMoves(),
-      0,
-      0
-    );
-    t1.join();
+    if (thinker->multiPV <= 1) {
+      std::thread t1(
+        Thinker::search<TURN, SearchTypeRoot, false>,
+        thinker,
+        &copy,
+        depth,
+        0,
+        kMinEval,
+        kMaxEval,
+        RecommendedMoves(),
+        0,
+        0
+      );
+      t1.join();
+    } else {
+      std::thread t1(
+        Thinker::search<TURN, SearchTypeRoot, true>,
+        thinker,
+        &copy,
+        depth,
+        0,
+        kMinEval,
+        kMaxEval,
+        RecommendedMoves(),
+        0,
+        0
+      );
+      t1.join();
+    }
   }
 
   // TODO: making threads work with multiPV seems really nontrivial.
@@ -916,7 +942,7 @@ struct Thinker {
       Thinker::_search_with_aspiration_window<Color::BLACK>(this, pos, depth);
     }
 
-    CacheResult cr = this->cache.find(pos->hash_);
+    CacheResult cr = this->cache.find<false>(pos->hash_);
     if (isNullCacheResult(cr)) {
       throw std::runtime_error("Null result from search");
     }
