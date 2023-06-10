@@ -435,7 +435,7 @@ struct Thinker {
 
   // TODO: qsearch can leave you in check
   template<Color TURN>
-  static SearchResult<TURN> qsearch(Thinker *thinker, Position *pos, int32_t depth, Evaluation alpha, Evaluation beta) {
+  static SearchResult<TURN> qsearch(Thinker *thinker, Evaluator *evaluator, Position *pos, int32_t depth, Evaluation alpha, Evaluation beta) {
     ++thinker->nodeCounter;
 
     if (std::popcount(pos->pieceBitboards_[coloredPiece<TURN, Piece::KING>()]) == 0) {
@@ -464,10 +464,19 @@ struct Thinker {
 
     // If we can stand pat for a beta cutoff, or if we have no moves, return.
     Threats<TURN> threats(*pos);
-    SearchResult<TURN> r(thinker->evaluator.score<TURN>(*pos, threats), kNullMove);
+    SearchResult<TURN> r(evaluator->score<TURN>(*pos, threats), kNullMove);
     if (moves == end || r.score >= beta) {
       return r;
     }
+
+    // info depth 8 multipv 0 score cp 164 nodes 2629635 nps 3349853 time  785 pv g1f3 g8f6 d2d4 d7d5 b1c3 b8c6 c1f4 c8f5
+    // info depth 9 multipv 0 score cp 73 nodes 19448426 nps 3338785 time 5825 pv e2e4 e7e5 g1f3 b8c6 b1c3 g8f6
+    // bestmove e2e4 ponder e7e5
+    // info depth 8 multipv 0 score cp 164 nodes 2215797 nps 2193858 time 1010 pv d2d4 d7d5 b1c3 b8c6 g1f3 g8f6 c1f4 c8f5
+    // info depth 9 multipv 0 score cp 83 nodes 14812146 nps 2310787 time 6410 pv e2e4 e7e5 g1f3 b8c6 b1c3 g8f6
+    // bestmove e2e4 ponder e7e5
+
+
 
     if (inCheck) {
       // Cannot stand pat if you're in check.
@@ -494,7 +503,7 @@ struct Thinker {
 
       make_move<TURN>(pos, move->move);
 
-      SearchResult<TURN> child = flip(Thinker::qsearch<opposingColor>(thinker, pos, depth + 1, -beta, -alpha));
+      SearchResult<TURN> child = flip(Thinker::qsearch<opposingColor>(thinker, evaluator, pos, depth + 1, -beta, -alpha));
       child.score -= (child.score > -kLongestForcedMate);
       child.score += (child.score < kLongestForcedMate);
 
@@ -560,6 +569,7 @@ struct Thinker {
   template<Color TURN, SearchType SEARCH_TYPE, bool IS_PARALLEL>
   static SearchResult<TURN> search(
     Thinker *thinker,
+    Evaluator *evaluator,
     Position* pos,
     const Depth depthRemaining,
     const Depth plyFromRoot,
@@ -581,7 +591,9 @@ struct Thinker {
     // if r.score >= alpha
     //   we have just found a way to do better
 
-    ++thinker->nodeCounter;
+    if (threadID == 0) {
+      ++thinker->nodeCounter;
+    }
 
     constexpr Color opposingColor = opposite_color<TURN>();
     constexpr ColoredPiece moverKing = coloredPiece<TURN, Piece::KING>();
@@ -611,10 +623,13 @@ struct Thinker {
     }
 
     if (depthRemaining <= 0) {
-      ++thinker->leafCounter;
+      if (threadID == 0) {
+        ++thinker->leafCounter;
+      }
       // Quiescence Search
       // (+0.4453 ± 0.0072) after 256 games at 50,000 nodes/move
-      SearchResult<TURN> r = Thinker::qsearch<TURN>(thinker, pos, 0, alpha, beta);
+      SearchResult<TURN> r = Thinker::qsearch<TURN>(thinker, evaluator, pos, 0, alpha, beta);
+      // SearchResult<TURN> r(evaluator->score<TURN>(*pos), kNullMove);
 
       NodeType nodeType = NodeTypePV;
       if (r.score >= beta) {
@@ -772,11 +787,11 @@ struct Thinker {
         // (+0.0269 ± 0.0072) after 1024 games at 50,000 nodes/move
         SearchResult<TURN> a(0, kNullMove);
         if (extMove == moves) {
-          a = flip(Thinker::search<opposingColor, SearchTypeNormal, IS_PARALLEL>(thinker, pos, depthRemaining - 1, plyFromRoot + 1, -beta, -alpha, recommendationsForChildren, distFromPV + (extMove != moves), threadID));
+          a = flip(Thinker::search<opposingColor, SearchTypeNormal, IS_PARALLEL>(thinker, evaluator, pos, depthRemaining - 1, plyFromRoot + 1, -beta, -alpha, recommendationsForChildren, distFromPV + (extMove != moves), threadID));
         } else {
-          a = flip(Thinker::search<opposingColor, SearchTypeNullWindow, IS_PARALLEL>(thinker, pos, depthRemaining - 1, plyFromRoot + 1, -alpha - 1, -alpha, recommendationsForChildren, distFromPV + (extMove != moves), threadID));
+          a = flip(Thinker::search<opposingColor, SearchTypeNullWindow, IS_PARALLEL>(thinker, evaluator, pos, depthRemaining - 1, plyFromRoot + 1, -alpha - 1, -alpha, recommendationsForChildren, distFromPV + (extMove != moves), threadID));
           if (a.score > alpha && a.score < beta) {
-            a = flip(Thinker::search<opposingColor, SearchTypeNormal, IS_PARALLEL>(thinker, pos, depthRemaining - 1, plyFromRoot + 1, -beta, -alpha, recommendationsForChildren, distFromPV + (extMove != moves), threadID));
+            a = flip(Thinker::search<opposingColor, SearchTypeNormal, IS_PARALLEL>(thinker, evaluator, pos, depthRemaining - 1, plyFromRoot + 1, -beta, -alpha, recommendationsForChildren, distFromPV + (extMove != moves), threadID));
           }
         }
 
@@ -905,6 +920,7 @@ struct Thinker {
       std::thread t1(
         Thinker::search<TURN, SearchTypeRoot, false>,
         thinker,
+        &thinker->evaluator,
         &copy,
         depth,
         0,
@@ -916,45 +932,37 @@ struct Thinker {
       );
       t1.join();
     } else {
-      Position copy1(*pos);
-      copy1.set_piece_maps(thinker->pieceMaps);
-
-      Position copy2(*pos);
-      copy2.set_piece_maps(thinker->pieceMaps);
-
-      std::thread t1(
-        Thinker::search<TURN, SearchTypeRoot, true>,
-        thinker,
-        &copy1,
-        depth,
-        0,
-        kMinEval,
-        kMaxEval,
-        RecommendedMoves(),
-        0,
-        0
-      );
-      std::thread t2(
-        Thinker::search<TURN, SearchTypeRoot, true>,
-        thinker,
-        &copy2,
-        depth,
-        0,
-        kMinEval,
-        kMaxEval,
-        RecommendedMoves(),
-        0,
-        1
-      );
-      t1.join();
-      t2.join();
+      std::vector<Position> positions;
+      std::vector<std::thread> threads;
+      std::vector<Evaluator> evaluator;
+      for (size_t i = 0; i < thinker->numThreads; ++i) {
+        positions.push_back(Position(*pos));
+        positions[i].set_piece_maps(thinker->pieceMaps);
+        evaluator.push_back(Evaluator(thinker->evaluator));
+        threads.push_back(std::thread(
+          Thinker::search<TURN, SearchTypeRoot, true>,
+          thinker,
+          &evaluator[i],
+          &positions[i],
+          depth,
+          0,
+          kMinEval,
+          kMaxEval,
+          RecommendedMoves(),
+          0,
+          0
+        ));
+      }
+      for (size_t i = 0; i < thinker->numThreads; ++i) {
+        threads[i].join();
+      }
     }
   }
 
   // TODO: making threads work with multiPV seems really nontrivial.
 
   SearchResult<Color::WHITE> search(Position* pos, size_t depthLimit, std::function<void(Position *, SearchResult<Color::WHITE>, size_t, double)> callback) {
-    time_t tstart = clock();
+    std::chrono::time_point<std::chrono::steady_clock> tstart = std::chrono::steady_clock::now();
 
     this->nodeCounter = 0;
     this->leafCounter = 0;
@@ -965,7 +973,8 @@ struct Thinker {
     bool stoppedEarly = false;
     for (depth = 1; depth <= depthLimit; ++depth) {
       this->_search(pos, Depth(depth));
-      const double secs = double(clock() - tstart)/CLOCKS_PER_SEC;
+      std::chrono::duration<double> delta = std::chrono::steady_clock::now() - tstart;
+      const double secs = std::max(0.001, std::chrono::duration_cast<std::chrono::milliseconds>(delta).count() / 1000.0);
       if (this->stopThinkingCondition->should_stop_thinking(*this)) {
         stoppedEarly = true;
         break;
@@ -1025,7 +1034,8 @@ struct Thinker {
         for (size_t i = 0; i < std::min(children.size(), this->multiPV); ++i) {
           this->variations.push_back(children[i]);
         }
-        const double secs = double(clock() - tstart)/CLOCKS_PER_SEC;
+        std::chrono::duration<double> delta = std::chrono::steady_clock::now() - tstart;
+        const double secs = std::max(0.001, std::chrono::duration_cast<std::chrono::milliseconds>(delta).count() / 1000.0);
         callback(pos, this->variations[0], depth, secs);
       }
     }
@@ -1078,15 +1088,15 @@ struct StopThinkingTimeCondition : public StopThinkingCondition {
   void start_thinking(const Thinker& thinker) {
     startTime = this->current_time();
   }
-  uint64_t current_time() const {
-    return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+  std::chrono::time_point<std::chrono::steady_clock> current_time() const {
+    return std::chrono::steady_clock::now();
   }
   bool should_stop_thinking(const Thinker& thinker) {
-    uint64_t dt = this->current_time() - startTime;
-    return dt > milliseconds;
+    std::chrono::duration<double> delta = this->current_time() - startTime;
+    return std::chrono::duration_cast<std::chrono::milliseconds>(delta).count() > milliseconds;
   }
  private:
-  uint64_t startTime;
+  std::chrono::high_resolution_clock::time_point startTime;
   uint64_t milliseconds;
 };
 
