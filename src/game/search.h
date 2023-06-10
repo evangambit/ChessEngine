@@ -63,6 +63,7 @@ enum SearchType {
   SearchTypeRoot,
   SearchTypeNormal,
   SearchTypeNullWindow,
+  SearchTypeExtended,
 };
 
 const int32_t kMaxCachePriority = 16383;
@@ -629,7 +630,25 @@ struct Thinker {
       // Quiescence Search
       // (+0.4453 ± 0.0072) after 256 games at 50,000 nodes/move
       SearchResult<TURN> r = Thinker::qsearch<TURN>(thinker, evaluator, pos, 0, alpha, beta);
-      // SearchResult<TURN> r(evaluator->score<TURN>(*pos), kNullMove);
+
+      // Extensions
+      // (0.0413 ± 0.0081) after 1024 games at 50,000 nodes/move
+      if (SEARCH_TYPE == SearchTypeNormal) {
+        if (r.score >= alpha && r.score <= beta) {
+          r = search<TURN, SearchTypeExtended, IS_PARALLEL>(
+            thinker,           // thinker
+            evaluator,         // evaluator
+            pos,               // pos
+            2,                 // depthRemaining
+            plyFromRoot,       // plyFromRoot
+            alpha,             // alpha
+            beta,              // beta
+            recommendedMoves,  // recommendedMoves
+            distFromPV,        // distFromPV
+            threadID           // threadID
+          );
+        }
+      }
 
       NodeType nodeType = NodeTypePV;
       if (r.score >= beta) {
@@ -786,12 +805,13 @@ struct Thinker {
         // Null-window search.
         // (+0.0269 ± 0.0072) after 1024 games at 50,000 nodes/move
         SearchResult<TURN> a(0, kNullMove);
+        constexpr SearchType kChildSearchType = SEARCH_TYPE == SearchTypeRoot ? SearchTypeNormal : SEARCH_TYPE;
         if (extMove == moves) {
-          a = flip(Thinker::search<opposingColor, SearchTypeNormal, IS_PARALLEL>(thinker, evaluator, pos, depthRemaining - 1, plyFromRoot + 1, -beta, -alpha, recommendationsForChildren, distFromPV + (extMove != moves), threadID));
+          a = flip(Thinker::search<opposingColor, kChildSearchType, IS_PARALLEL>(thinker, evaluator, pos, depthRemaining - 1, plyFromRoot + 1, -beta, -alpha, recommendationsForChildren, distFromPV + (extMove != moves), threadID));
         } else {
           a = flip(Thinker::search<opposingColor, SearchTypeNullWindow, IS_PARALLEL>(thinker, evaluator, pos, depthRemaining - 1, plyFromRoot + 1, -alpha - 1, -alpha, recommendationsForChildren, distFromPV + (extMove != moves), threadID));
           if (a.score > alpha && a.score < beta) {
-            a = flip(Thinker::search<opposingColor, SearchTypeNormal, IS_PARALLEL>(thinker, evaluator, pos, depthRemaining - 1, plyFromRoot + 1, -beta, -alpha, recommendationsForChildren, distFromPV + (extMove != moves), threadID));
+            a = flip(Thinker::search<opposingColor, kChildSearchType, IS_PARALLEL>(thinker, evaluator, pos, depthRemaining - 1, plyFromRoot + 1, -beta, -alpha, recommendationsForChildren, distFromPV + (extMove != moves), threadID));
           }
         }
 
