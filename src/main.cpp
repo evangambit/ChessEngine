@@ -494,8 +494,8 @@ int main(int argc, char *argv[]) {
   }
 
   gThinker.stopThinkingCondition = std::make_unique<OrStopCondition>(
-    new StopThinkingNodeCountCondition(nodeLimit),
-    new StopThinkingTimeCondition(timeLimitMs)
+    std::make_unique<StopThinkingNodeCountCondition>(nodeLimit),
+    std::make_unique<StopThinkingTimeCondition>(timeLimitMs)
   );
 
   if (mode != "evaluate" && mode != "analyze" && mode != "play" && mode != "printvec" && mode != "printvec-cpu" && mode != "print-weights") {
