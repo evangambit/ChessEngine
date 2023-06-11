@@ -22,8 +22,12 @@ constexpr Evaluation kMinEval = -32767;
 constexpr Evaluation kMaxEval = 32767;
 
 constexpr Evaluation kMissingKing = kMinEval + 1;
-constexpr Evaluation kCheckmate = kMinEval + 2;
-constexpr Evaluation kLongestForcedMate = kMinEval + 100;
+
+constexpr Evaluation kCheckmate = kMissingKing + 1;
+constexpr Evaluation kLongestForcedMate = kCheckmate + 100;
+
+constexpr Evaluation kQCheckmate = kLongestForcedMate + 1;
+constexpr Evaluation kQLongestForcedMate = kQCheckmate + 100;
 
 // Current record is 218 but we're conservative
 // https://chess.stackexchange.com/questions/4490/maximum-possible-movement-in-a-turn

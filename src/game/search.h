@@ -436,7 +436,7 @@ struct Thinker {
 
   // TODO: qsearch can leave you in check
   template<Color TURN>
-  static SearchResult<TURN> qsearch(Thinker *thinker, Evaluator *evaluator, Position *pos, int32_t depth, Evaluation alpha, Evaluation beta) {
+  static SearchResult<TURN> qsearch(Thinker *thinker, Evaluator *evaluator, Position *pos, int32_t depth, int32_t plyFromRoot, Evaluation alpha, Evaluation beta) {
     ++thinker->nodeCounter;
 
     if (std::popcount(pos->pieceBitboards_[coloredPiece<TURN, Piece::KING>()]) == 0) {
@@ -458,9 +458,7 @@ struct Thinker {
     }
 
     if (moves == end && inCheck) {
-      // Mates in qsearch are given "kLongestForcedMate" since they are worse
-      // than mates found via normal search.
-      return SearchResult<TURN>(kLongestForcedMate, kNullMove);
+      return SearchResult<TURN>(kQCheckmate + plyFromRoot, kNullMove);
     }
 
     // If we can stand pat for a beta cutoff, or if we have no moves, return.
@@ -492,7 +490,7 @@ struct Thinker {
 
     if (inCheck) {
       // Cannot stand pat if you're in check.
-      r.score = kLongestForcedMate;
+      r.score = kQLongestForcedMate;
     }
 
     for (ExtMove *move = moves; move < end; ++move) {
@@ -509,15 +507,15 @@ struct Thinker {
     });
 
     for (ExtMove *move = moves; move < end; ++move) {
-      if (move->score < 0 && r.score > kLongestForcedMate) {
+      if (move->score < 0 && r.score > kQLongestForcedMate) {
         break;
       }
 
       make_move<TURN>(pos, move->move);
 
-      SearchResult<TURN> child = flip(Thinker::qsearch<opposingColor>(thinker, evaluator, pos, depth + 1, -beta, -alpha));
-      child.score -= (child.score > -kLongestForcedMate);
-      child.score += (child.score < kLongestForcedMate);
+      SearchResult<TURN> child = flip(Thinker::qsearch<opposingColor>(thinker, evaluator, pos, depth + 1, plyFromRoot + 1, -beta, -alpha));
+      child.score -= (child.score > -kQLongestForcedMate);
+      child.score += (child.score <  kQLongestForcedMate);
 
       undo<TURN>(pos);
 
@@ -640,7 +638,7 @@ struct Thinker {
       }
       // Quiescence Search
       // (+0.4453 ± 0.0072) after 256 games at 50,000 nodes/move
-      SearchResult<TURN> r = Thinker::qsearch<TURN>(thinker, evaluator, pos, 0, alpha, beta);
+      SearchResult<TURN> r = Thinker::qsearch<TURN>(thinker, evaluator, pos, 0, plyFromRoot, alpha, beta);
 
       // Extensions
       // (0.0413 ± 0.0081) after 1024 games at 50,000 nodes/move
@@ -716,7 +714,7 @@ struct Thinker {
       }
     }
     if (isNullCacheResult(cr) && depthRemaining <= kFutilityPruningDepthLimit) {
-      SearchResult<TURN> r = Thinker::qsearch<TURN>(thinker, pos, 0, alpha, beta);
+      SearchResult<TURN> r = Thinker::qsearch<TURN>(thinker, pos, 0, 0, alpha, beta);
       const int32_t delta = futilityThreshold * depthRemaining;
       if (r.score >= beta + delta || r.score <= alpha - delta) {
         return r;
