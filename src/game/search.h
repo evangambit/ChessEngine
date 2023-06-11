@@ -467,6 +467,7 @@ struct Thinker {
     {
       // Add a penalty to standing pat if we have hanging pieces.
       // (+0.0444 ± 0.0077) after 1024 games at 50,000 nodes/move
+      // Note: k=200 is worse.
       Threats<opposingColor> enemyThreats(*pos);
       constexpr int k = 50;
       r.score -= value_or_zero((enemyThreats.badForTheir[Piece::PAWN] & pos->pieceBitboards_[coloredPiece<TURN>(Piece::PAWN)]) > 0, k);
