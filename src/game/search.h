@@ -466,6 +466,17 @@ struct Thinker {
     // If we can stand pat for a beta cutoff, or if we have no moves, return.
     Threats<TURN> threats(*pos);
     SearchResult<TURN> r(evaluator->score<TURN>(*pos, threats), kNullMove);
+    {
+      // Add a penalty to standing pat if we have hanging pieces.
+      // (+0.0444 ± 0.0077) after 1024 games at 50,000 nodes/move
+      Threats<opposingColor> enemyThreats(*pos);
+      constexpr int k = 50;
+      r.score -= value_or_zero((enemyThreats.badForTheir[Piece::PAWN] & pos->pieceBitboards_[coloredPiece<TURN>(Piece::PAWN)]) > 0, k);
+      r.score -= value_or_zero((enemyThreats.badForTheir[Piece::KNIGHT] & pos->pieceBitboards_[coloredPiece<TURN>(Piece::KNIGHT)]) > 0, k);
+      r.score -= value_or_zero((enemyThreats.badForTheir[Piece::BISHOP] & pos->pieceBitboards_[coloredPiece<TURN>(Piece::BISHOP)]) > 0, k);
+      r.score -= value_or_zero((enemyThreats.badForTheir[Piece::ROOK] & pos->pieceBitboards_[coloredPiece<TURN>(Piece::ROOK)]) > 0, k);
+      r.score -= value_or_zero((enemyThreats.badForTheir[Piece::QUEEN] & pos->pieceBitboards_[coloredPiece<TURN>(Piece::QUEEN)]) > 0, k);
+    }
     if (moves == end || r.score >= beta) {
       return r;
     }
