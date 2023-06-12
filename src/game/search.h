@@ -435,13 +435,14 @@ struct Thinker {
   }
 
   struct Thread {
-    Thread(const Position& pos) : pos(pos) {}
+    Thread(const Position& pos, const Evaluator& e) : pos(pos), evaluator(e) {}
     Position pos;
+    Evaluator evaluator;
   };
 
   // TODO: qsearch can leave you in check
   template<Color TURN>
-  static SearchResult<TURN> qsearch(Thinker *thinker, Thread *thread, Evaluator *evaluator, int32_t depth, int32_t plyFromRoot, Evaluation alpha, Evaluation beta) {
+  static SearchResult<TURN> qsearch(Thinker *thinker, Thread *thread, int32_t depth, int32_t plyFromRoot, Evaluation alpha, Evaluation beta) {
     ++thinker->nodeCounter;
 
     if (std::popcount(thread->pos.pieceBitboards_[coloredPiece<TURN, Piece::KING>()]) == 0) {
@@ -468,7 +469,7 @@ struct Thinker {
 
     // If we can stand pat for a beta cutoff, or if we have no moves, return.
     Threats<TURN> threats(thread->pos);
-    SearchResult<TURN> r(evaluator->score<TURN>(thread->pos, threats), kNullMove);
+    SearchResult<TURN> r(thread->evaluator.score<TURN>(thread->pos, threats), kNullMove);
     {
       // Add a penalty to standing pat if we have hanging pieces.
       // (+0.0444 ± 0.0077) after 1024 games at 50,000 nodes/move
@@ -519,7 +520,7 @@ struct Thinker {
 
       make_move<TURN>(&thread->pos, move->move);
 
-      SearchResult<TURN> child = flip(Thinker::qsearch<opposingColor>(thinker, thread, evaluator, depth + 1, plyFromRoot + 1, -beta, -alpha));
+      SearchResult<TURN> child = flip(Thinker::qsearch<opposingColor>(thinker, thread, depth + 1, plyFromRoot + 1, -beta, -alpha));
       child.score -= (child.score > -kQLongestForcedMate);
       child.score += (child.score <  kQLongestForcedMate);
 
@@ -586,7 +587,6 @@ struct Thinker {
   static SearchResult<TURN> search(
     Thinker *thinker,
     Thread *thread,
-    Evaluator *evaluator,
     const Depth depthRemaining,
     const Depth plyFromRoot,
     Evaluation alpha, const Evaluation beta,
@@ -625,7 +625,7 @@ struct Thinker {
     if (thread->pos.is_draw(plyFromRoot)) {
       return SearchResult<TURN>(Evaluation(0), kNullMove);
     }
-    if (SEARCH_TYPE != SearchTypeRoot && thinker->evaluator.is_material_draw(thread->pos)) {
+    if (SEARCH_TYPE != SearchTypeRoot && thread->evaluator.is_material_draw(thread->pos)) {
       return SearchResult<TURN>(Evaluation(0), kNullMove);
     }
 
@@ -644,7 +644,7 @@ struct Thinker {
       }
       // Quiescence Search
       // (+0.4453 ± 0.0072) after 256 games at 50,000 nodes/move
-      SearchResult<TURN> r = Thinker::qsearch<TURN>(thinker, thread, evaluator, 0, plyFromRoot, alpha, beta);
+      SearchResult<TURN> r = Thinker::qsearch<TURN>(thinker, thread, 0, plyFromRoot, alpha, beta);
 
       // Extensions
       // (0.0413 ± 0.0081) after 1024 games at 50,000 nodes/move
@@ -653,7 +653,6 @@ struct Thinker {
           r = search<TURN, SearchTypeExtended, IS_PARALLEL>(
             thinker,           // thinker
             thread,
-            evaluator,         // evaluator
             2,                 // depthRemaining
             plyFromRoot,       // plyFromRoot
             alpha,             // alpha
@@ -822,11 +821,11 @@ struct Thinker {
         SearchResult<TURN> a(0, kNullMove);
         constexpr SearchType kChildSearchType = SEARCH_TYPE == SearchTypeRoot ? SearchTypeNormal : SEARCH_TYPE;
         if (extMove == moves) {
-          a = flip(Thinker::search<opposingColor, kChildSearchType, IS_PARALLEL>(thinker, thread, evaluator, depthRemaining - 1, plyFromRoot + 1, -beta, -alpha, recommendationsForChildren, distFromPV + (extMove != moves), threadID));
+          a = flip(Thinker::search<opposingColor, kChildSearchType, IS_PARALLEL>(thinker, thread, depthRemaining - 1, plyFromRoot + 1, -beta, -alpha, recommendationsForChildren, distFromPV + (extMove != moves), threadID));
         } else {
-          a = flip(Thinker::search<opposingColor, SearchTypeNullWindow, IS_PARALLEL>(thinker, thread, evaluator, depthRemaining - 1, plyFromRoot + 1, -alpha - 1, -alpha, recommendationsForChildren, distFromPV + (extMove != moves), threadID));
+          a = flip(Thinker::search<opposingColor, SearchTypeNullWindow, IS_PARALLEL>(thinker, thread, depthRemaining - 1, plyFromRoot + 1, -alpha - 1, -alpha, recommendationsForChildren, distFromPV + (extMove != moves), threadID));
           if (a.score > alpha && a.score < beta) {
-            a = flip(Thinker::search<opposingColor, kChildSearchType, IS_PARALLEL>(thinker, thread, evaluator, depthRemaining - 1, plyFromRoot + 1, -beta, -alpha, recommendationsForChildren, distFromPV + (extMove != moves), threadID));
+            a = flip(Thinker::search<opposingColor, kChildSearchType, IS_PARALLEL>(thinker, thread, depthRemaining - 1, plyFromRoot + 1, -beta, -alpha, recommendationsForChildren, distFromPV + (extMove != moves), threadID));
           }
         }
 
@@ -952,12 +951,11 @@ struct Thinker {
     #endif
 
     if (thinker->numThreads <= 1) {
-      Thread threadObj(copy);
+      Thread threadObj(copy, thinker->evaluator);
       std::thread t1(
         Thinker::search<TURN, SearchTypeRoot, false>,
         thinker,
         &threadObj,
-        &thinker->evaluator,
         depth,
         0,
         kMinEval,
@@ -971,16 +969,13 @@ struct Thinker {
       std::vector<Thread> threadObjs;
       std::vector<Position> positions;
       std::vector<std::thread> threads;
-      std::vector<Evaluator> evaluator;
       for (size_t i = 0; i < thinker->numThreads; ++i) {
-        threadObjs.push_back(Thread(copy));
+        threadObjs.push_back(Thread(copy, thinker->evaluator));
         positions[i].set_piece_maps(thinker->pieceMaps);
-        evaluator.push_back(Evaluator(thinker->evaluator));
         threads.push_back(std::thread(
           Thinker::search<TURN, SearchTypeRoot, true>,
           thinker,
           &threadObjs[i],
-          &evaluator[i],
           depth,
           0,
           kMinEval,
