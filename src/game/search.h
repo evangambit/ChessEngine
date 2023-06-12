@@ -435,15 +435,17 @@ struct Thinker {
   }
 
   struct Thread {
-    Thread(const Position& pos, const Evaluator& e) : pos(pos), evaluator(e) {}
+    Thread(const Position& pos, const Evaluator& e)
+    : pos(pos), evaluator(e), nodeCounter(0), leafCounter(0) {}
     Position pos;
     Evaluator evaluator;
+    uint64_t nodeCounter, leafCounter;
   };
 
   // TODO: qsearch can leave you in check
   template<Color TURN>
   static SearchResult<TURN> qsearch(Thinker *thinker, Thread *thread, int32_t depth, int32_t plyFromRoot, Evaluation alpha, Evaluation beta) {
-    ++thinker->nodeCounter;
+    ++thread->nodeCounter;
 
     if (std::popcount(thread->pos.pieceBitboards_[coloredPiece<TURN, Piece::KING>()]) == 0) {
       return SearchResult<TURN>(kMissingKing, kNullMove);
@@ -608,7 +610,7 @@ struct Thinker {
     //   we have just found a way to do better
 
     if (threadID == 0) {
-      ++thinker->nodeCounter;
+      ++thread->nodeCounter;
     }
 
     constexpr Color opposingColor = opposite_color<TURN>();
@@ -642,6 +644,7 @@ struct Thinker {
       if (threadID == 0) {
         ++thinker->leafCounter;
       }
+      ++thread->leafCounter;
       // Quiescence Search
       // (+0.4453 ± 0.0072) after 256 games at 50,000 nodes/move
       SearchResult<TURN> r = Thinker::qsearch<TURN>(thinker, thread, 0, plyFromRoot, alpha, beta);
@@ -920,42 +923,21 @@ struct Thinker {
   std::vector<SearchResult<Color::WHITE>> variations;
 
   template<Color TURN>
-  static void _search_with_aspiration_window(Thinker* thinker, Position* pos, Depth depth) {
-    Position copy(*pos);
-    // It's important to call this at the beginning of a search, since if we're sharing Position (e.g. selfplay.cpp) we
-    // need to recompute piece map scores using our own weights.
-    copy.set_piece_maps(thinker->pieceMaps);
-    // TODO: the aspiration window technique used here should probably be implemented for internal nodes too.
-    // Even just using this at the root node gives my engine a +0.25 (n=100) score against itself.
-    // Table of historical experiments (program with window vs program without)
-    // The following metrics come from 1024 self-play games with/without aspiration search,
-    // with 10,000 nodes/move.
-    //  400: +0.1738 ± 0.0081
-    //  350: +0.1868 ± 0.0078
-    //  300: +0.1826 ± 0.0082
-    //  250: +0.1626 ± 0.0084
-    //  200: +0.1599 ± 0.0084
-    //  150: +0.1152 ± 0.0090
+  static void _search_with_aspiration_window(Thinker* thinker, std::vector<Thread> threadObjs, Depth depth) {
+    // TODO: aspiration window
 
-    CacheResult cr = thinker->cache.find<false>(pos->hash_);
+    CacheResult cr = thinker->cache.find<false>(threadObjs[0].pos.hash_);
 
-    #if COMPLEX_SEARCH
-    if (!isNullCacheResult(cr)) {
-      constexpr int32_t kBuffer = 350;
-      SearchResult<TURN> r = Thinker::search<TURN, SearchTypeRoot>(thinker, &copy, depth, 0, cr.eval - kBuffer, cr.eval + kBuffer, RecommendedMoves(), 0, 0);
-      if (r.score > std::min<int32_t>(kMaxEval, cr.eval - kBuffer)
-        && r.score < std::max<int32_t>(kMinEval, cr.eval + kBuffer)) {
-        return;
-      }
+    if (threadObjs.size() == 0) {
+      throw std::runtime_error("");
     }
-    #endif
 
-    if (thinker->numThreads <= 1) {
-      Thread threadObj(copy, thinker->evaluator);
-      std::thread t1(
-        Thinker::search<TURN, SearchTypeRoot, false>,
+    std::vector<std::thread> threads;
+    for (size_t i = 0; i < threadObjs.size(); ++i) {
+      threads.push_back(std::thread(
+        Thinker::search<TURN, SearchTypeRoot, true>,
         thinker,
-        &threadObj,
+        &threadObjs[i],
         depth,
         0,
         kMinEval,
@@ -963,31 +945,10 @@ struct Thinker {
         RecommendedMoves(),
         0,
         0
-      );
-      t1.join();
-    } else {
-      std::vector<Thread> threadObjs;
-      std::vector<Position> positions;
-      std::vector<std::thread> threads;
-      for (size_t i = 0; i < thinker->numThreads; ++i) {
-        threadObjs.push_back(Thread(copy, thinker->evaluator));
-        positions[i].set_piece_maps(thinker->pieceMaps);
-        threads.push_back(std::thread(
-          Thinker::search<TURN, SearchTypeRoot, true>,
-          thinker,
-          &threadObjs[i],
-          depth,
-          0,
-          kMinEval,
-          kMaxEval,
-          RecommendedMoves(),
-          0,
-          0
-        ));
-      }
-      for (size_t i = 0; i < thinker->numThreads; ++i) {
-        threads[i].join();
-      }
+      ));
+    }
+    for (size_t i = 0; i < threads.size(); ++i) {
+      threads[i].join();
     }
   }
 
@@ -1079,10 +1040,21 @@ struct Thinker {
     return this->search(pos, depthLimit, [](Position *position, SearchResult<Color::WHITE> results, size_t depth, double secs) {});
   }
   SearchResult<Color::WHITE> _search(Position* pos, Depth depth) {
+
+    Position copy(*pos);
+    // It's important to call this at the beginning of a search, since if we're sharing Position (e.g. selfplay.cpp) we
+    // need to recompute piece map scores using our own weights.
+    copy.set_piece_maps(this->pieceMaps);
+
+    std::vector<Thread> threadObjs;
+    for (size_t i = 0; i < std::max<size_t>(1, this->multiPV); ++i) {
+      threadObjs.push_back(Thread(*pos, this->evaluator));
+    }
+
     if (pos->turn_ == Color::WHITE) {
-      Thinker::_search_with_aspiration_window<Color::WHITE>(this, pos, depth);
+      Thinker::_search_with_aspiration_window<Color::WHITE>(this, threadObjs, depth);
     } else {
-      Thinker::_search_with_aspiration_window<Color::BLACK>(this, pos, depth);
+      Thinker::_search_with_aspiration_window<Color::BLACK>(this, threadObjs, depth);
     }
 
     CacheResult cr = this->cache.find<false>(pos->hash_);
