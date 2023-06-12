@@ -64,6 +64,8 @@ struct UciEngine {
       this->thinker.load_weights_from_file(parts[1]);
     } else if (parts[0] == "play") {
       handle_play(parts);
+    } else if (parts[0] == "printoptions") {
+      handle_print_options(parts);
     } else if (parts[0] == "move") {
       handle_move(parts);
     } else if (parts[0] == "eval") {
@@ -346,6 +348,12 @@ struct UciEngine {
     }
   }
 
+  void handle_print_options(const std::vector<std::string>& command) {
+    std::cout << "MultiPV: " << this->thinker.multiPV << " variations" << std::endl;
+    std::cout << "Threads: " << this->thinker.numThreads << " threads" << std::endl;
+    std::cout << "Hash: " << this->thinker.cache.kb_size() << " kilobytes" << std::endl;
+  }
+
   void handle_set_option(const std::vector<std::string>& command) {
     if (command.size() != 5 && command.size() != 3) {
       invalid(join(command, " "));
@@ -402,6 +410,18 @@ struct UciEngine {
         }
         this->thinker.numThreads = numThreads;
         return;
+      } else if (name == "Hash") {
+        int cacheSize;
+        try {
+          cacheSize = stoi(value);
+          if (cacheSize <= 0) {
+            throw std::invalid_argument("Value must be at least 1");
+          }
+        } catch (std::invalid_argument&) {
+          std::cout << "Value must be an integer" << std::endl;
+          return;
+        }
+        this->thinker.set_cache_size(cacheSize);
       }
       std::cout << "Unrecognized option " << repr(name) << std::endl;
     }

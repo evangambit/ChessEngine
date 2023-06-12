@@ -151,6 +151,10 @@ struct TranspositionTable {
     this->clear();
   }
 
+  uint64_t kb_size() const {
+    return size * sizeof(CacheResult) / 1024;
+  }
+
   SpinLock spinLocks[kTranspositionTableFactor];
 
   template<bool IS_PARALLEL>
@@ -344,11 +348,11 @@ SearchResult<Color::WHITE> to_white(SearchResult<Color::BLACK> r) {
 
 struct Thread {
   Thread(uint64_t id, const Position& pos, const Evaluator& e)
-  : id(id), pos(pos), evaluator(e), nodeCounter(0), leafCounter(0) {}
+  : id(id), pos(pos), evaluator(e), nodeCounter(0) {}
   uint64_t id;
   Position pos;
   Evaluator evaluator;
-  uint64_t nodeCounter, leafCounter;
+  uint64_t nodeCounter;
 };
 
 // TODO: qsearch can leave you in check
@@ -488,7 +492,6 @@ struct SearchManager {
 
 
 struct Thinker {
-  size_t leafCounter;
   size_t nodeCounter;
   Evaluator evaluator;
   TranspositionTable cache;
@@ -500,6 +503,8 @@ struct Thinker {
   uint64_t lastRootHash;
 
   std::vector<SearchResult<Color::WHITE>> variations;
+
+  SpinLock nodeCounterLock;
 
   Thinker() : cache(10000), stopThinkingCondition(new NeverStopThinkingCondition()), lastRootHash(0) {
     reset_stuff();
@@ -580,7 +585,6 @@ struct Thinker {
   }
 
   void reset_stuff() {
-    this->leafCounter = 0;
     this->nodeCounter = 0;
     cache.clear();
     std::fill_n(historyHeuristicTable[Color::WHITE][0], 64 * 64, 0);
@@ -615,9 +619,6 @@ static SearchResult<TURN> search(
   //   we have just found a way to do better
 
   ++thread->nodeCounter;
-  if (thread->id == 0) {
-    ++thinker->nodeCounter;
-  }
 
   constexpr Color opposingColor = opposite_color<TURN>();
   constexpr ColoredPiece moverKing = coloredPiece<TURN, Piece::KING>();
@@ -647,10 +648,6 @@ static SearchResult<TURN> search(
   }
 
   if (depthRemaining <= 0) {
-    if (thread->id == 0) {
-      ++thinker->leafCounter;
-    }
-    ++thread->leafCounter;
     // Quiescence Search
     // (+0.4453 ± 0.0072) after 256 games at 50,000 nodes/move
     SearchResult<TURN> r = qsearch<TURN>(thinker, thread, 0, plyFromRoot, alpha, beta);
@@ -885,6 +882,17 @@ static SearchResult<TURN> search(
     }
   }
 
+  if (depthRemaining >= 4) {
+    if (IS_PARALLEL) {
+      thinker->nodeCounterLock.lock();
+      thinker->nodeCounter += thread->nodeCounter;
+      thinker->nodeCounterLock.unlock();
+      thread->nodeCounter = 0;
+    } else {
+      thinker->nodeCounter += thread->nodeCounter;
+    }
+  }
+
   if (SEARCH_TYPE == SearchTypeRoot) {
     // We rely on the stability of std::sort to guarantee that children that
     // are PV nodes are sorted above children that are not PV nodes (but have
@@ -980,7 +988,6 @@ static SearchResult<Color::WHITE> search(Thinker *thinker, Position* pos, size_t
   copy.set_piece_maps(thinker->pieceMaps);
 
   thinker->nodeCounter = 0;
-  thinker->leafCounter = 0;
   thinker->stopThinkingCondition->start_thinking(*thinker);
   thinker->cache.starting_search(pos->hash_);
 
