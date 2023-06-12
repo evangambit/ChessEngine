@@ -923,21 +923,21 @@ struct Thinker {
   std::vector<SearchResult<Color::WHITE>> variations;
 
   template<Color TURN>
-  static void _search_with_aspiration_window(Thinker* thinker, std::vector<Thread> threadObjs, Depth depth) {
+  static void _search_with_aspiration_window(Thinker* thinker, std::vector<Thread> *threadObjs, Depth depth) {
     // TODO: aspiration window
 
-    CacheResult cr = thinker->cache.find<false>(threadObjs[0].pos.hash_);
+    CacheResult cr = thinker->cache.find<false>((*threadObjs)[0].pos.hash_);
 
-    if (threadObjs.size() == 0) {
+    if (threadObjs->size() == 0) {
       throw std::runtime_error("");
     }
 
     std::vector<std::thread> threads;
-    for (size_t i = 0; i < threadObjs.size(); ++i) {
+    for (size_t i = 0; i < threadObjs->size(); ++i) {
       threads.push_back(std::thread(
         Thinker::search<TURN, SearchTypeRoot, true>,
         thinker,
-        &threadObjs[i],
+        &((*threadObjs)[i]),
         depth,
         0,
         kMinEval,
@@ -957,15 +957,25 @@ struct Thinker {
   SearchResult<Color::WHITE> search(Position* pos, size_t depthLimit, std::function<void(Position *, SearchResult<Color::WHITE>, size_t, double)> callback) {
     std::chrono::time_point<std::chrono::steady_clock> tstart = std::chrono::steady_clock::now();
 
+    Position copy(*pos);
+    // It's important to call this at the beginning of a search, since if we're sharing Position (e.g. selfplay.cpp) we
+    // need to recompute piece map scores using our own weights.
+    copy.set_piece_maps(this->pieceMaps);
+
     this->nodeCounter = 0;
     this->leafCounter = 0;
     stopThinkingCondition->start_thinking(*this);
     this->cache.starting_search(pos->hash_);
 
+    std::vector<Thread> threadObjs;
+    for (size_t i = 0; i < std::max<size_t>(1, this->numThreads); ++i) {
+      threadObjs.push_back(Thread(*pos, this->evaluator));
+    }
+
     size_t depth;
     bool stoppedEarly = false;
     for (depth = 1; depth <= depthLimit; ++depth) {
-      this->_search(pos, Depth(depth));
+      this->_search_fixed_depth(pos, &threadObjs, Depth(depth));
       std::chrono::duration<double> delta = std::chrono::steady_clock::now() - tstart;
       const double secs = std::max(0.001, std::chrono::duration_cast<std::chrono::milliseconds>(delta).count() / 1000.0);
       if (this->stopThinkingCondition->should_stop_thinking(*this)) {
@@ -1039,17 +1049,7 @@ struct Thinker {
   SearchResult<Color::WHITE> search(Position *pos, size_t depthLimit) {
     return this->search(pos, depthLimit, [](Position *position, SearchResult<Color::WHITE> results, size_t depth, double secs) {});
   }
-  SearchResult<Color::WHITE> _search(Position* pos, Depth depth) {
-
-    Position copy(*pos);
-    // It's important to call this at the beginning of a search, since if we're sharing Position (e.g. selfplay.cpp) we
-    // need to recompute piece map scores using our own weights.
-    copy.set_piece_maps(this->pieceMaps);
-
-    std::vector<Thread> threadObjs;
-    for (size_t i = 0; i < std::max<size_t>(1, this->multiPV); ++i) {
-      threadObjs.push_back(Thread(*pos, this->evaluator));
-    }
+  SearchResult<Color::WHITE> _search_fixed_depth(Position* pos, std::vector<Thread> *threadObjs, Depth depth) {
 
     if (pos->turn_ == Color::WHITE) {
       Thinker::_search_with_aspiration_window<Color::WHITE>(this, threadObjs, depth);

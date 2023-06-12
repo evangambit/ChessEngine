@@ -333,7 +333,7 @@ struct UciEngine {
     for (size_t i = 0; i < std::min(multiPV, variations.size()); ++i) {
       std::pair<CacheResult, std::vector<Move>> variation = this->thinker.get_variation(position, variations[i].move);
       std::cout << "info depth " << depth;
-      std::cout << " multipv " << i;
+      std::cout << " multipv " << (i + 1);
       std::cout << " score cp " << variation.first.eval;
       std::cout << " nodes " << this->thinker.nodeCounter;
       std::cout << " nps " << uint64_t(double(this->thinker.nodeCounter) / secs);
@@ -372,6 +372,9 @@ struct UciEngine {
         int multiPV;
         try {
           multiPV = stoi(value);
+          if (multiPV <= 0) {
+            throw std::invalid_argument("Value must be at least 1");
+          }
         } catch (std::invalid_argument&) {
           std::cout << "Value must be an integer" << std::endl;
           return;
@@ -386,6 +389,9 @@ struct UciEngine {
         int numThreads;
         try {
           numThreads = stoi(value);
+          if (numThreads <= 0) {
+            throw std::invalid_argument("Value must be at least 1");
+          }
         } catch (std::invalid_argument&) {
           std::cout << "Value must be an integer" << std::endl;
           return;
