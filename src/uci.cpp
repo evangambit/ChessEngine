@@ -219,7 +219,7 @@ struct UciEngine {
     // TODO: get rid of this (selfplay2 sometimes crashes when we try to get rid of it now).
     this->thinker.reset_stuff();
 
-    SearchResult<Color::WHITE> result = this->thinker.search(&this->pos, depthLimit, [this](Position *position, SearchResult<Color::WHITE> results, size_t depth, double secs) {
+    SearchResult<Color::WHITE> result = search(&this->thinker, &this->pos, depthLimit, [this](Position *position, SearchResult<Color::WHITE> results, size_t depth, double secs) {
       this->_print_variations(position, depth, secs, this->thinker.multiPV);
     });
 
@@ -304,7 +304,7 @@ struct UciEngine {
       // TODO: get rid of this (selfplay2 sometimes crashes when we try to get rid of it now).
       this->thinker.reset_stuff();
 
-      SearchResult<Color::WHITE> result = this->thinker.search(&pos, depthLimit);
+      SearchResult<Color::WHITE> result = search(&this->thinker, &pos, depthLimit);
       if (result.move == kNullMove) {
         break;
       }
