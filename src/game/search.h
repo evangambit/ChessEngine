@@ -745,7 +745,7 @@ struct Thinker {
       }
     }
 
-    // const Move lastMove = pos->history_.size() > 0 ? pos->history_.back().move : kNullMove;
+    // const ExtMove lastMove = thread->pos.history_.size() > 0 ? thread->pos.history_.back() : kNullExtMove;
     // TODO: use lastMove (above) to sort better.
     for (ExtMove *move = moves; move < movesEnd; ++move) {
       move->score = 0;
@@ -758,8 +758,8 @@ struct Thinker {
       // (+0.0703 ± 0.0148) after 256 games at 50,000 nodes/move
       move->score += value_or_zero((move->move == lastFoundBestMove) && (depthRemaining >= 1), 5000);
 
-      // Bonus if siblings like a move, though seems statistically insignificant.
-      // (0.0010 ± 0.0059) after 1024 games at 50,000 nodes/move
+      // Bonus if siblings like a move.
+      // (+0.0144 ± 0.0074) after 1024 games at 50,000 nodes/move
       move->score += value_or_zero(move->move == recommendedMoves.moves[0], 50);
       move->score += value_or_zero(move->move == recommendedMoves.moves[1], 50);
 

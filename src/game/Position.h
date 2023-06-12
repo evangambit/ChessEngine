@@ -55,6 +55,7 @@ std::ostream& operator<<(std::ostream& stream, const Move move);
 std::ostream& operator<<(std::ostream& stream, const ExtMove move);
 
 const Move kNullMove = Move{Square(0), Square(0), 0, MoveType::NORMAL};
+const ExtMove kNullExtMove = ExtMove(Piece::NO_PIECE, kNullMove);
 
 struct PositionState {
   CastlingRights castlingRights;
