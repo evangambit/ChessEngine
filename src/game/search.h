@@ -974,7 +974,11 @@ struct Thinker {
     size_t depth;
     bool stoppedEarly = false;
     for (depth = 1; depth <= depthLimit; ++depth) {
-      this->_search_fixed_depth(pos, &threadObjs, Depth(depth));
+      if (pos->turn_ == Color::WHITE) {
+        this->_search_fixed_depth<Color::WHITE>(pos, &threadObjs, Depth(depth));
+      } else {
+        this->_search_fixed_depth<Color::BLACK>(pos, &threadObjs, Depth(depth));
+      }
       std::chrono::duration<double> delta = std::chrono::steady_clock::now() - tstart;
       const double secs = std::max(0.001, std::chrono::duration_cast<std::chrono::milliseconds>(delta).count() / 1000.0);
       if (this->stopThinkingCondition->should_stop_thinking(*this)) {
@@ -1048,23 +1052,21 @@ struct Thinker {
   SearchResult<Color::WHITE> search(Position *pos, size_t depthLimit) {
     return this->search(pos, depthLimit, [](Position *position, SearchResult<Color::WHITE> results, size_t depth, double secs) {});
   }
+
+  template<Color TURN>
   SearchResult<Color::WHITE> _search_fixed_depth(Position* pos, std::vector<Thread> *threadObjs, Depth depth) {
 
     if (pos->turn_ == Color::WHITE) {
-      Thinker::_search_with_aspiration_window<Color::WHITE>(this, threadObjs, depth);
+      Thinker::_search_with_aspiration_window<TURN>(this, threadObjs, depth);
     } else {
-      Thinker::_search_with_aspiration_window<Color::BLACK>(this, threadObjs, depth);
+      Thinker::_search_with_aspiration_window<TURN>(this, threadObjs, depth);
     }
 
     CacheResult cr = this->cache.find<false>(pos->hash_);
     if (isNullCacheResult(cr)) {
       throw std::runtime_error("Null result from search");
     }
-    if (pos->turn_ == Color::WHITE) {
-      return SearchResult<Color::WHITE>(cr.eval, cr.bestMove);
-    } else {
-      return flip(SearchResult<Color::BLACK>(cr.eval, cr.bestMove));
-    }
+    return to_white(SearchResult<TURN>(cr.eval, cr.bestMove));
   }
 
   SearchManager _manager;
