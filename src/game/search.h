@@ -55,8 +55,6 @@ enum NodeType {
   NodeTypeAll_UpperBound,
   NodeTypeCut_LowerBound,
   NodeTypePV,
-  NodeTypeQC,
-  NodeTypeQ,
 };
 
 enum SearchType {
@@ -78,10 +76,10 @@ struct CacheResult {  // 16 bytes
   unsigned priority : 14;      // 2 bytes; kMaxCachePriority if primary variation
   unsigned rootCounter : 3;
   inline Evaluation lowerbound() const {
-    return (nodeType == NodeTypeAll_UpperBound || nodeType == NodeTypeQ) ? kMinEval : eval;
+    return (nodeType == NodeTypeAll_UpperBound) ? kMinEval : eval;
   }
   inline Evaluation upperbound() const {
-    return (nodeType == NodeTypeCut_LowerBound || nodeType == NodeTypeQ) ? kMaxEval : eval;
+    return (nodeType == NodeTypeCut_LowerBound) ? kMaxEval : eval;
   }
 };
 
