@@ -434,12 +434,17 @@ struct Thinker {
     return std::make_pair(originalCacheResult, moves);
   }
 
+  struct Thread {
+    Thread(const Position& pos) : pos(pos) {}
+    Position pos;
+  };
+
   // TODO: qsearch can leave you in check
   template<Color TURN>
-  static SearchResult<TURN> qsearch(Thinker *thinker, Evaluator *evaluator, Position *pos, int32_t depth, int32_t plyFromRoot, Evaluation alpha, Evaluation beta) {
+  static SearchResult<TURN> qsearch(Thinker *thinker, Thread *thread, Evaluator *evaluator, int32_t depth, int32_t plyFromRoot, Evaluation alpha, Evaluation beta) {
     ++thinker->nodeCounter;
 
-    if (std::popcount(pos->pieceBitboards_[coloredPiece<TURN, Piece::KING>()]) == 0) {
+    if (std::popcount(thread->pos.pieceBitboards_[coloredPiece<TURN, Piece::KING>()]) == 0) {
       return SearchResult<TURN>(kMissingKing, kNullMove);
     }
 
@@ -447,14 +452,14 @@ struct Thinker {
 
     constexpr Color opposingColor = opposite_color<TURN>();
     constexpr ColoredPiece moverKing = coloredPiece<TURN, Piece::KING>();
-    const bool inCheck = can_enemy_attack<TURN>(*pos, lsb(pos->pieceBitboards_[moverKing]));
+    const bool inCheck = can_enemy_attack<TURN>(thread->pos, lsb(thread->pos.pieceBitboards_[moverKing]));
 
     ExtMove moves[kMaxNumMoves];
     ExtMove *end;
     if (lookAtChecksToo) {
-      end = compute_moves<TURN, MoveGenType::CHECKS_AND_CAPTURES>(*pos, moves);
+      end = compute_moves<TURN, MoveGenType::CHECKS_AND_CAPTURES>(thread->pos, moves);
     } else {
-      end = compute_moves<TURN, MoveGenType::CAPTURES>(*pos, moves);
+      end = compute_moves<TURN, MoveGenType::CAPTURES>(thread->pos, moves);
     }
 
     if (moves == end && inCheck) {
@@ -462,19 +467,19 @@ struct Thinker {
     }
 
     // If we can stand pat for a beta cutoff, or if we have no moves, return.
-    Threats<TURN> threats(*pos);
-    SearchResult<TURN> r(evaluator->score<TURN>(*pos, threats), kNullMove);
+    Threats<TURN> threats(thread->pos);
+    SearchResult<TURN> r(evaluator->score<TURN>(thread->pos, threats), kNullMove);
     {
       // Add a penalty to standing pat if we have hanging pieces.
       // (+0.0444 ± 0.0077) after 1024 games at 50,000 nodes/move
       // Note: k=200 is worse.
-      Threats<opposingColor> enemyThreats(*pos);
+      Threats<opposingColor> enemyThreats(thread->pos);
       constexpr int k = 50;
-      r.score -= value_or_zero((enemyThreats.badForTheir[Piece::PAWN] & pos->pieceBitboards_[coloredPiece<TURN>(Piece::PAWN)]) > 0, k);
-      r.score -= value_or_zero((enemyThreats.badForTheir[Piece::KNIGHT] & pos->pieceBitboards_[coloredPiece<TURN>(Piece::KNIGHT)]) > 0, k);
-      r.score -= value_or_zero((enemyThreats.badForTheir[Piece::BISHOP] & pos->pieceBitboards_[coloredPiece<TURN>(Piece::BISHOP)]) > 0, k);
-      r.score -= value_or_zero((enemyThreats.badForTheir[Piece::ROOK] & pos->pieceBitboards_[coloredPiece<TURN>(Piece::ROOK)]) > 0, k);
-      r.score -= value_or_zero((enemyThreats.badForTheir[Piece::QUEEN] & pos->pieceBitboards_[coloredPiece<TURN>(Piece::QUEEN)]) > 0, k);
+      r.score -= value_or_zero((enemyThreats.badForTheir[Piece::PAWN] & thread->pos.pieceBitboards_[coloredPiece<TURN>(Piece::PAWN)]) > 0, k);
+      r.score -= value_or_zero((enemyThreats.badForTheir[Piece::KNIGHT] & thread->pos.pieceBitboards_[coloredPiece<TURN>(Piece::KNIGHT)]) > 0, k);
+      r.score -= value_or_zero((enemyThreats.badForTheir[Piece::BISHOP] & thread->pos.pieceBitboards_[coloredPiece<TURN>(Piece::BISHOP)]) > 0, k);
+      r.score -= value_or_zero((enemyThreats.badForTheir[Piece::ROOK] & thread->pos.pieceBitboards_[coloredPiece<TURN>(Piece::ROOK)]) > 0, k);
+      r.score -= value_or_zero((enemyThreats.badForTheir[Piece::QUEEN] & thread->pos.pieceBitboards_[coloredPiece<TURN>(Piece::QUEEN)]) > 0, k);
     }
     if (moves == end || r.score >= beta) {
       return r;
@@ -512,13 +517,13 @@ struct Thinker {
         break;
       }
 
-      make_move<TURN>(pos, move->move);
+      make_move<TURN>(&thread->pos, move->move);
 
-      SearchResult<TURN> child = flip(Thinker::qsearch<opposingColor>(thinker, evaluator, pos, depth + 1, plyFromRoot + 1, -beta, -alpha));
+      SearchResult<TURN> child = flip(Thinker::qsearch<opposingColor>(thinker, thread, evaluator, depth + 1, plyFromRoot + 1, -beta, -alpha));
       child.score -= (child.score > -kQLongestForcedMate);
       child.score += (child.score <  kQLongestForcedMate);
 
-      undo<TURN>(pos);
+      undo<TURN>(&thread->pos);
 
       if (child.score > r.score) {
         r.score = child.score;
@@ -580,8 +585,8 @@ struct Thinker {
   template<Color TURN, SearchType SEARCH_TYPE, bool IS_PARALLEL>
   static SearchResult<TURN> search(
     Thinker *thinker,
+    Thread *thread,
     Evaluator *evaluator,
-    Position* pos,
     const Depth depthRemaining,
     const Depth plyFromRoot,
     Evaluation alpha, const Evaluation beta,
@@ -613,18 +618,18 @@ struct Thinker {
       return SearchResult<TURN>(0, kNullMove, false);
     }
 
-    if (std::popcount(pos->pieceBitboards_[coloredPiece<TURN, Piece::KING>()]) == 0) {
+    if (std::popcount(thread->pos.pieceBitboards_[coloredPiece<TURN, Piece::KING>()]) == 0) {
       return SearchResult<TURN>(kMissingKing, kNullMove);
     }
 
-    if (pos->is_draw(plyFromRoot)) {
+    if (thread->pos.is_draw(plyFromRoot)) {
       return SearchResult<TURN>(Evaluation(0), kNullMove);
     }
-    if (SEARCH_TYPE != SearchTypeRoot && thinker->evaluator.is_material_draw(*pos)) {
+    if (SEARCH_TYPE != SearchTypeRoot && thinker->evaluator.is_material_draw(thread->pos)) {
       return SearchResult<TURN>(Evaluation(0), kNullMove);
     }
 
-    CacheResult cr = thinker->cache.find<IS_PARALLEL>(pos->hash_);
+    CacheResult cr = thinker->cache.find<IS_PARALLEL>(thread->pos.hash_);
     // Short-circuiting due to a cached result.
     // (+0.0254 ± 0.0148) after 256 games at 50,000 nodes/move
     if (!isNullCacheResult(cr) && cr.depthRemaining >= depthRemaining) {
@@ -639,7 +644,7 @@ struct Thinker {
       }
       // Quiescence Search
       // (+0.4453 ± 0.0072) after 256 games at 50,000 nodes/move
-      SearchResult<TURN> r = Thinker::qsearch<TURN>(thinker, evaluator, pos, 0, plyFromRoot, alpha, beta);
+      SearchResult<TURN> r = Thinker::qsearch<TURN>(thinker, thread, evaluator, 0, plyFromRoot, alpha, beta);
 
       // Extensions
       // (0.0413 ± 0.0081) after 1024 games at 50,000 nodes/move
@@ -647,8 +652,8 @@ struct Thinker {
         if (r.score >= alpha && r.score <= beta) {
           r = search<TURN, SearchTypeExtended, IS_PARALLEL>(
             thinker,           // thinker
+            thread,
             evaluator,         // evaluator
-            pos,               // pos
             2,                 // depthRemaining
             plyFromRoot,       // plyFromRoot
             alpha,             // alpha
@@ -667,7 +672,7 @@ struct Thinker {
         nodeType = NodeTypeAll_UpperBound;
       }
       const CacheResult cr = thinker->cache.create_cache_result(
-        pos->hash_,
+        thread->pos.hash_,
         depthRemaining,
         r.score,
         r.move,
@@ -723,12 +728,12 @@ struct Thinker {
     }
     #endif
 
-    const bool inCheck = can_enemy_attack<TURN>(*pos, lsb(pos->pieceBitboards_[moverKing]));
+    const bool inCheck = can_enemy_attack<TURN>(thread->pos, lsb(thread->pos.pieceBitboards_[moverKing]));
 
     Move lastFoundBestMove = (isNullCacheResult(cr) ? kNullMove : cr.bestMove);
 
     ExtMove moves[kMaxNumMoves];
-    ExtMove *movesEnd = compute_moves<TURN, MoveGenType::ALL_MOVES>(*pos, moves);
+    ExtMove *movesEnd = compute_moves<TURN, MoveGenType::ALL_MOVES>(thread->pos, moves);
 
     if (movesEnd - moves == 0) {
       if (inCheck) {
@@ -788,25 +793,25 @@ struct Thinker {
       ExtMove *end = (isDeferred ? deferredMovesEnd : movesEnd);
       for (ExtMove *extMove = start; extMove < end; ++extMove) {
 
-        make_move<TURN>(pos, extMove->move);
+        make_move<TURN>(&thread->pos, extMove->move);
 
         // Don't move into check.
-        if (can_enemy_attack<TURN>(*pos, lsb(pos->pieceBitboards_[moverKing]))) {
-          undo<TURN>(pos);
+        if (can_enemy_attack<TURN>(thread->pos, lsb(thread->pos.pieceBitboards_[moverKing]))) {
+          undo<TURN>(&thread->pos);
           continue;
         }
 
         if (IS_PARALLEL) {
           if (depthRemaining > 3 && isDeferred == 0) {
             if (extMove == moves) {
-              thinker->_manager.start_searching(pos->hash_);
-            } else if (!thinker->_manager.should_start_searching(pos->hash_)) {
+              thinker->_manager.start_searching(thread->pos.hash_);
+            } else if (!thinker->_manager.should_start_searching(thread->pos.hash_)) {
               *(deferredMovesEnd++) = *extMove;
-              undo<TURN>(pos);
+              undo<TURN>(&thread->pos);
               continue;
             }
           } else {
-            thinker->_manager.start_searching(pos->hash_);
+            thinker->_manager.start_searching(thread->pos.hash_);
           }
         }
 
@@ -817,18 +822,18 @@ struct Thinker {
         SearchResult<TURN> a(0, kNullMove);
         constexpr SearchType kChildSearchType = SEARCH_TYPE == SearchTypeRoot ? SearchTypeNormal : SEARCH_TYPE;
         if (extMove == moves) {
-          a = flip(Thinker::search<opposingColor, kChildSearchType, IS_PARALLEL>(thinker, evaluator, pos, depthRemaining - 1, plyFromRoot + 1, -beta, -alpha, recommendationsForChildren, distFromPV + (extMove != moves), threadID));
+          a = flip(Thinker::search<opposingColor, kChildSearchType, IS_PARALLEL>(thinker, thread, evaluator, depthRemaining - 1, plyFromRoot + 1, -beta, -alpha, recommendationsForChildren, distFromPV + (extMove != moves), threadID));
         } else {
-          a = flip(Thinker::search<opposingColor, SearchTypeNullWindow, IS_PARALLEL>(thinker, evaluator, pos, depthRemaining - 1, plyFromRoot + 1, -alpha - 1, -alpha, recommendationsForChildren, distFromPV + (extMove != moves), threadID));
+          a = flip(Thinker::search<opposingColor, SearchTypeNullWindow, IS_PARALLEL>(thinker, thread, evaluator, depthRemaining - 1, plyFromRoot + 1, -alpha - 1, -alpha, recommendationsForChildren, distFromPV + (extMove != moves), threadID));
           if (a.score > alpha && a.score < beta) {
-            a = flip(Thinker::search<opposingColor, kChildSearchType, IS_PARALLEL>(thinker, evaluator, pos, depthRemaining - 1, plyFromRoot + 1, -beta, -alpha, recommendationsForChildren, distFromPV + (extMove != moves), threadID));
+            a = flip(Thinker::search<opposingColor, kChildSearchType, IS_PARALLEL>(thinker, thread, evaluator, depthRemaining - 1, plyFromRoot + 1, -beta, -alpha, recommendationsForChildren, distFromPV + (extMove != moves), threadID));
           }
         }
 
         if (IS_PARALLEL) {
-          thinker->_manager.finished_searching(pos->hash_);
+          thinker->_manager.finished_searching(thread->pos.hash_);
         }
-        undo<TURN>(pos);
+        undo<TURN>(&thread->pos);
 
         // We don't bother to break here, since all of our children will automatically return a low-cost,
         // good-faith estimate (unless our depth is 4, in which case thinker will be true for the depth above
@@ -899,7 +904,7 @@ struct Thinker {
         nodeType = NodeTypeAll_UpperBound;
       }
       const CacheResult cr = thinker->cache.create_cache_result(
-        pos->hash_,
+        thread->pos.hash_,
         depthRemaining,
         r.score,
         r.move,
@@ -947,11 +952,12 @@ struct Thinker {
     #endif
 
     if (thinker->numThreads <= 1) {
+      Thread threadObj(copy);
       std::thread t1(
         Thinker::search<TURN, SearchTypeRoot, false>,
         thinker,
+        &threadObj,
         &thinker->evaluator,
-        &copy,
         depth,
         0,
         kMinEval,
@@ -962,18 +968,19 @@ struct Thinker {
       );
       t1.join();
     } else {
+      std::vector<Thread> threadObjs;
       std::vector<Position> positions;
       std::vector<std::thread> threads;
       std::vector<Evaluator> evaluator;
       for (size_t i = 0; i < thinker->numThreads; ++i) {
-        positions.push_back(Position(*pos));
+        threadObjs.push_back(Thread(copy));
         positions[i].set_piece_maps(thinker->pieceMaps);
         evaluator.push_back(Evaluator(thinker->evaluator));
         threads.push_back(std::thread(
           Thinker::search<TURN, SearchTypeRoot, true>,
           thinker,
+          &threadObjs[i],
           &evaluator[i],
-          &positions[i],
           depth,
           0,
           kMinEval,
