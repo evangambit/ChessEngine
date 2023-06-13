@@ -882,17 +882,6 @@ static SearchResult<TURN> search(
     }
   }
 
-  if (depthRemaining >= 4) {
-    if (IS_PARALLEL) {
-      thinker->nodeCounterLock.lock();
-      thinker->nodeCounter += thread->nodeCounter;
-      thinker->nodeCounterLock.unlock();
-      thread->nodeCounter = 0;
-    } else {
-      thinker->nodeCounter += thread->nodeCounter;
-    }
-  }
-
   if (SEARCH_TYPE == SearchTypeRoot) {
     // We rely on the stability of std::sort to guarantee that children that
     // are PV nodes are sorted above children that are not PV nodes (but have
@@ -909,7 +898,18 @@ static SearchResult<TURN> search(
     r.move = kNullMove;
   }
 
-  r.analysisComplete = !thinker->stopThinkingCondition->should_stop_thinking(*thinker);
+  if (depthRemaining >= 4) {
+    if (IS_PARALLEL) {
+      thinker->nodeCounterLock.lock();
+      thinker->nodeCounter += thread->nodeCounter;
+      thinker->nodeCounterLock.unlock();
+      thread->nodeCounter = 0;
+    } else {
+      thinker->nodeCounter += thread->nodeCounter;
+    }
+    // TODO: lock this
+    r.analysisComplete = !thinker->stopThinkingCondition->should_stop_thinking(*thinker);
+  }
 
   if (r.analysisComplete) {
     NodeType nodeType = NodeTypePV;
