@@ -90,7 +90,7 @@ struct SpinLock {
 };
 
 // Transposition table is guaranteed to be a multiple of this.
-constexpr int64_t kTranspositionTableFactor = 256;
+constexpr int64_t kTranspositionTableFactor = 1024;
 const CacheResult kMissingCacheResult = CacheResult{
   0,
   -99,  // depth is -99 so this is always a useless result
@@ -456,7 +456,7 @@ static SearchResult<TURN> qsearch(Thinker *thinker, Thread *thread, int32_t dept
 }
 
 static constexpr unsigned kNumSearchManagerCounters = 32768;
-static constexpr unsigned kNumSearchManagerLocks = 32;
+static constexpr unsigned kNumSearchManagerLocks = 256;
 struct SearchManager {
   uint8_t counters[kNumSearchManagerCounters];
   SpinLock locks[kNumSearchManagerLocks];
@@ -806,7 +806,7 @@ static SearchResult<TURN> search(
       }
 
       if (IS_PARALLEL) {
-        if (depthRemaining > 3 && isDeferred == 0) {
+        if (depthRemaining > 1 && isDeferred == 0) {
           if (extMove == moves) {
             thinker->_manager.start_searching(thread->pos.hash_);
           } else if (!thinker->_manager.should_start_searching(thread->pos.hash_)) {
