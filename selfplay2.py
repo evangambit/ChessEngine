@@ -12,6 +12,23 @@ from tqdm import tqdm
 from scipy import stats
 import numpy as np
 
+"""
+50,000 nodes/move
+
+stockfish nodes, score, n
+  500,  0.2178 ± 0.0155, 256
+ 1000, -0.0488 ± 0.0164, 256
+ 1500, -0.1973 ± 0.0154, 256
+ 2000, -0.2715 ± 0.0145, 256
+ 2500, -0.3291 ± 0.0126, 256
+ 3000, -0.3652 ± 0.0119, 256
+ 3500, -0.3721 ± 0.0102, 256
+ 4000, -0.3994 ± 0.0097, 256
+ 4500, -0.3955 ± 0.0096, 256
+ 9000, -0.4336 ± 0.0079, 256
+18000, -0.4609 ± 0.0062, 256
+"""
+
 class UciPlayer:
   def __init__(self, path, weights):
     self.name = (path, weights)
@@ -38,7 +55,7 @@ class UciPlayer:
     if 'stockfish' not in self.name[0]:
       self.command(f"go nodes {nodes}")
     else:
-      self.command(f"go depth 3")
+      self.command(f"go nodes {self.name[1]}")
     lines = []
     while True:
       line = self._p.stdout.readline().decode()
@@ -58,7 +75,7 @@ class UciPlayer:
     assert 'bestmove ' in lines[-1] # e.g. "bestmove h6h7 ponder a2a3"
     return lines[-1].split(' ')[1]
 
-def play(fen0, player1, player2):
+def play(fen0, player1, player2, nodes = 10_000):
   player1.command("setoption name clear-tt")
   player2.command("setoption name clear-tt")
   isPlayer1White = ' w ' in fen0
@@ -67,7 +84,7 @@ def play(fen0, player1, player2):
   mover, waiter = player1, player2
   while not board.can_claim_draw() and not board.is_stalemate() and not board.is_checkmate():
     try:
-      move = mover.best_move(fen0, 50_000, moves)
+      move = mover.best_move(fen0, nodes, moves)
     except Exception as e:
       print('a')
       print('isPlayer1', mover == player1)
@@ -134,7 +151,7 @@ if __name__ == '__main__':
   t0 = time.time()
   numWorkers = 16
   batches = [[]]
-  for i in range(0, 128, numWorkers):
+  for i in range(0, 256, numWorkers):
     batches.append(create_fen_batch(numWorkers))
 
   R = []
