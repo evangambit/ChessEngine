@@ -239,12 +239,7 @@ cat =  np.concatenate
 X, Y, F, S = [], [], [], []
 if kIncludePiecemaps:
   A = []
-for fn in [
-  "x.pair.any_d8_q1_n1.npy",
-  "x.pair.any_d8_q1_n2.npy",
-  "x.pair.any_d8_q1_n3.npy",
-  "x.pair.any_d8_q1_n5.npy",
-  ]:
+for fn in [fn for fn in os.listdir('traindata') if fn.startswith('x.pair.any_d8_q1')]:
   if len(X) == 0:
     X = np.load(os.path.join('traindata', fn))
     Y = np.load(os.path.join('traindata', fn.replace('x', 'y')))
