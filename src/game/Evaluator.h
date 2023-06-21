@@ -591,16 +591,34 @@ struct Evaluator {
       // for a pawn.
       const Bitboard usHanging = threats.theirTargets & ~threats.ourTargets & pos.colorBitboards_[US];
       const Bitboard themHanging = threats.ourTargets & ~threats.theirTargets & pos.colorBitboards_[THEM];
-      features[EF::OUR_HANGING_PAWNS] = std::popcount(ourPawns & usHanging);
-      features[EF::THEIR_HANGING_PAWNS] = std::popcount(theirPawns & themHanging);
-      features[EF::OUR_HANGING_KNIGHTS] = std::popcount(ourKnights & usHanging);
-      features[EF::THEIR_HANGING_KNIGHTS] = std::popcount(theirKnights & themHanging);
-      features[EF::OUR_HANGING_BISHOPS] = std::popcount(ourBishops & usHanging);
-      features[EF::THEIR_HANGING_BISHOPS] = std::popcount(theirBishops & themHanging);
-      features[EF::OUR_HANGING_ROOKS] = std::popcount(ourRooks & usHanging);
-      features[EF::THEIR_HANGING_ROOKS] = std::popcount(theirRooks & themHanging);
-      features[EF::OUR_HANGING_QUEENS] = std::popcount(ourQueens & usHanging);
+
+      bool anyOfUsHanging = false;
+      bool anyOfThemHanging = false;
+
       features[EF::THEIR_HANGING_QUEENS] = std::popcount(theirQueens & themHanging);
+      features[EF::OUR_HANGING_QUEENS] = std::popcount(ourQueens & usHanging);
+      anyOfThemHanging |= features[EF::THEIR_HANGING_QUEENS];
+      anyOfUsHanging |= features[EF::OUR_HANGING_QUEENS];
+
+      features[EF::THEIR_HANGING_ROOKS] = std::popcount(theirRooks & themHanging) && !anyOfThemHanging;
+      features[EF::OUR_HANGING_ROOKS] = std::popcount(ourRooks & usHanging) && !anyOfUsHanging;
+      anyOfThemHanging |= features[EF::THEIR_HANGING_ROOKS];
+      anyOfUsHanging |= features[EF::OUR_HANGING_ROOKS];
+
+      features[EF::THEIR_HANGING_BISHOPS] = std::popcount(theirBishops & themHanging) && !anyOfThemHanging;
+      features[EF::OUR_HANGING_BISHOPS] = std::popcount(ourBishops & usHanging) && !anyOfUsHanging;
+      anyOfThemHanging |= features[EF::THEIR_HANGING_BISHOPS];
+      anyOfUsHanging |= features[EF::OUR_HANGING_BISHOPS];
+
+      features[EF::THEIR_HANGING_KNIGHTS] = std::popcount(theirKnights & themHanging) && !anyOfThemHanging;
+      features[EF::OUR_HANGING_KNIGHTS] = std::popcount(ourKnights & usHanging) && !anyOfUsHanging;
+      anyOfThemHanging |= features[EF::THEIR_HANGING_KNIGHTS];
+      anyOfUsHanging |= features[EF::OUR_HANGING_KNIGHTS];
+
+      features[EF::THEIR_HANGING_PAWNS] = std::popcount(theirPawns & themHanging) && !anyOfThemHanging;
+      features[EF::OUR_HANGING_PAWNS] = std::popcount(ourPawns & usHanging) && !anyOfUsHanging;
+
+      
 
       const int wx = ourKingSq % 8;
       const int wy = ourKingSq / 8;
