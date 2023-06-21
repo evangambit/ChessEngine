@@ -238,8 +238,11 @@ void handler(int sig) {
 template<Color TURN>
 void print_feature_vec(Position *pos, const std::string& originalFen, bool humanReadable, bool makeQuiet, int depth) {
   if (makeQuiet) {
-    SearchResult<Color::WHITE> r = to_white(Thinker::qsearch<TURN>(&gThinker, pos, depth, kMinEval, kMaxEval));
-    if (r.score > kMaxEval - 100 || r.score < kMinEval + 100) {
+    // SearchResult<TURN> qsearch(Thinker *thinker, Thread *thread, int32_t depth, int32_t plyFromRoot, Evaluation alpha, Evaluation beta)
+    Thread thread(0, *pos, gThinker.evaluator);
+    SearchResult<Color::WHITE> r = to_white(qsearch<TURN>(&gThinker, &thread, 0, 0, kMinEval, kMaxEval));
+    if (r.score > -kLongestForcedMate || r.score < kLongestForcedMate) {
+      std::cout << pos->fen() << std::endl;
       std::cout << "PRINT FEATURE VEC FAIL (MATE)" << std::endl;
       return;
     }
@@ -251,9 +254,12 @@ void print_feature_vec(Position *pos, const std::string& originalFen, bool human
     }
   }
 
+  gThinker.evaluator.features[EF::PAWNS] = 99;
   Evaluation e = gThinker.evaluator.score<TURN>(*pos);
-  if (gThinker.evaluator.features[EF::OUR_PAWNS] == 10) {
+  if (gThinker.evaluator.features[EF::PAWNS] == 99) {
+    std::cout << pos->fen() << std::endl;
     std::cout << "PRINT FEATURE VEC FAIL (SHORT-CIRCUIT)" << std::endl;
+    return;
   }
   if (humanReadable) {
     std::cout << "ORIGINAL_FEN " << originalFen << std::endl;
@@ -331,7 +337,7 @@ void mymain(std::vector<Position>& positions, const std::string& mode, double ti
   } else if (mode == "analyze") {
     for (auto pos : positions) {
       gThinker.reset_stuff();
-      SearchResult<Color::WHITE> results = gThinker.search(&pos, depth, [positions](Position *position, SearchResult<Color::WHITE> results, size_t depth, double secs) {
+      SearchResult<Color::WHITE> results = search(&gThinker, &pos, depth, [positions](Position *position, SearchResult<Color::WHITE> results, size_t depth, double secs) {
         if (positions.size() == 1) {
           std::cout << depth << " : " << results.move << " : " << results.score << " (" << secs << " secs, " << gThinker.nodeCounter << " nodes, " << gThinker.nodeCounter / secs / 1000 << " kNodes/sec)" << std::endl;
         }
@@ -351,7 +357,7 @@ void mymain(std::vector<Position>& positions, const std::string& mode, double ti
     for (auto pos : positions) {
       while (true) {
         gThinker.reset_stuff();
-        SearchResult<Color::WHITE> results = gThinker.search(&pos, depth);
+        SearchResult<Color::WHITE> results = search(&gThinker, &pos, depth);
         if (results.move == kNullMove) {
           break;
         }
