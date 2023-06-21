@@ -1228,7 +1228,7 @@ struct Evaluator {
   }
 
   template<Color US>
-  Evaluation early(const Position& pos) const {
+  int32_t early(const Position& pos) const {
     int32_t r = earlyB;
     for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
       r += features[i] * earlyW[i];
@@ -1237,16 +1237,21 @@ struct Evaluator {
   }
 
   template<Color US>
-  Evaluation late(const Position& pos) const {
+  int32_t late(const Position& pos) const {
     int32_t r = lateB;
     for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
       r += features[i] * lateW[i];
     }
+
+    r += features[EF::KPVK_OFFENSIVE_KEY_SQUARES] * 500;
+    r += features[EF::KPVK_DEFENSIVE_KEY_SQUARES] * -1000;
+    r += features[EF::SQUARE_RULE] * 2000;
+
     return r;
   }
 
   template<Color US>
-  Evaluation clipped(const Position& pos) const {
+  int32_t clipped(const Position& pos) const {
     int32_t r = clippedB;
     for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
       r += features[i] * clippedW[i];

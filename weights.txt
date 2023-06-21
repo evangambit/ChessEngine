@@ -165,9 +165,9 @@
      2  // late TIME
      0  // late KPVK_OPPOSITION
      0  // late KPVK_IN_FRONT_OF_PAWN
-     0  // late KPVK_OFFENSIVE_KEY_SQUARES
-     0  // late KPVK_DEFENSIVE_KEY_SQUARES
-     0  // late SQUARE_RULE
+   500  // late KPVK_OFFENSIVE_KEY_SQUARES
+ -1000  // late KPVK_DEFENSIVE_KEY_SQUARES
+  2000  // late SQUARE_RULE
    613  // late ADVANCED_PAWNS_1
     85  // late ADVANCED_PAWNS_2
    -15  // late OPEN_ROOKS
