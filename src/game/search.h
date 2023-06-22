@@ -264,7 +264,7 @@ struct TranspositionTable {
 constexpr int kQSimplePieceValues[7] = {
   // Note "NO_PIECE" has a score of 200 since this
   // encourages qsearch to value checks. (+0.02625)
-  200, 100, 450, 500, 1000, 2000, 9999
+  50, 100, 450, 500, 1000, 2000, 9999
 };
 
 constexpr Evaluation kMoveOrderPieceValues[7] = {
