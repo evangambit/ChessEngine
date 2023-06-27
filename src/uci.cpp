@@ -332,11 +332,18 @@ struct UciEngine {
     if (variations.size() == 0) {
       throw std::runtime_error("No variations found!");
     }
+    const int32_t pawnValue = this->thinker.evaluator.earlyW[EF::OUR_PAWNS] + this->thinker.evaluator.clippedW[EF::OUR_PAWNS];
     for (size_t i = 0; i < std::min(multiPV, variations.size()); ++i) {
       std::pair<CacheResult, std::vector<Move>> variation = this->thinker.get_variation(position, variations[i].move);
       std::cout << "info depth " << depth;
       std::cout << " multipv " << (i + 1);
-      std::cout << " score cp " << variation.first.eval;
+      if (variation.first.eval <= kLongestForcedMate) {
+        std::cout << " score mate " << -(variation.first.eval - kCheckmate + 1) / 2;
+      } else if (variation.first.eval >= -kLongestForcedMate) {
+        std::cout << " score mate " << (-variation.first.eval - kCheckmate + 1) / 2;
+      } else {
+        std::cout << " score cp " << (variation.first.eval * 100 / pawnValue);
+      }
       std::cout << " nodes " << this->thinker.nodeCounter;
       std::cout << " nps " << uint64_t(double(this->thinker.nodeCounter) / secs);
       std::cout << " time " << timeMs;
@@ -422,6 +429,7 @@ struct UciEngine {
           return;
         }
         this->thinker.set_cache_size(cacheSize);
+        return;
       }
       std::cout << "Unrecognized option " << repr(name) << std::endl;
     }

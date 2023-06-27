@@ -595,6 +595,8 @@ struct Thinker {
   std::unique_ptr<StopThinkingCondition> stopThinkingCondition;
 };
 
+constexpr int kSyncDepth = 3;
+
 template<Color TURN, SearchType SEARCH_TYPE, bool IS_PARALLEL>
 static SearchResult<TURN> search(
   Thinker *thinker,
@@ -623,7 +625,7 @@ static SearchResult<TURN> search(
   constexpr Color opposingColor = opposite_color<TURN>();
   constexpr ColoredPiece moverKing = coloredPiece<TURN, Piece::KING>();
 
-  if (depthRemaining >= 4 && thinker->stopThinkingCondition->should_stop_thinking(*thinker)) {
+  if (depthRemaining >= kSyncDepth && thinker->stopThinkingCondition->should_stop_thinking(*thinker)) {
     return SearchResult<TURN>(0, kNullMove, false);
   }
 
@@ -898,7 +900,7 @@ static SearchResult<TURN> search(
     r.move = kNullMove;
   }
 
-  if (depthRemaining >= 4) {
+  if (depthRemaining >= kSyncDepth) {
     if (IS_PARALLEL) {
       thinker->nodeCounterLock.lock();
       thinker->nodeCounter += thread->nodeCounter;
