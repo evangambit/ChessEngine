@@ -746,7 +746,12 @@ static SearchResult<TURN> search(
   Move lastFoundBestMove = (isNullCacheResult(cr) ? kNullMove : cr.bestMove);
 
   ExtMove moves[kMaxNumMoves];
-  ExtMove *movesEnd = compute_moves<TURN, MoveGenType::ALL_MOVES>(thread->pos, moves);
+  ExtMove *movesEnd;
+  if (SEARCH_TYPE == SearchTypeRoot) {
+    movesEnd = compute_legal_moves<TURN>(&thread->pos, moves);
+  } else {
+    movesEnd = compute_moves<TURN, MoveGenType::ALL_MOVES>(thread->pos, moves);
+  }
 
   if (movesEnd - moves == 0) {
     if (inCheck) {
@@ -891,7 +896,7 @@ static SearchResult<TURN> search(
     }
   }
 
-  if (SEARCH_TYPE == SearchTypeRoot) {
+  if (SEARCH_TYPE == SearchTypeRoot && thread->id == 0) {
     // We rely on the stability of std::sort to guarantee that children that
     // are PV nodes are sorted above children that are not PV nodes (but have
     // the same score).

@@ -536,10 +536,13 @@ int main(int argc, char *argv[]) {
     std::ifstream infile(fenFile);
     std::string line;
     while (std::getline(infile, line)) {
+      if (line == "") {
+        continue;
+      }
+      positions.push_back(Position(line));
       if (positions.size() >= limitfens) {
         break;
       }
-      positions.push_back(Position(line));
     }
   }
 
