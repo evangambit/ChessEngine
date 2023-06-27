@@ -21,24 +21,18 @@ import torch.utils.data as tdata
 kIncludePiecemaps = False
 
 varnames = [
-  "OUR_PAWNS",
-  "OUR_KNIGHTS",
-  "OUR_BISHOPS",
-  "OUR_ROOKS",
-  "OUR_QUEENS",
-  "THEIR_PAWNS",
-  "THEIR_KNIGHTS",
-  "THEIR_BISHOPS",
-  "THEIR_ROOKS",
-  "THEIR_QUEENS",
+  "PAWNS",
+  "KNIGHTS",
+  "BISHOPS",
+  "ROOKS",
+  "QUEENS",
   "IN_CHECK",
   "KING_ON_BACK_RANK",
   "KING_ON_CENTER_FILE",
   "KING_ACTIVE",
   "THREATS_NEAR_KING_2",
   "THREATS_NEAR_KING_3",
-  "OUR_PASSED_PAWNS",
-  "THEIR_PASSED_PAWNS",
+  "PASSED_PAWNS",
   "ISOLATED_PAWNS",
   "DOUBLED_PAWNS",
   "DOUBLE_ISOLATED_PAWNS",
@@ -140,6 +134,14 @@ varnames = [
   "OUR_KING_HAS_2_ESCAPE_SQUARES",
   "THEIR_KING_HAS_2_ESCAPE_SQUARES",
   "OPPOSITE_SIDE_KINGS_PAWN_STORM",
+  "Q_CENTER_CONTROL",
+  "R_CENTER_CONTROL",
+  "M_CENTER_CONTROL",
+  "P_CENTER_CONTROL",
+  "Q_DOMINATION",
+  "R_DOMINATION",
+  "M_DOMINATION",
+  "P_DOMINATION",
 ]
 
 def varnames2mask(names):
@@ -166,12 +168,12 @@ kEarlyBlacklist = torch.tensor(varnames2mask([
 ]).reshape(1, -1), dtype=torch.float32)
 
 kPositiveList = torch.tensor(varnames2mask([
-  "OUR_PAWNS",
-  "OUR_KNIGHTS",
-  "OUR_BISHOPS",
-  "OUR_ROOKS",
-  "OUR_QUEENS",
-  "OUR_PASSED_PAWNS",
+  "PAWNS",
+  "KNIGHTS",
+  "BISHOPS",
+  "ROOKS",
+  "QUEENS",
+  "PASSED_PAWNS",
   "PAWNS_CENTER_16",
   "PAWNS_CENTER_4",
   "ADVANCED_PASSED_PAWNS_2",
@@ -206,13 +208,7 @@ kPositiveList = torch.tensor(varnames2mask([
 ]).reshape(1, -1), dtype=torch.float32)
 
 kNegativeList = torch.tensor(varnames2mask([
-  "THEIR_PAWNS",
-  "THEIR_KNIGHTS",
-  "THEIR_BISHOPS",
-  "THEIR_ROOKS",
-  "THEIR_QUEENS",
   "IN_CHECK",
-  "THEIR_PASSED_PAWNS",
   "ISOLATED_PAWNS",
   "DOUBLED_PAWNS",
   "DOUBLE_ISOLATED_PAWNS",
@@ -234,7 +230,7 @@ def lpad(t, n, c=' '):
   t = str(t)
   return max(n - len(t), 0) * c + t
 
-cat =  np.concatenate
+cat = np.concatenate
 
 X, Y, F, S = [], [], [], []
 if kIncludePiecemaps:
@@ -262,43 +258,9 @@ assert X.shape[-1] == len(varnames)
 
 T = X[:,:,varnames.index('TIME')].copy()
 
-tmp = []
-for vn in ["OUR_KNIGHTS", "OUR_BISHOPS", "OUR_ROOKS", "OUR_QUEENS"]:
-  tmp.append(varnames.index(vn))
-tmp = torch.tensor(tmp, dtype=torch.int64)
-numOurPieces = X[:,:,tmp].sum(2)
-
-tmp = []
-for vn in ["THEIR_KNIGHTS", "THEIR_BISHOPS", "THEIR_ROOKS", "THEIR_QUEENS"]:
-  tmp.append(varnames.index(vn))
-tmp = torch.tensor(tmp, dtype=torch.int64)
-numTheirPieces = X[:,:,tmp].sum(2)
-
-# Remove positions where one side only has a king.
-isLonelyKing = (1 - (numOurPieces != 0) * (numTheirPieces != 0)).astype(bool)
-I = isLonelyKing.sum(1) == 0
-
-X, Y, F, S, T = X[I], Y[I], F[I], S[I], T[I]
-if kIncludePiecemaps:
-  A = A[I]
-
-tmp = []
-for vn in ["OUR_QUEENS", "THEIR_QUEENS"]:
-  tmp.append(varnames.index(vn))
-tmp = torch.tensor(tmp, dtype=torch.int64)
-numQueens = X[:,:,tmp].sum(2)
-
-X[:,:,varnames.index('KPVK_OFFENSIVE_KEY_SQUARES')] *= 0.0
-X[:,:,varnames.index('KPVK_DEFENSIVE_KEY_SQUARES')] *= 0.0
-X[:,:,varnames.index('SQUARE_RULE')] *= 0.0
-
-
-
-# X = X[:,:,:12]
-# varnames = varnames[:12]
-# kEarlyBlacklist = kEarlyBlacklist[0,:12]
-# kPositiveList = kPositiveList[0,:12]
-# kNegativeList = kNegativeList[0,:12]
+# X[:,:,varnames.index('KPVK_OFFENSIVE_KEY_SQUARES')] *= 0.0
+# X[:,:,varnames.index('KPVK_DEFENSIVE_KEY_SQUARES')] *= 0.0
+# X[:,:,varnames.index('SQUARE_RULE')] *= 0.0
 
 class PCA:
   def __init__(self, X, reg = 0.0):
@@ -378,7 +340,7 @@ class Model(nn.Module):
       nn.init.zeros_(self.w[k].weight)
       nn.init.zeros_(self.w[k].bias)
 
-  def forward(self, x, t, numQueens):
+  def forward(self, x, t):
     # t = t.clip(0, 18)
     x = torch.cat([x[:,:11], self.dropout(x[:, 11:])], 1)
     early = self.w["early"](x).squeeze() * (18 - t) / 18
@@ -411,7 +373,7 @@ class PieceMapModel(nn.Module):
 
 model = Model()
 pmModel = PieceMapModel()
-stdModel = nn.Linear(X.shape[-1], 1)
+# stdModel = nn.Linear(X.shape[-1], 1)
 
 Xth = torch.tensor(X, dtype=torch.float32)
 Yth = torch.tensor(Y, dtype=torch.float32)
@@ -419,7 +381,6 @@ Tth = torch.tensor(T, dtype=torch.float32)
 Sth = torch.tensor(S, dtype=torch.float32)
 if kIncludePiecemaps:
   Ath = torch.tensor(A, dtype=torch.float32)
-numQueens = torch.tensor(numQueens, dtype=torch.float32)
 
 if kIncludePiecemaps:
   PmEarlySampleSizeTh = torch.tensor((A * (1.0 - T.reshape(T.shape + (1,1)) / 18)).sum((0, 1)), dtype=torch.float32)
@@ -434,9 +395,9 @@ minlr = maxlr / 300
 numIters = 20000
 
 if kIncludePiecemaps:
-  dataset = tdata.TensorDataset(Xth, Tth, Sth, Yth, Ath, numQueens)
+  dataset = tdata.TensorDataset(Xth, Tth, Sth, Yth, Ath)
 else:
-  dataset = tdata.TensorDataset(Xth, Tth, Sth, Yth, numQueens)
+  dataset = tdata.TensorDataset(Xth, Tth, Sth, Yth)
 dataloader = tdata.DataLoader(dataset, batch_size=bs, shuffle=True, drop_last=True, num_workers=12)
 
 def loop(iterable, n):
@@ -478,26 +439,32 @@ metrics = defaultdict(list)
 pf = PiecewiseFunction([0, numIters // 10, numIters], [minlr, maxlr, minlr])
 
 if os.path.exists('model.pth'):
-  s = torch.load('model.pth')
-  if 'lonelyKing' not in model.w and 'lonelyKing' in s:
-    del s['w.lonelyKing.bias']
-    del s['w.lonelyKing.weight']
-  model.load_state_dict(s, strict=False)
-  if kIncludePiecemaps:
-    pmModel.load_state_dict(torch.load('pmModel.pth'), strict=False)
+  try:
+    s = torch.load('model.pth')
+    if 'lonelyKing' not in model.w and 'lonelyKing' in s:
+      del s['w.lonelyKing.bias']
+      del s['w.lonelyKing.weight']
+    model.load_state_dict(s, strict=False)
+    if kIncludePiecemaps and os.path.exists('pmModel.pth'):
+      pmModel.load_state_dict(torch.load('pmModel.pth'), strict=False)
+  except:
+    print('failed to load previous checkpoint')
 
-opt = optim.AdamW(chain(pmModel.parameters(), model.parameters(), stdModel.parameters()), lr=3e-2, weight_decay=0.1)
+if kIncludePiecemaps:
+  opt = optim.AdamW(chain(pmModel.parameters(), model.parameters()), lr=3e-2, weight_decay=0.1)
+else:
+  opt = optim.AdamW(chain(model.parameters()), lr=3e-2, weight_decay=0.1)
 for it, batch in tqdm(enumerate(loop(dataloader, numIters)), total=numIters):
-  if len(batch) == 6:
-    x, t, s, y, a, nq = batch
+  if kIncludePiecemaps:
+    x, t, s, y, a = batch
   else:
-    x, t, s, y, nq = batch
+    x, t, s, y = batch
   lr = pf(it)
   if it % 10 == 0:
     for pg in opt.param_groups:
       pg['lr'] = lr
 
-  yhat = model(x, t, nq) * s
+  yhat = model(x, t) * s
   if kIncludePiecemaps:
     yhat = yhat + pmModel(a, t)
   y = y * s
@@ -519,11 +486,6 @@ for it, batch in tqdm(enumerate(loop(dataloader, numIters)), total=numIters):
   for w, threshold in [(w1, 10.0), (w2, 10.0), (w3, 10.0)]:
     loss = loss + torch.relu(w - threshold).mean() * 10
     loss = loss + torch.relu(-threshold - w).mean() * 10
-    loss = loss + ((w[0, varnames.index('OUR_PAWNS'  )] + w[0, varnames.index('THEIR_PAWNS'  )])**2).mean() * 1
-    loss = loss + ((w[0, varnames.index('OUR_KNIGHTS')] + w[0, varnames.index('THEIR_KNIGHTS')])**2).mean() * 1
-    loss = loss + ((w[0, varnames.index('OUR_BISHOPS')] + w[0, varnames.index('THEIR_BISHOPS')])**2).mean() * 1
-    loss = loss + ((w[0, varnames.index('OUR_ROOKS'  )] + w[0, varnames.index('THEIR_ROOKS'  )])**2).mean() * 1
-    loss = loss + ((w[0, varnames.index('OUR_QUEENS' )] + w[0, varnames.index('THEIR_QUEENS' )])**2).mean() * 1
 
 
   # loss = loss + torch.abs(torch.relu(-(w1 + w3)) * kPositiveList).mean()
@@ -564,9 +526,9 @@ W = {}
 for k in model.w:
   W[k] = model.w[k].weight.detach().numpy().squeeze()
 
-stdw = pca.slope_backward(stdModel.weight).detach().numpy().squeeze()
-for i in range(len(varnames)):
-  print(lpad(round(stdw[i] * 100), 5) + '  // ' + varnames[i])
+# stdw = pca.slope_backward(stdModel.weight).detach().numpy().squeeze()
+# for i in range(len(varnames)):
+#   print(lpad(round(stdw[i] * 100), 5) + '  // ' + varnames[i])
 
 K = ['early', 'late', 'clipped']
 
