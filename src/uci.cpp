@@ -332,7 +332,7 @@ struct UciEngine {
     if (variations.size() == 0) {
       throw std::runtime_error("No variations found!");
     }
-    const int32_t pawnValue = this->thinker.evaluator.earlyW[EF::OUR_PAWNS] + this->thinker.evaluator.clippedW[EF::OUR_PAWNS];
+    const int32_t pawnValue = this->thinker.evaluator.earlyW[EF::PAWNS] + this->thinker.evaluator.clippedW[EF::PAWNS];
     for (size_t i = 0; i < std::min(multiPV, variations.size()); ++i) {
       std::pair<CacheResult, std::vector<Move>> variation = this->thinker.get_variation(position, variations[i].move);
       std::cout << "info depth " << depth;

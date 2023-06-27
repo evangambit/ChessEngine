@@ -22,17 +22,12 @@ namespace ChessEngine {
 static const Evaluation kKnownDraw = kMinEval + 10;
 
 enum EF {
-  OUR_PAWNS,
-  OUR_KNIGHTS,
-  OUR_BISHOPS,
-  OUR_ROOKS,
-  OUR_QUEENS,
-  THEIR_PAWNS,
+  PAWNS,
+  KNIGHTS,
+  BISHOPS,
+  ROOKS,
+  QUEENS,
 
-  THEIR_KNIGHTS,
-  THEIR_BISHOPS,
-  THEIR_ROOKS,
-  THEIR_QUEENS,
   IN_CHECK,
   KING_ON_BACK_RANK,
 
@@ -40,8 +35,7 @@ enum EF {
   KING_ACTIVE,
   THREATS_NEAR_KING_2,
   THREATS_NEAR_KING_3,
-  OUR_PASSED_PAWNS,
-  THEIR_PASSED_PAWNS,
+  PASSED_PAWNS,
 
   ISOLATED_PAWNS,
   DOUBLED_PAWNS,
@@ -173,24 +167,18 @@ constexpr Bitboard kBlackKingCorner = bb(Square::H8) | bb(Square::H7) | bb(Squar
 constexpr Bitboard kBlackQueenCorner = bb(Square::A8) | bb(Square::A7) | bb(Square::B8) | bb(Square::B7) | bb(Square::C8);
 
 std::string EFSTR[] = {
-  "OUR_PAWNS",
-  "OUR_KNIGHTS",
-  "OUR_BISHOPS",
-  "OUR_ROOKS",
-  "OUR_QUEENS",
-  "THEIR_PAWNS",
-  "THEIR_KNIGHTS",
-  "THEIR_BISHOPS",
-  "THEIR_ROOKS",
-  "THEIR_QUEENS",
+  "PAWNS",
+  "KNIGHTS",
+  "BISHOPS",
+  "ROOKS",
+  "QUEENS",
   "IN_CHECK",
   "KING_ON_BACK_RANK",
   "KING_ON_CENTER_FILE",
   "KING_ACTIVE",
   "THREATS_NEAR_KING_2",
   "THREATS_NEAR_KING_3",
-  "OUR_PASSED_PAWNS",
-  "THEIR_PASSED_PAWNS",
+  "PASSED_PAWNS",
   "ISOLATED_PAWNS",
   "DOUBLED_PAWNS",
   "DOUBLE_ISOLATED_PAWNS",
@@ -460,17 +448,11 @@ struct Evaluator {
     constexpr Bitboard kTheirBackRanks = (US == Color::WHITE ? kRanks[1] | kRanks[0] : kRanks[6] | kRanks[7]);
     constexpr Bitboard kHappyKingSquares = bb(62) | bb(58) | bb(57) | bb(6) | bb(1) | bb(2);
 
-    features[EF::OUR_PAWNS] = std::popcount(ourPawns);
-    features[EF::OUR_KNIGHTS] = std::popcount(ourKnights);
-    features[EF::OUR_BISHOPS] = std::popcount(ourBishops);
-    features[EF::OUR_ROOKS] = std::popcount(ourRooks);
-    features[EF::OUR_QUEENS] = std::popcount(ourQueens);
-
-    features[EF::THEIR_PAWNS] = std::popcount(theirPawns);
-    features[EF::THEIR_KNIGHTS] = std::popcount(theirKnights);
-    features[EF::THEIR_BISHOPS] = std::popcount(theirBishops);
-    features[EF::THEIR_ROOKS] = std::popcount(theirRooks);
-    features[EF::THEIR_QUEENS] = std::popcount(theirQueens);
+    features[EF::PAWNS] = std::popcount(ourPawns) - std::popcount(theirPawns);
+    features[EF::KNIGHTS] = std::popcount(ourKnights) - std::popcount(theirKnights);
+    features[EF::BISHOPS] = std::popcount(ourBishops) - std::popcount(theirBishops);
+    features[EF::ROOKS] = std::popcount(ourRooks) - std::popcount(theirRooks);
+    features[EF::QUEENS] = std::popcount(ourQueens) - std::popcount(theirQueens);
 
     const int16_t ourPiecesRemaining = std::popcount(pos.colorBitboards_[US] & ~ourPawns) + std::popcount(ourQueens) * 2 - 1;
     const int16_t theirPiecesRemaining = std::popcount(pos.colorBitboards_[THEM] & ~theirPawns) + std::popcount(theirQueens) * 2 - 1;
@@ -535,8 +517,7 @@ struct Evaluator {
       features[EF::PAWNS_CENTER_16] = std::popcount(ourPawns & kCenter16) - std::popcount(theirPawns & kCenter16);
       features[EF::PAWNS_CENTER_16] = std::popcount(ourPawns & kCenter16) - std::popcount(theirPawns & kCenter16);
       features[EF::PAWNS_CENTER_4] = std::popcount(ourPawns & kCenter4) - std::popcount(theirPawns & kCenter4);
-      features[EF::OUR_PASSED_PAWNS] = std::popcount(pawnAnalysis.ourPassedPawns);
-      features[EF::THEIR_PASSED_PAWNS] = std::popcount(pawnAnalysis.theirPassedPawns);
+      features[EF::PASSED_PAWNS] = std::popcount(pawnAnalysis.ourPassedPawns) - std::popcount(pawnAnalysis.theirPassedPawns);
       features[EF::ISOLATED_PAWNS] = std::popcount(pawnAnalysis.ourIsolatedPawns) - std::popcount(pawnAnalysis.theirIsolatedPawns);
       features[EF::DOUBLED_PAWNS] = std::popcount(pawnAnalysis.ourDoubledPawns) - std::popcount(pawnAnalysis.theirDoubledPawns);
       features[EF::DOUBLE_ISOLATED_PAWNS] = std::popcount(pawnAnalysis.ourDoubledPawns & pawnAnalysis.ourIsolatedPawns) - std::popcount(pawnAnalysis.theirDoubledPawns & pawnAnalysis.theirIsolatedPawns);
@@ -910,8 +891,8 @@ struct Evaluator {
       }
     }
     {  // KRvK, KQvK, KBBvK, KBNvK
-      const bool theyHaveLonelyKing = (theirMen == theirKings) && (features[EF::OUR_KNIGHTS] > 2 || features[EF::OUR_BISHOPS] > 1 || features[EF::OUR_ROOKS] > 0 || features[EF::OUR_QUEENS] > 0);
-      const bool weHaveLonelyKing = (ourMen == ourKings) && (features[EF::THEIR_KNIGHTS] > 2 || features[EF::THEIR_BISHOPS] > 1 || features[EF::THEIR_ROOKS] > 0 || features[EF::THEIR_QUEENS] > 0);
+      const bool theyHaveLonelyKing = (theirMen == theirKings) && (std::popcount(ourKnights) > 2 || std::popcount(ourBishops) > 1 || std::popcount(ourRooks) > 0 || std::popcount(ourQueens) > 0);
+      const bool weHaveLonelyKing = (ourMen == ourKings) && (std::popcount(theirKnights) > 2 || std::popcount(theirBishops) > 1 || std::popcount(theirRooks) > 0 || std::popcount(theirQueens) > 0);
 
       bonus += value_or_zero(theyHaveLonelyKing, (3 - kDistToEdge[theirKingSq]) * 50);
       bonus -= value_or_zero(  weHaveLonelyKing, (3 - kDistToEdge[ourKingSq]) * 50);
@@ -1100,11 +1081,11 @@ struct Evaluator {
     early += homeQuality * 3;
 
     int32_t base = 0;
-    base += (features[EF::OUR_PAWNS] - features[EF::THEIR_PAWNS]) * 90;
-    base += (features[EF::OUR_KNIGHTS] - features[EF::THEIR_KNIGHTS]) * 300;
-    base += (features[EF::OUR_BISHOPS] - features[EF::THEIR_BISHOPS]) * 300;
-    base += (features[EF::OUR_ROOKS] - features[EF::THEIR_ROOKS]) * 400;
-    base += (features[EF::OUR_QUEENS] - features[EF::THEIR_QUEENS]) * 900;
+    base += features[EF::PAWNS] * 90;
+    base += features[EF::KNIGHTS] * 300;
+    base += features[EF::BISHOPS] * 300;
+    base += features[EF::ROOKS] * 400;
+    base += features[EF::QUEENS] * 900;
     base += (features[EF::THEIR_HANGING_QUEENS] > 0) * 450;
     base += (features[EF::THEIR_HANGING_QUEENS] == 0 && features[EF::THEIR_HANGING_ROOKS] > 0) * 250;
     base += (features[EF::THEIR_HANGING_QUEENS] == 0 && features[EF::THEIR_HANGING_ROOKS] == 0 && features[EF::THEIR_HANGING_KNIGHTS] + features[EF::THEIR_HANGING_BISHOPS] > 0) * 150;
@@ -1190,8 +1171,18 @@ struct Evaluator {
     {
       const bool theyHaveLonelyKing = (theirMen == theirKings);
       const bool weHaveLonelyKing = (ourMen == ourKings);
-      const bool weHaveMaterialToMate = (features[EF::OUR_QUEENS] > 0 || features[EF::OUR_ROOKS] > 0 || features[EF::OUR_BISHOPS] > 1 || (features[EF::OUR_KNIGHTS] > 0 && features[EF::OUR_BISHOPS] > 0));
-      const bool theyHaveMaterialToMate = (features[EF::THEIR_QUEENS] > 0 || features[EF::THEIR_ROOKS] > 0 || features[EF::THEIR_BISHOPS] > 1 || (features[EF::THEIR_KNIGHTS] > 0 && features[EF::THEIR_BISHOPS] > 0));
+      const bool weHaveMaterialToMate = (
+        std::popcount(pos.pieceBitboards_[coloredPiece<US, Piece::KNIGHT>()]) > 2
+        || std::popcount(pos.pieceBitboards_[coloredPiece<US, Piece::BISHOP>()]) > 1
+        || std::popcount(pos.pieceBitboards_[coloredPiece<US, Piece::ROOK>()]) > 0
+        || std::popcount(pos.pieceBitboards_[coloredPiece<US, Piece::QUEEN>()]) > 0
+      );
+      const bool theyHaveMaterialToMate = (
+        std::popcount(pos.pieceBitboards_[coloredPiece<THEM, Piece::KNIGHT>()]) > 2
+        || std::popcount(pos.pieceBitboards_[coloredPiece<THEM, Piece::BISHOP>()]) > 1
+        || std::popcount(pos.pieceBitboards_[coloredPiece<THEM, Piece::ROOK>()]) > 0
+        || std::popcount(pos.pieceBitboards_[coloredPiece<THEM, Piece::QUEEN>()]) > 0
+      );
 
       r += value_or_zero(theyHaveLonelyKing && weHaveMaterialToMate, kKnownWinBonus);
       r -= value_or_zero(weHaveLonelyKing && theyHaveMaterialToMate, kKnownWinBonus);

@@ -346,6 +346,8 @@ SearchResult<Color::WHITE> to_white(SearchResult<Color::BLACK> r) {
   return flip(r);
 }
 
+constexpr int kSyncDepth = 2;
+
 struct Thread {
   Thread(uint64_t id, const Position& pos, const Evaluator& e)
   : id(id), pos(pos), evaluator(e), nodeCounter(0) {}
@@ -595,7 +597,7 @@ struct Thinker {
   std::unique_ptr<StopThinkingCondition> stopThinkingCondition;
 };
 
-constexpr int kSyncDepth = 3;
+constexpr int kThreadingDepth = 2;
 
 template<Color TURN, SearchType SEARCH_TYPE, bool IS_PARALLEL>
 static SearchResult<TURN> search(
@@ -625,8 +627,13 @@ static SearchResult<TURN> search(
   constexpr Color opposingColor = opposite_color<TURN>();
   constexpr ColoredPiece moverKing = coloredPiece<TURN, Piece::KING>();
 
-  if (depthRemaining >= kSyncDepth && thinker->stopThinkingCondition->should_stop_thinking(*thinker)) {
-    return SearchResult<TURN>(0, kNullMove, false);
+  if (depthRemaining >= kThreadingDepth) {
+    thinker->nodeCounterLock.lock();
+    const bool shouldStopThinking = thinker->stopThinkingCondition->should_stop_thinking(*thinker);
+    thinker->nodeCounterLock.unlock();
+    if (shouldStopThinking) {
+      return SearchResult<TURN>(0, kNullMove, false);
+    }
   }
 
   if (std::popcount(thread->pos.pieceBitboards_[coloredPiece<TURN, Piece::KING>()]) == 0) {
@@ -904,13 +911,13 @@ static SearchResult<TURN> search(
     if (IS_PARALLEL) {
       thinker->nodeCounterLock.lock();
       thinker->nodeCounter += thread->nodeCounter;
+      r.analysisComplete = !thinker->stopThinkingCondition->should_stop_thinking(*thinker);
       thinker->nodeCounterLock.unlock();
       thread->nodeCounter = 0;
     } else {
       thinker->nodeCounter += thread->nodeCounter;
+      r.analysisComplete = !thinker->stopThinkingCondition->should_stop_thinking(*thinker);
     }
-    // TODO: lock this
-    r.analysisComplete = !thinker->stopThinkingCondition->should_stop_thinking(*thinker);
   }
 
   if (r.analysisComplete) {
