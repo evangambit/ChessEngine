@@ -20,7 +20,7 @@ struct UciEngine {
   UciEngine() : stopThinkingSwitch(nullptr), thinkingThread(nullptr) {
     pos = Position("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
     #ifndef SquareControl
-    this->thinker.load_weights_from_file("weights.txt");
+    this->thinker.load_weights_from_file("w0.txt");
     #else
     this->thinker.load_weights_from_file("weights-square-control.txt");
     #endif

@@ -82,10 +82,6 @@ enum EF {
   LONELY_KING_AWAY_FROM_ENEMY_KING,
   TIME,
   KPVK_OPPOSITION,
-  KPVK_IN_FRONT_OF_PAWN,
-  KPVK_OFFENSIVE_KEY_SQUARES,
-
-  KPVK_DEFENSIVE_KEY_SQUARES,
   SQUARE_RULE,
   ADVANCED_PAWNS_1,
   ADVANCED_PAWNS_2,
@@ -218,9 +214,6 @@ std::string EFSTR[] = {
   "LONELY_KING_AWAY_FROM_ENEMY_KING",
   "TIME",
   "KPVK_OPPOSITION",
-  "KPVK_IN_FRONT_OF_PAWN",
-  "KPVK_OFFENSIVE_KEY_SQUARES",
-  "KPVK_DEFENSIVE_KEY_SQUARES",
   "SQUARE_RULE",
   "ADVANCED_PAWNS_1",
   "ADVANCED_PAWNS_2",
@@ -650,36 +643,10 @@ struct Evaluator {
     const bool isKingPawnEndgame = (ourKings == ourPieces) && (theirKings == theirPieces);
     // TODO: move this negative into the corresponding weights.
     features[EF::KPVK_OPPOSITION] = value_or_zero(isKingPawnEndgame, -((shift<kForward>(shift<kForward>(ourKings)) & theirKings) > 0));
-    features[EF::KPVK_IN_FRONT_OF_PAWN] = 0;
-    features[EF::KPVK_OFFENSIVE_KEY_SQUARES] = 0;
-    features[EF::KPVK_DEFENSIVE_KEY_SQUARES] = 0;
 
     features[EF::SQUARE_RULE] = 0;
     features[EF::SQUARE_RULE] += value_or_zero(isKingPawnEndgame, (kSquareRuleTheirTurn[US][theirKingSq] & pawnAnalysis.ourPassedPawns) > 0);
     features[EF::SQUARE_RULE] -= value_or_zero(isKingPawnEndgame, (kSquareRuleYourTurn[THEM][ourKingSq] & pawnAnalysis.theirPassedPawns) > 0);
-
-    {  // If we have the pawn in a KPVK engame.
-      bool isKPVK = isKingPawnEndgame && (std::popcount(ourPawns) == 1) && (theirPawns == 0);
-
-      const Bitboard inFrontOfPawn = shift<kForward>(ourPawns);
-      const Bitboard keySquares = fatten(shift<kForward>(inFrontOfPawn & ~kRookFiles));
-      const Bitboard inFront = (US == Color::WHITE ? (ourPawns - 1) : ~(ourPawns - 1));
-
-      features[EF::KPVK_IN_FRONT_OF_PAWN] += value_or_zero(isKPVK, (ourKings & inFront) > 0);
-      features[EF::KPVK_OFFENSIVE_KEY_SQUARES] += value_or_zero(isKPVK, (ourKings & keySquares) > 0);
-      features[EF::KPVK_DEFENSIVE_KEY_SQUARES] += value_or_zero(isKPVK, (theirKings & inFrontOfPawn) > 0);
-    }
-    {  // If they have the pawn in a KPVK engame. Note we add a '+1' penalty for square rule
-      bool isKPVK = isKingPawnEndgame && (std::popcount(theirPawns) == 1) && (ourPawns == 0);
-
-      const Bitboard inFrontOfPawn = shift<kBackward>(theirPawns);
-      const Bitboard keySquares = fatten(shift<kBackward>(inFrontOfPawn & ~kRookFiles));
-      const Bitboard inFront = (US == Color::WHITE ? ~(theirPawns - 1) : (theirPawns - 1));
-
-      features[EF::KPVK_IN_FRONT_OF_PAWN] -= value_or_zero(isKPVK, (theirKings & inFront) > 0);
-      features[EF::KPVK_OFFENSIVE_KEY_SQUARES] -= value_or_zero(isKPVK, (theirKings & keySquares) > 0);
-      features[EF::KPVK_DEFENSIVE_KEY_SQUARES] -= value_or_zero(isKPVK, (ourKings & inFrontOfPawn) > 0);
-    }
 
     Bitboard aheadOfOurPassedPawnsFat, aheadOfTheirPassedPawnsFat;
     if (US == Color::WHITE) {
@@ -765,6 +732,7 @@ struct Evaluator {
     features[EF::NUM_BAD_SQUARES_FOR_QUEENS] = std::popcount(threats.badForOur[Piece::QUEEN] & kCenter16) - std::popcount(threats.badForTheir[Piece::QUEEN] & kCenter16);
 
     // Checks
+    // TODO: check map for our king too.
     const CheckMap checkMap = compute_potential_attackers<US>(pos, theirKingSq);
     {
       const Bitboard forwardPawns = shift<kForward>(ourPawns) & ~everyone;
@@ -815,6 +783,7 @@ struct Evaluator {
       const int ourKingEscapes = std::popcount(US == Color::WHITE ? (whiteKingEscapes & ~whitePieces) : (blackKingEscapes & ~blackPieces));
       const int theirKingEscapes = std::popcount(US == Color::BLACK ? (whiteKingEscapes & ~whitePieces) : (blackKingEscapes & ~blackPieces));
 
+      // TODO: probably should remove this
       features[EF::OUR_KING_HAS_0_ESCAPE_SQUARES] = (ourKingEscapes == 0);
       features[EF::THEIR_KING_HAS_0_ESCAPE_SQUARES] = (theirKingEscapes == 0);
       features[EF::OUR_KING_HAS_1_ESCAPE_SQUARES] = (ourKingEscapes == 1);
@@ -851,6 +820,12 @@ struct Evaluator {
     const int32_t clipped = this->clipped<US>(pos);
 
     // 0.043 ± 0.019
+    // TODO: we'd like to learn piece maps based on king positions (king-side vs queen-side) in addition to time.
+    // 4 maps total:
+    // 1) early, white king side
+    // 2) early, black king side
+    // 1)  late, white king side
+    // 2)  late, black king side
     int32_t pieceMap = (pos.pieceMapScores[PieceMapType::PieceMapTypeEarly] * (18 - time) + pos.pieceMapScores[PieceMapType::PieceMapTypeLate] * time) / 18;
     if (US == Color::BLACK) {
       pieceMap *= -1;
@@ -866,11 +841,6 @@ struct Evaluator {
     const int wy = ourKingSq / 8;
     const int bx = theirKingSq % 8;
     const int by = theirKingSq / 8;
-
-    if (std::popcount(everyone & ~(theirPawns | ourPawns)) == 2) {
-      // In pawn endgames, the square rule is important. 0.0027 ± 0.0010
-      bonus += (((kSquareRuleTheirTurn[US][theirKingSq] & pawnAnalysis.ourPassedPawns) > 0) - ((kSquareRuleYourTurn[THEM][ourKingSq] & pawnAnalysis.theirPassedPawns) > 0)) * 100;
-    }
 
     {
       // KPVK games are winning if square rule is true.
@@ -936,9 +906,13 @@ struct Evaluator {
       bonus -= value_or_zero(  weHaveLonelyKing, (8 - std::min(dx, dy)) * 25);
     }
 
+    // TODO: decompose "bonus" into separate features.
+
+    // TODO: bonus for controlling squares ahead of your own pawns
+
     eval += bonus;
 
-    return std::min(int32_t(-kLongestForcedMate), std::max(int32_t(kLongestForcedMate), eval));
+    return std::min(int32_t(-kQLongestForcedMate), std::max(int32_t(kQLongestForcedMate), eval));
 
 #else  // #ifndef SquareControl
 
@@ -1243,8 +1217,6 @@ struct Evaluator {
       r += features[i] * lateW[i];
     }
 
-    r += features[EF::KPVK_OFFENSIVE_KEY_SQUARES] * 500;
-    r += features[EF::KPVK_DEFENSIVE_KEY_SQUARES] * -1000;
     r += features[EF::SQUARE_RULE] * 2000;
 
     return r;

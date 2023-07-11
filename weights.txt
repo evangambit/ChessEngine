@@ -50,9 +50,6 @@
      0  // early LONELY_KING_AWAY_FROM_ENEMY_KING
      6  // early TIME
      0  // early KPVK_OPPOSITION
-     0  // early KPVK_IN_FRONT_OF_PAWN
-     0  // early KPVK_OFFENSIVE_KEY_SQUARES
-     0  // early KPVK_DEFENSIVE_KEY_SQUARES
      0  // early SQUARE_RULE
    228  // early ADVANCED_PAWNS_1
    180  // early ADVANCED_PAWNS_2
@@ -164,9 +161,6 @@
      0  // late LONELY_KING_AWAY_FROM_ENEMY_KING
      2  // late TIME
      0  // late KPVK_OPPOSITION
-     0  // late KPVK_IN_FRONT_OF_PAWN
-   500  // late KPVK_OFFENSIVE_KEY_SQUARES
- -1000  // late KPVK_DEFENSIVE_KEY_SQUARES
   2000  // late SQUARE_RULE
    613  // late ADVANCED_PAWNS_1
     85  // late ADVANCED_PAWNS_2
@@ -278,9 +272,6 @@
      0  // clipped LONELY_KING_AWAY_FROM_ENEMY_KING
      1  // clipped TIME
      0  // clipped KPVK_OPPOSITION
-     0  // clipped KPVK_IN_FRONT_OF_PAWN
-     0  // clipped KPVK_OFFENSIVE_KEY_SQUARES
-     0  // clipped KPVK_DEFENSIVE_KEY_SQUARES
      0  // clipped SQUARE_RULE
   -478  // clipped ADVANCED_PAWNS_1
    -13  // clipped ADVANCED_PAWNS_2
