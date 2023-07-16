@@ -53,17 +53,6 @@ std::string ExtMove::uci() const {
   return this->move.uci();
 }
 
-std::string join(const std::vector<std::string>& A, const std::string& delimiter) {
-  std::string r = "";
-  for (size_t i = 0; i < A.size(); ++i) {
-    r += A[i];
-    if (i != A.size() - 1) {
-      r += delimiter;
-    }
-  }
-  return r;
-}
-
 std::ostream& operator<<(std::ostream& stream, const Position& pos) {
   pos.assert_valid_state();
   for (int y = 0; y < 8; ++y) {

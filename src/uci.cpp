@@ -20,7 +20,7 @@ struct UciEngine {
   UciEngine() : stopThinkingSwitch(nullptr), thinkingThread(nullptr) {
     pos = Position("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
     #ifndef SquareControl
-    this->thinker.load_weights_from_file("w0.txt");
+    this->thinker.load_weights_from_file("weights.txt");
     #else
     this->thinker.load_weights_from_file("weights-square-control.txt");
     #endif
@@ -47,7 +47,15 @@ struct UciEngine {
   }
   void handle_uci_command(std::string *command) {
     remove_excess_whitespace(command);
-    std::vector<std::string> parts = split(*command, ' ');
+    std::vector<std::string> rawParts = split(*command, ' ');
+
+    std::deque<std::string> parts;
+    for (const auto& part : rawParts) {
+      if (part.size() > 0) {
+        parts.push_back(part);
+      }
+    }
+
     if (parts[0] == "position") {
       handle_position(parts);
     } else if (parts[0] == "go") {
@@ -116,7 +124,7 @@ struct UciEngine {
     std::cout << "Invalid use of " << repr(command) << " command" << std::endl;
   }
 
-  void handle_position(const std::vector<std::string>& command) {
+  void handle_position(const std::deque<std::string>& command) {
     if (command.size() < 2) {
       invalid(join(command, " "));
       return;
@@ -190,7 +198,9 @@ struct UciEngine {
     return false;
   }
 
-  void handle_go(const std::vector<std::string>& command) {
+  // #define MOVE (\S{4,5})
+  // ^go (nodes|depth|time) (\d+)( searchmoves( MOVE)+)?$
+  void handle_go(const std::deque<std::string>& command) {
     size_t nodeLimit = size_t(-1);
     uint64_t depthLimit = 99;
     uint64_t timeLimitMs = 1000 * 60 * 60;
@@ -244,7 +254,7 @@ struct UciEngine {
     std::cout << std::endl;
   }
 
-  void handle_move(const std::vector<std::string>& command) {
+  void handle_move(const std::deque<std::string>& command) {
     size_t i = 0;
     while (++i < command.size()) {
       std::string uciMove = command[i];
@@ -274,7 +284,7 @@ struct UciEngine {
     }
   }
 
-  void handle_play(const std::vector<std::string>& command) {
+  void handle_play(const std::deque<std::string>& command) {
     size_t nodeLimit = size_t(-1);
     uint64_t depthLimit = 99;
     uint64_t timeLimitMs = 1000 * 60 * 60;
@@ -355,13 +365,13 @@ struct UciEngine {
     }
   }
 
-  void handle_print_options(const std::vector<std::string>& command) {
+  void handle_print_options(const std::deque<std::string>& command) {
     std::cout << "MultiPV: " << this->thinker.multiPV << " variations" << std::endl;
     std::cout << "Threads: " << this->thinker.numThreads << " threads" << std::endl;
     std::cout << "Hash: " << this->thinker.cache.kb_size() << " kilobytes" << std::endl;
   }
 
-  void handle_set_option(const std::vector<std::string>& command) {
+  void handle_set_option(const std::deque<std::string>& command) {
     if (command.size() != 5 && command.size() != 3) {
       invalid(join(command, " "));
       return;

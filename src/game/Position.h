@@ -14,7 +14,17 @@
 
 namespace ChessEngine {
 
-std::string join(const std::vector<std::string>& A, const std::string& delimiter);
+template<class T>
+std::string join(const T& A, const std::string& delimiter) {
+  std::string r = "";
+  for (size_t i = 0; i < A.size(); ++i) {
+    r += A[i];
+    if (i != A.size() - 1) {
+      r += delimiter;
+    }
+  }
+  return r;
+}
 
 enum MoveType {
   NORMAL = 0,
