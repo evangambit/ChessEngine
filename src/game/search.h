@@ -365,12 +365,13 @@ SearchResult<Color::WHITE> to_white(SearchResult<Color::BLACK> r) {
 constexpr int kSyncDepth = 2;
 
 struct Thread {
-  Thread(uint64_t id, const Position& pos, const Evaluator& e)
-  : id(id), pos(pos), evaluator(e), nodeCounter(0) {}
+  Thread(uint64_t id, const Position& pos, const Evaluator& e, const std::unordered_set<std::string>& moves)
+  : id(id), pos(pos), evaluator(e), nodeCounter(0), moves(moves) {}
   uint64_t id;
   Position pos;
   Evaluator evaluator;
   uint64_t nodeCounter;
+  const std::unordered_set<std::string>& moves;
 };
 
 // TODO: qsearch can leave you in check
@@ -825,6 +826,11 @@ static SearchResult<TURN> search(
     ExtMove *start = (isDeferred ? deferredMoves : &moves[0]);
     ExtMove *end = (isDeferred ? deferredMovesEnd : movesEnd);
     for (ExtMove *extMove = start; extMove < end; ++extMove) {
+      if (SEARCH_TYPE == SearchTypeRoot) {
+        if (!thread->moves.contains(extMove->uci())) {
+          continue;
+        }
+      }
 
       make_move<TURN>(&thread->pos, extMove->move);
 
@@ -1021,7 +1027,7 @@ static SearchResult<Color::WHITE> search(Thinker *thinker, Position* pos, size_t
 
   std::vector<Thread> threadObjs;
   for (size_t i = 0; i < std::max<size_t>(1, thinker->numThreads); ++i) {
-    threadObjs.push_back(Thread(i, *pos, thinker->evaluator));
+    threadObjs.push_back(Thread(i, *pos, thinker->evaluator, moves));
   }
 
   size_t depth;
@@ -1046,8 +1052,11 @@ static SearchResult<Color::WHITE> search(Thinker *thinker, Position* pos, size_t
   // (+0.0869 ± 0.0160) after 256 games at 50,000 nodes/move
   if (stoppedEarly) {
     std::vector<SearchResult<Color::WHITE>> children;
-    for_all_moves(pos, [thinker, &children](const Position& pos, ExtMove move) {
+    for_all_moves(pos, [thinker, moves, &children](const Position& pos, ExtMove move) {
       CacheResult cr = thinker->cache.unsafe_find(pos.hash_);
+      if (!moves.contains(move.uci())) {
+        return;
+      }
       if (isNullCacheResult(cr)) {
         return;
       }

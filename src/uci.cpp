@@ -123,7 +123,7 @@ class EvalTask : public Task {
   EvalTask(std::deque<std::string> command) : command(command) {}
   void start(UciEngineState *state) {
     if (command.size() > 1 && command.at(1) == "quiet") {
-      Thread thread(0, state->pos, state->thinker.evaluator);
+      Thread thread(0, state->pos, state->thinker.evaluator, compute_legal_moves_set(&state->pos));
       SearchResult<Color::WHITE> result;
       if (state->pos.turn_ == Color::WHITE) {
         result = qsearch<Color::WHITE>(&state->thinker, &thread, 0, 0, kMinEval, kMaxEval);
@@ -461,7 +461,15 @@ class GoTask : public Task {
       std::string part = command.front();
       command.pop_front();
 
-      if (lastCommand == "depth") {
+      if (part == "depth") {
+        lastCommand = part;
+      } else if (part == "nodes") {
+        lastCommand = part;
+      } else if (part == "time") {
+        lastCommand = part;
+      } else if (part == "searchmoves") {
+        lastCommand = part;
+      } else if (lastCommand == "depth") {
         goCommand.depthLimit = stoi(part);
       } else if (lastCommand == "nodes") {
         goCommand.nodeLimit = stoi(part);
