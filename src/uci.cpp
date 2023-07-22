@@ -122,6 +122,17 @@ class EvalTask : public Task {
  public:
   EvalTask(std::deque<std::string> command) : command(command) {}
   void start(UciEngineState *state) {
+    if (command.size() > 1 && command.at(1) == "quiet") {
+      Thread thread(0, state->pos, state->thinker.evaluator);
+      SearchResult<Color::WHITE> result;
+      if (state->pos.turn_ == Color::WHITE) {
+        result = qsearch<Color::WHITE>(&state->thinker, &thread, 0, 0, kMinEval, kMaxEval);
+      } else {
+        result = to_white(qsearch<Color::BLACK>(&state->thinker, &thread, 0, 0, kMinEval, kMaxEval));
+      }
+      std::cout << result.score << std::endl;
+      return;
+    }
     Evaluator& evaulator = state->thinker.evaluator;
     if (state->pos.turn_ == Color::WHITE) {
       std::cout << evaulator.score<Color::WHITE>(state->pos) << std::endl;
