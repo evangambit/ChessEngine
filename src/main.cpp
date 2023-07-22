@@ -338,11 +338,12 @@ void mymain(std::vector<Position>& positions, const std::string& mode, double ti
     for (auto pos : positions) {
       gThinker.reset_stuff();
       GoCommand goCommand;
+      goCommand.pos = pos;
       goCommand.timeLimitMs = timeLimitMs;
       goCommand.depthLimit = depth;
       goCommand.nodeLimit = nodeLimit;
       goCommand.moves = compute_legal_moves_set(&pos);
-      SearchResult<Color::WHITE> results = search(&gThinker, &pos, goCommand, [positions](Position *position, SearchResult<Color::WHITE> results, size_t depth, double secs) {
+      SearchResult<Color::WHITE> results = search(&gThinker, goCommand, [positions](Position *position, SearchResult<Color::WHITE> results, size_t depth, double secs) {
         if (positions.size() == 1) {
           std::cout << depth << " : " << results.move << " : " << results.score << " (" << secs << " secs, " << gThinker.nodeCounter << " nodes, " << gThinker.nodeCounter / secs / 1000 << " kNodes/sec)" << std::endl;
         }

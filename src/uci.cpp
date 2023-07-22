@@ -18,6 +18,8 @@ using namespace ChessEngine;
 GoCommand make_go_command(std::deque<std::string> *command, Position *pos) {
   GoCommand goCommand;
 
+  goCommand.pos = *pos;
+
   std::unordered_set<std::string> moves;
   std::string lastCommand = "";
   while (command->size() > 0) {
@@ -229,7 +231,7 @@ class PlayTask : public Task {
       // TODO: get rid of this (selfplay2 sometimes crashes when we try to get rid of it now).
       state->thinker.reset_stuff();
 
-      SearchResult<Color::WHITE> result = search(&state->thinker, &pos, goCommand);
+      SearchResult<Color::WHITE> result = search(&state->thinker, goCommand);
       if (result.move == kNullMove) {
         break;
       }
@@ -509,7 +511,7 @@ class GoTask : public Task {
     // TODO: get rid of this (selfplay2 sometimes crashes when we try to get rid of it now).
     state->thinker.reset_stuff();
 
-    SearchResult<Color::WHITE> result = search(&state->thinker, &state->pos, goCommand, [state](Position *position, SearchResult<Color::WHITE> results, size_t depth, double secs) {
+    SearchResult<Color::WHITE> result = search(&state->thinker, goCommand, [state](Position *position, SearchResult<Color::WHITE> results, size_t depth, double secs) {
       GoTask::_print_variations(state, depth, secs);
     });
 

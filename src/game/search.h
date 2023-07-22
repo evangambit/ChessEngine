@@ -26,6 +26,9 @@ struct GoCommand {
   GoCommand()
   : depthLimit(-1), nodeLimit(-1), timeLimitMs(-1),
   wtimeMs(-1), btimeMs(-1), wIncrementMs(-1), bIncrementMs(-1), movesUntilTimeControl(-1) {}
+
+  Position pos;
+
   size_t depthLimit;
   uint64_t nodeLimit;
   uint64_t timeLimitMs;
@@ -1014,14 +1017,14 @@ static void _search_with_aspiration_window(Thinker* thinker, std::vector<Thread>
 }
 
 template<Color TURN>
-static SearchResult<Color::WHITE> _search_fixed_depth(Thinker *thinker, Position* pos, std::vector<Thread> *threadObjs, Depth depth) {
-  if (pos->turn_ == Color::WHITE) {
+static SearchResult<Color::WHITE> _search_fixed_depth(Thinker *thinker, const Position& pos, std::vector<Thread> *threadObjs, Depth depth) {
+  if (pos.turn_ == Color::WHITE) {
     _search_with_aspiration_window<TURN>(thinker, threadObjs, depth);
   } else {
     _search_with_aspiration_window<TURN>(thinker, threadObjs, depth);
   }
 
-  CacheResult cr = thinker->cache.find<false>(pos->hash_);
+  CacheResult cr = thinker->cache.find<false>(pos.hash_);
   if (isNullCacheResult(cr)) {
     throw std::runtime_error("Null result from search");
   }
@@ -1029,30 +1032,30 @@ static SearchResult<Color::WHITE> _search_fixed_depth(Thinker *thinker, Position
 }
 
 // TODO: making threads work with multiPV seems really nontrivial.
-static SearchResult<Color::WHITE> search(Thinker *thinker, Position* pos, GoCommand command, std::function<void(Position *, SearchResult<Color::WHITE>, size_t, double)> callback) {
+static SearchResult<Color::WHITE> search(Thinker *thinker, const GoCommand& command, std::function<void(Position *, SearchResult<Color::WHITE>, size_t, double)> callback) {
   std::chrono::time_point<std::chrono::steady_clock> tstart = std::chrono::steady_clock::now();
 
-  Position copy(*pos);
+  Position copy(command.pos);
   // It's important to call this at the beginning of a search, since if we're sharing Position (e.g. selfplay.cpp) we
   // need to recompute piece map scores using our own weights.
   copy.set_piece_maps(thinker->pieceMaps);
 
   thinker->nodeCounter = 0;
   thinker->stopThinkingCondition->start_thinking(*thinker);
-  thinker->cache.starting_search(pos->hash_);
+  thinker->cache.starting_search(copy.hash_);
 
   std::vector<Thread> threadObjs;
   for (size_t i = 0; i < std::max<size_t>(1, thinker->numThreads); ++i) {
-    threadObjs.push_back(Thread(i, *pos, thinker->evaluator, command.moves));
+    threadObjs.push_back(Thread(i, copy, thinker->evaluator, command.moves));
   }
 
   size_t depth;
   bool stoppedEarly = false;
   for (depth = 1; depth <= command.depthLimit; ++depth) {
-    if (pos->turn_ == Color::WHITE) {
-      _search_fixed_depth<Color::WHITE>(thinker, pos, &threadObjs, Depth(depth));
+    if (copy.turn_ == Color::WHITE) {
+      _search_fixed_depth<Color::WHITE>(thinker, copy, &threadObjs, Depth(depth));
     } else {
-      _search_fixed_depth<Color::BLACK>(thinker, pos, &threadObjs, Depth(depth));
+      _search_fixed_depth<Color::BLACK>(thinker, copy, &threadObjs, Depth(depth));
     }
     std::chrono::duration<double> delta = std::chrono::steady_clock::now() - tstart;
     const double secs = std::max(0.001, std::chrono::duration_cast<std::chrono::milliseconds>(delta).count() / 1000.0);
@@ -1060,7 +1063,7 @@ static SearchResult<Color::WHITE> search(Thinker *thinker, Position* pos, GoComm
       stoppedEarly = true;
       break;
     }
-    callback(pos, thinker->variations[0], depth, secs);
+    callback(&copy, thinker->variations[0], depth, secs);
   }
 
   // Before we return, we make one last pass through our children. This is important if our interrupted search has proven
@@ -1068,7 +1071,7 @@ static SearchResult<Color::WHITE> search(Thinker *thinker, Position* pos, GoComm
   // (+0.0869 ± 0.0160) after 256 games at 50,000 nodes/move
   if (stoppedEarly) {
     std::vector<SearchResult<Color::WHITE>> children;
-    for_all_moves(pos, [thinker, command, &children](const Position& pos, ExtMove move) {
+    for_all_moves(&copy, [thinker, command, &children](const Position& pos, ExtMove move) {
       CacheResult cr = thinker->cache.unsafe_find(pos.hash_);
       if (!command.moves.contains(move.uci())) {
         return;
@@ -1085,7 +1088,7 @@ static SearchResult<Color::WHITE> search(Thinker *thinker, Position* pos, GoComm
       }
       children.push_back(SearchResult<Color::WHITE>(eval, move.move));
     });
-    if (pos->turn_ == Color::WHITE) {
+    if (copy.turn_ == Color::WHITE) {
       std::sort(
         children.begin(),
         children.end(),
@@ -1120,15 +1123,15 @@ static SearchResult<Color::WHITE> search(Thinker *thinker, Position* pos, GoComm
       }
       std::chrono::duration<double> delta = std::chrono::steady_clock::now() - tstart;
       const double secs = std::max(0.001, std::chrono::duration_cast<std::chrono::milliseconds>(delta).count() / 1000.0);
-      callback(pos, thinker->variations[0], depth, secs);
+      callback(&copy, thinker->variations[0], depth, secs);
     }
   }
 
   return thinker->variations[0];
 }
 
-static SearchResult<Color::WHITE> search(Thinker *thinker, Position *pos, GoCommand command) {
-  return search(thinker, pos, command, [](Position *position, SearchResult<Color::WHITE> results, size_t depth, double secs) {});
+static SearchResult<Color::WHITE> search(Thinker *thinker, GoCommand command) {
+  return search(thinker, command, [](Position *position, SearchResult<Color::WHITE> results, size_t depth, double secs) {});
 }
 
 struct StopThinkingNodeCountCondition : public StopThinkingCondition {
