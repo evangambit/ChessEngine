@@ -326,6 +326,41 @@ struct StopThinkingCondition {
   virtual ~StopThinkingCondition() = default;
 };
 
+struct OrStopCondition : public StopThinkingCondition {
+  OrStopCondition(
+    const std::shared_ptr<StopThinkingCondition>& a,
+    const std::shared_ptr<StopThinkingCondition>& b) : a(a), b(b), c(nullptr) {}
+  OrStopCondition(
+    const std::shared_ptr<StopThinkingCondition>& a,
+    const std::shared_ptr<StopThinkingCondition>& b,
+    const std::shared_ptr<StopThinkingCondition>& c) : a(a), b(b), c(c) {}
+  void start_thinking(const Thinker& thinker) {
+    if (a != nullptr) {
+      a->start_thinking(thinker);
+    }
+    if (b != nullptr) {
+      b->start_thinking(thinker);
+    }
+    if (c != nullptr) {
+      c->start_thinking(thinker);
+    }
+  }
+  bool should_stop_thinking(const Thinker& thinker) {
+    if (a != nullptr && a->should_stop_thinking(thinker)) {
+      return true;
+    }
+    if (b != nullptr && b->should_stop_thinking(thinker)) {
+      return true;
+    }
+    if (c != nullptr && c->should_stop_thinking(thinker)) {
+      return true;
+    }
+    return false;
+  }
+ private:
+  std::shared_ptr<StopThinkingCondition> a, b, c;
+};
+
 struct NeverStopThinkingCondition : public StopThinkingCondition {
   void start_thinking(const Thinker& thinker) {}
   bool should_stop_thinking(const Thinker&) {
@@ -1031,8 +1066,76 @@ static SearchResult<Color::WHITE> _search_fixed_depth(Thinker *thinker, const Po
   return to_white(SearchResult<TURN>(cr.eval, cr.bestMove));
 }
 
+struct StopThinkingNodeCountCondition : public StopThinkingCondition {
+  StopThinkingNodeCountCondition(size_t numNodes)
+  : numNodes(numNodes) {}
+  void start_thinking(const Thinker& thinker) {
+    offset = thinker.nodeCounter;
+  }
+  bool should_stop_thinking(const Thinker& thinker) {
+    assert(thinker.nodeCounter >= offset);
+    return thinker.nodeCounter - offset > this->numNodes;
+  }
+  size_t offset;
+  size_t numNodes;
+};
+
+struct StopThinkingTimeCondition : public StopThinkingCondition {
+  StopThinkingTimeCondition(uint64_t milliseconds) : milliseconds(milliseconds) {}
+  void start_thinking(const Thinker& thinker) {
+    startTime = this->current_time();
+  }
+  std::chrono::time_point<std::chrono::steady_clock> current_time() const {
+    return std::chrono::steady_clock::now();
+  }
+  bool should_stop_thinking(const Thinker& thinker) {
+    std::chrono::duration<double> delta = this->current_time() - startTime;
+    return std::chrono::duration_cast<std::chrono::milliseconds>(delta).count() > milliseconds;
+  }
+ private:
+  std::chrono::high_resolution_clock::time_point startTime;
+  uint64_t milliseconds;
+};
+
+struct StopThinkingSwitch : public StopThinkingCondition {
+  StopThinkingSwitch() {}
+  void start_thinking(const Thinker& thinker) {
+    this->lock.lock();
+    this->shouldStop = false;
+    this->lock.unlock();
+  }
+  bool should_stop_thinking(const Thinker& thinker) {
+    this->lock.lock();
+    bool r = this->shouldStop;
+    this->lock.unlock();
+    return r;
+  }
+  void stop() {
+    this->lock.lock();
+    this->shouldStop = true;
+    this->lock.unlock();
+  }
+ private:
+  SpinLock lock;
+  bool shouldStop;
+};
+
 // TODO: making threads work with multiPV seems really nontrivial.
-static SearchResult<Color::WHITE> search(Thinker *thinker, const GoCommand& command, std::function<void(Position *, SearchResult<Color::WHITE>, size_t, double)> callback) {
+static SearchResult<Color::WHITE> search(Thinker *thinker, const GoCommand& command, std::shared_ptr<StopThinkingCondition> condition, std::function<void(Position *, SearchResult<Color::WHITE>, size_t, double)> callback) {
+
+  if (!condition) {
+    condition = std::make_shared<NeverStopThinkingCondition>();
+  }
+  thinker->stopThinkingCondition = std::make_unique<OrStopCondition>(
+    std::make_shared<StopThinkingNodeCountCondition>(command.nodeLimit),
+    std::make_shared<StopThinkingTimeCondition>(command.timeLimitMs),
+    condition
+  );
+
+  // TODO: get rid of this (selfplay2 sometimes crashes when we try to get rid of it now).
+  thinker->reset_stuff();
+
+
   std::chrono::time_point<std::chrono::steady_clock> tstart = std::chrono::steady_clock::now();
 
   Position copy(command.pos);
@@ -1130,98 +1233,10 @@ static SearchResult<Color::WHITE> search(Thinker *thinker, const GoCommand& comm
   return thinker->variations[0];
 }
 
-static SearchResult<Color::WHITE> search(Thinker *thinker, GoCommand command) {
-  return search(thinker, command, [](Position *position, SearchResult<Color::WHITE> results, size_t depth, double secs) {});
+static SearchResult<Color::WHITE> search(Thinker *thinker, GoCommand command, std::shared_ptr<StopThinkingCondition> condition) {
+  return search(thinker, command, condition, [](Position *position, SearchResult<Color::WHITE> results, size_t depth, double secs) {});
 }
 
-struct StopThinkingNodeCountCondition : public StopThinkingCondition {
-  StopThinkingNodeCountCondition(size_t numNodes)
-  : numNodes(numNodes) {}
-  void start_thinking(const Thinker& thinker) {
-    offset = thinker.nodeCounter;
-  }
-  bool should_stop_thinking(const Thinker& thinker) {
-    assert(thinker.nodeCounter >= offset);
-    return thinker.nodeCounter - offset > this->numNodes;
-  }
-  size_t offset;
-  size_t numNodes;
-};
-
-struct StopThinkingTimeCondition : public StopThinkingCondition {
-  StopThinkingTimeCondition(uint64_t milliseconds) : milliseconds(milliseconds) {}
-  void start_thinking(const Thinker& thinker) {
-    startTime = this->current_time();
-  }
-  std::chrono::time_point<std::chrono::steady_clock> current_time() const {
-    return std::chrono::steady_clock::now();
-  }
-  bool should_stop_thinking(const Thinker& thinker) {
-    std::chrono::duration<double> delta = this->current_time() - startTime;
-    return std::chrono::duration_cast<std::chrono::milliseconds>(delta).count() > milliseconds;
-  }
- private:
-  std::chrono::high_resolution_clock::time_point startTime;
-  uint64_t milliseconds;
-};
-
-struct OrStopCondition : public StopThinkingCondition {
-  OrStopCondition(
-    const std::shared_ptr<StopThinkingCondition>& a,
-    const std::shared_ptr<StopThinkingCondition>& b) : a(a), b(b), c(nullptr) {}
-  OrStopCondition(
-    const std::shared_ptr<StopThinkingCondition>& a,
-    const std::shared_ptr<StopThinkingCondition>& b,
-    const std::shared_ptr<StopThinkingCondition>& c) : a(a), b(b), c(c) {}
-  void start_thinking(const Thinker& thinker) {
-    if (a != nullptr) {
-      a->start_thinking(thinker);
-    }
-    if (b != nullptr) {
-      b->start_thinking(thinker);
-    }
-    if (c != nullptr) {
-      c->start_thinking(thinker);
-    }
-  }
-  bool should_stop_thinking(const Thinker& thinker) {
-    if (a != nullptr && a->should_stop_thinking(thinker)) {
-      return true;
-    }
-    if (b != nullptr && b->should_stop_thinking(thinker)) {
-      return true;
-    }
-    if (c != nullptr && c->should_stop_thinking(thinker)) {
-      return true;
-    }
-    return false;
-  }
- private:
-  std::shared_ptr<StopThinkingCondition> a, b, c;
-};
-
-struct StopThinkingSwitch : public StopThinkingCondition {
-  StopThinkingSwitch() {}
-  void start_thinking(const Thinker& thinker) {
-    this->lock.lock();
-    this->shouldStop = false;
-    this->lock.unlock();
-  }
-  bool should_stop_thinking(const Thinker& thinker) {
-    this->lock.lock();
-    bool r = this->shouldStop;
-    this->lock.unlock();
-    return r;
-  }
-  void stop() {
-    this->lock.lock();
-    this->shouldStop = true;
-    this->lock.unlock();
-  }
- private:
-  SpinLock lock;
-  bool shouldStop;
-};
 
 
 // TODO: there is a bug where

@@ -223,15 +223,7 @@ class PlayTask : public Task {
     Position pos(state->pos);
 
     while (true) {
-      state->thinker.stopThinkingCondition = std::make_unique<OrStopCondition>(
-        std::make_shared<StopThinkingNodeCountCondition>(goCommand.nodeLimit),
-        std::make_shared<StopThinkingTimeCondition>(goCommand.timeLimitMs)
-      );
-
-      // TODO: get rid of this (selfplay2 sometimes crashes when we try to get rid of it now).
-      state->thinker.reset_stuff();
-
-      SearchResult<Color::WHITE> result = search(&state->thinker, goCommand);
+      SearchResult<Color::WHITE> result = search(&state->thinker, goCommand, nullptr);
       if (result.move == kNullMove) {
         break;
       }
@@ -502,16 +494,10 @@ class GoTask : public Task {
   static void _threaded_think(UciEngineState *state, GoCommand goCommand, bool *isRunning) {
     state->stopThinkingSwitch = std::make_shared<StopThinkingSwitch>();
 
-    state->thinker.stopThinkingCondition = std::make_unique<OrStopCondition>(
-      std::make_shared<StopThinkingNodeCountCondition>(goCommand.nodeLimit),
-      std::make_shared<StopThinkingTimeCondition>(goCommand.timeLimitMs),
-      state->stopThinkingSwitch
-    );
-
     // TODO: get rid of this (selfplay2 sometimes crashes when we try to get rid of it now).
     state->thinker.reset_stuff();
 
-    SearchResult<Color::WHITE> result = search(&state->thinker, goCommand, [state](Position *position, SearchResult<Color::WHITE> results, size_t depth, double secs) {
+    SearchResult<Color::WHITE> result = search(&state->thinker, goCommand, state->stopThinkingSwitch, [state](Position *position, SearchResult<Color::WHITE> results, size_t depth, double secs) {
       GoTask::_print_variations(state, depth, secs);
     });
 
