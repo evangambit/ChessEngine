@@ -440,11 +440,19 @@ class PositionTask : public Task {
 
 class GoTask : public Task {
   struct GoCommand {
-    GoCommand() : depthLimit(-1), nodeLimit(-1), timeLimitMs(-1) {}
+    GoCommand()
+    : depthLimit(-1), nodeLimit(-1), timeLimitMs(-1),
+    wtimeMs(-1), btimeMs(-1), wIncrementMs(-1), bIncrementMs(-1), movesUntilTimeControl(-1) {}
     size_t depthLimit;
     uint64_t nodeLimit;
     uint64_t timeLimitMs;
     std::unordered_set<std::string> moves;
+
+    uint64_t wtimeMs;
+    uint64_t btimeMs;
+    uint64_t wIncrementMs;
+    uint64_t bIncrementMs;
+    uint64_t movesUntilTimeControl;
   };
  public:
   GoTask(std::deque<std::string> command) : command(command), isRunning(false), thread(nullptr) {}
@@ -461,20 +469,33 @@ class GoTask : public Task {
       std::string part = command.front();
       command.pop_front();
 
-      if (part == "depth") {
-        lastCommand = part;
-      } else if (part == "nodes") {
-        lastCommand = part;
-      } else if (part == "time") {
-        lastCommand = part;
-      } else if (part == "searchmoves") {
+      if (part == "depth"
+        || part == "nodes"
+        || part == "movetime"
+        || part == "wtime"
+        || part == "btime"
+        || part == "winc"
+        || part == "binc"
+        || part == "movestogo"
+        || part == "searchmoves"
+        ) {
         lastCommand = part;
       } else if (lastCommand == "depth") {
         goCommand.depthLimit = stoi(part);
       } else if (lastCommand == "nodes") {
         goCommand.nodeLimit = stoi(part);
-      } else if (lastCommand == "time") {
+      } else if (lastCommand == "movetime") {
         goCommand.timeLimitMs = stoi(part);
+      } else if (lastCommand == "wtime") {
+        goCommand.wtimeMs = stoi(part);
+      } else if (lastCommand == "btime") {
+        goCommand.btimeMs = stoi(part);
+      } else if (lastCommand == "winc") {
+        goCommand.wIncrementMs = stoi(part);
+      } else if (lastCommand == "binc") {
+        goCommand.bIncrementMs = stoi(part);
+      } else if (lastCommand == "movestogo") {
+        goCommand.movesUntilTimeControl = stoi(part);
       } else if (lastCommand == "searchmoves") {
         goCommand.moves.insert(part);
       } else {
