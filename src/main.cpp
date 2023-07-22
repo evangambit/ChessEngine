@@ -239,7 +239,7 @@ template<Color TURN>
 void print_feature_vec(Position *pos, const std::string& originalFen, bool humanReadable, bool makeQuiet, int depth) {
   if (makeQuiet) {
     // SearchResult<TURN> qsearch(Thinker *thinker, Thread *thread, int32_t depth, int32_t plyFromRoot, Evaluation alpha, Evaluation beta)
-    Thread thread(0, *pos, gThinker.evaluator);
+    Thread thread(0, *pos, gThinker.evaluator, compute_legal_moves_set(pos));
     SearchResult<Color::WHITE> r = to_white(qsearch<TURN>(&gThinker, &thread, 0, 0, kMinEval, kMaxEval));
     if (r.score > -kLongestForcedMate || r.score < kLongestForcedMate) {
       std::cout << pos->fen() << std::endl;
@@ -337,7 +337,8 @@ void mymain(std::vector<Position>& positions, const std::string& mode, double ti
   } else if (mode == "analyze") {
     for (auto pos : positions) {
       gThinker.reset_stuff();
-      SearchResult<Color::WHITE> results = search(&gThinker, &pos, depth, [positions](Position *position, SearchResult<Color::WHITE> results, size_t depth, double secs) {
+      const auto legalMoves = compute_legal_moves_set(&pos);
+      SearchResult<Color::WHITE> results = search(&gThinker, &pos, depth, legalMoves, [positions](Position *position, SearchResult<Color::WHITE> results, size_t depth, double secs) {
         if (positions.size() == 1) {
           std::cout << depth << " : " << results.move << " : " << results.score << " (" << secs << " secs, " << gThinker.nodeCounter << " nodes, " << gThinker.nodeCounter / secs / 1000 << " kNodes/sec)" << std::endl;
         }
