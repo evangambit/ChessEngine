@@ -15,6 +15,64 @@
 
 using namespace ChessEngine;
 
+GoCommand make_go_command(std::deque<std::string> *command, Position *pos) {
+  GoCommand goCommand;
+
+  std::unordered_set<std::string> moves;
+  std::string lastCommand = "";
+  while (command->size() > 0) {
+    std::string part = command->front();
+    command->pop_front();
+
+    if (part == "depth"
+      || part == "nodes"
+      || part == "movetime"
+      || part == "wtime"
+      || part == "btime"
+      || part == "winc"
+      || part == "binc"
+      || part == "movestogo"
+      || part == "searchmoves"
+      ) {
+      lastCommand = part;
+    } else if (lastCommand == "depth") {
+      goCommand.depthLimit = stoi(part);
+    } else if (lastCommand == "nodes") {
+      goCommand.nodeLimit = stoi(part);
+    } else if (lastCommand == "movetime") {
+      goCommand.timeLimitMs = stoi(part);
+    } else if (lastCommand == "wtime") {
+      goCommand.wtimeMs = stoi(part);
+    } else if (lastCommand == "btime") {
+      goCommand.btimeMs = stoi(part);
+    } else if (lastCommand == "winc") {
+      goCommand.wIncrementMs = stoi(part);
+    } else if (lastCommand == "binc") {
+      goCommand.bIncrementMs = stoi(part);
+    } else if (lastCommand == "movestogo") {
+      goCommand.movesUntilTimeControl = stoi(part);
+    } else if (lastCommand == "searchmoves") {
+      moves.insert(part);
+    } else {
+      lastCommand = part;
+    }
+  }
+
+  std::unordered_set<std::string> legalMoves = compute_legal_moves_set(pos);
+  if (goCommand.moves.size() == 0) {
+    goCommand.moves = legalMoves;
+  }
+
+  // Remove invalid moves.
+  for (const auto& move : moves) {
+    if (legalMoves.contains(move)) {
+      goCommand.moves.insert(move);
+    }
+  }
+
+  return goCommand;
+}
+
 void invalid(const std::string& command) {
   std::cout << "Invalid use of " << repr(command) << " command" << std::endl;
 }
@@ -148,48 +206,30 @@ class PlayTask : public Task {
  public:
   PlayTask(std::deque<std::string> command) : command(command), isRunning(false) {}
   void start(UciEngineState *state) override {
-    std::cout << "PlayTask::start" << std::endl;
     assert(!isRunning);
     isRunning = true;
-    size_t nodeLimit = size_t(-1);
-    uint64_t depthLimit = 99;
-    uint64_t timeLimitMs = 1000 * 60 * 60;
-
-    if (command.size() != 3) {
-      invalid(join(command, " "));
-      return;
-    }
-
-    if (command[1] == "depth") {
-      depthLimit = stoi(command[2]);
-    } else if (command[1] == "nodes") {
-      nodeLimit = stoi(command[2]);
-    } else if (command[1] == "time") {
-      timeLimitMs = stoi(command[2]);
-    } else {
-      invalid(join(command, " "));
-      return;
-    }
-    
-    this->thread = new std::thread(PlayTask::_threaded_think, state, &this->isRunning, depthLimit, nodeLimit, timeLimitMs);
+    assert(command.at(0) == "go");
+    command.pop_front();
+    GoCommand goCommand = make_go_command(&command, &state->pos);
+    this->thread = new std::thread(PlayTask::_threaded_think, state, goCommand, &this->isRunning);
   }
   bool is_running() override {
     return isRunning;
   }
  private:
-  static void _threaded_think(UciEngineState *state, bool *isRunning, size_t depthLimit, uint64_t nodeLimit, uint64_t timeLimitMs) {
+  static void _threaded_think(UciEngineState *state, GoCommand goCommand, bool *isRunning) {
     Position pos(state->pos);
 
     while (true) {
       state->thinker.stopThinkingCondition = std::make_unique<OrStopCondition>(
-        std::make_shared<StopThinkingNodeCountCondition>(nodeLimit),
-        std::make_shared<StopThinkingTimeCondition>(timeLimitMs)
+        std::make_shared<StopThinkingNodeCountCondition>(goCommand.nodeLimit),
+        std::make_shared<StopThinkingTimeCondition>(goCommand.timeLimitMs)
       );
 
       // TODO: get rid of this (selfplay2 sometimes crashes when we try to get rid of it now).
       state->thinker.reset_stuff();
 
-      SearchResult<Color::WHITE> result = search(&state->thinker, &pos, depthLimit);
+      SearchResult<Color::WHITE> result = search(&state->thinker, &pos, goCommand);
       if (result.move == kNullMove) {
         break;
       }
@@ -439,21 +479,6 @@ class PositionTask : public Task {
 };
 
 class GoTask : public Task {
-  struct GoCommand {
-    GoCommand()
-    : depthLimit(-1), nodeLimit(-1), timeLimitMs(-1),
-    wtimeMs(-1), btimeMs(-1), wIncrementMs(-1), bIncrementMs(-1), movesUntilTimeControl(-1) {}
-    size_t depthLimit;
-    uint64_t nodeLimit;
-    uint64_t timeLimitMs;
-    std::unordered_set<std::string> moves;
-
-    uint64_t wtimeMs;
-    uint64_t btimeMs;
-    uint64_t wIncrementMs;
-    uint64_t bIncrementMs;
-    uint64_t movesUntilTimeControl;
-  };
  public:
   GoTask(std::deque<std::string> command) : command(command), isRunning(false), thread(nullptr) {}
   void start(UciEngineState *state) override {
@@ -461,60 +486,7 @@ class GoTask : public Task {
     isRunning = true;
     assert(command.at(0) == "go");
     command.pop_front();
-
-    GoCommand goCommand;
-
-    std::string lastCommand = "";
-    while (command.size() > 0) {
-      std::string part = command.front();
-      command.pop_front();
-
-      if (part == "depth"
-        || part == "nodes"
-        || part == "movetime"
-        || part == "wtime"
-        || part == "btime"
-        || part == "winc"
-        || part == "binc"
-        || part == "movestogo"
-        || part == "searchmoves"
-        ) {
-        lastCommand = part;
-      } else if (lastCommand == "depth") {
-        goCommand.depthLimit = stoi(part);
-      } else if (lastCommand == "nodes") {
-        goCommand.nodeLimit = stoi(part);
-      } else if (lastCommand == "movetime") {
-        goCommand.timeLimitMs = stoi(part);
-      } else if (lastCommand == "wtime") {
-        goCommand.wtimeMs = stoi(part);
-      } else if (lastCommand == "btime") {
-        goCommand.btimeMs = stoi(part);
-      } else if (lastCommand == "winc") {
-        goCommand.wIncrementMs = stoi(part);
-      } else if (lastCommand == "binc") {
-        goCommand.bIncrementMs = stoi(part);
-      } else if (lastCommand == "movestogo") {
-        goCommand.movesUntilTimeControl = stoi(part);
-      } else if (lastCommand == "searchmoves") {
-        goCommand.moves.insert(part);
-      } else {
-        lastCommand = part;
-      }
-    }
-
-    std::unordered_set<std::string> legalMoves = compute_legal_moves_set(&state->pos);
-    if (goCommand.moves.size() == 0) {
-      goCommand.moves = legalMoves;
-    }
-
-    for (const auto& move : goCommand.moves) {
-      if (!legalMoves.contains(move)) {
-        invalid(join(command, " "), "Invalid move \"" + move + "\"");
-        return;
-      }
-    }
-
+    GoCommand goCommand = make_go_command(&command, &state->pos);
     this->thread = new std::thread(GoTask::_threaded_think, state, goCommand, &this->isRunning);
   }
 
@@ -537,7 +509,7 @@ class GoTask : public Task {
     // TODO: get rid of this (selfplay2 sometimes crashes when we try to get rid of it now).
     state->thinker.reset_stuff();
 
-    SearchResult<Color::WHITE> result = search(&state->thinker, &state->pos, goCommand.depthLimit, goCommand.moves, [state](Position *position, SearchResult<Color::WHITE> results, size_t depth, double secs) {
+    SearchResult<Color::WHITE> result = search(&state->thinker, &state->pos, goCommand, [state](Position *position, SearchResult<Color::WHITE> results, size_t depth, double secs) {
       GoTask::_print_variations(state, depth, secs);
     });
 

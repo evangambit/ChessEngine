@@ -337,8 +337,12 @@ void mymain(std::vector<Position>& positions, const std::string& mode, double ti
   } else if (mode == "analyze") {
     for (auto pos : positions) {
       gThinker.reset_stuff();
-      const auto legalMoves = compute_legal_moves_set(&pos);
-      SearchResult<Color::WHITE> results = search(&gThinker, &pos, depth, legalMoves, [positions](Position *position, SearchResult<Color::WHITE> results, size_t depth, double secs) {
+      GoCommand goCommand;
+      goCommand.timeLimitMs = timeLimitMs;
+      goCommand.depthLimit = depth;
+      goCommand.nodeLimit = nodeLimit;
+      goCommand.moves = compute_legal_moves_set(&pos);
+      SearchResult<Color::WHITE> results = search(&gThinker, &pos, goCommand, [positions](Position *position, SearchResult<Color::WHITE> results, size_t depth, double secs) {
         if (positions.size() == 1) {
           std::cout << depth << " : " << results.move << " : " << results.score << " (" << secs << " secs, " << gThinker.nodeCounter << " nodes, " << gThinker.nodeCounter / secs / 1000 << " kNodes/sec)" << std::endl;
         }
@@ -353,27 +357,6 @@ void mymain(std::vector<Position>& positions, const std::string& mode, double ti
         std::cout << "PV " << (i + 1) << ": ";
         print_variation(&gThinker, &pos, topVariations[i].move);
       }
-    }
-  } else if (mode == "play") {
-    for (auto pos : positions) {
-      while (true) {
-        gThinker.reset_stuff();
-        SearchResult<Color::WHITE> results = search(&gThinker, &pos, depth);
-        if (results.move == kNullMove) {
-          break;
-        }
-        std::cout << results.move << " " << std::flush;
-        if (pos.turn_ == Color::WHITE) {
-          make_move<Color::WHITE>(&pos, results.move);
-        } else {
-          make_move<Color::BLACK>(&pos, results.move);
-        }
-        if (pos.is_draw(0) || gThinker.evaluator.is_material_draw(pos)) {
-          break;
-        }
-      }
-      std::cout << std::endl;
-      std::cout << pos << std::endl;
     }
   }
 }
@@ -505,7 +488,7 @@ int main(int argc, char *argv[]) {
     std::make_unique<StopThinkingTimeCondition>(timeLimitMs)
   );
 
-  if (mode != "evaluate" && mode != "analyze" && mode != "play" && mode != "printvec" && mode != "printvec-cpu" && mode != "print-weights") {
+  if (mode != "evaluate" && mode != "analyze" && mode != "printvec" && mode != "printvec-cpu" && mode != "print-weights") {
     throw std::runtime_error("Cannot recognize mode \"" + mode + "\"");
   }
   if (mode == "print-weights") {
