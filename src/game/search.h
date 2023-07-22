@@ -522,7 +522,7 @@ struct Thinker {
 
   std::vector<SearchResult<Color::WHITE>> variations;
 
-  SpinLock nodeCounterLock;
+  SpinLock stopThinkingLock;
 
   Thinker() : cache(10000), stopThinkingCondition(new NeverStopThinkingCondition()), lastRootHash(0) {
     reset_stuff();
@@ -644,9 +644,9 @@ static SearchResult<TURN> search(
   constexpr ColoredPiece moverKing = coloredPiece<TURN, Piece::KING>();
 
   if (depthRemaining >= kThreadingDepth) {
-    thinker->nodeCounterLock.lock();
+    thinker->stopThinkingLock.lock();
     const bool shouldStopThinking = thinker->stopThinkingCondition->should_stop_thinking(*thinker);
-    thinker->nodeCounterLock.unlock();
+    thinker->stopThinkingLock.unlock();
     if (shouldStopThinking) {
       return SearchResult<TURN>(0, kNullMove, false);
     }
@@ -935,10 +935,10 @@ static SearchResult<TURN> search(
 
   if (depthRemaining >= kSyncDepth) {
     if (IS_PARALLEL) {
-      thinker->nodeCounterLock.lock();
+      thinker->stopThinkingLock.lock();
       thinker->nodeCounter += thread->nodeCounter;
       r.analysisComplete = !thinker->stopThinkingCondition->should_stop_thinking(*thinker);
-      thinker->nodeCounterLock.unlock();
+      thinker->stopThinkingLock.unlock();
       thread->nodeCounter = 0;
     } else {
       thinker->nodeCounter += thread->nodeCounter;
