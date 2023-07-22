@@ -439,6 +439,13 @@ class PositionTask : public Task {
 };
 
 class GoTask : public Task {
+  struct GoCommand {
+    GoCommand() : depthLimit(-1), nodeLimit(-1), timeLimitMs(-1) {}
+    size_t depthLimit;
+    uint64_t nodeLimit;
+    uint64_t timeLimitMs;
+    std::unordered_set<std::string> moves;
+  };
  public:
   GoTask(std::deque<std::string> command) : command(command), isRunning(false), thread(nullptr) {}
   void start(UciEngineState *state) override {
@@ -447,61 +454,39 @@ class GoTask : public Task {
     assert(command.at(0) == "go");
     command.pop_front();
 
-    if (command.size() < 2) {
-      invalid(join(command, " "));
-      return;
-    }
+    GoCommand goCommand;
 
-    size_t depthLimit;
-    uint64_t nodeLimit;
-    uint64_t timeLimitMs;
+    std::string lastCommand = "";
+    while (command.size() > 0) {
+      std::string part = command.front();
+      command.pop_front();
 
-    if (command.at(0) == "depth") {
-      depthLimit = stoi(command.at(1));
-    } else if (command.at(0) == "nodes") {
-      nodeLimit = stoi(command.at(1));
-    } else if (command.at(0) == "time") {
-      timeLimitMs = stoi(command.at(1));
-    } else {
-      invalid(join(command, " "));
-      return;
+      if (lastCommand == "depth") {
+        goCommand.depthLimit = stoi(part);
+      } else if (lastCommand == "nodes") {
+        goCommand.nodeLimit = stoi(part);
+      } else if (lastCommand == "time") {
+        goCommand.timeLimitMs = stoi(part);
+      } else if (lastCommand == "searchmoves") {
+        goCommand.moves.insert(part);
+      } else {
+        lastCommand = part;
+      }
     }
-    command.pop_front();
-    command.pop_front();
 
     std::unordered_set<std::string> legalMoves = compute_legal_moves_set(&state->pos);
-
-    if (command.size() > 0) {
-      if (command.at(0) != "searchmoves") {
-        invalid(join(command, " "));
-        return;
-      }
-      command.pop_front();
-      std::unordered_set<std::string> forcedMoves;
-      while (command.size() > 0) {
-        std::string move = command.front();
-        command.pop_front();
-        if (!legalMoves.contains(move)) {
-          invalid(join(command, " "), "Invalid move \"" + move + "\"");
-          return;
-        }
-        forcedMoves.insert(move);
-      }
-      legalMoves = forcedMoves;
+    if (goCommand.moves.size() == 0) {
+      goCommand.moves = legalMoves;
     }
 
-    state->stopThinkingSwitch = std::make_shared<StopThinkingSwitch>();
+    for (const auto& move : goCommand.moves) {
+      if (!legalMoves.contains(move)) {
+        invalid(join(command, " "), "Invalid move \"" + move + "\"");
+        return;
+      }
+    }
 
-    state->thinker.stopThinkingCondition = std::make_unique<OrStopCondition>(
-      std::make_shared<StopThinkingNodeCountCondition>(nodeLimit),
-      std::make_shared<StopThinkingTimeCondition>(timeLimitMs),
-      state->stopThinkingSwitch
-    );
-
-    // TODO: get rid of this (selfplay2 sometimes crashes when we try to get rid of it now).
-    state->thinker.reset_stuff();
-
-    this->thread = new std::thread(GoTask::_threaded_think, state, &this->isRunning, depthLimit, legalMoves);
+    this->thread = new std::thread(GoTask::_threaded_think, state, goCommand, &this->isRunning);
   }
 
   ~GoTask() {
@@ -511,8 +496,19 @@ class GoTask : public Task {
     delete this->thread;
   }
 
-  static void _threaded_think(UciEngineState *state, bool *isRunning, size_t depthLimit, const std::unordered_set<std::string>& legalMoves) {
-    SearchResult<Color::WHITE> result = search(&state->thinker, &state->pos, depthLimit, legalMoves, [state](Position *position, SearchResult<Color::WHITE> results, size_t depth, double secs) {
+  static void _threaded_think(UciEngineState *state, GoCommand goCommand, bool *isRunning) {
+    state->stopThinkingSwitch = std::make_shared<StopThinkingSwitch>();
+
+    state->thinker.stopThinkingCondition = std::make_unique<OrStopCondition>(
+      std::make_shared<StopThinkingNodeCountCondition>(goCommand.nodeLimit),
+      std::make_shared<StopThinkingTimeCondition>(goCommand.timeLimitMs),
+      state->stopThinkingSwitch
+    );
+
+    // TODO: get rid of this (selfplay2 sometimes crashes when we try to get rid of it now).
+    state->thinker.reset_stuff();
+
+    SearchResult<Color::WHITE> result = search(&state->thinker, &state->pos, goCommand.depthLimit, goCommand.moves, [state](Position *position, SearchResult<Color::WHITE> results, size_t depth, double secs) {
       GoTask::_print_variations(state, depth, secs);
     });
 
