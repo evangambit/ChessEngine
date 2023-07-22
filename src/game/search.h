@@ -9,6 +9,7 @@
 #include <chrono>
 #include <thread>
 #include <memory>
+#include <unordered_set>
 
 #include "geometry.h"
 #include "utils.h"
@@ -20,6 +21,21 @@
 #define COMPLEX_SEARCH 0
 
 namespace ChessEngine {
+
+std::unordered_set<std::string> compute_legal_moves_set(Position *pos) {
+  std::unordered_set<std::string> legalMoves;
+  ExtMove moves[kMaxNumMoves];
+  ExtMove *end;
+  if (pos->turn_ == Color::WHITE) {
+    end = compute_legal_moves<Color::WHITE>(pos, moves);
+  } else {
+    end = compute_legal_moves<Color::BLACK>(pos, moves);
+  }
+  for (ExtMove *move = moves; move < end; ++move) {
+    legalMoves.insert(move->uci());
+  }
+  return legalMoves;
+}
 
 void for_all_moves(Position *position, std::function<void(const Position&, ExtMove)> f) {
   ExtMove moves[kMaxNumMoves];
@@ -991,8 +1007,7 @@ static SearchResult<Color::WHITE> _search_fixed_depth(Thinker *thinker, Position
 }
 
 // TODO: making threads work with multiPV seems really nontrivial.
-
-static SearchResult<Color::WHITE> search(Thinker *thinker, Position* pos, size_t depthLimit, std::function<void(Position *, SearchResult<Color::WHITE>, size_t, double)> callback) {
+static SearchResult<Color::WHITE> search(Thinker *thinker, Position* pos, size_t depthLimit, const std::unordered_set<std::string>& moves, std::function<void(Position *, SearchResult<Color::WHITE>, size_t, double)> callback) {
   std::chrono::time_point<std::chrono::steady_clock> tstart = std::chrono::steady_clock::now();
 
   Position copy(*pos);
@@ -1088,7 +1103,8 @@ static SearchResult<Color::WHITE> search(Thinker *thinker, Position* pos, size_t
 }
 
 static SearchResult<Color::WHITE> search(Thinker *thinker, Position *pos, size_t depthLimit) {
-  return search(thinker, pos, depthLimit, [](Position *position, SearchResult<Color::WHITE> results, size_t depth, double secs) {});
+  const auto legalMoves = compute_legal_moves_set(pos);
+  return search(thinker, pos, depthLimit, legalMoves, [](Position *position, SearchResult<Color::WHITE> results, size_t depth, double secs) {});
 }
 
 struct StopThinkingNodeCountCondition : public StopThinkingCondition {

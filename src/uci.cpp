@@ -1,4 +1,4 @@
-// g++ src/uci.cpp src/game/*.cpp -std=c++20 -O3 -DNDEBUG -o main
+// g++ src/uci.cpp src/game/*.cpp -std=c++20 -O3 -DNDEBUG -o uci
 // g++ src/uci.cpp src/game/*.cpp -std=c++20 -O3 -DNDEBUG -DSquareControl -o sc-old
 
 #import "game/search.h"
@@ -7,284 +7,139 @@
 #import "game/utils.h"
 #import "game/string_utils.h"
 
+#include <condition_variable>
 #include <deque>
 #include <iostream>
+#include <mutex>
+#include <unordered_set>
 
 using namespace ChessEngine;
 
-struct UciEngine {
-  Thinker thinker;
-  Position pos;
-  std::shared_ptr<StopThinkingSwitch> stopThinkingSwitch;
-  std::thread *thinkingThread;
-  UciEngine() : stopThinkingSwitch(nullptr), thinkingThread(nullptr) {
-    pos = Position("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
-    #ifndef SquareControl
-    this->thinker.load_weights_from_file("weights.txt");
-    #else
-    this->thinker.load_weights_from_file("weights-square-control.txt");
-    #endif
+void invalid(const std::string& command) {
+  std::cout << "Invalid use of " << repr(command) << " command" << std::endl;
+}
+
+void invalid(const std::string& command, const std::string& message) {
+  std::cout << "Invalid use of " << repr(command) << " command (" << message << ")" << std::endl;
+}
+
+bool make_uci_move(Position* position, const std::string& uciMove) {
+  ExtMove moves[kMaxNumMoves];
+  ExtMove *end;
+  if (position->turn_ == Color::WHITE) {
+    end = compute_legal_moves<Color::WHITE>(position, moves);
+  } else {
+    end = compute_legal_moves<Color::BLACK>(position, moves);
   }
-  void start(std::istream& cin) {
-    while (true) {
-      if (std::cin.eof()) {
-        break;
-      }
-      std::string line;
-      getline(std::cin, line);
-      if (line == "quit") {
-        exit(0);
-        break;
-      }
-
-      // Skip empty lines.
-      if(line.find_first_not_of(' ') == std::string::npos) {
-        continue;
-      }
-
-      this->handle_uci_command(&line);
-    }
-  }
-  void handle_uci_command(std::string *command) {
-    remove_excess_whitespace(command);
-    std::vector<std::string> rawParts = split(*command, ' ');
-
-    std::deque<std::string> parts;
-    for (const auto& part : rawParts) {
-      if (part.size() > 0) {
-        parts.push_back(part);
-      }
-    }
-
-    if (parts[0] == "position") {
-      handle_position(parts);
-    } else if (parts[0] == "go") {
-      handle_go(parts);
-    } else if (parts[0] == "setoption") {
-      handle_set_option(parts);
-    } else if (parts[0] == "ucinewgame") {
-      this->thinker.reset_stuff();
-    } else if (parts[0] == "stop") {
-      if (this->stopThinkingSwitch != nullptr) {
-        this->stopThinkingSwitch->stop();
-      }
-    } else if (parts[0] == "loadweights") {  // Custom commands below this line.
-      this->thinker.load_weights_from_file(parts[1]);
-    } else if (parts[0] == "play") {
-      handle_play(parts);
-    } else if (parts[0] == "printoptions") {
-      handle_print_options(parts);
-    } else if (parts[0] == "move") {
-      handle_move(parts);
-    } else if (parts[0] == "eval") {
-      Evaluator& evaulator = this->thinker.evaluator;
-      if (this->pos.turn_ == Color::WHITE) {
-        std::cout << evaulator.score<Color::WHITE>(this->pos) << std::endl;
+  for (ExtMove *move = moves; move < end; ++move) {
+    if (move->move.uci() == uciMove) {
+      if (position->turn_ == Color::WHITE) {
+        make_move<Color::WHITE>(position, move->move);
       } else {
-        std::cout << -evaulator.score<Color::BLACK>(this->pos) << std::endl;
+        make_move<Color::BLACK>(position, move->move);
       }
-      for (int i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
-        if (evaulator.features[i] != 0) {
-          std::cout << evaulator.features[i] << " " << EFSTR[i] << std::endl;
-        }
-      }
-    } else if (parts[0] == "probe") {
-      Position query = Position::init();
-      size_t i = 1;
-      if (parts[1] == "fen") {
-        std::vector<std::string> fen(parts.begin() + 2, parts.begin() + 8);
-        query = Position(join(fen, " "));
-        i = 8;
-      }
-      if (parts[i] == "moves") {
-        while (++i < parts.size()) {
-          if (!make_uci_move(&query, parts[i])) {
-            std::cout << "Invalid uci move " << repr(parts[i]) << std::endl;
-            return;
-          }
-        }
-      }
-
-      std::pair<CacheResult, std::vector<Move>> variation = this->thinker.get_variation(&query, kNullMove);
-
-      if (isNullCacheResult(variation.first)) {
-        std::cout << "Cache result for " << query.fen() << " is missing" << std::endl;
-      }
-      std::cout << variation.first.eval;
-      for (const auto& move : variation.second) {
-        std::cout << " " << move;
-      }
-      std::cout << std::endl;
-    } else {
-      std::cout << "Unrecognized command " << repr(*command) << std::endl;
+      return true;
     }
   }
+  return false;
+}
 
-  void invalid(const std::string& command) {
-    std::cout << "Invalid use of " << repr(command) << " command" << std::endl;
-  }
 
-  void handle_position(const std::deque<std::string>& command) {
-    if (command.size() < 2) {
-      invalid(join(command, " "));
-      return;
-    }
-    size_t i;
-    if (command[1] == "startpos") {
-      this->pos = Position("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
-      i = 2;
-    } else if (command.size() >= 8 && command[1] == "fen") {
-      std::vector<std::string> fen(command.begin() + 2, command.begin() + 8);
-      i = 8;
-      this->pos = Position(join(fen, " "));
-    } else {
-      invalid(join(command, " "));
-      return;
-    }
-    if (i == command.size()) {
-      std::cout << "Position set to \"" << this->pos.fen() << std::endl;
-      return;
-    }
-    if (command[i] != "moves") {
-      invalid(join(command, " "));
-      return;
-    }
-    while (++i < command.size()) {
-      std::string uciMove = command[i];
-      ExtMove moves[kMaxNumMoves];
-      ExtMove *end;
-      if (this->pos.turn_ == Color::WHITE) {
-        end = compute_legal_moves<Color::WHITE>(&this->pos, moves);
-      } else {
-        end = compute_legal_moves<Color::BLACK>(&this->pos, moves);
-      }
-      bool foundMove = false;
-      for (ExtMove *move = moves; move < end; ++move) {
-        if (move->move.uci() == uciMove) {
-          foundMove = true;
-          if (this->pos.turn_ == Color::WHITE) {
-            make_move<Color::WHITE>(&this->pos, move->move);
-          } else {
-            make_move<Color::BLACK>(&this->pos, move->move);
-          }
-          break;
-        }
-      }
-      if (!foundMove) {
-        std::cout << "Could not find move " << repr(uciMove) << std::endl;
-        return;
-      }
-    }
-  }
+struct UciEngineState;
 
-  bool make_uci_move(Position* position, const std::string& uciMove) {
-    ExtMove moves[kMaxNumMoves];
-    ExtMove *end;
-    if (position->turn_ == Color::WHITE) {
-      end = compute_legal_moves<Color::WHITE>(position, moves);
-    } else {
-      end = compute_legal_moves<Color::BLACK>(position, moves);
-    }
-    for (ExtMove *move = moves; move < end; ++move) {
-      if (move->move.uci() == uciMove) {
-        if (position->turn_ == Color::WHITE) {
-          make_move<Color::WHITE>(position, move->move);
-        } else {
-          make_move<Color::BLACK>(position, move->move);
-        }
-        return true;
-      }
-    }
+class Task {
+ public:
+  virtual void start(UciEngineState *state) = 0;
+
+  virtual bool is_running() {
     return false;
   }
 
-  // #define MOVE (\S{4,5})
-  // ^go (nodes|depth|time) (\d+)( searchmoves( MOVE)+)?$
-  void handle_go(const std::deque<std::string>& command) {
-    size_t nodeLimit = size_t(-1);
-    uint64_t depthLimit = 99;
-    uint64_t timeLimitMs = 1000 * 60 * 60;
+  bool is_slow() {
+    return false;
+  }
+};
 
-    if (command.size() != 3) {
-      invalid(join(command, " "));
-      return;
+struct UciEngineState {
+  Thinker thinker;
+  Position pos;
+  std::shared_ptr<StopThinkingSwitch> stopThinkingSwitch;
+
+  std::mutex mutex;
+  std::condition_variable condVar;
+
+  std::deque<std::shared_ptr<Task>> taskQueue;
+  SpinLock taskQueueLock;
+  std::shared_ptr<Task> currentTask;
+};
+
+class UnrecognizedCommandTask : public Task {
+ public:
+  UnrecognizedCommandTask(std::deque<std::string> command) : command(command) {}
+  void start(UciEngineState *state) {
+    std::cout << "Unrecognized command \"" << join(command, " ") << "\"" << std::endl;
+  }
+ private:
+  std::deque<std::string> command;
+};
+
+class ProbeTask : public Task {
+ public:
+  ProbeTask(std::deque<std::string> command) : command(command) {}
+  void start(UciEngineState *state) {
+    Position query = Position::init();
+    size_t i = 1;
+    if (command[1] == "fen") {
+      std::vector<std::string> fen(command.begin() + 2, command.begin() + 8);
+      query = Position(join(fen, " "));
+      i = 8;
+    }
+    if (command[i] == "moves") {
+      while (++i < command.size()) {
+        if (!make_uci_move(&query, command[i])) {
+          std::cout << "Invalid uci move " << repr(command[i]) << std::endl;
+          return;
+        }
+      }
     }
 
-    if (command.at(1) == "depth") {
-      depthLimit = stoi(command.at(2));
-    } else if (command.at(1) == "nodes") {
-      nodeLimit = stoi(command.at(2));
-    } else if (command.at(1) == "time") {
-      timeLimitMs = stoi(command.at(2));
-    } else if (command[1] == "time") {
-      timeLimitMs = stoi(command[2]);
-    } else {
-      invalid(join(command, " "));
-      return;
+    std::pair<CacheResult, std::vector<Move>> variation = state->thinker.get_variation(&query, kNullMove);
+
+    if (isNullCacheResult(variation.first)) {
+      std::cout << "Cache result for " << query.fen() << " is missing" << std::endl;
     }
-
-    this->thinker.stopThinkingCondition = std::make_unique<OrStopCondition>(
-      std::make_shared<StopThinkingNodeCountCondition>(nodeLimit),
-      std::make_shared<StopThinkingTimeCondition>(timeLimitMs)
-    );
-
-    // TODO: get rid of this (selfplay2 sometimes crashes when we try to get rid of it now).
-    this->thinker.reset_stuff();
-
-    SearchResult<Color::WHITE> result = search(&this->thinker, &this->pos, depthLimit, [this](Position *position, SearchResult<Color::WHITE> results, size_t depth, double secs) {
-      this->_print_variations(position, depth, secs, this->thinker.multiPV);
-    });
-
-    if (this->pos.turn_ == Color::WHITE) {
-      make_move<Color::WHITE>(&this->pos, result.move);
-    } else {
-      make_move<Color::BLACK>(&this->pos, result.move);
-    }
-    CacheResult cr = this->thinker.cache.find<false>(this->pos.hash_);
-    if (this->pos.turn_ == Color::WHITE) {
-      undo<Color::BLACK>(&this->pos);
-    } else {
-      undo<Color::WHITE>(&this->pos);
-    }
-
-    std::cout << "bestmove " << result.move;
-    if (!isNullCacheResult(cr)) {
-      std::cout << " ponder " << cr.bestMove;
+    std::cout << variation.first.eval;
+    for (const auto& move : variation.second) {
+      std::cout << " " << move;
     }
     std::cout << std::endl;
   }
+ private:
+  std::deque<std::string> command;
+};
 
-  void handle_move(const std::deque<std::string>& command) {
-    size_t i = 0;
-    while (++i < command.size()) {
-      std::string uciMove = command[i];
-      ExtMove moves[kMaxNumMoves];
-      ExtMove *end;
-      if (this->pos.turn_ == Color::WHITE) {
-        end = compute_legal_moves<Color::WHITE>(&this->pos, moves);
-      } else {
-        end = compute_legal_moves<Color::BLACK>(&this->pos, moves);
-      }
-      bool foundMove = false;
-      for (ExtMove *move = moves; move < end; ++move) {
-        if (move->move.uci() == uciMove) {
-          foundMove = true;
-          if (this->pos.turn_ == Color::WHITE) {
-            make_move<Color::WHITE>(&this->pos, move->move);
-          } else {
-            make_move<Color::BLACK>(&this->pos, move->move);
-          }
-          break;
-        }
-      }
-      if (!foundMove) {
-        std::cout << "Could not find move " << repr(uciMove) << std::endl;
-        return;
-      }
+class EvalTask : public Task {
+ public:
+  EvalTask(std::deque<std::string> command) : command(command) {}
+  void start(UciEngineState *state) {
+    Evaluator& evaulator = state->thinker.evaluator;
+    if (state->pos.turn_ == Color::WHITE) {
+      std::cout << evaulator.score<Color::WHITE>(state->pos) << std::endl;
+    } else {
+      std::cout << -evaulator.score<Color::BLACK>(state->pos) << std::endl;
     }
   }
+ private:
+  std::deque<std::string> command;
+};
 
-  void handle_play(const std::deque<std::string>& command) {
+class PlayTask : public Task {
+ public:
+  PlayTask(std::deque<std::string> command) : command(command), isRunning(false) {}
+  void start(UciEngineState *state) override {
+    std::cout << "PlayTask::start" << std::endl;
+    assert(!isRunning);
+    isRunning = true;
     size_t nodeLimit = size_t(-1);
     uint64_t depthLimit = 99;
     uint64_t timeLimitMs = 1000 * 60 * 60;
@@ -304,19 +159,26 @@ struct UciEngine {
       invalid(join(command, " "));
       return;
     }
-
-    Position pos(this->pos);
+    
+    this->thread = new std::thread(PlayTask::_threaded_think, state, &this->isRunning, depthLimit, nodeLimit, timeLimitMs);
+  }
+  bool is_running() override {
+    return isRunning;
+  }
+ private:
+  static void _threaded_think(UciEngineState *state, bool *isRunning, size_t depthLimit, uint64_t nodeLimit, uint64_t timeLimitMs) {
+    Position pos(state->pos);
 
     while (true) {
-      this->thinker.stopThinkingCondition = std::make_unique<OrStopCondition>(
+      state->thinker.stopThinkingCondition = std::make_unique<OrStopCondition>(
         std::make_shared<StopThinkingNodeCountCondition>(nodeLimit),
         std::make_shared<StopThinkingTimeCondition>(timeLimitMs)
       );
 
       // TODO: get rid of this (selfplay2 sometimes crashes when we try to get rid of it now).
-      this->thinker.reset_stuff();
+      state->thinker.reset_stuff();
 
-      SearchResult<Color::WHITE> result = search(&this->thinker, &pos, depthLimit);
+      SearchResult<Color::WHITE> result = search(&state->thinker, &pos, depthLimit);
       if (result.move == kNullMove) {
         break;
       }
@@ -324,55 +186,113 @@ struct UciEngine {
       if (pos.turn_ == Color::WHITE) {
         make_move<Color::WHITE>(&pos, result.move);
         if (is_checkmate<Color::BLACK>(&pos)) {
+          std::cout << std::endl;
           break;
         }
       } else {
         make_move<Color::BLACK>(&pos, result.move);
         if (is_checkmate<Color::WHITE>(&pos)) {
+          std::cout << std::endl;
           break;
         }
       }
+      if (pos.is_draw(0)) {
+        std::cout << std::endl;
+        break;
+      }
     }
-    std::cout << std::endl;
-  }
 
-  void _print_variations(Position* position, int depth, double secs, size_t multiPV) const {
-    const uint64_t timeMs = secs * 1000;
-    std::vector<SearchResult<Color::WHITE>> variations = this->thinker.variations;
-    if (variations.size() == 0) {
-      throw std::runtime_error("No variations found!");
-    }
-    const int32_t pawnValue = this->thinker.evaluator.earlyW[EF::PAWNS] + this->thinker.evaluator.clippedW[EF::PAWNS];
-    for (size_t i = 0; i < std::min(multiPV, variations.size()); ++i) {
-      std::pair<CacheResult, std::vector<Move>> variation = this->thinker.get_variation(position, variations[i].move);
-      std::cout << "info depth " << depth;
-      std::cout << " multipv " << (i + 1);
-      if (variation.first.eval <= kLongestForcedMate) {
-        std::cout << " score mate " << -(variation.first.eval - kCheckmate + 1) / 2;
-      } else if (variation.first.eval >= -kLongestForcedMate) {
-        std::cout << " score mate " << (-variation.first.eval - kCheckmate + 1) / 2;
+    *isRunning = false;
+
+    // Notify run-loop that it can start running a new command.
+    std::unique_lock<std::mutex> lock(state->mutex);
+    state->condVar.notify_one();
+  }
+  bool isRunning;
+  std::thread *thread;
+  std::deque<std::string> command;
+};
+
+class MoveTask : public Task {
+ public:
+  MoveTask(std::deque<std::string> command) : command(command) {}
+  void start(UciEngineState *state) {
+    size_t i = 0;
+    while (++i < command.size()) {
+      std::string uciMove = command[i];
+      ExtMove moves[kMaxNumMoves];
+      ExtMove *end;
+      if (state->pos.turn_ == Color::WHITE) {
+        end = compute_legal_moves<Color::WHITE>(&state->pos, moves);
       } else {
-        std::cout << " score cp " << (variation.first.eval * 100 / pawnValue);
+        end = compute_legal_moves<Color::BLACK>(&state->pos, moves);
       }
-      std::cout << " nodes " << this->thinker.nodeCounter;
-      std::cout << " nps " << uint64_t(double(this->thinker.nodeCounter) / secs);
-      std::cout << " time " << timeMs;
-      std::cout << " pv";
-      for (const auto& move : variation.second) {
-        std::cout << " " << move.uci();
+      bool foundMove = false;
+      for (ExtMove *move = moves; move < end; ++move) {
+        if (move->move.uci() == uciMove) {
+          foundMove = true;
+          if (state->pos.turn_ == Color::WHITE) {
+            make_move<Color::WHITE>(&state->pos, move->move);
+          } else {
+            make_move<Color::BLACK>(&state->pos, move->move);
+          }
+          break;
+        }
       }
-      std::cout << std::endl;
+      if (!foundMove) {
+        std::cout << "Could not find move " << repr(uciMove) << std::endl;
+        return;
+      }
     }
   }
+ private:
+  std::deque<std::string> command;
+};
 
-  void handle_print_options(const std::deque<std::string>& command) {
-    std::cout << "MultiPV: " << this->thinker.multiPV << " variations" << std::endl;
-    std::cout << "Threads: " << this->thinker.numThreads << " threads" << std::endl;
-    std::cout << "Hash: " << this->thinker.cache.kb_size() << " kilobytes" << std::endl;
+class PrintOptionsTask : public Task {
+ public:
+  void start(UciEngineState *state) {
+    std::cout << "MultiPV: " << state->thinker.multiPV << " variations" << std::endl;
+    std::cout << "Threads: " << state->thinker.numThreads << " threads" << std::endl;
+    std::cout << "Hash: " << state->thinker.cache.kb_size() << " kilobytes" << std::endl;
   }
+};
 
-  void handle_set_option(const std::deque<std::string>& command) {
-    if (command.size() != 5 && command.size() != 3) {
+class StopTask : public Task {
+ public:
+  void start(UciEngineState *state) {
+    // TODO: deque all future thinking tasks?
+    if (state->stopThinkingSwitch != nullptr) {
+      state->stopThinkingSwitch->stop();
+    }
+  }
+};
+
+class LoadWeightsTask : public Task {
+ public:
+  LoadWeightsTask(std::deque<std::string> command) : command(command) {}
+  void start(UciEngineState *state) {
+    assert(command.at(0) == "loadweights");
+    if (command.size() != 2) {
+      invalid(join(command, " "));
+    }
+    state->thinker.load_weights_from_file(command.at(1));
+  }
+  std::deque<std::string> command;
+};
+
+class NewGameTask : public Task {
+ public:
+  void start(UciEngineState *state) {
+    state->thinker.reset_stuff();
+  }
+};
+
+class SetOptionTask : public Task {
+ public:
+  SetOptionTask(std::deque<std::string> command) : command(command) {}
+  void start(UciEngineState *state) {
+        if (command.size() != 5 && command.size() != 3) {
       invalid(join(command, " "));
       return;
     }
@@ -383,7 +303,7 @@ struct UciEngine {
     const std::string name = command[2];
     if (command.size() == 3) {
       if (name == "clear-tt") {
-        this->thinker.reset_stuff();
+        state->thinker.reset_stuff();
         return;
       }
       std::cout << "Unrecognized option " << repr(name) << std::endl;
@@ -408,7 +328,7 @@ struct UciEngine {
           std::cout << "Value must be positive" << std::endl;
           return;
         }
-        this->thinker.multiPV = multiPV;
+        state->thinker.multiPV = multiPV;
         return;
       } else if (name == "Threads") {
         int numThreads;
@@ -425,7 +345,7 @@ struct UciEngine {
           std::cout << "Value must be positive" << std::endl;
           return;
         }
-        this->thinker.numThreads = numThreads;
+        state->thinker.numThreads = numThreads;
         return;
       } else if (name == "Hash") {
         int cacheSize;
@@ -438,10 +358,331 @@ struct UciEngine {
           std::cout << "Value must be an integer" << std::endl;
           return;
         }
-        this->thinker.set_cache_size(cacheSize);
+        state->thinker.set_cache_size(cacheSize);
         return;
       }
       std::cout << "Unrecognized option " << repr(name) << std::endl;
+    }
+  }
+ private:
+  std::deque<std::string> command;
+};
+
+class PositionTask : public Task {
+ public:
+  PositionTask(std::deque<std::string> command) : command(command) {}
+  void start(UciEngineState *state) {
+    if (command.size() < 2) {
+      invalid(join(command, " "));
+      return;
+    }
+    size_t i;
+    if (command[1] == "startpos") {
+      state->pos = Position("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+      i = 2;
+    } else if (command.size() >= 8 && command[1] == "fen") {
+      std::vector<std::string> fen(command.begin() + 2, command.begin() + 8);
+      i = 8;
+      state->pos = Position(join(fen, " "));
+    } else {
+      invalid(join(command, " "));
+      return;
+    }
+    if (i == command.size()) {
+      std::cout << "Position set to \"" << state->pos.fen() << std::endl;
+      return;
+    }
+    if (command[i] != "moves") {
+      invalid(join(command, " "));
+      return;
+    }
+    while (++i < command.size()) {
+      std::string uciMove = command[i];
+      ExtMove moves[kMaxNumMoves];
+      ExtMove *end;
+      if (state->pos.turn_ == Color::WHITE) {
+        end = compute_legal_moves<Color::WHITE>(&state->pos, moves);
+      } else {
+        end = compute_legal_moves<Color::BLACK>(&state->pos, moves);
+      }
+      bool foundMove = false;
+      for (ExtMove *move = moves; move < end; ++move) {
+        if (move->move.uci() == uciMove) {
+          foundMove = true;
+          if (state->pos.turn_ == Color::WHITE) {
+            make_move<Color::WHITE>(&state->pos, move->move);
+          } else {
+            make_move<Color::BLACK>(&state->pos, move->move);
+          }
+          break;
+        }
+      }
+      if (!foundMove) {
+        std::cout << "Could not find move " << repr(uciMove) << std::endl;
+        return;
+      }
+    }
+  }
+ private:
+  std::deque<std::string> command;
+};
+
+class GoTask : public Task {
+ public:
+  GoTask(std::deque<std::string> command) : command(command), isRunning(false), thread(nullptr) {}
+  void start(UciEngineState *state) override {
+    assert(!isRunning);
+    isRunning = true;
+    assert(command.at(0) == "go");
+    command.pop_front();
+
+    if (command.size() < 2) {
+      invalid(join(command, " "));
+      return;
+    }
+
+    size_t depthLimit;
+    uint64_t nodeLimit;
+    uint64_t timeLimitMs;
+
+    if (command.at(0) == "depth") {
+      depthLimit = stoi(command.at(1));
+    } else if (command.at(0) == "nodes") {
+      nodeLimit = stoi(command.at(1));
+    } else if (command.at(0) == "time") {
+      timeLimitMs = stoi(command.at(1));
+    } else {
+      invalid(join(command, " "));
+      return;
+    }
+    command.pop_front();
+    command.pop_front();
+
+    std::unordered_set<std::string> legalMoves = compute_legal_moves_set(&state->pos);
+
+    if (command.size() > 0) {
+      if (command.at(0) != "searchmoves") {
+        invalid(join(command, " "));
+        return;
+      }
+      command.pop_front();
+      std::unordered_set<std::string> forcedMoves;
+      while (command.size() > 0) {
+        std::string move = command.front();
+        command.pop_front();
+        if (!legalMoves.contains(move)) {
+          invalid(join(command, " "), "Invalid move \"" + move + "\"");
+          return;
+        }
+        forcedMoves.insert(move);
+      }
+      legalMoves = forcedMoves;
+    }
+
+    state->stopThinkingSwitch = std::make_shared<StopThinkingSwitch>();
+
+    state->thinker.stopThinkingCondition = std::make_unique<OrStopCondition>(
+      std::make_shared<StopThinkingNodeCountCondition>(nodeLimit),
+      std::make_shared<StopThinkingTimeCondition>(timeLimitMs),
+      state->stopThinkingSwitch
+    );
+
+    // TODO: get rid of this (selfplay2 sometimes crashes when we try to get rid of it now).
+    state->thinker.reset_stuff();
+
+    this->thread = new std::thread(GoTask::_threaded_think, state, &this->isRunning, depthLimit, legalMoves);
+  }
+
+  ~GoTask() {
+    assert(!isRunning);
+    assert(this->thread != nullptr);
+    this->thread->join();
+    delete this->thread;
+  }
+
+  static void _threaded_think(UciEngineState *state, bool *isRunning, size_t depthLimit, const std::unordered_set<std::string>& legalMoves) {
+    SearchResult<Color::WHITE> result = search(&state->thinker, &state->pos, depthLimit, legalMoves, [state](Position *position, SearchResult<Color::WHITE> results, size_t depth, double secs) {
+      GoTask::_print_variations(state, depth, secs);
+    });
+
+    if (state->pos.turn_ == Color::WHITE) {
+      make_move<Color::WHITE>(&state->pos, result.move);
+    } else {
+      make_move<Color::BLACK>(&state->pos, result.move);
+    }
+    CacheResult cr = state->thinker.cache.find<false>(state->pos.hash_);
+    if (state->pos.turn_ == Color::WHITE) {
+      undo<Color::BLACK>(&state->pos);
+    } else {
+      undo<Color::WHITE>(&state->pos);
+    }
+
+    std::cout << "bestmove " << result.move;
+    if (!isNullCacheResult(cr)) {
+      std::cout << " ponder " << cr.bestMove;
+    }
+    std::cout << std::endl;
+
+    *isRunning = false;
+
+    // Notify run-loop that it can start running a new command.
+    std::unique_lock<std::mutex> lock(state->mutex);
+    state->condVar.notify_one();
+  }
+  bool is_running() override {
+    return isRunning;
+  }
+ private:
+  static void _print_variations(UciEngineState* state, int depth, double secs) {
+    const size_t multiPV = state->thinker.multiPV;
+    const uint64_t timeMs = secs * 1000;
+    std::vector<SearchResult<Color::WHITE>> variations = state->thinker.variations;
+    if (variations.size() == 0) {
+      throw std::runtime_error("No variations found!");
+    }
+    const int32_t pawnValue = state->thinker.evaluator.earlyW[EF::PAWNS] + state->thinker.evaluator.clippedW[EF::PAWNS];
+    for (size_t i = 0; i < std::min(multiPV, variations.size()); ++i) {
+      std::pair<CacheResult, std::vector<Move>> variation = state->thinker.get_variation(&state->pos, variations[i].move);
+      std::cout << "info depth " << depth;
+      std::cout << " multipv " << (i + 1);
+      if (variation.first.eval <= kLongestForcedMate) {
+        std::cout << " score mate " << -(variation.first.eval - kCheckmate + 1) / 2;
+      } else if (variation.first.eval >= -kLongestForcedMate) {
+        std::cout << " score mate " << (-variation.first.eval - kCheckmate + 1) / 2;
+      } else {
+        std::cout << " score cp " << (variation.first.eval * 100 / pawnValue);
+      }
+      std::cout << " nodes " << state->thinker.nodeCounter;
+      std::cout << " nps " << uint64_t(double(state->thinker.nodeCounter) / secs);
+      std::cout << " time " << timeMs;
+      std::cout << " pv";
+      for (const auto& move : variation.second) {
+        std::cout << " " << move.uci();
+      }
+      std::cout << std::endl;
+    }
+  }
+  std::deque<std::string> command;
+  std::thread *thread;
+  bool isRunning;
+};
+
+struct UciEngine {
+  UciEngineState state;
+
+  UciEngine() {
+    this->state.stopThinkingSwitch = nullptr;
+    this->state.pos = Position("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+    this->state.thinker.load_weights_from_file("weights.txt");
+  }
+  void start(std::istream& cin) {
+    UciEngineState *state = &this->state;
+    std::thread eventRunner([state]() {
+      while (true) {
+        std::unique_lock<std::mutex> lock(state->mutex);
+        state->condVar.wait(lock);  // Wait for data
+
+        state->taskQueueLock.lock();
+        bool isBusy = state->currentTask != nullptr && state->currentTask->is_running();
+        while (!isBusy) {
+          state->currentTask = nullptr;
+          if (state->taskQueue.size() == 0) {
+            state->taskQueueLock.unlock();
+            break;
+          }
+          state->currentTask = state->taskQueue.front();
+          state->taskQueue.pop_front();
+          state->currentTask->start(state);
+          isBusy = state->currentTask != nullptr && state->currentTask->is_running();
+        }
+        state->taskQueueLock.unlock();
+      }
+    });
+    while (true) {
+      if (std::cin.eof()) {
+        break;
+      }
+      std::string line;
+      getline(std::cin, line);
+      if (line == "quit") {
+        exit(0);
+        break;
+      }
+
+      // Skip empty lines.
+      if(line.find_first_not_of(' ') == std::string::npos) {
+        continue;
+      }
+
+      this->handle_uci_command(state, &line);
+
+      // Notify run-loop that there may be a new command.
+      std::unique_lock<std::mutex> lock(this->state.mutex);
+      this->state.condVar.notify_one();
+    }
+    eventRunner.join();
+  }
+  static void handle_uci_command(UciEngineState *state, std::string *command) {
+    remove_excess_whitespace(command);
+    std::vector<std::string> rawParts = split(*command, ' ');
+
+    std::deque<std::string> parts;
+    for (const auto& part : rawParts) {
+      if (part.size() > 0) {
+        parts.push_back(part);
+      }
+    }
+
+    if (parts[0] == "position") {
+      state->taskQueueLock.lock();
+      state->taskQueue.push_back(std::make_shared<PositionTask>(parts));
+      state->taskQueueLock.unlock();
+    } else if (parts[0] == "go") {
+      state->taskQueueLock.lock();
+      state->taskQueue.push_back(std::make_shared<GoTask>(parts));
+      state->taskQueueLock.unlock();
+    } else if (parts[0] == "setoption") {
+      state->taskQueueLock.lock();
+      state->taskQueue.push_back(std::make_shared<SetOptionTask>(parts));
+      state->taskQueueLock.unlock();
+    } else if (parts[0] == "ucinewgame") {
+      state->taskQueueLock.lock();
+      state->taskQueue.push_back(std::make_shared<NewGameTask>());
+      state->taskQueueLock.unlock();
+    } else if (parts[0] == "stop") {
+      // This runs immediately.
+      StopTask task;
+      state->taskQueueLock.lock();
+      task.start(state);
+      state->taskQueueLock.unlock();
+    } else if (parts[0] == "loadweights") {  // Custom commands below this line.
+      state->taskQueueLock.lock();
+      state->taskQueue.push_back(std::make_shared<LoadWeightsTask>(parts));
+      state->taskQueueLock.unlock();
+    } else if (parts[0] == "play") {
+      state->taskQueueLock.lock();
+      state->taskQueue.push_back(std::make_shared<PlayTask>(parts));
+      state->taskQueueLock.unlock();
+    } else if (parts[0] == "printoptions") {
+      state->taskQueueLock.lock();
+      state->taskQueue.push_back(std::make_shared<PrintOptionsTask>());
+      state->taskQueueLock.unlock();
+    } else if (parts[0] == "move") {
+      state->taskQueueLock.lock();
+      state->taskQueue.push_back(std::make_shared<MoveTask>(parts));
+      state->taskQueueLock.unlock();
+    } else if (parts[0] == "eval") {
+      state->taskQueueLock.lock();
+      state->taskQueue.push_back(std::make_shared<EvalTask>(parts));
+      state->taskQueueLock.unlock();
+    } else if (parts[0] == "probe") {
+      state->taskQueueLock.lock();
+      state->taskQueue.push_back(std::make_shared<ProbeTask>(parts));
+      state->taskQueueLock.unlock();
+    } else {
+      state->taskQueueLock.lock();
+      state->taskQueue.push_back(std::make_shared<UnrecognizedCommandTask>(parts));
+      state->taskQueueLock.unlock();
     }
   }
 };
