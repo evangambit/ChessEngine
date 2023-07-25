@@ -1154,7 +1154,7 @@ static SearchResult<Color::WHITE> search(Thinker *thinker, const GoCommand& comm
 
   size_t depth;
   bool stoppedEarly = false;
-  for (depth = 1; depth <= command.depthLimit; ++depth) {
+  for (depth = 1; depth <= 20; ++depth) {
     if (copy.turn_ == Color::WHITE) {
       _search_fixed_depth<Color::WHITE>(thinker, copy, &threadObjs, Depth(depth));
     } else {

@@ -220,32 +220,30 @@ class PlayTask : public Task {
   }
  private:
   static void _threaded_think(UciEngineState *state, GoCommand goCommand, bool *isRunning) {
-    Position pos(state->pos);
-
     while (true) {
+      goCommand.moves = compute_legal_moves_set(&goCommand.pos);
       SearchResult<Color::WHITE> result = search(&state->thinker, goCommand, nullptr);
       if (result.move == kNullMove) {
         break;
       }
       std::cout << " " << result.move << std::flush;
-      if (pos.turn_ == Color::WHITE) {
-        make_move<Color::WHITE>(&pos, result.move);
-        if (is_checkmate<Color::BLACK>(&pos)) {
-          std::cout << std::endl;
+      if (goCommand.pos.turn_ == Color::WHITE) {
+        make_move<Color::WHITE>(&goCommand.pos, result.move);
+        if (is_checkmate<Color::BLACK>(&goCommand.pos)) {
           break;
         }
       } else {
-        make_move<Color::BLACK>(&pos, result.move);
-        if (is_checkmate<Color::WHITE>(&pos)) {
-          std::cout << std::endl;
+        make_move<Color::BLACK>(&goCommand.pos, result.move);
+        if (is_checkmate<Color::WHITE>(&goCommand.pos)) {
           break;
         }
       }
-      if (pos.is_draw(0)) {
-        std::cout << std::endl;
+      if (goCommand.pos.is_draw(0)) {
         break;
       }
     }
+
+    std::cout << std::endl;
 
     *isRunning = false;
 
@@ -575,22 +573,27 @@ struct UciEngine {
     UciEngineState *state = &this->state;
     std::thread eventRunner([state]() {
       while (true) {
-        std::unique_lock<std::mutex> lock(state->mutex);
-        state->condVar.wait(lock);  // Wait for data
-
         state->taskQueueLock.lock();
         bool isBusy = state->currentTask != nullptr && state->currentTask->is_running();
-        while (!isBusy) {
-          state->currentTask = nullptr;
-          if (state->taskQueue.size() == 0) {
-            state->taskQueueLock.unlock();
-            break;
-          }
-          state->currentTask = state->taskQueue.front();
-          state->taskQueue.pop_front();
-          state->currentTask->start(state);
+        state->taskQueueLock.unlock();
+
+        while (isBusy) {
+          std::unique_lock<std::mutex> lock(state->mutex);
+          state->condVar.wait(lock);  // Wait for data
+          state->taskQueueLock.lock();
           isBusy = state->currentTask != nullptr && state->currentTask->is_running();
+          state->taskQueueLock.unlock();
         }
+
+        state->taskQueueLock.lock();
+        state->currentTask = nullptr;
+        if (state->taskQueue.size() == 0) {
+          state->taskQueueLock.unlock();
+          continue;
+        }
+        state->currentTask = state->taskQueue.front();
+        state->taskQueue.pop_front();
+        state->currentTask->start(state);
         state->taskQueueLock.unlock();
       }
     });
@@ -629,57 +632,38 @@ struct UciEngine {
       }
     }
 
+    state->taskQueueLock.lock();
     if (parts[0] == "position") {
-      state->taskQueueLock.lock();
       state->taskQueue.push_back(std::make_shared<PositionTask>(parts));
-      state->taskQueueLock.unlock();
     } else if (parts[0] == "go") {
-      state->taskQueueLock.lock();
       state->taskQueue.push_back(std::make_shared<GoTask>(parts));
-      state->taskQueueLock.unlock();
     } else if (parts[0] == "setoption") {
-      state->taskQueueLock.lock();
       state->taskQueue.push_back(std::make_shared<SetOptionTask>(parts));
-      state->taskQueueLock.unlock();
     } else if (parts[0] == "ucinewgame") {
-      state->taskQueueLock.lock();
       state->taskQueue.push_back(std::make_shared<NewGameTask>());
-      state->taskQueueLock.unlock();
     } else if (parts[0] == "stop") {
       // This runs immediately.
       StopTask task;
-      state->taskQueueLock.lock();
       task.start(state);
-      state->taskQueueLock.unlock();
     } else if (parts[0] == "loadweights") {  // Custom commands below this line.
-      state->taskQueueLock.lock();
       state->taskQueue.push_back(std::make_shared<LoadWeightsTask>(parts));
-      state->taskQueueLock.unlock();
     } else if (parts[0] == "play") {
-      state->taskQueueLock.lock();
       state->taskQueue.push_back(std::make_shared<PlayTask>(parts));
-      state->taskQueueLock.unlock();
     } else if (parts[0] == "printoptions") {
-      state->taskQueueLock.lock();
       state->taskQueue.push_back(std::make_shared<PrintOptionsTask>());
-      state->taskQueueLock.unlock();
     } else if (parts[0] == "move") {
-      state->taskQueueLock.lock();
       state->taskQueue.push_back(std::make_shared<MoveTask>(parts));
-      state->taskQueueLock.unlock();
     } else if (parts[0] == "eval") {
-      state->taskQueueLock.lock();
       state->taskQueue.push_back(std::make_shared<EvalTask>(parts));
-      state->taskQueueLock.unlock();
     } else if (parts[0] == "probe") {
-      state->taskQueueLock.lock();
       state->taskQueue.push_back(std::make_shared<ProbeTask>(parts));
-      state->taskQueueLock.unlock();
     } else {
-      state->taskQueueLock.lock();
       state->taskQueue.push_back(std::make_shared<UnrecognizedCommandTask>(parts));
-      state->taskQueueLock.unlock();
     }
+    state->taskQueueLock.unlock();
+
+    std::unique_lock<std::mutex> lock(state->mutex);
+    state->condVar.notify_one();
   }
 };
 

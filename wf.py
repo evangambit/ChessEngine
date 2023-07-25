@@ -98,7 +98,7 @@ if __name__ == '__main__':
 
   A = c.fetchall()
 
-  for i in range(1, len(wf)):
+  for i in range(0, len(wf)):
     random.shuffle(A)
     L0 = evaluate(A, 'weights.txt', args)
 
@@ -108,7 +108,7 @@ if __name__ == '__main__':
 
     D1 = L1 - L0
     z = D1.mean() / (D1.std() / math.sqrt(D1.size - 1))
-    print(i, '+', ('%.3f' % z).rjust(7))
+    print(i, '+', ('%.2f' % z).rjust(7))
 
     wf[i] = wf[i] - args.delta * 2
     wf.save('w0.txt')
@@ -116,8 +116,10 @@ if __name__ == '__main__':
 
     D2 = L2 - L0
     z = D2.mean() / (D2.std() / math.sqrt(D2.size - 1))
-    print(i, '-', ('%.3f' % z).rjust(7))
+    print(i, '-', ('%.2f' % z).rjust(7))
 
     wf[i] = wf[i] + args.delta
+
+    print('')
 
 

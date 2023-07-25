@@ -362,7 +362,7 @@ struct Evaluator {
       try {
         clippedW[i] = stoi(process_with_file_line(line));
       } catch (std::invalid_argument& err) {
-        std::cout << "error loading clippedW[i]" << std::endl;
+        std::cout << "error loading clippedW[" << i << "]" << std::endl;
         throw err;
       }
     }
