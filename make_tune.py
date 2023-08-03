@@ -116,7 +116,7 @@ class UciPlayer:
     return R
 
 def analyzer(fenQueue, resultQueue, args):
-    stockfish = Stockfish(path=args.stockpath, depth=args.depth)
+    stockfish = Stockfish(path=args.stockpath, depth=args.stockdepth)
     ourEngine = UciPlayer("./new", "weights.txt")
     ourEngine.command("setoption name MultiPV value 2")
 
@@ -129,7 +129,7 @@ def analyzer(fenQueue, resultQueue, args):
         except StockfishException:
           print('reboot')
           # Restart stockfish.
-          stockfish = Stockfish(path=args.stockpath, depth=args.depth)
+          stockfish = Stockfish(path=args.stockpath, depth=args.stockdepth)
           continue
 
         if len(moves) != args.multipv:
@@ -152,8 +152,8 @@ def analyzer(fenQueue, resultQueue, args):
               move['Centipawn'] = -args.clip
           move['Centipawn'] = max(-args.clip, min(args.clip, move['Centipawn']))
 
-        ourEval = ourEngine.go(fen, depth=2)
-        assert len(ourEval) == 2
+        ourEval = ourEngine.go(fen, depth=args.depth)
+        assert len(ourEval) == 2, ourEval
 
         if 'mate' in ourEval[0]['score']:
           continue
@@ -194,13 +194,13 @@ def pgn_iterator(noise):
       game = pgn.read_game(f)
 
 def get_table_name(args):
-  return f"tmp_d{args.depth}_margin{args.margin}"
+  return f"tmp_sd{args.stockdepth}_d{args.depth}_margin{args.margin}"
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser()
   parser.add_argument("pgnfiles", nargs='*')
-  parser.add_argument("--mode", type=str, required=True, help="{generate, update_features, write_numpy}")
-  parser.add_argument("--depth", type=int, default=10, help="{1, 2, ..}")
+  parser.add_argument("--stockdepth", type=int, default=10, help="{1, 2, ..}")
+  parser.add_argument("--depth", type=int, default=1, help="{1, 2, ..}")
   parser.add_argument("--clip", type=int, default=5000)
   parser.add_argument("--threads", type=int, default=4)
   parser.add_argument("--multipv", type=int, default=5, help="{1, 2, ..}")
@@ -208,22 +208,21 @@ if __name__ == '__main__':
   parser.add_argument("--stockpath", default="/usr/local/bin/stockfish", type=str)
   args = parser.parse_args()
 
-  assert args.mode in ['generate', 'update_features', 'write_numpy']
+  assert args.stockdepth > 1
   assert args.depth > 1
 
-  if args.mode == 'generate':
-    # generate work
-    fenQueue = Queue()
-    resultQueue = Queue()
+  # generate work
+  fenQueue = Queue()
+  resultQueue = Queue()
 
-    analyzers = [Process(target=analyzer, args=(fenQueue, resultQueue, args)) for _ in range(args.threads)]
-    for p in analyzers:
-      p.start()
+  analyzers = [Process(target=analyzer, args=(fenQueue, resultQueue, args)) for _ in range(args.threads)]
+  for p in analyzers:
+    p.start()
 
-    sqlThread = Process(target=sql_inserter, args=(resultQueue, args))
-    sqlThread.start()
+  sqlThread = Process(target=sql_inserter, args=(resultQueue, args))
+  sqlThread.start()
 
-    iterator = pgn_iterator(noise = 0)
+  iterator = pgn_iterator(noise = 0)
 
-    for fen in iterator:
-      fenQueue.put(fen)
+  for fen in iterator:
+    fenQueue.put(fen)
