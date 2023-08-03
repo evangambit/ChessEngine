@@ -1126,6 +1126,9 @@ static SearchResult<Color::WHITE> search(Thinker *thinker, const GoCommand& comm
   if (!condition) {
     condition = std::make_shared<NeverStopThinkingCondition>();
   }
+
+  thinker->nodeCounter = 0;
+
   thinker->stopThinkingCondition = std::make_unique<OrStopCondition>(
     std::make_shared<StopThinkingNodeCountCondition>(command.nodeLimit),
     std::make_shared<StopThinkingTimeCondition>(command.timeLimitMs),
@@ -1143,7 +1146,6 @@ static SearchResult<Color::WHITE> search(Thinker *thinker, const GoCommand& comm
   // need to recompute piece map scores using our own weights.
   copy.set_piece_maps(thinker->pieceMaps);
 
-  thinker->nodeCounter = 0;
   thinker->stopThinkingCondition->start_thinking(*thinker);
   thinker->cache.starting_search(copy.hash_);
 
