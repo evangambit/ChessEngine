@@ -492,9 +492,6 @@ class GoTask : public Task {
   static void _threaded_think(UciEngineState *state, GoCommand goCommand, bool *isRunning) {
     state->stopThinkingSwitch = std::make_shared<StopThinkingSwitch>();
 
-    // TODO: get rid of this (selfplay2 sometimes crashes when we try to get rid of it now).
-    state->thinker.reset_stuff();
-
     SearchResult<Color::WHITE> result = search(&state->thinker, goCommand, state->stopThinkingSwitch, [state](Position *position, SearchResult<Color::WHITE> results, size_t depth, double secs) {
       GoTask::_print_variations(state, depth, secs);
     });
@@ -561,6 +558,25 @@ class GoTask : public Task {
   bool isRunning;
 };
 
+void wait_for_task(UciEngineState *state) {
+  state->taskQueueLock.lock();
+  if (state->taskQueue.size() > 0) {
+    state->taskQueueLock.unlock();
+    return;
+  }
+  state->taskQueueLock.unlock();
+  while (true) {
+    std::unique_lock<std::mutex> lock(state->mutex);
+    state->condVar.wait(lock);  // Wait for data
+    state->taskQueueLock.lock();
+    if (state->taskQueue.size() > 0) {
+      state->taskQueueLock.unlock();
+      return;
+    }
+    state->taskQueueLock.unlock();
+  }
+}
+
 struct UciEngine {
   UciEngineState state;
 
@@ -573,24 +589,21 @@ struct UciEngine {
     UciEngineState *state = &this->state;
     std::thread eventRunner([state]() {
       while (true) {
-        state->taskQueueLock.lock();
-        bool isBusy = state->currentTask != nullptr && state->currentTask->is_running();
-        state->taskQueueLock.unlock();
+        wait_for_task(state);
 
-        while (isBusy) {
+        // Wait until not busy.
+        state->taskQueueLock.lock();
+        while (state->currentTask != nullptr && state->currentTask->is_running()) {
+          state->taskQueueLock.unlock();
           std::unique_lock<std::mutex> lock(state->mutex);
           state->condVar.wait(lock);  // Wait for data
           state->taskQueueLock.lock();
-          isBusy = state->currentTask != nullptr && state->currentTask->is_running();
-          state->taskQueueLock.unlock();
         }
 
-        state->taskQueueLock.lock();
-        state->currentTask = nullptr;
         if (state->taskQueue.size() == 0) {
-          state->taskQueueLock.unlock();
-          continue;
+          throw std::runtime_error("No task to enque");
         }
+
         state->currentTask = state->taskQueue.front();
         state->taskQueue.pop_front();
         state->currentTask->start(state);

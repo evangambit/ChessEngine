@@ -82,7 +82,7 @@ def play(fen0, player1, player2, nodes = 10_000):
   board = chess.Board(fen0)
   moves = []
   mover, waiter = player1, player2
-  while not board.can_claim_draw() and not board.is_stalemate() and not board.is_checkmate():
+  while not board.can_claim_draw() and not board.is_stalemate() and not board.is_checkmate() and not board.is_insufficient_material():
     try:
       move = mover.best_move(fen0, nodes, moves)
     except Exception as e:
@@ -149,8 +149,8 @@ def create_fen_batch(n):
 if __name__ == '__main__':
   mp.set_start_method('spawn')
   t0 = time.time()
-  numWorkers = 16
-  batches = [[]]
+  numWorkers = 8
+  batches = []
   for i in range(0, 256, numWorkers):
     batches.append(create_fen_batch(numWorkers))
 
@@ -158,7 +158,7 @@ if __name__ == '__main__':
   with mp.Pool(numWorkers) as pool:
     for batch in tqdm(batches):
       try:
-        r = pool.map_async(thread_main, batch).get(timeout=120)
+        r = pool.map_async(thread_main, batch).get(timeout=5)
         R += r
       except mp.context.TimeoutError:
         print('timeout')

@@ -24,7 +24,7 @@ namespace ChessEngine {
 
 struct GoCommand {
   GoCommand()
-  : depthLimit(-1), nodeLimit(-1), timeLimitMs(-1),
+  : depthLimit(100), nodeLimit(-1), timeLimitMs(-1),
   wtimeMs(-1), btimeMs(-1), wIncrementMs(-1), bIncrementMs(-1), movesUntilTimeControl(-1) {}
 
   Position pos;
@@ -1134,10 +1134,6 @@ static SearchResult<Color::WHITE> search(Thinker *thinker, const GoCommand& comm
     std::make_shared<StopThinkingTimeCondition>(command.timeLimitMs),
     condition
   );
-
-  // TODO: get rid of this (selfplay2 sometimes crashes when we try to get rid of it now).
-  thinker->reset_stuff();
-
 
   std::chrono::time_point<std::chrono::steady_clock> tstart = std::chrono::steady_clock::now();
 
