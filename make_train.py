@@ -10,17 +10,16 @@ from multiprocessing import Process, Queue
 import chess
 from chess import pgn
 
-from stockfish import Stockfish
-from stockfish.models import StockfishException
+from uci_player import UciPlayer
 
 import numpy as np
 
 """
 To generate training data from scratch:
 
-$ python3 -i make_train.py --mode generate --type any --quiet 1 --noise 2 ~/Downloads/lichess_elite_2022-07.pgn
+$ python3 -i make_train.py --mode generate --type any noise 2 ~/Downloads/lichess_elite_2022-07.pgn
 
-$ python3 -i make_train.py --mode write_numpy --type any --quiet 1 --noise 2 ~/Downloads/lichess_elite_2022-07.pgn
+$ python3 -i make_train.py --mode write_numpy --type any noise 2 ~/Downloads/lichess_elite_2022-07.pgn
 
 $ python3 train.py
 
@@ -29,7 +28,7 @@ $ python3 train.py
 
 Tactics
 
-$ python3 make_train.py --mode generate --type tactics --quiet 0 lichess_elite_2022-05.pgn
+$ python3 make_train.py --mode generate --type tactics lichess_elite_2022-05.pgn
 
 """
 
@@ -80,7 +79,9 @@ def sql_inserter(resultQueue, args):
       conn.commit()
 
 def analyzer(fenQueue, resultQueue, args):
-    stockfish = Stockfish(path=args.stockpath, depth=args.depth)
+    stockfish = UciPlayer(path=args.stockpath)
+    stockfish.set_multipv(2)
+    stockfish.setoption('UCI_ShowWDL', 'true')
     while True:
         fen = fenQueue.get()
 
@@ -88,49 +89,34 @@ def analyzer(fenQueue, resultQueue, args):
         if fen is None:
           continue
 
-        try:
-          stockfish.set_fen_position(fen)
-          moves = stockfish.get_top_moves(2)
-        except StockfishException:
-          print('reboot')
-          # Restart stockfish.
-          stockfish = Stockfish(path=args.stockpath, depth=args.depth)
-          continue
+        stockfish.command(f"position {fen}")
+        moves = stockfish.go(fen=fen, depth=args.depth)
+
+        board = chess.Board(fen)
+        captures = set([str(m) for m in list(board.legal_moves) if board.piece_at(m.to_square) is not None])
 
         if len(moves) != 2:
           continue
 
-        bestmove = moves[0]['Move']
+        if moves[0]['pv'][0] in captures:
+          continue
 
-        if ' b ' in fen:
-          for move in moves:
-            if move['Centipawn'] is not None:
-              move['Centipawn'] *= -1
-            if move['Mate'] is not None:
-              move['Mate'] *= -1
+        bestmove = moves[0]['pv'][0]
 
         for move in moves:
-          if move['Mate'] is not None:
-            if move['Mate'] > 0:
-              move['Centipawn'] = 500
-            else:
-              move['Centipawn'] = -500
-          move['Centipawn'] = max(-500, min(500, move['Centipawn']))
+          wdl = move['wdl']
+          move['value'] = int(wdl[0] + wdl[1] * 0.5)
 
-        scoreDelta = abs(moves[0]['Centipawn'] - moves[1]['Centipawn'])
-        evaluation = moves[0]['Centipawn']
+        scoreDelta = abs(moves[0]['value'] - moves[1]['value'])
 
-        assert evaluation is not None
-        assert scoreDelta is not None
-
-        if args.type == 'tactics' and scoreDelta < 100:
+        if args.type == 'tactics' and scoreDelta < 30:
           continue
 
         resultQueue.put({
           "fen": fen,
           "bestmove": bestmove,
           "scoreDelta": scoreDelta,
-          "evaluation": evaluation,
+          "evaluation": moves[0]['value'],
           "features": features,
         })
 
@@ -209,9 +195,9 @@ def endgame_iterator():
     yield fen
 
 def get_vec(fen, args):
-  command = ["./a.out", "mode", "printvec-cpu", "fen", *fen.split(' '), "makequiet", str(args.quiet)]
+  command = ["./main", "mode", "printvec-cpu", "fen", *fen.split(' ')]
   lines = subprocess.check_output(command).decode().strip().split('\n')
-  if lines[0].startswith('PRINT FEATURE VEC FAIL'):
+  if lines[1].startswith('PRINT FEATURE VEC FAIL'):
     return None, None
   assert len(lines) == 2, lines
   fen = lines[0]
@@ -222,15 +208,15 @@ def get_vecs(fens, args):
   filename = '/tmp/fens.txt'
   with open(filename, 'w+') as f:
     f.write('\n'.join(fens))
-  command = ["./a.out", "mode", "printvec-cpu", "fens", filename, "makequiet", str(args.quiet)]
+  command = ["./main", "mode", "printvec-cpu", "fens", filename]
   lines = subprocess.check_output(command).decode().strip().split('\n')
-  lines = [line for line in lines if line != 'PRINT FEATURE VEC FAIL (MATE)']
+  lines = [line for line in lines if not line.startswith('PRINT FEATURE VEC FAIL')]
   for i in range(0, len(lines), 2):
     x = [int(val) for val in lines[i + 1].split(' ')]
     yield lines[i + 0], x
 
 def get_table_name(args):
-  return f"{args.type}_d{args.depth}_q{args.quiet}_n{args.noise}"
+  return f"make_train_{args.type}_d{args.depth}_n{args.noise}"
 
 if __name__ == '__main__':
 
@@ -238,14 +224,12 @@ if __name__ == '__main__':
   parser.add_argument("pgnfiles", nargs='*')
   parser.add_argument("--mode", type=str, required=True, help="{generate, update_features, write_numpy}")
   parser.add_argument("--type", type=str, required=True, help="{any, tactics, endgame}")
-  parser.add_argument("--quiet", type=int, required=True, help="{0, 1}")
   parser.add_argument("--noise", type=int, default=0, help="{0, 1, 2, ..}")
   parser.add_argument("--depth", type=int, default=10, help="{1, 2, ..}")
   parser.add_argument("--stockpath", default="/usr/local/bin/stockfish", type=str)
   args = parser.parse_args()
 
   assert args.type in ["any", "tactics", "endgame"]
-  assert args.quiet in [0, 1]
   assert args.mode in ['generate', 'update_features', 'write_numpy']
   assert args.noise >= 0
   assert args.depth > 1
