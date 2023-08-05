@@ -184,20 +184,20 @@ class EvalTask : public Task {
   void start(UciEngineState *state) {
     if (command.size() > 1 && command.at(1) == "quiet") {
       Thread thread(0, state->pos, state->thinker.evaluator, compute_legal_moves_set(&state->pos));
-      SearchResult<Color::WHITE> result;
       if (state->pos.turn_ == Color::WHITE) {
-        result = qsearch<Color::WHITE>(&state->thinker, &thread, 0, 0, kMinEval, kMaxEval);
+        SearchResult<Color::WHITE> result = qsearch<Color::WHITE>(&state->thinker, &thread, 0, 0, kMinEval, kMaxEval);
+        std::cout << result.score << std::endl;
       } else {
-        result = to_white(qsearch<Color::BLACK>(&state->thinker, &thread, 0, 0, kMinEval, kMaxEval));
+        SearchResult<Color::BLACK> result = qsearch<Color::BLACK>(&state->thinker, &thread, 0, 0, kMinEval, kMaxEval);
+        std::cout << result.score << std::endl;
       }
-      std::cout << result.score << std::endl;
       return;
     }
     Evaluator& evaulator = state->thinker.evaluator;
     if (state->pos.turn_ == Color::WHITE) {
       std::cout << evaulator.score<Color::WHITE>(state->pos) << std::endl;
     } else {
-      std::cout << -evaulator.score<Color::BLACK>(state->pos) << std::endl;
+      std::cout << evaulator.score<Color::BLACK>(state->pos) << std::endl;
     }
   }
  private:
@@ -534,14 +534,21 @@ class GoTask : public Task {
     const int32_t pawnValue = state->thinker.evaluator.earlyW[EF::PAWNS] + state->thinker.evaluator.clippedW[EF::PAWNS];
     for (size_t i = 0; i < std::min(multiPV, variations.size()); ++i) {
       std::pair<CacheResult, std::vector<Move>> variation = state->thinker.get_variation(&state->pos, variations[i].move);
+
+      Evaluation eval = variation.first.eval;
+      if (state->pos.turn_ == Color::BLACK) {
+        // Score should be from mover's perspective, not white's.
+        eval *= -1;
+      }
+
       std::cout << "info depth " << depth;
       std::cout << " multipv " << (i + 1);
       if (variation.first.eval <= kLongestForcedMate) {
-        std::cout << " score mate " << -(variation.first.eval - kCheckmate + 1) / 2;
+        std::cout << " score mate " << -(eval - kCheckmate + 1) / 2;
       } else if (variation.first.eval >= -kLongestForcedMate) {
-        std::cout << " score mate " << (-variation.first.eval - kCheckmate + 1) / 2;
+        std::cout << " score mate " << (-eval - kCheckmate + 1) / 2;
       } else {
-        std::cout << " score cp " << (variation.first.eval * 100 / pawnValue);
+        std::cout << " score cp " << (eval * 100 / pawnValue);
       }
       std::cout << " nodes " << state->thinker.nodeCounter;
       std::cout << " nps " << uint64_t(double(state->thinker.nodeCounter) / secs);
