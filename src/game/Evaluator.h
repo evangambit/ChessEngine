@@ -22,11 +22,16 @@ namespace ChessEngine {
 static const Evaluation kKnownDraw = kMinEval + 10;
 
 enum EF {
-  PAWNS,
-  KNIGHTS,
-  BISHOPS,
-  ROOKS,
-  QUEENS,
+  OUR_PAWNS,
+  OUR_KNIGHTS,
+  OUR_BISHOPS,
+  OUR_ROOKS,
+  OUR_QUEENS,
+  THEIR_PAWNS,
+  THEIR_KNIGHTS,
+  THEIR_BISHOPS,
+  THEIR_ROOKS,
+  THEIR_QUEENS,
 
   IN_CHECK,
   KING_ON_BACK_RANK,
@@ -163,11 +168,16 @@ constexpr Bitboard kBlackKingCorner = bb(Square::H8) | bb(Square::H7) | bb(Squar
 constexpr Bitboard kBlackQueenCorner = bb(Square::A8) | bb(Square::A7) | bb(Square::B8) | bb(Square::B7) | bb(Square::C8);
 
 std::string EFSTR[] = {
-  "PAWNS",
-  "KNIGHTS",
-  "BISHOPS",
-  "ROOKS",
-  "QUEENS",
+  "OUR_PAWNS",
+  "OUR_KNIGHTS",
+  "OUR_BISHOPS",
+  "OUR_ROOKS",
+  "OUR_QUEENS",
+  "THEIR_PAWNS",
+  "THEIR_KNIGHTS",
+  "THEIR_BISHOPS",
+  "THEIR_ROOKS",
+  "THEIR_QUEENS",
   "IN_CHECK",
   "KING_ON_BACK_RANK",
   "KING_ON_CENTER_FILE",
@@ -441,11 +451,16 @@ struct Evaluator {
     constexpr Bitboard kTheirBackRanks = (US == Color::WHITE ? kRanks[1] | kRanks[0] : kRanks[6] | kRanks[7]);
     constexpr Bitboard kHappyKingSquares = bb(62) | bb(58) | bb(57) | bb(6) | bb(1) | bb(2);
 
-    features[EF::PAWNS] = std::popcount(ourPawns) - std::popcount(theirPawns);
-    features[EF::KNIGHTS] = std::popcount(ourKnights) - std::popcount(theirKnights);
-    features[EF::BISHOPS] = std::popcount(ourBishops) - std::popcount(theirBishops);
-    features[EF::ROOKS] = std::popcount(ourRooks) - std::popcount(theirRooks);
-    features[EF::QUEENS] = std::popcount(ourQueens) - std::popcount(theirQueens);
+    features[EF::OUR_PAWNS] = std::popcount(ourPawns);
+    features[EF::OUR_KNIGHTS] = std::popcount(ourKnights);
+    features[EF::OUR_BISHOPS] = std::popcount(ourBishops);
+    features[EF::OUR_ROOKS] = std::popcount(ourRooks);
+    features[EF::OUR_QUEENS] = std::popcount(ourQueens);
+    features[EF::THEIR_PAWNS] = std::popcount(theirPawns);
+    features[EF::THEIR_KNIGHTS] = std::popcount(theirKnights);
+    features[EF::THEIR_BISHOPS] = std::popcount(theirBishops);
+    features[EF::THEIR_ROOKS] = std::popcount(theirRooks);
+    features[EF::THEIR_QUEENS] = std::popcount(theirQueens);
 
     const int16_t ourPiecesRemaining = std::popcount(pos.colorBitboards_[US] & ~ourPawns) + std::popcount(ourQueens) * 2 - 1;
     const int16_t theirPiecesRemaining = std::popcount(pos.colorBitboards_[THEM] & ~theirPawns) + std::popcount(theirQueens) * 2 - 1;
@@ -912,7 +927,21 @@ struct Evaluator {
 
     eval += bonus;
 
-    return std::min(int32_t(-kQLongestForcedMate), std::max(int32_t(kQLongestForcedMate), eval));
+    eval = std::min(int32_t(-kQLongestForcedMate), std::max(int32_t(kQLongestForcedMate), eval));
+
+    #ifdef PRINT_LEAVES
+      if (rand() % 100000 == 0) {
+        std::string t = "";
+        t += pos.fen() + " " + std::to_string(eval) + "\n";
+        t += std::to_string(features[0]);
+        for (size_t i = 1; i < EF::NUM_EVAL_FEATURES; ++i) {
+          t += " " + std::to_string(features[i]);
+        }
+        std::cout << t << std::endl;
+      }
+    #endif
+
+    return eval;
 
 #else  // #ifndef SquareControl
 
@@ -1073,11 +1102,11 @@ struct Evaluator {
     early += homeQuality * 3;
 
     int32_t base = 0;
-    base += features[EF::PAWNS] * 90;
-    base += features[EF::KNIGHTS] * 300;
-    base += features[EF::BISHOPS] * 300;
-    base += features[EF::ROOKS] * 400;
-    base += features[EF::QUEENS] * 900;
+    base += (features[EF::OUR_PAWNS] - features[EF::THEIR_PAWNS]) * 90;
+    base += (features[EF::OUR_KNIGHTS] - features[EF::THEIR_KNIGHTS]) * 300;
+    base += (features[EF::OUR_BISHOPS] - features[EF::THEIR_BISHOPS]) * 300;
+    base += (features[EF::OUR_ROOKS] - features[EF::THEIR_ROOKS]) * 400;
+    base += (features[EF::OUR_QUEENS] - features[EF::THEIR_QUEENS]) * 900;
     base += (features[EF::THEIR_HANGING_QUEENS] > 0) * 450;
     base += (features[EF::THEIR_HANGING_QUEENS] == 0 && features[EF::THEIR_HANGING_ROOKS] > 0) * 250;
     base += (features[EF::THEIR_HANGING_QUEENS] == 0 && features[EF::THEIR_HANGING_ROOKS] == 0 && features[EF::THEIR_HANGING_KNIGHTS] + features[EF::THEIR_HANGING_BISHOPS] > 0) * 150;

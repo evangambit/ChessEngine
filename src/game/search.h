@@ -18,7 +18,9 @@
 #include "movegen/sliding.h"
 #include "Evaluator.h"
 
+#ifndef COMPLEX_SEARCH
 #define COMPLEX_SEARCH 0
+#endif
 
 namespace ChessEngine {
 
@@ -774,7 +776,7 @@ static SearchResult<TURN> search(
   // there is a line that loses a queen in one move but leads to forced mate in K ply, you won't
   // find the forced mate until you search to (roughly) a depth of
   // queenValue / futilityThreshold + K
-  // thinker is really bad when you factor in the expoential relationship between depth and time.
+  // this is really bad when you factor in the expoential relationship between depth and time.
   //
   // A simple solution is to just require the engine to search to a *least* a given depth (say 7)
   // when evaluating any position, but thinker seems hacky and we'd really like to have a strong
@@ -803,7 +805,7 @@ static SearchResult<TURN> search(
     }
   }
   if (isNullCacheResult(cr) && depthRemaining <= kFutilityPruningDepthLimit) {
-    SearchResult<TURN> r = qsearch<TURN>(thinker, pos, 0, 0, alpha, beta);
+    SearchResult<TURN> r = qsearch<TURN>(thinker, thread, 0, plyFromRoot, alpha, beta);
     const int32_t delta = futilityThreshold * depthRemaining;
     if (r.score >= beta + delta || r.score <= alpha - delta) {
       return r;

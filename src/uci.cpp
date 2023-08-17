@@ -531,7 +531,7 @@ class GoTask : public Task {
     if (variations.size() == 0) {
       throw std::runtime_error("No variations found!");
     }
-    const int32_t pawnValue = state->thinker.evaluator.earlyW[EF::PAWNS] + state->thinker.evaluator.clippedW[EF::PAWNS];
+    const int32_t pawnValue = state->thinker.evaluator.earlyW[EF::OUR_PAWNS] + state->thinker.evaluator.clippedW[EF::OUR_PAWNS];
     for (size_t i = 0; i < std::min(multiPV, variations.size()); ++i) {
       std::pair<CacheResult, std::vector<Move>> variation = state->thinker.get_variation(&state->pos, variations[i].move);
 
