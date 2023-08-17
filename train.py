@@ -10,25 +10,61 @@ import torch
 from torch import nn, optim
 import torch.utils.data as tdata
 
+# class MonoFunc(nn.Module):
+#   """
+#   Represents a 1D monotonic function from x=low to x=high.
+
+#   For x<low and x>high the function is constant.
+#   """
+#   def __init__(self, low, high, num_steps):
+#     super(MonoFunc, self).__init__()
+#     self.pivots = np.linspace(low, high, num_steps + 1)[:-1]
+#     self.step_size = self.pivots[1] - self.pivots[0]
+#     self.b = nn.Parameter(torch.tensor(self.pivots, dtype=torch.float32), requires_grad=False)
+#     self.w = nn.Parameter(torch.zeros(num_steps, dtype=torch.float32), requires_grad=True)
+#     self.bias = nn.Parameter(torch.zeros(1, dtype=torch.float32), requires_grad=True)
+#   def forward(self, x):
+#     shape = (1,) * len(x.shape) + (len(self.b),)
+#     x = x.reshape(x.shape + (1,))
+#     b = self.b.reshape(shape)
+#     w = torch.exp(self.w.reshape(shape))
+#     r = (((x - b).clip(0, self.step_size) + b) * w).sum(-1)
+#     return r + self.bias
+
+class MonoFunc(nn.Module):
+  def __init__(self):
+    super(MonoFunc, self).__init__()
+    self.w = nn.Parameter(torch.zeros(4), requires_grad=True)
+    # self.b = nn.Parameter(torch.zeros(4), requires_grad=True)
+    self.u = nn.Parameter(torch.zeros(4), requires_grad=True)
+    self.bias = nn.Parameter(torch.zeros(1, dtype=torch.float32), requires_grad=True)
+  def forward(self, x):
+    shape = (len(self.w),) + (1,) * len(x.shape)
+    x = x.reshape((1,) + x.shape)
+    w = self.w.reshape(shape)
+    # b = self.b.reshape(shape)
+    x = x * torch.exp(w)
+    # x = x + b
+    u = nn.functional.softmax(self.u, 0)
+    r = x[0] * u[0]
+    r += torch.sigmoid(x[1]) * u[1]
+    r += torch.tanh(x[2]) * u[2]
+    r += (x[3]**3) * u[3]
+    return r + self.bias
+
 varnames = [
-  "OUR_PAWNS",
-  "OUR_KNIGHTS",
-  "OUR_BISHOPS",
-  "OUR_ROOKS",
-  "OUR_QUEENS",
-  "THEIR_PAWNS",
-  "THEIR_KNIGHTS",
-  "THEIR_BISHOPS",
-  "THEIR_ROOKS",
-  "THEIR_QUEENS",
+  "PAWNS",
+  "KNIGHTS",
+  "BISHOPS",
+  "ROOKS",
+  "QUEENS",
   "IN_CHECK",
   "KING_ON_BACK_RANK",
   "KING_ON_CENTER_FILE",
   "KING_ACTIVE",
   "THREATS_NEAR_KING_2",
   "THREATS_NEAR_KING_3",
-  "OUR_PASSED_PAWNS",
-  "THEIR_PASSED_PAWNS",
+  "PASSED_PAWNS",
   "ISOLATED_PAWNS",
   "DOUBLED_PAWNS",
   "DOUBLE_ISOLATED_PAWNS",
@@ -67,16 +103,7 @@ varnames = [
   "LONELY_KING_IN_CENTER",
   "LONELY_KING_AWAY_FROM_ENEMY_KING",
   "TIME",
-  "PAWN_PM",
-  "KNIGHT_PM",
-  "BISHOP_PM",
-  "ROOK_PM",
-  "QUEEN_PM",
-  "KING_PM",
   "KPVK_OPPOSITION",
-  "KPVK_IN_FRONT_OF_PAWN",
-  "KPVK_OFFENSIVE_KEY_SQUARES",
-  "KPVK_DEFENSIVE_KEY_SQUARES",
   "SQUARE_RULE",
   "ADVANCED_PAWNS_1",
   "ADVANCED_PAWNS_2",
@@ -87,53 +114,115 @@ varnames = [
   "OUR_MATERIAL_THREATS",
   "THEIR_MATERIAL_THREATS",
   "LONELY_KING_ON_EDGE",
+  "OUTPOSTED_KNIGHTS",
+  "OUTPOSTED_BISHOPS",
+  "PAWN_MOVES",
+  "KNIGHT_MOVES",
+  "BISHOP_MOVES",
+  "ROOK_MOVES",
+  "QUEEN_MOVES",
+  "PAWN_MOVES_ON_THEIR_SIDE",
+  "KNIGHT_MOVES_ON_THEIR_SIDE",
+  "BISHOP_MOVES_ON_THEIR_SIDE",
+  "ROOK_MOVES_ON_THEIR_SIDE",
+  "QUEEN_MOVES_ON_THEIR_SIDE",
+  "KING_HOME_QUALITY",
+  "BISHOPS_BLOCKING_KNIGHTS",
+  "OUR_HANGING_PAWNS_2",
+  "OUR_HANGING_KNIGHTS_2",
+  "OUR_HANGING_BISHOPS_2",
+  "OUR_HANGING_ROOKS_2",
+  "OUR_HANGING_QUEENS_2",
+  "THEIR_HANGING_PAWNS_2",
+  "THEIR_HANGING_KNIGHTS_2",
+  "THEIR_HANGING_BISHOPS_2",
+  "THEIR_HANGING_ROOKS_2",
+  "THEIR_HANGING_QUEENS_2",
+  "QUEEN_THREATS_NEAR_KING",
+  "MISSING_FIANCHETTO_BISHOP",
+  "NUM_BAD_SQUARES_FOR_PAWNS",
+  "NUM_BAD_SQUARES_FOR_MINORS",
+  "NUM_BAD_SQUARES_FOR_ROOKS",
+  "NUM_BAD_SQUARES_FOR_QUEENS",
+  "IN_TRIVIAL_CHECK",
+  "IN_DOUBLE_CHECK",
+  "THREATS_NEAR_OUR_KING",
+  "THREATS_NEAR_THEIR_KING",
+  "NUM_PIECES_HARRASSABLE_BY_PAWNS",
+  "PAWN_CHECKS",
+  "KNIGHT_CHECKS",
+  "BISHOP_CHECKS",
+  "ROOK_CHECKS",
+  "QUEEN_CHECKS",
+  "BACK_RANK_MATE_THREAT_AGAINST_US",
+  "BACK_RANK_MATE_THREAT_AGAINST_THEM",
+  "OUR_KING_HAS_0_ESCAPE_SQUARES",
+  "THEIR_KING_HAS_0_ESCAPE_SQUARES",
+  "OUR_KING_HAS_1_ESCAPE_SQUARES",
+  "THEIR_KING_HAS_1_ESCAPE_SQUARES",
+  "OUR_KING_HAS_2_ESCAPE_SQUARES",
+  "THEIR_KING_HAS_2_ESCAPE_SQUARES",
+  "OPPOSITE_SIDE_KINGS_PAWN_STORM",
 ]
 
 class PCA:
-  def __init__(self, X, dims = None):
-    # self.std = X.std(0) + 1e-5
-    cov = (X.T @ X) / X.shape[0] + np.eye(X.shape[1]) * 0.01
+  def __init__(self, X, reg = 0.0, scale = True):
+    X = X.reshape(-1, X.shape[-1])
+    cov = (X.T @ X) / X.shape[0] + np.eye(X.shape[1]) * reg
     D, V = np.linalg.eigh(cov)
     assert D.min() > 1e-5, D.min()
     I = np.argsort(-D)
+    self.scale = scale
     self.D = D[I].copy()
     self.V = V[:,I].copy()
-    if dims is not None:
-      self.D = self.D[:dims]
-      self.V = self.V[:, :dims]
 
-  def forward(self, x):
+  def points_forward(self, x):
+    s = x.shape
+    x = x.reshape(-1, s[-1])
     x = x @ self.V
-    # x = x / np.sqrt(self.D)
-    return x
+    if self.scale:
+      x = x / np.sqrt(self.D)
+    return x.reshape(s)
 
-  def backward(self, x):
-    # x = x * np.sqrt(self.D)
+  def points_backward(self, x):
+    s = x.shape
+    x = x.reshape(-1, s[-1])
+    if self.scale:
+      x = x * np.sqrt(self.D)
     x = x @ self.V.T
-    return x
+    return x.reshape(s)
 
+  def slope_backward(self, w):
+    D, V = np.sqrt(self.D), self.V
+    if isinstance(w, nn.Parameter):
+      D = torch.sqrt(torch.tensor(D, dtype=torch.float32))
+      V = torch.tensor(V, dtype=torch.float32)
+    s = w.shape
+    w = w.reshape(1, -1)
+    if self.scale:
+      w = w / D
+    w = w @ V.T
+    return w.reshape(s)
 
 def lpad(t, n, c=' '):
   t = str(t)
   return max(n - len(t), 0) * c + t
 
-X = np.load(os.path.join('traindata', f'x.any_d10_q1_n3.npy')).astype(np.float64)
-Y = np.load(os.path.join('traindata', f'y.any_d10_q1_n3.npy')).astype(np.float64)
-F = np.load(os.path.join('traindata', f'f.any_d10_q1_n3.npy'))
-cat =  np.concatenate
-# X = cat([X, np.load(os.path.join('traindata', 'x.endgame_d10_q1_n0.npy')).astype(np.float64)], 0)
-# Y = cat([Y, np.load(os.path.join('traindata', 'y.endgame_d10_q1_n0.npy')).astype(np.float64)], 0)
-# F = cat([F, np.load(os.path.join('traindata', 'f.endgame_d10_q1_n0.npy'))], 0)
+X = np.load(os.path.join('traindata', f'x.make_train_any_d10_n0.npy')).astype(np.float64)
+Y = np.load(os.path.join('traindata', f'y.make_train_any_d10_n0.npy')).astype(np.float64)
+cat = np.concatenate
+X = cat([X, np.load(os.path.join('traindata', f'x.make_train_any_d10_n1.npy')).astype(np.float64)], 0)
+Y = cat([Y, np.load(os.path.join('traindata', f'y.make_train_any_d10_n1.npy')).astype(np.float64)], 0)
 
 T = X[:,varnames.index('TIME')].copy()
 
-pca = PCA(X, X.shape[1] - 2)
+pca = PCA(X, 0.001, scale=False)
 
-X = pca.forward(X)
+X = pca.points_forward(X)
 
-def soft_clip(x):
-  x = nn.functional.leaky_relu(x + 5.0) - 5.0
-  x = 5.0 - nn.functional.leaky_relu(5.0 - x)
+def soft_clip(x, k = 4.0):
+  x = nn.functional.leaky_relu(x + k) - k
+  x = k - nn.functional.leaky_relu(k - x)
   return x
 
 class LossFn(nn.Module):
@@ -149,7 +238,6 @@ class Model(nn.Module):
     self.w["early"] = nn.Linear(X.shape[1], 1)
     self.w["late"] = nn.Linear(X.shape[1], 1)
     self.w["clipped"] = nn.Linear(X.shape[1], 1)
-    self.w["scale"] = nn.Linear(X.shape[1], 1)
     for k in self.w:
       nn.init.zeros_(self.w[k].weight)
       nn.init.zeros_(self.w[k].bias)
@@ -159,18 +247,17 @@ class Model(nn.Module):
     early = self.w["early"](x).squeeze() * (18 - t) / 18
     late = self.w["late"](x).squeeze() * t / 18
     clipped = self.w["clipped"](x).squeeze().clip(-1, 1)
-    scale = self.w["scale"](x).squeeze()
-    return (early + late + clipped) * (torch.sigmoid(scale) + 0.2)
+    return early + late + clipped
 
 model = Model()
 opt = optim.AdamW(model.parameters(), lr=3e-3)
 
 Xth = torch.tensor(X, dtype=torch.float32)
-Yth = torch.tensor(Y / 100, dtype=torch.float32)
+Yth = torch.tensor(Y, dtype=torch.float32)
 Tth = torch.tensor(T, dtype=torch.float32)
 
-bs = 50_000
-maxlr = 0.1
+bs = 25_000
+maxlr = 0.03
 duration = 40
 
 dataset = tdata.TensorDataset(Xth, Tth, Yth)
@@ -180,27 +267,27 @@ loss_fn = LossFn()
 
 L = []
 
-for lr in cat([np.linspace(maxlr / 100, maxlr, duration // 2), np.linspace(maxlr, maxlr / 100, duration // 2)]):
+for lr in cat([np.linspace(maxlr / 100, maxlr, duration // 10), np.linspace(maxlr, maxlr / 100, duration *9 // 10)]):
   for pg in opt.param_groups:
     pg['lr'] = lr
   for x, t, y in dataloader:
-    loss = loss_fn(model(x, t), y)
-    loss = loss + (model.w["scale"](x)**2).mean() * 0.2
+    yhat = model(x, t)
+    loss = loss_fn(yhat, y)
     opt.zero_grad()
     loss.backward()
     opt.step()
     L.append(float(loss))
-  print(lr, L[-1])
+  print('%.4f %.4f' % (lr, L[-1]))
 
 for k in model.w:
   w = model.w[k].weight.detach().numpy()
-  w = pca.backward(w)
+  w = pca.slope_backward(w)
   with torch.no_grad():
     model.w[k] = nn.Linear(w.shape[1], w.shape[0])
     model.w[k].weight *= 0
     model.w[k].weight += torch.tensor(w)
 
-print(L[-1])
+print(sum(L[-100:]) / 100)
 
 W = {}
 for k in model.w:
@@ -212,30 +299,13 @@ for i in range(W['early'].shape[0]):
   A.append(varnames[i])
   print(*A)
 
-datatype = 'int32_t'
+K = ['early', 'late', 'clipped']
 
-for name in model.w:
-  linear = model.w[name]
-  name = name[0].upper() + name[1:]
-  w = linear.weight.squeeze().cpu().detach().numpy()
-  b = linear.bias.squeeze().cpu().detach().numpy()
-  w, b = w.astype(np.float32), b.astype(np.float32)
-  w, b = np.round(w * 100).astype(np.int32), np.round(b * 100).astype(np.int32)
-  if len(b.shape) == 1:
-    print(f'const {datatype} k' + name + f'B0[' + str(w.shape[0]) + '] = {')
-    for i in range(0, len(b), 6):
-      print(','.join(lpad(x, 4) for x in b[i:i+6]) + ',')
-    print('};')
-  else:
-    print(f'const {datatype} k' + name + f'B0 = ' + str(b) + ';')
-  if len(w.shape) == 1:
-    print(f'const {datatype} k' + name + f'W0[' + str(w.shape[0]) + '] = {')
-    for i in range(0, len(w), 6):
-      print(','.join(lpad(x, 4) for x in w[i:i+6]) + ',')
-    print('};')
-  else:
-    print(f'const {datatype} k' + name + f'W0[' + str(w.shape[0]) + '*' + str(w.shape[1]) + '] = {')
-    for i in range(w.shape[0]):
-        print(','.join(str(x) for x in w[i]) + ',')
-    print('};')
+print(' '.join(K))
+for i in range(len(varnames)):
+  print(' '.join(lpad(round(W[k][i] * 100), 5) for k in K) + '  ' + varnames[i])
 
+for k in K:
+  print(lpad(round(float(model.w[k].bias.detach().numpy() * 100)), 6) + f'  // {k} bias')
+  for i in range(W[k].shape[0]):
+    print(lpad(round(W[k][i] * 100), 6) + f'  // {k} {varnames[i]}')

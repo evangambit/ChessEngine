@@ -5,6 +5,8 @@ import random
 import subprocess
 import sqlite3
 
+from scipy.special import logit
+
 from multiprocessing import Process, Queue
  
 import chess
@@ -23,13 +25,6 @@ $ python3 -i make_train.py --mode write_numpy --type any noise 2 ~/Downloads/lic
 
 $ python3 train.py
 
-
-
-
-Tactics
-
-$ python3 make_train.py --mode generate --type tactics lichess_elite_2022-05.pgn
-
 """
 
 def sql_inserter(resultQueue, args):
@@ -37,9 +32,9 @@ def sql_inserter(resultQueue, args):
   c = conn.cursor()
   c.execute(f"""CREATE TABLE IF NOT EXISTS {get_table_name(args)} (
     fen BLOB,
-    bestMove BLOB,
-    delta INTEGER,
-    moverScore INTEGER,
+    win INTEGER,
+    draw INTEGER,
+    lose INTEGER,
     moverFeatures BLOB    -- from mover's perspective
   );""")
 
@@ -60,12 +55,12 @@ def sql_inserter(resultQueue, args):
     fens.add(result["fen"])
 
     c.execute(f"""INSERT INTO {get_table_name(args)}
-      (fen, bestMove, delta, moverScore, moverFeatures) 
+      (fen, win, draw, lose, moverFeatures)
       VALUES (?, ?, ?, ?, ?)""", (
       result["fen"],
-      result["bestmove"],
-      result["scoreDelta"],
-      result["evaluation"],
+      result["win"],
+      result["draw"],
+      result["lose"],
       ' '.join(str(a) for a in result["features"]),
     ))
 
@@ -80,7 +75,7 @@ def sql_inserter(resultQueue, args):
 
 def analyzer(fenQueue, resultQueue, args):
     stockfish = UciPlayer(path=args.stockpath)
-    stockfish.set_multipv(2)
+    stockfish.set_multipv(1)
     stockfish.setoption('UCI_ShowWDL', 'true')
     while True:
         fen = fenQueue.get()
@@ -95,7 +90,7 @@ def analyzer(fenQueue, resultQueue, args):
         board = chess.Board(fen)
         captures = set([str(m) for m in list(board.legal_moves) if board.piece_at(m.to_square) is not None])
 
-        if len(moves) != 2:
+        if len(moves) != 1:
           continue
 
         if moves[0]['pv'][0] in captures:
@@ -103,31 +98,23 @@ def analyzer(fenQueue, resultQueue, args):
 
         bestmove = moves[0]['pv'][0]
 
-        for move in moves:
-          wdl = move['wdl']
-          move['value'] = int(wdl[0] + wdl[1] * 0.5)
-
-        scoreDelta = abs(moves[0]['value'] - moves[1]['value'])
-
-        if args.type == 'tactics' and scoreDelta < 30:
-          continue
-
         resultQueue.put({
           "fen": fen,
-          "bestmove": bestmove,
-          "scoreDelta": scoreDelta,
-          "evaluation": moves[0]['value'],
+          "win": moves[0]['wdl'][0],
+          "draw": moves[0]['wdl'][1],
+          "lose": moves[0]['wdl'][2],
           "features": features,
         })
 
-def pgn_iterator(noise):
+def pgn_iterator(noise, downsample):
+  seen = set()
   assert len(args.pgnfiles) > 0
   for filename in args.pgnfiles:
     f = open(filename, 'r')
     game = pgn.read_game(f)
     while game is not None:
       for node in game.mainline():
-        if random.randint(1, 50) != 1:
+        if random.randint(1, downsample) != 1:
           continue
         board = node.board()
         for _ in range(noise):
@@ -136,9 +123,14 @@ def pgn_iterator(noise):
             break
           random.shuffle(moves)
           board.push(moves[0])
+        fen = board.fen()
+        if fen in seen:
+          continue
+        seen.add(fen)
         if len(list(board.legal_moves)) == 0:
           continue
-        yield board.fen()
+        seen.add(fen)
+        yield fen
       game = pgn.read_game(f)
 
 def endgame_iterator():
@@ -223,13 +215,14 @@ if __name__ == '__main__':
   parser = argparse.ArgumentParser()
   parser.add_argument("pgnfiles", nargs='*')
   parser.add_argument("--mode", type=str, required=True, help="{generate, update_features, write_numpy}")
-  parser.add_argument("--type", type=str, required=True, help="{any, tactics, endgame}")
+  parser.add_argument("--type", type=str, required=True, help="{any, endgame}")
   parser.add_argument("--noise", type=int, default=0, help="{0, 1, 2, ..}")
   parser.add_argument("--depth", type=int, default=10, help="{1, 2, ..}")
   parser.add_argument("--stockpath", default="/usr/local/bin/stockfish", type=str)
+  parser.add_argument("--downsample", type=int, default=50, help="{1, 2, ..}")
   args = parser.parse_args()
 
-  assert args.type in ["any", "tactics", "endgame"]
+  assert args.type in ["any", "endgame"]
   assert args.mode in ['generate', 'update_features', 'write_numpy']
   assert args.noise >= 0
   assert args.depth > 1
@@ -296,7 +289,7 @@ if __name__ == '__main__':
     if args.type == 'endgame':
       iterator = endgame_iterator()
     else:
-      iterator = pgn_iterator(args.noise)
+      iterator = pgn_iterator(args.noise, args.downsample)
 
     for fen in iterator:
       fenQueue.put(fen)
@@ -304,11 +297,14 @@ if __name__ == '__main__':
   if args.mode == 'write_numpy':
     conn = sqlite3.connect("db.sqlite3")
     c = conn.cursor()
-    c.execute(f"SELECT fen, moverScore, moverFeatures FROM {get_table_name(args)}")
+    c.execute(f"SELECT fen, win, draw, lose, moverFeatures FROM {get_table_name(args)}")
     X, Y, F = [], [], []
-    for fen, moverScore, moverFeatures in c:
+    for fen, win, draw, lose, moverFeatures in c:
+      win += 1
+      draw += 1
+      lose += 1
       F.append(fen)
-      Y.append(moverScore)
+      Y.append(logit((win + draw * 0.5) / (win + draw + lose)))
 
       x = np.array([float(a) for a in moverFeatures.split(' ')], dtype=np.int32)
       X.append(x)
