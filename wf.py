@@ -14,6 +14,50 @@ import time
 
 from collections import Counter
 
+def is_scalar(x):
+  return isinstance(x, (np.floating, np.integer, bool, float, int))
+
+def dot(*A):
+  return np.linalg.multi_dot(A)
+
+"""
+Computes the mean and variance of "W" given the model "Y = X W + noise"
+
+Runs in O(n^3) time
+
+See page 14 of https://arxiv.org/pdf/1910.03558.pdf
+
+    X: A n-by-d matrix of features
+    Y: A n-by-1 matrix of labels
+prior: Either a d-long vector representing the variance of your prior over each
+       weight, or a d-by-d covariance matrix representing your prior over the
+       weights
+noise: Either a n-long vector representing the variance of the noise corrupting
+       each label (assumed to be independent) or an n-by-n matrix representing
+       the covariance matrix of the noise
+ What: The maximum likelihood estimate for W
+ Wvar: The covariance matrix of the posterior over What
+"""
+def linear_regression(X, Y, prior, noise):
+  n, d = X.shape
+  if is_scalar(prior):
+    prior = np.ones(d) * prior
+  if is_scalar(noise):
+    noise = np.ones(n) * noise
+  if len(prior.shape) == 1:
+    prior = np.diag(prior)
+  if len(noise.shape) == 1:
+    noise = np.diag(noise)
+  if len(Y.shape) == 1:
+    Y = Y.reshape((n, 1))
+  assert prior.shape == (d, d)
+  assert noise.shape == (n, n)
+  assert Y.shape == (n, 1)
+  tmp = np.linalg.inv(dot(X, prior, X.T) + noise)
+  What = dot(prior, X.T, tmp, Y)
+  Wvar = prior - dot(prior, X.T, tmp, X, prior)
+  return What, Wvar
+
 class WeightFile:
   def __init__(self, file):
     with open(file, 'r') as f:
@@ -63,7 +107,6 @@ class WeightFile:
     self.values[idx][offset] = v
 
 def evaluate(A, fn, args):
-  print('evaluate', len(A), fn)
   assert len(A) % args.num_threads == 0, ("I'm lazy", len(A), args.num_threads)
   P = []
   batch_size = len(A) // args.num_threads
@@ -114,11 +157,13 @@ if __name__ == '__main__':
 
   conn = sqlite3.connect("db.sqlite3")
   c = conn.cursor()
-  c.execute(f"""SELECT fen, moves, scores FROM tmp_sd10_d{args.depth}_margin30""")
+  c.execute(f"""SELECT fen, moves, scores FROM tmp_sd8_d{args.depth}_margin5""")
 
   A = c.fetchall()
   random.shuffle(A)
-  A = A[:int(args.num_samples * 1.1)]
+  A = A[:args.num_samples]
+
+  # A = A[:int(args.num_samples * 1.1)]
 
   # # Compute eigenvectors
   # with open('/tmp/fens.txt', 'w+') as f:
@@ -161,39 +206,64 @@ if __name__ == '__main__':
   assert len(A) == args.num_samples
 
   t0 = time.time()
-  L0 = []
-  for j in range(0, args.num_samples, 20000):
-    L0 = np.concatenate([L0, evaluate(A[j:j+20000], 'weights.txt', args)])
+  L0 = evaluate(A, 'weights.txt', args)
   t1 = time.time()
   print("%.4f (%.4f secs)" % (L0.mean(), t1 - t0))
 
   wf = WeightFile('weights.txt')
 
-  for i in range(1, len(wf)):
+  for i in range(222, len(wf)):
     wf = WeightFile('weights.txt')
     v0 = wf[i]
 
-    wf[i] = v0 + args.delta
-    wf.save('w0.txt')
-    L1 = []
+    print('v0', v0)
 
-    for j in range(0, args.num_samples, 20000):
-      L1 = np.concatenate([L1, evaluate(A[j:j+20000], 'w0.txt', args)])
-      D = L0[:L1.size] - L1
-      avg = D.mean()
-      std = D.std() / math.sqrt(D.size - 1)
-      if abs(avg) > std * args.zscore:
-        break
+    px, py, pz = [], [], []
 
-    print('')
-    print('%.6f %.6f (z = %.3f)' % (avg, std, avg / std if std > 0.0 else 0.0))
-    if avg > std * args.zscore:
-      print(f'accept wf[{i}] {v0} -> {v0 + args.delta}')
-      L0 = np.concatenate([L1, evaluate(A[j+20000:], 'w0.txt', args)])
-      shutil.copyfile('w0.txt', 'weights.txt')
-    elif avg < std * -args.zscore:
-      print(f'reject wf[{i}] {v0} -> {v0 + args.delta}')
+    for v in [v0 - args.delta * 2, v0 - args.delta, v0 + args.delta, v0 + args.delta * 2]:
+      wf[i] = v
+      wf.save('w0.txt')
+      L1 = evaluate(A, 'w0.txt', args)
+
+      px.append(v)
+      py.append(avg)
+      pz.append(std)
+
+      print(str(v).rjust(5), '%.6f %.6f (z = %.3f)' % (avg, std, avg / std if std > 0.0 else 0.0))
+
+    wf[i] = v0
+
+    px = np.array(px, dtype=np.float64)
+    py = np.array(py, dtype=np.float64)
+    pz = np.array(pz, dtype=np.float64)
+
+    px -= px.mean()
+
+    Ys = np.random.normal(py, pz, (500, 4))
+
+    w = np.linalg.lstsq(px.reshape((-1, 1)), Ys.T, rcond=-1)[0]
+
+    avg, stderr = w.mean(), w.std()
+    z = avg / stderr
+
+    if z > args.zscore:
+      print('positive %.3f' % z)
+    elif z < -args.zscore:
+      print('negative %.3f' % z)
     else:
-      print(f'null   wf[{i}] {v0} -> {v0 + args.delta}')
+      print('    null %.3f' % z)
+
+
+    print('====' * 9)
+
+
+    # if avg > std * args.zscore:
+    #   print(f'accept wf[{i}] {v0} -> {v0 + args.delta}')
+    #   L0 = np.concatenate([L1, evaluate(A[j+20000:], 'w0.txt', args)])
+    #   shutil.copyfile('w0.txt', 'weights.txt')
+    # elif avg < std * -args.zscore:
+    #   print(f'reject wf[{i}] {v0} -> {v0 + args.delta}')
+    # else:
+    #   print(f'null   wf[{i}] {v0} -> {v0 + args.delta}')
 
 
