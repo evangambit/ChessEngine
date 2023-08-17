@@ -1,9 +1,14 @@
      6  // early bias
-   185  // early PAWNS
-   831  // early KNIGHTS
-   872  // early BISHOPS
-  1017  // early ROOKS
-  2404  // early QUEENS
+   185  // early OUR_PAWNS
+   831  // early OUR_KNIGHTS
+   872  // early OUR_BISHOPS
+  1017  // early OUR_ROOKS
+  2404  // early OUR_QUEENS
+  -185  // early THEIR_PAWNS
+  -831  // early THEIR_KNIGHTS
+  -872  // early THEIR_BISHOPS
+ -1017  // early THEIR_ROOKS
+ -2404  // early THEIR_QUEENS
  -5313  // early IN_CHECK
     37  // early KING_ON_BACK_RANK
   -143  // early KING_ON_CENTER_FILE
@@ -110,11 +115,16 @@
      8  // early THEIR_KING_HAS_2_ESCAPE_SQUARES
      1  // early OPPOSITE_SIDE_KINGS_PAWN_STORM
     -4  // late bias
-   266  // late PAWNS
-   800  // late KNIGHTS
-   801  // late BISHOPS
-  1589  // late ROOKS
-  2293  // late QUEENS
+   266  // late OUR_PAWNS
+   800  // late OUR_KNIGHTS
+   801  // late OUR_BISHOPS
+  1589  // late OUR_ROOKS
+  2293  // late OUR_QUEENS
+  -266  // late THEIR_PAWNS
+  -800  // late THEIR_KNIGHTS
+  -801  // late THEIR_BISHOPS
+ -1589  // late THEIR_ROOKS
+ -2293  // late THEIR_QUEENS
  -2093  // late IN_CHECK
   -103  // late KING_ON_BACK_RANK
     59  // late KING_ON_CENTER_FILE
@@ -221,11 +231,16 @@
     47  // late THEIR_KING_HAS_2_ESCAPE_SQUARES
     -7  // late OPPOSITE_SIDE_KINGS_PAWN_STORM
     -8  // clipped bias
-    70  // clipped PAWNS
-   247  // clipped KNIGHTS
-   286  // clipped BISHOPS
-   413  // clipped ROOKS
-   944  // clipped QUEENS
+    70  // clipped OUR_PAWNS
+   247  // clipped OUR_KNIGHTS
+   286  // clipped OUR_BISHOPS
+   413  // clipped OUR_ROOKS
+   944  // clipped OUR_QUEENS
+   -70  // clipped THEIR_PAWNS
+  -247  // clipped THEIR_KNIGHTS
+  -286  // clipped THEIR_BISHOPS
+  -413  // clipped THEIR_ROOKS
+  -944  // clipped THEIR_QUEENS
  -2857  // clipped IN_CHECK
      9  // clipped KING_ON_BACK_RANK
     -4  // clipped KING_ON_CENTER_FILE
@@ -391,9 +406,9 @@
     0     0     0     0     0     0     0     0
     0     0     0     0     0     0     0     0
     0     0     0     0     0     0     0     0
-  -20   -20   -50   -50   -50   -50   -50   -50
-    5   -10   -20   -20   -20   -20   -10     5
-   10    10     5   -10     0   -10    10    10
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
 // ?
     0     0     0     0     0     0     0     0
     0     0     0     0     0     0     0     0
