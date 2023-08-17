@@ -75,7 +75,7 @@ class UciPlayer:
     assert 'bestmove ' in lines[-1] # e.g. "bestmove h6h7 ponder a2a3"
     return lines[-1].split(' ')[1]
 
-def play(fen0, player1, player2, nodes = 10_000):
+def play(fen0, player1, player2, nodes = 100_000):
   player1.command("setoption name clear-tt")
   player2.command("setoption name clear-tt")
   isPlayer1White = ' w ' in fen0
@@ -151,14 +151,14 @@ if __name__ == '__main__':
   t0 = time.time()
   numWorkers = 8
   batches = []
-  for i in range(0, 256, numWorkers):
+  for i in range(0, 128, numWorkers):
     batches.append(create_fen_batch(numWorkers))
 
   R = []
   with mp.Pool(numWorkers) as pool:
     for batch in tqdm(batches):
       try:
-        r = pool.map_async(thread_main, batch).get(timeout=5)
+        r = pool.map_async(thread_main, batch).get(timeout=30)
         R += r
       except mp.context.TimeoutError:
         print('timeout')
