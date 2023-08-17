@@ -254,9 +254,9 @@ void print_feature_vec(Position *pos, const std::string& originalFen, bool human
     }
   }
 
-  gThinker.evaluator.features[EF::PAWNS] = 99;
+  gThinker.evaluator.features[EF::OUR_PAWNS] = 99;
   Evaluation e = gThinker.evaluator.score<TURN>(*pos);
-  if (gThinker.evaluator.features[EF::PAWNS] == 99) {
+  if (gThinker.evaluator.features[EF::OUR_PAWNS] == 99) {
     std::cout << pos->fen() << std::endl;
     std::cout << "PRINT FEATURE VEC FAIL (SHORT-CIRCUIT)" << std::endl;
     return;
