@@ -65,9 +65,9 @@ def sql_inserter(resultQueue, args):
     ))
 
     numInserted += 1
-    if numInserted % 500 == 0:
+    if numInserted % 50 == 0:
       print('%.1f inserts/sec (%.1f avg)' % (
-        500 / (time.time() - tlast),
+        50 / (time.time() - tlast),
         numInserted / (time.time() - t0)
       ), len(fens))
       tlast = time.time()
@@ -79,13 +79,25 @@ def analyzer(fenQueue, resultQueue, args):
     stockfish.setoption('UCI_ShowWDL', 'true')
     while True:
         fen = fenQueue.get()
+        if len(fen) == 2:
+          fen, features = fen
+        else:
+          fen, features = get_vec(fen, args)
+          if fen is None:
+            continue
 
-        fen, features = get_vec(fen, args)
-        if fen is None:
+        board = chess.Board(fen)
+        if not board.is_valid():
           continue
 
-        stockfish.command(f"position {fen}")
-        moves = stockfish.go(fen=fen, depth=args.depth)
+        try:
+          stockfish.command(f"position {fen}")
+          moves = stockfish.go(fen=fen, depth=args.depth)
+        except KeyboardInterrupt:
+          stockfish = UciPlayer(path=args.stockpath)
+          stockfish.set_multipv(1)
+          stockfish.setoption('UCI_ShowWDL', 'true')
+          continue
 
         board = chess.Board(fen)
         captures = set([str(m) for m in list(board.legal_moves) if board.piece_at(m.to_square) is not None])
@@ -186,6 +198,26 @@ def endgame_iterator():
 
     yield fen
 
+def leafer(it):
+  # g++ src/uci.cpp src/game/*.cpp -std=c++20 -O3 -DNDEBUG -DPRINT_LEAVES -o uci_leaves
+  p = subprocess.Popen("./uci_leaves", stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+  p.stdin.write(("uci\n").encode())
+  for fen in it:
+    p.stdin.write(f"position fen {fen}\n".encode())
+    p.stdin.flush()
+    p.stdin.write("go nodes 20000\n".encode())
+    p.stdin.flush()
+    while True:
+      line = p.stdout.readline().decode().strip()
+      if line.startswith('bestmove'):
+        break
+      if line.startswith('info') or line.startswith('Chess') or line.startswith('Position'):
+        continue
+      leaf_fen = line
+      line = p.stdout.readline().decode().strip()
+      leaf_features = [int(x) for x in line.split(' ')]
+      yield leaf_fen, leaf_features
+
 def get_vec(fen, args):
   command = ["./main", "mode", "printvec-cpu", "fen", *fen.split(' ')]
   lines = subprocess.check_output(command).decode().strip().split('\n')
@@ -208,7 +240,10 @@ def get_vecs(fens, args):
     yield lines[i + 0], x
 
 def get_table_name(args):
-  return f"make_train_{args.type}_d{args.depth}_n{args.noise}"
+  r = f"make_train_{args.type}_d{args.depth}_n{args.noise}"
+  if args.leaf:
+    r += '_leaf'
+  return r
 
 if __name__ == '__main__':
 
@@ -220,6 +255,7 @@ if __name__ == '__main__':
   parser.add_argument("--depth", type=int, default=10, help="{1, 2, ..}")
   parser.add_argument("--stockpath", default="/usr/local/bin/stockfish", type=str)
   parser.add_argument("--downsample", type=int, default=50, help="{1, 2, ..}")
+  parser.add_argument("--leaf", type=int, default=0, help="0 or 1")
   args = parser.parse_args()
 
   assert args.type in ["any", "endgame"]
@@ -234,17 +270,17 @@ if __name__ == '__main__':
   if args.mode == 'update_features':
     conn = sqlite3.connect("db.sqlite3")
     c = conn.cursor()
-    c.execute(f"SELECT fen, bestMove, delta, moverScore FROM {get_table_name(args)}")
+    c.execute(f"SELECT fen, win, draw, lose, moverFeatures FROM {get_table_name(args)}")
     A = {}
-    for fen, bestmove, delta, moverScore in c:
-      A[fen] = (bestmove, delta, moverScore)
+    for fen, win, draw, lose, moverFeatures in c:
+      A[fen] = (win, draw, lose, moverFeatures)
 
     c.execute(f"""DROP TABLE IF EXISTS tmpTable""")
     c.execute(f"""CREATE TABLE tmpTable (
       fen BLOB,
-      bestMove BLOB,
-      delta INTEGER,
-      moverScore INTEGER,
+      win INTEGER,
+      draw INTEGER,
+      lose INTEGER,
       moverFeatures BLOB    -- from mover's perspective
     );""")
     fens = list(A.keys())
@@ -255,7 +291,7 @@ if __name__ == '__main__':
         print('x')
         continue
       c.execute(f"""INSERT INTO tmpTable
-        (fen, bestMove, delta, moverScore, moverFeatures) 
+        (fen, win, draw, lose, moverFeatures) 
         VALUES (?, ?, ?, ?, ?)""", (
         fen,
         *A[fen],
@@ -290,6 +326,9 @@ if __name__ == '__main__':
       iterator = endgame_iterator()
     else:
       iterator = pgn_iterator(args.noise, args.downsample)
+
+    if args.leaf:
+      iterator = leafer(iterator)
 
     for fen in iterator:
       fenQueue.put(fen)

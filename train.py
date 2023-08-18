@@ -53,11 +53,16 @@ class MonoFunc(nn.Module):
     return r + self.bias
 
 varnames = [
-  "PAWNS",
-  "KNIGHTS",
-  "BISHOPS",
-  "ROOKS",
-  "QUEENS",
+  "OUR_PAWNS",
+  "OUR_KNIGHTS",
+  "OUR_BISHOPS",
+  "OUR_ROOKS",
+  "OUR_QUEENS",
+  "THEIR_PAWNS",
+  "THEIR_KNIGHTS",
+  "THEIR_BISHOPS",
+  "THEIR_ROOKS",
+  "THEIR_QUEENS",
   "IN_CHECK",
   "KING_ON_BACK_RANK",
   "KING_ON_CENTER_FILE",
@@ -208,11 +213,14 @@ def lpad(t, n, c=' '):
   t = str(t)
   return max(n - len(t), 0) * c + t
 
-X = np.load(os.path.join('traindata', f'x.make_train_any_d10_n0.npy')).astype(np.float64)
-Y = np.load(os.path.join('traindata', f'y.make_train_any_d10_n0.npy')).astype(np.float64)
+# X = np.load(os.path.join('traindata', f'x.make_train_any_d10_n0.npy')).astype(np.float64)
+# Y = np.load(os.path.join('traindata', f'y.make_train_any_d10_n0.npy')).astype(np.float64)
 cat = np.concatenate
-X = cat([X, np.load(os.path.join('traindata', f'x.make_train_any_d10_n1.npy')).astype(np.float64)], 0)
-Y = cat([Y, np.load(os.path.join('traindata', f'y.make_train_any_d10_n1.npy')).astype(np.float64)], 0)
+# X = cat([X, np.load(os.path.join('traindata', f'x.make_train_any_d10_n1.npy')).astype(np.float64)], 0)
+# Y = cat([Y, np.load(os.path.join('traindata', f'y.make_train_any_d10_n1.npy')).astype(np.float64)], 0)
+
+X = np.load(os.path.join('traindata', f'x.make_train_any_d10_n0_leaf.npy')).astype(np.float64)
+Y = np.load(os.path.join('traindata', f'y.make_train_any_d10_n0_leaf.npy')).astype(np.float64)
 
 T = X[:,varnames.index('TIME')].copy()
 
@@ -258,7 +266,7 @@ Tth = torch.tensor(T, dtype=torch.float32)
 
 bs = 25_000
 maxlr = 0.03
-duration = 40
+duration = 60
 
 dataset = tdata.TensorDataset(Xth, Tth, Yth)
 dataloader = tdata.DataLoader(dataset, batch_size=bs, shuffle=True)
@@ -292,12 +300,6 @@ print(sum(L[-100:]) / 100)
 W = {}
 for k in model.w:
   W[k] = model.w[k].weight.detach().numpy().squeeze()
-
-print([lpad(k, 5) for k in W])
-for i in range(W['early'].shape[0]):
-  A = [lpad(round(W[k][i] * 100), 5) for k in W]
-  A.append(varnames[i])
-  print(*A)
 
 K = ['early', 'late', 'clipped']
 

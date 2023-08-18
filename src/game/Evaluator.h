@@ -930,9 +930,9 @@ struct Evaluator {
     eval = std::min(int32_t(-kQLongestForcedMate), std::max(int32_t(kQLongestForcedMate), eval));
 
     #ifdef PRINT_LEAVES
-      if (rand() % 100000 == 0) {
+      if (rand() % 10000 == 0) {
         std::string t = "";
-        t += pos.fen() + " " + std::to_string(eval) + "\n";
+        t += pos.fen() + "\n";
         t += std::to_string(features[0]);
         for (size_t i = 1; i < EF::NUM_EVAL_FEATURES; ++i) {
           t += " " + std::to_string(features[i]);
