@@ -378,6 +378,10 @@ struct Evaluator {
     }
   }
 
+  Evaluation pawnValue() const {
+    return this->earlyW[EF::OUR_PAWNS] + this->clippedW[EF::OUR_PAWNS];
+  }
+
   template<Color US>
   Evaluation score(const Position& pos) {
     assert(pos.pieceBitboards_[ColoredPiece::WHITE_KING] > 0);

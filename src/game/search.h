@@ -647,6 +647,8 @@ struct Thinker {
     if (pos->turn_ == Color::BLACK) {
       originalCacheResult.eval *= -1;
     }
+    originalCacheResult.eval *= 100;
+    originalCacheResult.eval /= this->evaluator.pawnValue();
     while (!isNullCacheResult(cr) && cr.bestMove != kNullMove && moves.size() < 10) {
       moves.push_back(cr.bestMove);
       this->make_move(pos, cr.bestMove);
@@ -722,9 +724,13 @@ static SearchResult<TURN> search(
   CacheResult cr = thinker->cache.find<IS_PARALLEL>(thread->pos.hash_);
   // Short-circuiting due to a cached result.
   // (+0.0254 ± 0.0148) after 256 games at 50,000 nodes/move
-  if (!isNullCacheResult(cr) && cr.depthRemaining >= depthRemaining) {
-    if (cr.nodeType == NodeTypePV || cr.lowerbound() >= beta || cr.upperbound() <= alpha) {
-      return SearchResult<TURN>(cr.eval, cr.bestMove);
+  if (!(SEARCH_TYPE == SearchTypeRoot && thread->id == 0)) {
+    // It's important that the root node of thread 0 not short-circuit here
+    // so that thinker->variations is properly set.
+    if (!isNullCacheResult(cr) && cr.depthRemaining >= depthRemaining) {
+      if (cr.nodeType == NodeTypePV || cr.lowerbound() >= beta || cr.upperbound() <= alpha) {
+        return SearchResult<TURN>(cr.eval, cr.bestMove);
+      }
     }
   }
 

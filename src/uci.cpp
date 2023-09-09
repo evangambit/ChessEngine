@@ -143,24 +143,40 @@ class UnrecognizedCommandTask : public Task {
   std::deque<std::string> command;
 };
 
+template<class T>
+void pop_front(std::deque<T> *A, size_t n) {
+  for (size_t i = 0; i < n; ++i) {
+    A->pop_front();
+  }
+}
+
 class ProbeTask : public Task {
  public:
   ProbeTask(std::deque<std::string> command) : command(command) {}
   void start(UciEngineState *state) {
-    Position query = Position::init();
-    size_t i = 1;
-    if (command[1] == "fen") {
-      std::vector<std::string> fen(command.begin() + 2, command.begin() + 8);
-      query = Position(join(fen, " "));
-      i = 8;
+    if (command[0] != "probe") {
+      throw std::runtime_error("Expected command to start with \"probe\"");
     }
-    if (command[i] == "moves") {
-      while (++i < command.size()) {
-        if (!make_uci_move(&query, command[i])) {
-          std::cout << "Invalid uci move " << repr(command[i]) << std::endl;
+    command.pop_front();
+
+    Position query = state->pos;
+    if (command[0] == "fen") {
+      std::vector<std::string> fen(command.begin() + 1, command.begin() + 7);
+      query = Position(join(fen, " "));
+      pop_front(&command, 6);
+    }
+    if (command[0] == "moves") {
+      command.pop_front();
+      while (command.size()) {
+        if (!make_uci_move(&query, command[0])) {
+          std::cout << "Invalid uci move " << repr(command[0]) << std::endl;
           return;
         }
+        command.pop_front();
       }
+    }
+    if (command.size() > 0) {
+      throw std::runtime_error("Unexpected token \"" + command[0] + "\" in probe command");
     }
 
     std::pair<CacheResult, std::vector<Move>> variation = state->thinker.get_variation(&query, kNullMove);
@@ -168,11 +184,22 @@ class ProbeTask : public Task {
     if (isNullCacheResult(variation.first)) {
       std::cout << "Cache result for " << query.fen() << " is missing" << std::endl;
     }
-    std::cout << variation.first.eval;
+    std::cout << variation.first.eval / state->thinker.evaluator.pawnValue();
     for (const auto& move : variation.second) {
       std::cout << " " << move;
     }
+    std::cout << " " << query.hash_;
     std::cout << std::endl;
+  }
+ private:
+  std::deque<std::string> command;
+};
+
+class HashTask : public Task {
+ public:
+  HashTask(std::deque<std::string> command) : command(command) {}
+  void start(UciEngineState *state) {
+    std::cout << state->pos.hash_ << std::endl;
   }
  private:
   std::deque<std::string> command;
@@ -531,7 +558,7 @@ class GoTask : public Task {
     if (variations.size() == 0) {
       throw std::runtime_error("No variations found!");
     }
-    const int32_t pawnValue = state->thinker.evaluator.earlyW[EF::OUR_PAWNS] + state->thinker.evaluator.clippedW[EF::OUR_PAWNS];
+    const int32_t pawnValue = state->thinker.evaluator.pawnValue();
     for (size_t i = 0; i < std::min(multiPV, variations.size()); ++i) {
       std::pair<CacheResult, std::vector<Move>> variation = state->thinker.get_variation(&state->pos, variations[i].move);
 
@@ -677,6 +704,8 @@ struct UciEngine {
       state->taskQueue.push_back(std::make_shared<EvalTask>(parts));
     } else if (parts[0] == "probe") {
       state->taskQueue.push_back(std::make_shared<ProbeTask>(parts));
+    } else if (parts[0] == "hash") {
+      state->taskQueue.push_back(std::make_shared<HashTask>(parts));
     } else {
       state->taskQueue.push_back(std::make_shared<UnrecognizedCommandTask>(parts));
     }
