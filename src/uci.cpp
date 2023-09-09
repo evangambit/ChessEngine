@@ -575,7 +575,7 @@ class GoTask : public Task {
       } else if (variation.first.eval >= -kLongestForcedMate) {
         std::cout << " score mate " << (-eval - kCheckmate + 1) / 2;
       } else {
-        std::cout << " score cp " << (eval * 100 / pawnValue);
+        std::cout << " score cp " << (int64_t(eval) * 100 / pawnValue);
       }
       std::cout << " nodes " << state->thinker.nodeCounter;
       std::cout << " nps " << uint64_t(double(state->thinker.nodeCounter) / secs);

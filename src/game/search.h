@@ -27,7 +27,7 @@ namespace ChessEngine {
 struct GoCommand {
   GoCommand()
   : depthLimit(100), nodeLimit(-1), timeLimitMs(-1),
-  wtimeMs(-1), btimeMs(-1), wIncrementMs(-1), bIncrementMs(-1), movesUntilTimeControl(-1) {}
+  wtimeMs(-1), btimeMs(-1), wIncrementMs(0), bIncrementMs(0), movesUntilTimeControl(-1) {}
 
   Position pos;
 
@@ -639,6 +639,7 @@ struct Thinker {
     }
     CacheResult originalCacheResult = this->cache.unsafe_find(pos->hash_);
     CacheResult cr = originalCacheResult;
+
     if (isNullCacheResult(cr)) {
       this->undo(pos);
       throw std::runtime_error("Could not get variation starting with " + move.uci());
@@ -647,8 +648,7 @@ struct Thinker {
     if (pos->turn_ == Color::BLACK) {
       originalCacheResult.eval *= -1;
     }
-    originalCacheResult.eval *= 100;
-    originalCacheResult.eval /= this->evaluator.pawnValue();
+    originalCacheResult.eval = int64_t(originalCacheResult.eval) * 100 / this->evaluator.pawnValue();
     while (!isNullCacheResult(cr) && cr.bestMove != kNullMove && moves.size() < 10) {
       moves.push_back(cr.bestMove);
       this->make_move(pos, cr.bestMove);
