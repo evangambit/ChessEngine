@@ -10,8 +10,7 @@ namespace ChessEngine {
 // Rotates east-most file to south-most rank.
 constexpr Bitboard kRookMagic = bb(49) | bb(42) | bb(35) | bb(28) | bb(21) | bb(14) | bb(7) | bb(0);
 
-template<Color US>
-Bitboard compute_rooklike_targets(const Position& pos, Bitboard rookLikePieces, const Bitboard occupied) {
+Bitboard compute_rooklike_targets(Bitboard rookLikePieces, const Bitboard occupied) {
   Bitboard r = kEmptyBitboard;
 
   while (rookLikePieces) {
@@ -43,7 +42,7 @@ Bitboard compute_rooklike_targets(const Position& pos, Bitboard rookLikePieces, 
 template<Color US>
 Bitboard compute_rooklike_targets(const Position& pos, Bitboard rookLikePieces) {
   const Bitboard occupied = (pos.colorBitboards_[US] | pos.colorBitboards_[opposite_color<US>()]) & ~rookLikePieces;
-  return compute_rooklike_targets<US>(pos, rookLikePieces, occupied);
+  return compute_rooklike_targets(rookLikePieces, occupied);
 }
 
 // Computes moves for rook and rook-like moves for queen.
