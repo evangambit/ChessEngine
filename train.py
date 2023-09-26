@@ -260,6 +260,11 @@ class Model(nn.Module):
     clipped = self.w["clipped"](x).squeeze().clip(-1, 1)
     return early + late + clipped
 
+def forever(loader):
+  while True:
+    for batch in loader:
+      yield batch
+
 model = Model()
 opt = optim.AdamW(model.parameters(), lr=3e-3)
 
@@ -272,16 +277,19 @@ maxlr = 0.03
 duration = 60
 
 dataset = tdata.TensorDataset(Xth, Tth, Yth)
-dataloader = tdata.DataLoader(dataset, batch_size=bs, shuffle=True)
 
 loss_fn = LossFn()
 
 L = []
 
-for lr in cat([np.linspace(maxlr / 100, maxlr, duration // 10), np.linspace(maxlr, maxlr / 100, duration *9 // 10)]):
-  for pg in opt.param_groups:
-    pg['lr'] = lr
-  for x, t, y in dataloader:
+windowSize = 500
+
+for bs in 2**(np.linspace(4, 14, 11)):
+  bs = int(bs)
+  dataloader = tdata.DataLoader(dataset, batch_size=bs, shuffle=True, drop_last=True)
+
+  l = []
+  for x, t, y in forever(dataloader):
     pwin = ((y[:,0] + 1) + (y[:,1] + 1) / 2) / (y.sum(1) + 3)
     y = logit(pwin)
     yhat = model(x, t)
@@ -289,8 +297,15 @@ for lr in cat([np.linspace(maxlr / 100, maxlr, duration // 10), np.linspace(maxl
     opt.zero_grad()
     loss.backward()
     opt.step()
+    l.append(float(loss))
     L.append(float(loss))
-  print('%.4f %.4f' % (lr, L[-1]))
+    if len(l) == windowSize:
+      firstHalf = np.array(l[:windowSize//2]).mean()
+      secondHalf = np.array(l[windowSize//2:]).mean()
+      l = []
+      print('%i %.4f %.4f' % (bs, firstHalf, secondHalf))
+      if firstHalf < secondHalf:
+        break
 
 for k in model.w:
   w = model.w[k].weight.detach().numpy()
