@@ -213,14 +213,17 @@ def lpad(t, n, c=' '):
   t = str(t)
   return max(n - len(t), 0) * c + t
 
+def logit(x):
+  return torch.log(x / (1.0 - x))
+
 # X = np.load(os.path.join('traindata', f'x.make_train_any_d10_n0.npy')).astype(np.float64)
 # Y = np.load(os.path.join('traindata', f'y.make_train_any_d10_n0.npy')).astype(np.float64)
 cat = np.concatenate
 # X = cat([X, np.load(os.path.join('traindata', f'x.make_train_any_d10_n1.npy')).astype(np.float64)], 0)
 # Y = cat([Y, np.load(os.path.join('traindata', f'y.make_train_any_d10_n1.npy')).astype(np.float64)], 0)
 
-X = np.load(os.path.join('traindata', f'x.make_train_any_d10_n0_leaf.npy')).astype(np.float64)
-Y = np.load(os.path.join('traindata', f'y.make_train_any_d10_n0_leaf.npy')).astype(np.float64)
+X = np.load(os.path.join('traindata', f'x.make_train_any_d6_n0.npy')).astype(np.float64)
+Y = np.load(os.path.join('traindata', f'y.make_train_any_d6_n0.npy')).astype(np.float64)
 
 T = X[:,varnames.index('TIME')].copy()
 
@@ -279,6 +282,8 @@ for lr in cat([np.linspace(maxlr / 100, maxlr, duration // 10), np.linspace(maxl
   for pg in opt.param_groups:
     pg['lr'] = lr
   for x, t, y in dataloader:
+    pwin = ((y[:,0] + 1) + (y[:,1] + 1) / 2) / (y.sum(1) + 3)
+    y = logit(pwin)
     yhat = model(x, t)
     loss = loss_fn(yhat, y)
     opt.zero_grad()

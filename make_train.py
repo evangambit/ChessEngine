@@ -16,6 +16,8 @@ from uci_player import UciPlayer
 
 import numpy as np
 
+from tqdm import tqdm
+
 """
 To generate training data from scratch:
 
@@ -73,9 +75,19 @@ def sql_inserter(resultQueue, args):
       tlast = time.time()
       conn.commit()
 
+def sign(x):
+  return 1.0 if x > 0.0 else -1.0
+
+def eval2score(e, clip):
+  assert e[0] in ['cp', 'mate']
+  assert isinstance(e[1], int)
+  if e[0] == 'mate':
+    return sign(e[1]) * clip
+  return e[1]
+
 def analyzer(fenQueue, resultQueue, args):
     stockfish = UciPlayer(path=args.stockpath)
-    stockfish.set_multipv(1)
+    stockfish.set_multipv(2)
     stockfish.setoption('UCI_ShowWDL', 'true')
     while True:
         fen = fenQueue.get()
@@ -95,15 +107,29 @@ def analyzer(fenQueue, resultQueue, args):
           moves = stockfish.go(fen=fen, depth=args.depth)
         except KeyboardInterrupt:
           stockfish = UciPlayer(path=args.stockpath)
-          stockfish.set_multipv(1)
+          stockfish.set_multipv(2)
           stockfish.setoption('UCI_ShowWDL', 'true')
+          continue
+
+        if len(moves) < 2:
+          continue
+
+        if 'score' not in moves[0]:
+          print('****' * 9)
+          print(fen)
+          print('****' * 9)
+
+        moves[0]['score'] = eval2score(moves[0]['score'], clip=args.clip)
+        moves[1]['score'] = eval2score(moves[1]['score'], clip=args.clip)
+
+        if max(abs(moves[0]['score']), abs(moves[1]['score'])) >= args.clip:
+          continue
+
+        if abs(moves[0]['score'] - moves[0]['score']) > 100:
           continue
 
         board = chess.Board(fen)
         captures = set([str(m) for m in list(board.legal_moves) if board.piece_at(m.to_square) is not None])
-
-        if len(moves) != 1:
-          continue
 
         if moves[0]['pv'][0] in captures:
           continue
@@ -252,7 +278,9 @@ if __name__ == '__main__':
   parser.add_argument("--mode", type=str, required=True, help="{generate, update_features, write_numpy}")
   parser.add_argument("--type", type=str, required=True, help="{any, endgame}")
   parser.add_argument("--noise", type=int, default=0, help="{0, 1, 2, ..}")
-  parser.add_argument("--depth", type=int, default=10, help="{1, 2, ..}")
+  parser.add_argument("--depth", type=int, default=6, help="{1, 2, ..}")
+  parser.add_argument("--clip", type=int, default=1000)
+  parser.add_argument("--threads", type=int, default=10)
   parser.add_argument("--stockpath", default="/usr/local/bin/stockfish", type=str)
   parser.add_argument("--downsample", type=int, default=50, help="{1, 2, ..}")
   parser.add_argument("--leaf", type=int, default=0, help="0 or 1")
@@ -314,7 +342,7 @@ if __name__ == '__main__':
     fenQueue = Queue()
     resultQueue = Queue()
 
-    analyzers = [Process(target=analyzer, args=(fenQueue, resultQueue, args)) for _ in range(10)]
+    analyzers = [Process(target=analyzer, args=(fenQueue, resultQueue, args)) for _ in range(args.threads)]
     for p in analyzers:
       p.start()
 
@@ -343,17 +371,40 @@ if __name__ == '__main__':
       draw += 1
       lose += 1
       F.append(fen)
-      Y.append(logit((win + draw * 0.5) / (win + draw + lose)))
+      Y.append([
+        win,
+        draw,
+        lose
+      ])
 
-      x = np.array([float(a) for a in moverFeatures.split(' ')], dtype=np.int32)
+      x = np.array([float(a) for a in moverFeatures.split(' ')], dtype=np.int16)
       X.append(x)
 
-    X = np.array(X).astype(np.int16)
-    Y = np.array(Y)
+    X = np.array(X, dtype=np.int16)
+    Y = np.array(Y, dtype=np.int16)
     F = np.array(F)
-    print(X.shape, Y.shape, F.shape)
+
+
+    kPieceName = 'PNBRQKpnbrqk'
+    A = np.zeros((len(F), 6, 64), dtype=np.int8)
+    S = np.zeros(len(F), dtype=np.int8)
+    for i, f in tqdm(enumerate(F), total=len(F)):
+      board = chess.Board(F[i])
+      tiles = [line.split(' ') for line in str(board).split('\n')]
+      S[i] = 1 if ' w ' in F[i] else -1
+      for y in range(8):
+        for x in range(8):
+          if tiles[y][x] != '.':
+            if tiles[y][x] == tiles[y][x].upper():
+              A[i, kPieceName.index(tiles[y][x]), y * 8 + x] += 1
+            else:
+              A[i, kPieceName.index(tiles[y][x].upper()), (7 - y) * 8 + x] -= -1
+
+    print(X.shape, Y.shape, F.shape, A.shape)
     np.save(os.path.join('traindata', f'x.{get_table_name(args)}.npy'), X)
     np.save(os.path.join('traindata', f'y.{get_table_name(args)}.npy'), Y)
     np.save(os.path.join('traindata', f'f.{get_table_name(args)}.npy'), F)
+    np.save(os.path.join('traindata', f'a.{get_table_name(args)}.npy'), A)
+    np.save(os.path.join('traindata', f's.{get_table_name(args)}.npy'), A)
     exit(0)
 
