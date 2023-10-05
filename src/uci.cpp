@@ -220,11 +220,16 @@ class EvalTask : public Task {
       }
       return;
     }
-    Evaluator& evaulator = state->thinker.evaluator;
+    Evaluator& evaluator = state->thinker.evaluator;
     if (state->pos.turn_ == Color::WHITE) {
-      std::cout << evaulator.score<Color::WHITE>(state->pos) << std::endl;
+      std::cout << evaluator.score<Color::WHITE>(state->pos) << std::endl;
     } else {
-      std::cout << evaulator.score<Color::BLACK>(state->pos) << std::endl;
+      std::cout << evaluator.score<Color::BLACK>(state->pos) << std::endl;
+    }
+    if (command.size() > 1 && command.at(1) == "vec") {
+      for (int i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
+        std::cout << evaluator.features[i] << "  // " << EFSTR[i] << std::endl;
+      }
     }
   }
  private:
@@ -459,7 +464,6 @@ class PositionTask : public Task {
       return;
     }
     if (i == command.size()) {
-      std::cout << "Position set to \"" << state->pos.fen() << std::endl;
       return;
     }
     if (command[i] != "moves") {
