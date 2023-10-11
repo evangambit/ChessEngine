@@ -1,5 +1,18 @@
-// g++ src/uci.cpp src/game/*.cpp -std=c++20 -O3 -DNDEBUG -o uci
-// g++ src/uci.cpp src/game/*.cpp -std=c++20 -O3 -DNDEBUG -DSquareControl -o sc-old
+/*
+
+g++ src/uci.cpp src/game/*.cpp src/protos/weights.pb.cc \
+-std=c++20 \
+-O3 \
+-DNDEBUG \
+-o uci  \
+-lprotobuf \
+-L /opt/homebrew/Cellar/protobuf/24.4/lib \
+-L /opt/homebrew/Cellar/abseil/20230802.1/lib \
+-I /opt/homebrew/Cellar/protobuf/24.4/include \
+-I /opt/homebrew/Cellar/abseil/20230802.1/include \
+-I src
+
+*/
 
 #import "game/search.h"
 #import "game/Position.h"
@@ -184,7 +197,7 @@ class ProbeTask : public Task {
     if (isNullCacheResult(variation.first)) {
       std::cout << "Cache result for " << query.fen() << " is missing" << std::endl;
     }
-    std::cout << variation.first.eval / state->thinker.evaluator.pawnValue();
+    std::cout << variation.first.eval;
     for (const auto& move : variation.second) {
       std::cout << " " << move;
     }
@@ -579,7 +592,7 @@ class GoTask : public Task {
       } else if (variation.first.eval >= -kLongestForcedMate) {
         std::cout << " score mate " << (-eval - kCheckmate + 1) / 2;
       } else {
-        std::cout << " score cp " << (int64_t(eval) * 100 / pawnValue);
+        std::cout << " score cp " << eval;
       }
       std::cout << " nodes " << state->thinker.nodeCounter;
       std::cout << " nps " << uint64_t(double(state->thinker.nodeCounter) / secs);
@@ -621,7 +634,7 @@ struct UciEngine {
   UciEngine() {
     this->state.stopThinkingSwitch = nullptr;
     this->state.pos = Position("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
-    this->state.thinker.load_weights_from_file("weights.txt");
+    this->state.thinker.load_weights_from_file("w.weights");
   }
   void start(std::istream& cin) {
     UciEngineState *state = &this->state;

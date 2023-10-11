@@ -1,14 +1,17 @@
-// Production:
-// g++ src/main.cpp src/game/*.cpp -std=c++20 -O3 -DNDEBUG -o main
-// 
-// Debug:
-// g++ src/main.cpp src/game/*.cpp -std=c++20 -rdynamic -g1
-//
-// To Generate train.txt
-// ./a.out mode printvec fens eval.txt > ./train.txt
-//
-// To evaluate changes
-// ./a.out mode evaluate fens eval.txt depth 2
+/*
+Production:
+g++ src/main.cpp src/game/*.cpp src/protos/weights.pb.cc \
+-std=c++20 \
+-O3 \
+-DNDEBUG \
+-o main  \
+-lprotobuf \
+-L /opt/homebrew/Cellar/protobuf/24.4/lib \
+-L /opt/homebrew/Cellar/abseil/20230802.1/lib \
+-I /opt/homebrew/Cellar/protobuf/24.4/include \
+-I /opt/homebrew/Cellar/abseil/20230802.1/include \
+-I src
+*/
 
 #include <cassert>
 #include <cstdint>
@@ -475,9 +478,6 @@ int main(int argc, char *argv[]) {
     } else if (args.size() >= 2 && args[0] == "loadweights") {
       gThinker.load_weights_from_file(args[1]);
       args = std::vector<std::string>(args.begin() + uciMoves.size() + 2, args.end());
-    } else if (args.size() >= 2 && args[0] == "saveweights") {
-      gThinker.save_weights_to_file(args[1]);
-      return 0;
     } else {
       std::cout << "Cannot understand arguments" << std::endl;
       return 1;

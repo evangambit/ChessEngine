@@ -11,6 +11,8 @@
 #include <memory>
 #include <unordered_set>
 
+#import "protos/weights.pb.h"
+
 #include "geometry.h"
 #include "utils.h"
 #include "Position.h"
@@ -606,29 +608,13 @@ struct Thinker {
     }
   }
 
-  void save_weights_to_file(const std::string& filename) {
-    std::ofstream myfile;
-    myfile.open(filename);
-    if (!myfile.is_open()) {
-      std::cout << "Error opening file \"" << filename << "\"" << std::endl;
-      exit(0);
-    }
-    this->evaluator.save_weights_to_file(myfile);
-    this->pieceMaps.save_weights_to_file(myfile);
-    myfile.close();
-  }
-
-
   void load_weights_from_file(const std::string& filename) {
-    std::ifstream myfile;
-    myfile.open(filename);
-    if (!myfile.is_open()) {
-      std::cout << "Error opening file \"" << filename << "\"" << std::endl;
-      exit(0);
-    }
-    this->evaluator.load_weights_from_file(myfile);
-    this->pieceMaps.load_weights_from_file(myfile);
-    myfile.close();
+    Weights weights;
+    std::fstream myfile(filename.c_str(), std::ios::in | std::ios::binary);
+    weights.ParseFromIstream(&myfile);
+
+    this->evaluator.load_weights(weights);
+    this->pieceMaps.load_weights(weights);
   }
 
   std::pair<CacheResult, std::vector<Move>> get_variation(Position *pos, Move move) const {

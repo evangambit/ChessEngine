@@ -322,7 +322,7 @@ if __name__ == '__main__':
         (fen, win, draw, lose, moverFeatures) 
         VALUES (?, ?, ?, ?, ?)""", (
         fen,
-        *A[fen],
+        *A[fen][:-1],
         ' '.join(str(a) for a in x),
       ))
 

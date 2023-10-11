@@ -16,6 +16,8 @@
 #include "piece_maps.h"
 #include "PawnAnalysis.h"
 
+#import "protos/weights.pb.h"
+
 namespace ChessEngine {
 
 // Arbitrary constant that our "special_boosts" will never accidentally return.
@@ -304,77 +306,24 @@ struct Evaluator {
   int32_t clippedB;
   int32_t clippedW[EF::NUM_EVAL_FEATURES];
 
-  void save_weights_to_file(std::ofstream& myfile) {
-    myfile << lpad(earlyB) << " // early bias" << std::endl;
+  void load_weights(const Weights& weights) {
+    if (weights.early().weights_size() != EF::NUM_EVAL_FEATURES) {
+      throw std::runtime_error("Invalid number of early weights (" + std::to_string(weights.early().weights_size()) + " != " + std::to_string(EF::NUM_EVAL_FEATURES) + ")");
+    }
+    if (weights.late().weights_size() != EF::NUM_EVAL_FEATURES) {
+      throw std::runtime_error("Invalid number of late weights (" + std::to_string(weights.late().weights_size()) + " != " + std::to_string(EF::NUM_EVAL_FEATURES) + ")");
+    }
+    if (weights.clipped().weights_size() != EF::NUM_EVAL_FEATURES) {
+      throw std::runtime_error("Invalid number of clipped weights (" + std::to_string(weights.clipped().weights_size()) + " != " + std::to_string(EF::NUM_EVAL_FEATURES) + ")");
+    }
+
+    earlyB = weights.early().bias();
+    lateB = weights.late().bias();
+    clippedB = weights.clipped().bias();
     for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
-      myfile << lpad(earlyW[i]) << " // early " << EFSTR[i] << std::endl;
-    }
-
-    myfile << lpad(lateB) << " // late bias" << std::endl;
-    for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
-      myfile << lpad(lateW[i]) << " // late " << EFSTR[i] << std::endl;
-    }
-
-    myfile << lpad(clippedB) << " // clipped bias" << std::endl;
-    for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
-      myfile << lpad(clippedW[i]) << " // clipped " << EFSTR[i] << std::endl;
-    }
-  }
-
-  void load_weights_from_file(std::ifstream &myfile) {
-    std::string line;
-    std::vector<std::string> params;
-
-
-    getline(myfile, line);
-    try {
-      earlyB = stoi(process_with_file_line(line));
-    } catch (std::invalid_argument& err) {
-      std::cout << "error loading earlyB" << std::endl;
-      throw err;
-    }
-    for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
-      getline(myfile, line);
-      try {
-        earlyW[i] = stoi(process_with_file_line(line));
-      } catch (std::invalid_argument& err) {
-        std::cout << "error loading earlyW[i]" << std::endl;
-        throw err;
-      }
-    }
-
-    getline(myfile, line);
-    try {
-      lateB = stoi(process_with_file_line(line));
-    } catch (std::invalid_argument& err) {
-      std::cout << "error loading lateB" << std::endl;
-      throw err;
-    }
-    for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
-      getline(myfile, line);
-      try {
-        lateW[i] = stoi(process_with_file_line(line));
-      } catch (std::invalid_argument& err) {
-        std::cout << "error loading lateW[i]" << std::endl;
-        throw err;
-      }
-    }
-
-    getline(myfile, line);
-    try {
-      clippedB = stoi(process_with_file_line(line));
-    } catch (std::invalid_argument& err) {
-      std::cout << "error loading clippedB" << std::endl;
-      throw err;
-    }
-    for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
-      getline(myfile, line);
-      try {
-        clippedW[i] = stoi(process_with_file_line(line));
-      } catch (std::invalid_argument& err) {
-        std::cout << "error loading clippedW[" << i << "]" << std::endl;
-        throw err;
-      }
+      earlyW[i] = weights.early().weights(i);
+      lateW[i] = weights.late().weights(i);
+      clippedW[i] = weights.clipped().weights(i);
     }
   }
 

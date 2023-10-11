@@ -172,7 +172,7 @@ struct Trainer {
     if (diff / stderr < 2.0) {
       this->thinker.evaluator.clippedW[featureIdx] -= stepsize;
     } else {
-      this->thinker.save_weights_to_file("www.txt");
+      // this->thinker.save_weights_to_file("www.txt");
     }
   }
 

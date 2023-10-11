@@ -4,6 +4,8 @@
 #include "geometry.h"
 #include "utils.h"
 
+#import "protos/weights.pb.h"
+
 #include <cstdint>
 
 #include <fstream>
@@ -27,49 +29,24 @@ struct PieceMaps {
 
   int32_t const *weights(ColoredPiece cp, Square sq) const;
 
-  void save_weights_to_file(std::ofstream& myfile) {
-    for (size_t k = 0; k < PieceMapType::PieceMapTypeCount; ++k) {
-      for (size_t i = 0; i < ColoredPiece::NUM_COLORED_PIECES; ++i) {
-        myfile << "// " << colored_piece_to_string(ColoredPiece(i)) << std::endl;
-        for (size_t j = 0; j < 64; ++j) {
-          myfile << lpad(pieceMaps[i * 64 + j][k]);
-          if (j % 8 == 7) {
-            myfile << std::endl;
-          }
-        }
-      }
-    }
-  }
-
-  void load_weights_from_file(std::ifstream &myfile) {
-    std::string line;
-    std::vector<std::string> params;
-
+  void load_weights(const Weights& W) {
     for (size_t k = 0; k < PieceMapType::PieceMapTypeCount; ++k) {
       for (size_t i = NO_COLORED_PIECE; i <= WHITE_KING; ++i) {
-        getline(myfile, line);
-        if (line.substr(0, 3) != "// ") {
-          throw std::runtime_error("Unexpected weight format; expected \"// \" but got \"" + line + "\"");
-        }
         for (size_t y = 0; y < 8; ++y) {
-          getline(myfile, line);
-          line = process_with_file_line(line);
-          std::vector<std::string> parts = split(line, ' ');
-          if (parts.size() != 8) {
-            throw std::runtime_error("Expected 8 weights in piece-map row but got " + std::to_string(parts.size()));
-          }
           for (size_t x = 0; x < 8; ++x) {
-            if (i >= ColoredPiece::BLACK_PAWN) {
-              continue;
+            size_t idx1 = i * 64 + y * 8 + x;
+            size_t idx2 = (i + ColoredPiece::BLACK_PAWN - ColoredPiece::WHITE_PAWN) * 64 + (7 - y) * 8 + x;
+            if (k == PieceMapType::PieceMapTypeEarly) {
+              pieceMaps[k][idx1] = W.earlypiecesquares(idx1);
+              pieceMaps[k][idx2] = W.earlypiecesquares(idx1);
+            } else {
+              pieceMaps[k][idx1] = W.latepiecesquares(idx1);
+              pieceMaps[k][idx2] = W.latepiecesquares(idx1);
             }
-            pieceMaps[i * 64 + y * 8 + x][k] = stoi(parts[x]);
-            pieceMaps[(i + ColoredPiece::BLACK_PAWN - ColoredPiece::WHITE_PAWN) * 64 + (7 - y) * 8 + x][k] = -stoi(parts[x]);
           }
         }
       }
     }
-
-    myfile.close();
   }
 
   void zero_() {

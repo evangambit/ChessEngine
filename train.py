@@ -10,6 +10,8 @@ import torch
 from torch import nn, optim
 import torch.utils.data as tdata
 
+from protos.weights_pb2 import Weights
+
 # class MonoFunc(nn.Module):
 #   """
 #   Represents a 1D monotonic function from x=low to x=high.
@@ -317,17 +319,39 @@ for k in model.w:
 
 print(sum(L[-100:]) / 100)
 
+weights = Weights()
+for i in range(len(varnames)):
+  weights.early.weights.append(0)
+  weights.late.weights.append(0)
+  weights.clipped.weights.append(0)
+
+for i in range(64*7):
+  weights.earlyPieceSquares.append(0)
+  weights.latePieceSquares.append(0)
+
 W = {}
 for k in model.w:
   W[k] = model.w[k].weight.detach().numpy().squeeze()
+  for i in range(W[k].size):
+    if k == 'early':
+      weights.early.weights[i] = round(W[k][i] * 100)
+    elif k == 'late':
+      weights.late.weights[i] = round(W[k][i] * 100)
+    elif k == 'clipped':
+      weights.clipped.weights[i] = round(W[k][i] * 100)
 
-K = ['early', 'late', 'clipped']
+weights.early.bias = round(float(model.w['early'].bias * 100))
+weights.late.bias = round(float(model.w['late'].bias * 100))
+weights.clipped.bias = round(float(model.w['clipped'].bias * 100))
 
-print(' '.join(K))
+print('early late clipped')
 for i in range(len(varnames)):
-  print(' '.join(lpad(round(W[k][i] * 100), 5) for k in K) + '  ' + varnames[i])
+  print(
+    lpad(weights.early.weights[i], 5),
+    lpad(weights.late.weights[i], 5),
+    lpad(weights.clipped.weights[i], 5),
+  )
 
-for k in K:
-  print(lpad(round(float(model.w[k].bias.detach().numpy() * 100)), 6) + f'  // {k} bias')
-  for i in range(W[k].shape[0]):
-    print(lpad(round(W[k][i] * 100), 6) + f'  // {k} {varnames[i]}')
+with open('w.weights', 'wb+') as f:
+  f.write(weights.SerializeToString())
+
