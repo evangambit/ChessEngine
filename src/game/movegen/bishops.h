@@ -232,8 +232,7 @@ Bitboard byte_to_southwest_diag(Square sq, Bitboard byte) {
 
 }  // namespace diag
 
-template<Color US>
-Bitboard compute_bishoplike_targets(const Position& pos, Bitboard bishopLikePieces, const Bitboard occupied) {
+Bitboard compute_bishoplike_targets(Bitboard bishopLikePieces, const Bitboard occupied) {
   Bitboard r = kEmptyBitboard;
 
   while (bishopLikePieces) {
@@ -258,7 +257,7 @@ Bitboard compute_bishoplike_targets(const Position& pos, Bitboard bishopLikePiec
 template<Color US>
 Bitboard compute_bishoplike_targets(const Position& pos, Bitboard bishopLikePieces) {
   const Bitboard occupied = (pos.colorBitboards_[US] | pos.colorBitboards_[opposite_color<US>()]) & ~bishopLikePieces;
-  return compute_bishoplike_targets<US>(pos, bishopLikePieces, occupied);
+  return compute_bishoplike_targets(bishopLikePieces, occupied);
 }
 
 template<Color US, MoveGenType MGT>

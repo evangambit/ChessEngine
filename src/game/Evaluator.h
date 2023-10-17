@@ -503,8 +503,8 @@ struct Evaluator {
       features[EF::NUM_PIECES_HARRASSABLE_BY_PAWNS] = std::popcount(pawnAnalysis.piecesOurPawnsCanThreaten) - std::popcount(pawnAnalysis.piecesTheirPawnsCanThreaten);
     }
 
-    const Bitboard ourBishopTargetsIgnoringNonBlockades = compute_bishoplike_targets<US>(pos, ourBishops, pawnAnalysis.ourBlockadedPawns);
-    const Bitboard theirBishopTargetsIgnoringNonBlockades = compute_bishoplike_targets<THEM>(pos, theirBishops, pawnAnalysis.theirBlockadedPawns);
+    const Bitboard ourBishopTargetsIgnoringNonBlockades = compute_bishoplike_targets(ourBishops, pawnAnalysis.ourBlockadedPawns);
+    const Bitboard theirBishopTargetsIgnoringNonBlockades = compute_bishoplike_targets(theirBishops, pawnAnalysis.theirBlockadedPawns);
     {  // Bishops
       if (US == Color::WHITE) {
         features[EF::BISHOPS_DEVELOPED] = std::popcount(theirBishops & (bb( 2) | bb( 5))) - std::popcount(ourBishops & (bb(58) | bb(61)));

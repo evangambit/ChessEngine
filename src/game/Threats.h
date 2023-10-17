@@ -93,12 +93,12 @@ struct Threats {
     this->theirPawnTargets = theirPawn1 | theirPawn2;
     this->ourKnightTargets = compute_knight_targets<US>(pos);
     this->theirKnightTargets = compute_knight_targets<THEM>(pos);
-    this->ourBishopTargets = compute_bishoplike_targets<US>(pos, pos.pieceBitboards_[coloredPiece<US, Piece::BISHOP>()], everyone & ~pos.pieceBitboards_[coloredPiece<US, Piece::BISHOP>()]);
-    this->theirBishopTargets = compute_bishoplike_targets<THEM>(pos, pos.pieceBitboards_[coloredPiece<THEM, Piece::BISHOP>()], everyone & ~pos.pieceBitboards_[coloredPiece<THEM, Piece::BISHOP>()]);
+    this->ourBishopTargets = compute_bishoplike_targets(pos.pieceBitboards_[coloredPiece<US, Piece::BISHOP>()], everyone & ~pos.pieceBitboards_[coloredPiece<US, Piece::BISHOP>()]);
+    this->theirBishopTargets = compute_bishoplike_targets(pos.pieceBitboards_[coloredPiece<THEM, Piece::BISHOP>()], everyone & ~pos.pieceBitboards_[coloredPiece<THEM, Piece::BISHOP>()]);
     this->ourRookTargets = compute_rooklike_targets(pos.pieceBitboards_[coloredPiece<US, Piece::ROOK>()], everyone & ~pos.pieceBitboards_[coloredPiece<US, Piece::ROOK>()]);
     this->theirRookTargets = compute_rooklike_targets(pos.pieceBitboards_[coloredPiece<THEM, Piece::ROOK>()], everyone & ~pos.pieceBitboards_[coloredPiece<THEM, Piece::ROOK>()]);
-    this->ourQueenTargets = compute_bishoplike_targets<US>(pos, pos.pieceBitboards_[coloredPiece<US, Piece::QUEEN>()], everyone & ~ourBishoplikePieces) | compute_rooklike_targets(pos.pieceBitboards_[coloredPiece<US, Piece::QUEEN>()], everyone & ~ourRooklikePieces);
-    this->theirQueenTargets = compute_bishoplike_targets<THEM>(pos, pos.pieceBitboards_[coloredPiece<THEM, Piece::QUEEN>()], everyone & ~theirBishoplikePieces) | compute_rooklike_targets(pos.pieceBitboards_[coloredPiece<THEM, Piece::QUEEN>()], everyone & ~theirRooklikePieces);
+    this->ourQueenTargets = compute_bishoplike_targets(pos.pieceBitboards_[coloredPiece<US, Piece::QUEEN>()], everyone & ~ourBishoplikePieces) | compute_rooklike_targets(pos.pieceBitboards_[coloredPiece<US, Piece::QUEEN>()], everyone & ~ourRooklikePieces);
+    this->theirQueenTargets = compute_bishoplike_targets(pos.pieceBitboards_[coloredPiece<THEM, Piece::QUEEN>()], everyone & ~theirBishoplikePieces) | compute_rooklike_targets(pos.pieceBitboards_[coloredPiece<THEM, Piece::QUEEN>()], everyone & ~theirRooklikePieces);
     this->ourKingTargets = compute_king_targets<US>(pos, ourKingSq);
     this->theirKingTargets = compute_king_targets<THEM>(pos, theirKingSq);
 
