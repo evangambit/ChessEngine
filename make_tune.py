@@ -1,5 +1,6 @@
 import time
 import argparse
+import json
 import os
 import random
 import re
@@ -117,8 +118,9 @@ class UciPlayer:
 
 def analyzer(fenQueue, resultQueue, args):
     stockfish = Stockfish(path=args.stockpath, depth=args.stockdepth)
-    ourEngine = UciPlayer("./new", "weights.txt")
-    ourEngine.command("setoption name MultiPV value 2")
+    if args.depth != 0:
+      ourEngine = UciPlayer("./uci", "w.weights")
+      ourEngine.command("setoption name MultiPV value 2")
 
     while True:
         fen = fenQueue.get()
@@ -152,19 +154,20 @@ def analyzer(fenQueue, resultQueue, args):
               move['Centipawn'] = -args.clip
           move['Centipawn'] = max(-args.clip, min(args.clip, move['Centipawn']))
 
-        ourEval = ourEngine.go(fen, depth=args.depth)
-        assert len(ourEval) == 2, ourEval
+        if args.depth != 0:
+          ourEval = ourEngine.go(fen, depth=args.depth)
+          assert len(ourEval) == 2, ourEval
 
-        if 'mate' in ourEval[0]['score']:
-          continue
-        if 'mate' in ourEval[1]['score']:
-          continue
+          if 'mate' in ourEval[0]['score']:
+            continue
+          if 'mate' in ourEval[1]['score']:
+            continue
 
-        score1 = int(ourEval[0]['score'].split(' ')[1])
-        score2 = int(ourEval[1]['score'].split(' ')[1])
+          score1 = int(ourEval[0]['score'].split(' ')[1])
+          score2 = int(ourEval[1]['score'].split(' ')[1])
 
-        if abs(score1 - score2) > args.margin:
-          continue
+          if abs(score1 - score2) > args.margin:
+            continue
 
         resultQueue.put({
           "fen": fen,
@@ -199,6 +202,7 @@ def get_table_name(args):
 if __name__ == '__main__':
   parser = argparse.ArgumentParser()
   parser.add_argument("pgnfiles", nargs='*')
+  parser.add_argument("--mode", type=str, default='generate')
   parser.add_argument("--stockdepth", type=int, default=10, help="{1, 2, ..}")
   parser.add_argument("--depth", type=int, default=1, help="{1, 2, ..}")
   parser.add_argument("--clip", type=int, default=5000)
@@ -209,20 +213,33 @@ if __name__ == '__main__':
   args = parser.parse_args()
 
   assert args.stockdepth > 1
-  assert args.depth > 1
+  assert args.mode in ['generate', 'dump']
 
-  # generate work
-  fenQueue = Queue()
-  resultQueue = Queue()
+  if args.mode == 'generate':
+    fenQueue = Queue()
+    resultQueue = Queue()
 
-  analyzers = [Process(target=analyzer, args=(fenQueue, resultQueue, args)) for _ in range(args.threads)]
-  for p in analyzers:
-    p.start()
+    analyzers = [Process(target=analyzer, args=(fenQueue, resultQueue, args)) for _ in range(args.threads)]
+    for p in analyzers:
+      p.start()
 
-  sqlThread = Process(target=sql_inserter, args=(resultQueue, args))
-  sqlThread.start()
+    sqlThread = Process(target=sql_inserter, args=(resultQueue, args))
+    sqlThread.start()
 
-  iterator = pgn_iterator(noise = 0)
+    iterator = pgn_iterator(noise = 0)
 
-  for fen in iterator:
-    fenQueue.put(fen)
+    for fen in iterator:
+      fenQueue.put(fen)
+  else:  # args.mode == 'dump'
+    conn = sqlite3.connect("db.sqlite3")
+    c = conn.cursor()
+    c.execute(f"SELECT fen, moves, scores FROM {get_table_name(args)}")
+    with open('out.txt', 'w+') as f:
+      for fen, moves, scores in c:
+        f.write(json.dumps({
+          "fen": fen,
+          "moves": moves.split(' '),
+          "scores": scores.split(' '),
+        }) + '\n')
+
+
