@@ -478,6 +478,9 @@ int main(int argc, char *argv[]) {
     } else if (args.size() >= 2 && args[0] == "loadweights") {
       gThinker.load_weights_from_file(args[1]);
       args = std::vector<std::string>(args.begin() + uciMoves.size() + 2, args.end());
+    } else if (args.size() >= 2 && args[0] == "saveweights") {
+      gThinker.save_weights_to_file(args[1]);
+      return 0;
     } else {
       std::cout << "Cannot understand arguments" << std::endl;
       return 1;

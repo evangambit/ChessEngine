@@ -12,48 +12,6 @@ import torch.utils.data as tdata
 
 from protos.weights_pb2 import Weights
 
-# class MonoFunc(nn.Module):
-#   """
-#   Represents a 1D monotonic function from x=low to x=high.
-
-#   For x<low and x>high the function is constant.
-#   """
-#   def __init__(self, low, high, num_steps):
-#     super(MonoFunc, self).__init__()
-#     self.pivots = np.linspace(low, high, num_steps + 1)[:-1]
-#     self.step_size = self.pivots[1] - self.pivots[0]
-#     self.b = nn.Parameter(torch.tensor(self.pivots, dtype=torch.float32), requires_grad=False)
-#     self.w = nn.Parameter(torch.zeros(num_steps, dtype=torch.float32), requires_grad=True)
-#     self.bias = nn.Parameter(torch.zeros(1, dtype=torch.float32), requires_grad=True)
-#   def forward(self, x):
-#     shape = (1,) * len(x.shape) + (len(self.b),)
-#     x = x.reshape(x.shape + (1,))
-#     b = self.b.reshape(shape)
-#     w = torch.exp(self.w.reshape(shape))
-#     r = (((x - b).clip(0, self.step_size) + b) * w).sum(-1)
-#     return r + self.bias
-
-class MonoFunc(nn.Module):
-  def __init__(self):
-    super(MonoFunc, self).__init__()
-    self.w = nn.Parameter(torch.zeros(4), requires_grad=True)
-    # self.b = nn.Parameter(torch.zeros(4), requires_grad=True)
-    self.u = nn.Parameter(torch.zeros(4), requires_grad=True)
-    self.bias = nn.Parameter(torch.zeros(1, dtype=torch.float32), requires_grad=True)
-  def forward(self, x):
-    shape = (len(self.w),) + (1,) * len(x.shape)
-    x = x.reshape((1,) + x.shape)
-    w = self.w.reshape(shape)
-    # b = self.b.reshape(shape)
-    x = x * torch.exp(w)
-    # x = x + b
-    u = nn.functional.softmax(self.u, 0)
-    r = x[0] * u[0]
-    r += torch.sigmoid(x[1]) * u[1]
-    r += torch.tanh(x[2]) * u[2]
-    r += (x[3]**3) * u[3]
-    return r + self.bias
-
 varnames = [
   "OUR_PAWNS",
   "OUR_KNIGHTS",
@@ -286,7 +244,8 @@ L = []
 
 windowSize = 500
 
-for bs in 2**(np.linspace(4, 14, 11)):
+# for bs in 2**(np.linspace(4, 14, 11)):
+for bs in 2**(np.linspace(4, 5, 2)):
   bs = int(bs)
   dataloader = tdata.DataLoader(dataset, batch_size=bs, shuffle=True, drop_last=True)
 
@@ -319,39 +278,141 @@ for k in model.w:
 
 print(sum(L[-100:]) / 100)
 
-weights = Weights()
-for i in range(len(varnames)):
-  weights.early.weights.append(0)
-  weights.late.weights.append(0)
-  weights.clipped.weights.append(0)
+text = ""
+for k in ['early', 'late', 'clipped']:
+  text += ('%i' % round(float(model.w[k].bias) * 100)).rjust(7) + f'  // {k} bias\n'
+  for i, varname in enumerate(varnames):
+    text += ('%i' % round(float(model.w[k].weight[0,i]) * 100)).rjust(7) + f'  // {k} {varname}\n'
 
-for i in range(64*7):
-  weights.earlyPieceSquares.append(0)
-  weights.latePieceSquares.append(0)
+text += """// ?
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+// P
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+// N
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+// B
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+// R
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+// Q
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+// K
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+// ?
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+// P
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+// N
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+// B
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+// R
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+// Q
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+// K
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+    0     0     0     0     0     0     0     0
+"""
 
-W = {}
-for k in model.w:
-  W[k] = model.w[k].weight.detach().numpy().squeeze()
-  for i in range(W[k].size):
-    if k == 'early':
-      weights.early.weights[i] = round(W[k][i] * 100)
-    elif k == 'late':
-      weights.late.weights[i] = round(W[k][i] * 100)
-    elif k == 'clipped':
-      weights.clipped.weights[i] = round(W[k][i] * 100)
+with open('w2.txt', 'w+') as f:
+  f.write(text)
 
-weights.early.bias = round(float(model.w['early'].bias * 100))
-weights.late.bias = round(float(model.w['late'].bias * 100))
-weights.clipped.bias = round(float(model.w['clipped'].bias * 100))
-
-print('early late clipped')
-for i in range(len(varnames)):
-  print(
-    lpad(weights.early.weights[i], 5),
-    lpad(weights.late.weights[i], 5),
-    lpad(weights.clipped.weights[i], 5),
-  )
-
-with open('w.weights', 'wb+') as f:
-  f.write(weights.SerializeToString())
-
+print(text)
