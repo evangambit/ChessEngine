@@ -418,7 +418,7 @@ int main(int argc, char *argv[]) {
   std::vector<std::string> uciMoves;
   size_t nodeLimit = -1;
 
-  gThinker.load_weights_from_file("w.weights");
+  gThinker.load_weights_from_file("weights.txt");
 
   while (args.size() > 0) {
     if (args.size() >= 7 && args[0] == "fen") {
