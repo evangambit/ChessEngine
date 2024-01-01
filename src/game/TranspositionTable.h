@@ -1,6 +1,9 @@
 #ifndef TRANSPOSITION_TABLE_H
 #define TRANSPOSITION_TABLE_H
 
+#import "utils.h"
+#import "Position.h"
+
 namespace ChessEngine {
 
 typedef int8_t Depth;
@@ -89,6 +92,14 @@ struct TranspositionTable {
     }
   }
 
+  // For testing.
+  void set_size_to_one() {
+    size = 1;
+    delete[] data;
+    data = new CacheResult[size];
+    this->clear();
+  }
+
   void set_cache_size(size_t kilobytes) {
     size = kilobytes * 1024 / sizeof(CacheResult);
     size = size / kTranspositionTableFactor;
@@ -106,6 +117,10 @@ struct TranspositionTable {
   }
 
   SpinLock spinLocks[kTranspositionTableFactor];
+
+  inline int age_of_entry(CacheResult *entry) {
+    return (this->rootCounter - entry->rootCounter + kNumRootCounters) % kNumRootCounters;
+  }
 
   template<bool IS_PARALLEL>
   void insert(const CacheResult& cr) {
@@ -129,14 +144,12 @@ struct TranspositionTable {
         }
         return;
       } else if (
-        // We add a penalty to entries with a different root so that we slowly remove stale entries
-        // from the table.
-        // TODO: maybe penalty should depend on distance from rootCounter to more aggressively
-        // remove very old entries. For example:
-        // (this->rootCounter - it->rootCounter + kNumRootCounters) % kNumRootCounters
-        cr.depthRemaining > it->depthRemaining - (it->rootCounter != this->rootCounter)
-        ||
-        (cr.depthRemaining == it->depthRemaining && cr.priority > it->priority)) {
+        // Forget any entry that wasn't used in the last search.
+        age_of_entry(it) > 1
+        // Replace shallow entries with deeper entries with a small penalty for older results.
+        || cr.depthRemaining + age_of_entry(it) >= it->depthRemaining
+        // If entries are otherwise identical, prefer the one closer to the PV.
+        || (cr.depthRemaining == it->depthRemaining && cr.priority > it->priority)) {
         *it = cr;
         if (IS_PARALLEL) {
           spinLocks[idx % kTranspositionTableFactor].unlock();
@@ -151,6 +164,7 @@ struct TranspositionTable {
   }
   void clear() {
     std::fill_n((uint8_t *)data, sizeof(CacheResult) * size, 0);
+    rootCounter = 1;  // Set this to one so all zeroed-out entries are considered old.
   }
   template<bool IS_PARALLEL>
   CacheResult find(uint64_t hash) {
@@ -162,6 +176,8 @@ struct TranspositionTable {
       }
       CacheResult *cr = &data[idx];
       if (cr->priority != 0 && cr->positionHash == hash) {
+        // Mark this entry as "fresh".
+        cr->rootCounter = rootCounter;
         if (IS_PARALLEL) {
           spinLocks[idx % kTranspositionTableFactor].unlock();
         }
