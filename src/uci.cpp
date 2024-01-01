@@ -391,7 +391,7 @@ class SetOptionTask : public Task {
     const std::string name = command[2];
     if (command.size() == 3) {
       if (name == "clear-tt") {
-        state->thinker.reset_stuff();
+        state->thinker.clear_tt();
         return;
       }
       std::cout << "Unrecognized option " << repr(name) << std::endl;

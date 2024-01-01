@@ -152,9 +152,12 @@ struct Thinker {
     return std::make_pair(originalCacheResult, moves);
   }
 
+  void clear_tt() {
+    cache.clear();
+  }
+
   void reset_stuff() {
     this->nodeCounter = 0;
-    cache.clear();
     std::fill_n(historyHeuristicTable[Color::WHITE][0], 64 * 64, 0);
     std::fill_n(historyHeuristicTable[Color::BLACK][0], 64 * 64, 0);
   }
