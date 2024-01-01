@@ -5,6 +5,9 @@
 #include "geometry.h"
 #include "Position.h"
 
+#include "movegen/bishops.h"
+#include "movegen/rooks.h"
+
 namespace ChessEngine {
 
 template<Color US>
