@@ -4,6 +4,7 @@
 #include "utils.h"
 #include "Evaluator.h"
 #include "TranspositionTable.h"
+#include "SearchResult.h"
 
 namespace ChessEngine {
 
