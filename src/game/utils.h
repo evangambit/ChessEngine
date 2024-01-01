@@ -4,6 +4,7 @@
 #include <cassert>
 #include <cstdint>
 
+#include <deque>
 #include <iostream>
 #include <vector>
 
@@ -26,8 +27,11 @@ constexpr Evaluation kMissingKing = kMinEval + 1;
 constexpr Evaluation kCheckmate = kMissingKing + 1;
 constexpr Evaluation kLongestForcedMate = kCheckmate + 100;
 
-constexpr Evaluation kQCheckmate = kLongestForcedMate + 1;
+constexpr Evaluation kQMissingKing = kLongestForcedMate + 1;
+constexpr Evaluation kQCheckmate = kQMissingKing + 1;
 constexpr Evaluation kQLongestForcedMate = kQCheckmate + 100;
+
+std::string eval2str(Evaluation eval);
 
 // Current record is 218 but we're conservative
 // https://chess.stackexchange.com/questions/4490/maximum-possible-movement-in-a-turn
@@ -154,6 +158,29 @@ std::ostream& operator<<(std::ostream& stream, const std::vector<T>& vec) {
     stream << ", " << vec[i];
   }
   return stream << "}";
+}
+
+template<class T>
+std::ostream& operator<<(std::ostream& stream, const std::deque<T>& vec) {
+  if (vec.size() == 0) {
+    return stream << "{}";
+  }
+  stream << "{" << vec[0];
+  for (size_t i = 1; i < vec.size(); ++i) {
+    stream << ", " << vec[i];
+  }
+  return stream << "}";
+}
+
+
+template<class A, class B>
+std::ostream& operator<<(std::ostream& stream, const std::pair<A, B>& pair) {
+  return stream << "(" << pair.first << ", " << pair.second << ")";
+}
+
+template<class A>
+std::ostream& operator<<(std::ostream& stream, const std::pair<A, Evaluation>& pair) {
+  return stream << "(" << pair.first << ", " << eval2str(pair.second) << ")";
 }
 
 std::string process_with_file_line(const std::string& line);

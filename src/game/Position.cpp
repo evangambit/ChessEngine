@@ -269,10 +269,30 @@ bool Position::is_draw(unsigned plyFromRoot) const {
     return true;
   }
   const size_t n = this->hashes_.size();
-  size_t counter = 0;
+  size_t counter = 1;
   for (size_t i = n - 1; i < n; i -= 1) {
-    // TODO: stop looking when we hit a pawn move or capture.
-    // TODO: handle 3 move draw for moves before the root.
+    if (this->hashes_[i] == this->hash_) {
+      counter += 1;
+      // If this position has been repeated once since the root then we consider
+      // it a draw. This helps detect repetitions much more quickly during searches.
+      if (n - i <= plyFromRoot) {
+        return true;
+      }
+    }
+    if (this->history_[i].capture != Piece::NO_PIECE || this->history_[i].piece == Piece::PAWN) {
+      break;
+    }
+  }
+  return counter >= 3;
+}
+
+bool Position::is_draw() const {
+  if (this->currentState_.halfMoveCounter >= 100) {
+    return true;
+  }
+  const size_t n = this->hashes_.size();
+  size_t counter = 1;
+  for (size_t i = n - 1; i < n; i -= 1) {
     counter += (this->hashes_[i] == this->hash_);
     if (this->history_[i].capture != Piece::NO_PIECE || this->history_[i].piece == Piece::PAWN) {
       break;
@@ -352,6 +372,22 @@ void Position::update_hash_on_state_change(PositionState a, PositionState b) {
   hash_ ^= kZorbristCastling[b.castlingRights];
   hash_ ^= kZorbristEnpassant[a.epSquare % 8 + 1] * (a.epSquare != 0);
   hash_ ^= kZorbristEnpassant[b.epSquare % 8 + 1] * (b.epSquare != 0);
+}
+
+void ez_make_move(Position *position, Move move) {
+  if (position->turn_ == Color::WHITE) {
+    make_move<Color::WHITE>(position, move);
+  } else {
+    make_move<Color::BLACK>(position, move);
+  }
+}
+
+void ez_undo(Position *position) {
+  if (position->turn_ == Color::WHITE) {
+    undo<Color::BLACK>(position);
+  } else {
+    undo<Color::WHITE>(position);
+  }
 }
 
 }  // namespace ChessEngine

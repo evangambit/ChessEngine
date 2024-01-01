@@ -149,6 +149,10 @@ class Position {
   void assert_valid_state() const;
   void assert_valid_state(const std::string& msg) const;
 
+  bool is_draw() const;
+
+  // Returns 'true' if the current position has been repeated twice
+  // since the root.
   bool is_draw(unsigned plyFromRoot) const;
 
   void update_hash_on_state_change(PositionState a, PositionState b);
@@ -486,6 +490,10 @@ void make_move(Position *pos, Move move) {
   bar<TURN>(pos);
 
 }
+
+void ez_make_move(Position *position, Move move);
+
+void ez_undo(Position *position);
 
 }  // namespace ChessEngine
 

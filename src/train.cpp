@@ -37,10 +37,10 @@ const size_t numPartsOfFen = 6;
 using namespace ChessEngine;
 
 struct TrainingPosition {
-  TrainingPosition(const std::vector<std::string>& parts) {
-      this->fen = join(std::vector<std::string>(parts.begin(), parts.begin() + numPartsOfFen), " ");
+  TrainingPosition(const std::vector<std::string>& fenParts, const std::vector<std::string>& parts) {
+      this->fen = join(fenParts, " ");
 
-      for (size_t i = numPartsOfFen; i < parts.size(); i += 2) {
+      for (size_t i = 0; i < parts.size(); i += 2) {
         std::pair<std::string, Evaluation> pair;
         pair.first = parts[i];
         try {
@@ -55,6 +55,22 @@ struct TrainingPosition {
   std::string fen;
   std::vector<std::pair<std::string, Evaluation>> moves;
 };
+
+template<class A, class B>
+std::ostream& operator<<(std::ostream& stream, const std::pair<A, B>& pair) {
+  return stream << "(" << pair.first << ", " << pair.second << ")" << std::endl;
+}
+
+std::ostream& operator<<(std::ostream& stream, const std::vector<std::pair<std::string, Evaluation>>& vec) {
+  if (vec.size() == 0) {
+    return stream << "{}";
+  }
+  stream << "{" << vec[0];
+  for (size_t i = 1; i < vec.size(); ++i) {
+    stream << ", " << vec[i];
+  }
+  return stream << "}";
+}
 
 template<Color TURN>
 uint16_t _get_cp_diff(Thinker& thinker, Position *pos, const TrainingPosition& trainingPosition, const size_t maxDepth) {
@@ -77,10 +93,17 @@ uint16_t _get_cp_diff(Thinker& thinker, Position *pos, const TrainingPosition& t
   ExtMove moves[kMaxNumMoves];
   ExtMove *end = compute_legal_moves<TURN>(pos, &moves[0]);
 
+  Thread thread(
+    0,
+    *pos,
+    thinker.evaluator,
+    compute_legal_moves_set(pos)
+  );
+
   SearchResult<TURN> bestChild(kMissingKing, kNullMove);
   for (ExtMove *move = moves; move < end; ++move) {
     make_move<TURN>(pos, move->move);
-    SearchResult<TURN> childResult = flip(thinker.qsearch<opposingColor>(pos, 0, -kMaxEval, -bestChild.score));
+    SearchResult<TURN> childResult = flip(qsearch<opposingColor>(&thinker, &thread, 0, 0, -kMaxEval, -bestChild.score));
     if (childResult.score > bestChild.score) {
       bestChild.score = childResult.score;
       bestChild.move = move->move;
@@ -127,53 +150,57 @@ struct Trainer {
     this->thinker.load_weights_from_file("weights.txt");
   }
 
-  std::pair<double, double> evaluate(const size_t batchSize) {
+  void evaluate(int32_t *A, const size_t batchSize, int32_t s) {
     const size_t depth = 1;
 
     uint64_t t0 = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 
-    uint64_t num = 0;
-    uint64_t num2 = 0;
-    uint64_t den = 0;
     for (size_t i = 0; i < std::min(batchSize, this->trainingPositions.size()); ++i) {
-      uint64_t x = get_cp_diff(this->thinker, this->trainingPositions[i], depth);
-      num += x;
-      num2 += x * x;
-      den += 1;
+      A[i] += get_cp_diff(this->thinker, this->trainingPositions[i], depth) * s;
     }
 
     uint64_t t1 = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-    std::cout << t1 - t0 << "ms" << std::endl;
-
-    double avg = double(num) / double(den);
-    double stdvar = (double(num2) / double(den) - avg * avg) / den;
-
-    return std::make_pair(avg, std::sqrt(stdvar));
+    // std::cout << t1 - t0 << "ms" << std::endl;
   }
 
   void step() {
     int stepsize = rand() % 2 ? 50 : -50;
-    const size_t batchSize = 1000;
+    const size_t batchSize = 20000;
 
     gShuffler.shuffle(this->trainingPositions);
 
-    std::pair<double, double> before = this->evaluate(batchSize);
+    int32_t *A = new int32_t[batchSize];
+    std::fill_n(A, batchSize, 0);
 
-    size_t featureIdx = rand() % EF::NUM_EVAL_FEATURES;
-    this->thinker.evaluator.clippedW[featureIdx] += stepsize;
-    std::pair<double, double> after = this->evaluate(batchSize);
+    this->evaluate(A, batchSize, 1);
 
-    double diff = after.first - before.first;
-    double stderr = std::sqrt(after.second * 2 + before.second * 2);
+    size_t featureIdx = rand() % (EF::THEIR_QUEENS + 1);
+    this->thinker.evaluator.earlyW[featureIdx] += stepsize;
+
+    this->evaluate(A, batchSize, -1);
+
+    double a = 0.0;
+    double a2 = 0.0;
+    for (size_t i = 0; i < batchSize; ++i) {
+      a += A[i];
+      a2 += A[i] * A[i];
+    }
+
+    a /= batchSize;
+    a2 /= batchSize;
+
+    double stderr = std::sqrt((a2 - a) / (batchSize - 1));
 
     std::cout << EFSTR[featureIdx] << " += " << stepsize << std::endl;
-    std::cout << diff / stderr << std::endl;
+    std::cout << a << " / " << stderr << " = " << a / stderr << std::endl;
 
-    if (diff / stderr < 2.0) {
-      this->thinker.evaluator.clippedW[featureIdx] -= stepsize;
+    if (stderr < 1e-6 || a / stderr < 1.0) {
+      this->thinker.evaluator.earlyW[featureIdx] -= stepsize;
     } else {
       this->thinker.save_weights_to_file("www.txt");
     }
+
+    delete[] A;
   }
 
   Thinker thinker;
@@ -201,14 +228,19 @@ int main(int argc, char *argv[]) {
     std::string line;
     getline(myfile, line);
     while (true) {
-      std::vector<std::string> parts = split(line, ' ');
-      if (parts.size() < numPartsOfFen + 4) {
+      std::vector<std::string> parts = split(line, ':');
+      if (parts.size() != 2) {
         break;
       }
-      if ((parts.size() - numPartsOfFen) % 2 != 0) {
+      std::vector<std::string> fenParts = split(parts[0], ' ');
+      parts = split(parts[1], ' ');
+      if (fenParts.size() != numPartsOfFen) {
         break;
       }
-      trainingPositions.push_back(TrainingPosition(parts));
+      if (parts.size() % 2 != 0) {
+        break;
+      }
+      trainingPositions.push_back(TrainingPosition(fenParts, parts));
 
       getline(myfile, line);
     }
@@ -219,6 +251,7 @@ int main(int argc, char *argv[]) {
   }
 
   Trainer trainer(trainingPositions);
+  trainer.thinker.load_weights_from_file("weights.txt");
   // trainer.thinker.evaluator.zero_();
   // trainer.thinker.pieceMaps.zero_();
 

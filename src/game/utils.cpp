@@ -10,6 +10,15 @@ Color opposite_color(Color color) {
   return Color(3 - color);
 }
 
+std::string eval2str(Evaluation eval) {
+  if (eval == kMissingKing || eval == -kMissingKing) {
+    return "noking";
+  } else if (-std::abs(eval) <= kLongestForcedMate) {
+    return "mate in " + std::to_string((-kCheckmate - std::abs(eval) + 1)) + " ply";
+  }
+  return std::to_string(eval);
+}
+
 void assert_valid_color(Color color) {
   assert(color == Color::WHITE || color == Color::BLACK);
 }

@@ -305,19 +305,19 @@ struct Evaluator {
   int32_t clippedW[EF::NUM_EVAL_FEATURES];
 
   void save_weights_to_file(std::ofstream& myfile) {
-    myfile << lpad(earlyB) << " // early bias" << std::endl;
+    myfile << lpad(earlyB) << "  // early bias" << std::endl;
     for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
-      myfile << lpad(earlyW[i]) << " // early " << EFSTR[i] << std::endl;
+      myfile << lpad(earlyW[i]) << "  // early " << EFSTR[i] << std::endl;
     }
 
-    myfile << lpad(lateB) << " // late bias" << std::endl;
+    myfile << lpad(lateB) << "  // late bias" << std::endl;
     for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
-      myfile << lpad(lateW[i]) << " // late " << EFSTR[i] << std::endl;
+      myfile << lpad(lateW[i]) << "  // late " << EFSTR[i] << std::endl;
     }
 
-    myfile << lpad(clippedB) << " // clipped bias" << std::endl;
+    myfile << lpad(clippedB) << "  // clipped bias" << std::endl;
     for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
-      myfile << lpad(clippedW[i]) << " // clipped " << EFSTR[i] << std::endl;
+      myfile << lpad(clippedW[i]) << "  // clipped " << EFSTR[i] << std::endl;
     }
   }
 
