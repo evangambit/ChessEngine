@@ -264,10 +264,7 @@ void Position::assert_valid_state(const std::string& msg) const {
   #endif
 }
 
-bool Position::is_draw(unsigned plyFromRoot) const {
-  if (this->currentState_.halfMoveCounter >= 100) {
-    return true;
-  }
+bool Position::is_3fold_repetition(unsigned plyFromRoot) const {
   const size_t n = this->hashes_.size();
   size_t counter = 1;
   for (size_t i = n - 1; i < n; i -= 1) {
@@ -285,20 +282,19 @@ bool Position::is_draw(unsigned plyFromRoot) const {
   }
   return counter >= 3;
 }
+bool Position::is_fifty_move_rule() const {
+  return this->currentState_.halfMoveCounter >= 100;
+}
 
-bool Position::is_draw() const {
-  if (this->currentState_.halfMoveCounter >= 100) {
+bool Position::is_draw_assuming_no_checkmate(unsigned plyFromRoot) const {
+  if (this->is_fifty_move_rule()) {
     return true;
   }
-  const size_t n = this->hashes_.size();
-  size_t counter = 1;
-  for (size_t i = n - 1; i < n; i -= 1) {
-    counter += (this->hashes_[i] == this->hash_);
-    if (this->history_[i].capture != Piece::NO_PIECE || this->history_[i].piece == Piece::PAWN) {
-      break;
-    }
-  }
-  return counter >= 3;
+  return this->is_3fold_repetition(plyFromRoot);
+}
+
+bool Position::is_draw_assuming_no_checkmate() const {
+  return this->is_draw_assuming_no_checkmate(0);
 }
 
 std::string Position::fen() const {

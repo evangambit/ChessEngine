@@ -283,7 +283,7 @@ class PlayTask : public Task {
           break;
         }
       }
-      if (goCommand.pos.is_draw(0)) {
+      if (goCommand.pos.is_draw_assuming_no_checkmate()) {
         break;
       }
     }

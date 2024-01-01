@@ -302,9 +302,10 @@ static SearchResult<TURN> search(
     return SearchResult<TURN>(kMissingKing, kNullMove);
   }
 
-  if (thread->pos.is_draw()) {
+  if (thread->pos.is_3fold_repetition(plyFromRoot)) {
     return SearchResult<TURN>(Evaluation(0), kNullMove);
   }
+
   if (SEARCH_TYPE != SearchTypeRoot && thread->evaluator.is_material_draw(thread->pos)) {
     return SearchResult<TURN>(Evaluation(0), kNullMove);
   }
@@ -425,6 +426,11 @@ static SearchResult<TURN> search(
     } else {
       return SearchResult<TURN>(Evaluation(0), kNullMove);
     }
+  }
+
+  // We need to check this *after* we do the checkmate test above.
+  if (thread->pos.is_fifty_move_rule()) {
+    return SearchResult<TURN>(Evaluation(0), kNullMove);
   }
 
   // const ExtMove lastMove = thread->pos.history_.size() > 0 ? thread->pos.history_.back() : kNullExtMove;
@@ -830,8 +836,6 @@ static SearchResult<Color::WHITE> search(Thinker *thinker, const GoCommand& comm
 static SearchResult<Color::WHITE> search(Thinker *thinker, GoCommand command, std::shared_ptr<StopThinkingCondition> condition) {
   return search(thinker, command, condition, [](Position *position, SearchResult<Color::WHITE> results, size_t depth, double secs) {});
 }
-
-
 
 // TODO: there is a bug where
 // "./a.out fen 8/8/8/1k6/3P4/8/8/3K4 w - - 0 1 depth 17"

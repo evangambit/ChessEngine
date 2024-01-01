@@ -90,7 +90,7 @@ int play(Thinker *thinkerWhite, Thinker *thinkerBlack, const std::string& fen, c
     if (!make_move(thinker, &pos, nodeLimit)) {
       break;
     }
-    if (pos.is_draw() || is_material_draw(pos)) {
+    if (pos.is_draw_assuming_no_checkmate() || is_material_draw(pos)) {
       break;
     }
     if (pos.history_.size() >= maxMoves) {
@@ -106,7 +106,7 @@ int play(Thinker *thinkerWhite, Thinker *thinkerBlack, const std::string& fen, c
   if (pos.history_.size() >= maxMoves) {
     return 0;
   }
-  if (pos.is_draw() || is_material_draw(pos)) {
+  if (pos.is_draw_assuming_no_checkmate() || is_material_draw(pos)) {
     return 0;
   }
   if (can_enemy_attack<Color::BLACK>(pos, lsb(pos.pieceBitboards_[ColoredPiece::BLACK_KING]))) {

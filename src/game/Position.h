@@ -149,11 +149,13 @@ class Position {
   void assert_valid_state() const;
   void assert_valid_state(const std::string& msg) const;
 
-  bool is_draw() const;
+  // A checkmate on exactly the 100th half-move since a pawn move or capture will be considered drawn
+  // here, so be careful about calling this in positions where there is a checkmate.
+  bool is_draw_assuming_no_checkmate(unsigned plyFromRoot) const;
+  bool is_draw_assuming_no_checkmate() const;
 
-  // Returns 'true' if the current position has been repeated twice
-  // since the root.
-  bool is_draw(unsigned plyFromRoot) const;
+  bool is_3fold_repetition(unsigned plyFromRoot) const;
+  bool is_fifty_move_rule() const;
 
   void update_hash_on_state_change(PositionState a, PositionState b);
 

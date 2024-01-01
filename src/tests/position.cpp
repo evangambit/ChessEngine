@@ -26,14 +26,14 @@ TEST(Position, Repetition3) {
   bool isDraw = false;
   for (int loop = 1; loop <= 3; ++loop) {
     ez_make_move(&position, Nf3);
-    ASSERT_EQ(position.is_draw(), isDraw);
+    ASSERT_EQ(position.is_draw_assuming_no_checkmate(), isDraw);
     ez_make_move(&position, Nf6);
-    ASSERT_EQ(position.is_draw(), isDraw);
+    ASSERT_EQ(position.is_draw_assuming_no_checkmate(), isDraw);
     ez_make_move(&position, Ng1);
-    ASSERT_EQ(position.is_draw(), isDraw);
+    ASSERT_EQ(position.is_draw_assuming_no_checkmate(), isDraw);
     ez_make_move(&position, Ng8);
     isDraw |= (loop == 2);
-    ASSERT_EQ(position.is_draw(), isDraw);
+    ASSERT_EQ(position.is_draw_assuming_no_checkmate(), isDraw);
   }
 }
 
@@ -47,8 +47,8 @@ TEST(Position, Repetition2) {
   ez_make_move(&position, Ng1);
   ez_make_move(&position, Ng8);
 
-  ASSERT_FALSE(position.is_draw(3));
-  ASSERT_TRUE(position.is_draw(4));
+  ASSERT_FALSE(position.is_draw_assuming_no_checkmate(3));
+  ASSERT_TRUE(position.is_draw_assuming_no_checkmate(4));
 
   ez_make_move(&position, Nf3);
   ez_make_move(&position, Nf6);
@@ -56,7 +56,7 @@ TEST(Position, Repetition2) {
   ez_make_move(&position, Ng8);
 
   // This is true now, since there was a repetition before the root.
-  ASSERT_TRUE(position.is_draw(3));
+  ASSERT_TRUE(position.is_draw_assuming_no_checkmate(3));
 }
 
 }  // namespace
