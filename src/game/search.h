@@ -837,37 +837,6 @@ static SearchResult<Color::WHITE> search(Thinker *thinker, GoCommand command, st
 // "./a.out fen 8/8/8/1k6/3P4/8/8/3K4 w - - 0 1 depth 17"
 // claims white is winning.
 
-void for_all_moves(Position *position, std::function<void(Position *, ExtMove)> f) {
-  ExtMove moves[kMaxNumMoves];
-  ExtMove *end;
-  if (position->turn_ == Color::WHITE) {
-    end = compute_legal_moves<Color::WHITE>(position, moves);
-  } else {
-    end = compute_legal_moves<Color::BLACK>(position, moves);
-  }
-
-  for (ExtMove *move = moves; move != end; ++move) {
-    move->score = kMoveOrderPieceValues[move->capture];
-  }
-  std::sort(moves, end, [](ExtMove a, ExtMove b) {
-    return a.score > b.score;
-  });
-
-  for (ExtMove *move = moves; move < end; ++move) {
-    if (position->turn_ == Color::WHITE) {
-      make_move<Color::WHITE>(position, move->move);
-    } else {
-      make_move<Color::BLACK>(position, move->move);
-    }
-    f(position, *move);
-    if (position->turn_ == Color::WHITE) {
-      undo<Color::BLACK>(position);
-    } else {
-      undo<Color::WHITE>(position);
-    }
-  }
-}
-
 }  // namespace ChessEngine
 
 #endif  // SEARCH_H
