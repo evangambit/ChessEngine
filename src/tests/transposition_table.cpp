@@ -18,57 +18,57 @@ namespace {
 const Move kRandomMove = Move{Square::G1, Square::F3, 0, MoveType::NORMAL};
 const uint64_t kRootHash = 1;  // Anything but zero
 
-// TEST(Position, DeeperResultsOverrideShallowResults) {
-//   TranspositionTable tt(1);
-//   tt.starting_search(kRootHash);
-//   const uint64_t hash = 1;
-//   tt.insert<false>(tt.create_cache_result(
-//     hash,
-//     1,  // depth
-//     10,  // eval
-//     kRandomMove,  // best move
-//     NodeTypePV,  // node type
-//     0  // distFromPV
-//   ));
+TEST(Position, DeeperResultsOverrideShallowResults) {
+  TranspositionTable tt(1);
+  tt.starting_search(kRootHash);
+  const uint64_t hash = 1;
+  tt.insert<false>(tt.create_cache_result(
+    hash,
+    1,  // depth
+    10,  // eval
+    kRandomMove,  // best move
+    NodeTypePV,  // node type
+    0  // distFromPV
+  ));
 
-//   tt.insert<false>(tt.create_cache_result(
-//     hash,
-//     2,  // depth
-//     20,  // eval
-//     kRandomMove,  // best move
-//     NodeTypePV,  // node type
-//     0  // distFromPV
-//   ));
+  tt.insert<false>(tt.create_cache_result(
+    hash,
+    2,  // depth
+    20,  // eval
+    kRandomMove,  // best move
+    NodeTypePV,  // node type
+    0  // distFromPV
+  ));
 
-//   EXPECT_EQ(tt.find<false>(uint64_t(hash)).eval, 20);
-// }
+  EXPECT_EQ(tt.find<false>(uint64_t(hash)).eval, 20);
+}
 
-// TEST(Position, ShallowerResultsIgnored) {
-//   TranspositionTable tt(1);
-//   tt.set_size_to_one();  // Forcing collisions.
+TEST(Position, ShallowerResultsIgnored) {
+  TranspositionTable tt(1);
+  tt.set_size_to_one();  // Forcing collisions.
 
-//   tt.starting_search(kRootHash);
-//   const uint64_t hash = 1;
-//   tt.insert<false>(tt.create_cache_result(
-//     hash,
-//     2,  // depth
-//     10,  // eval
-//     kRandomMove,  // best move
-//     NodeTypePV,  // node type
-//     0  // distFromPV
-//   ));
+  tt.starting_search(kRootHash);
+  const uint64_t hash = 1;
+  tt.insert<false>(tt.create_cache_result(
+    hash,
+    2,  // depth
+    10,  // eval
+    kRandomMove,  // best move
+    NodeTypePV,  // node type
+    0  // distFromPV
+  ));
 
-//   tt.insert<false>(tt.create_cache_result(
-//     hash,
-//     1,  // depth
-//     20,  // eval
-//     kRandomMove,  // best move
-//     NodeTypePV,  // node type
-//     0  // distFromPV
-//   ));
+  tt.insert<false>(tt.create_cache_result(
+    hash,
+    1,  // depth
+    20,  // eval
+    kRandomMove,  // best move
+    NodeTypePV,  // node type
+    0  // distFromPV
+  ));
 
-//   EXPECT_EQ(tt.find<false>(uint64_t(hash)).eval, 10);
-// }
+  EXPECT_EQ(tt.find<false>(uint64_t(hash)).eval, 10);
+}
 
 TEST(Position, PreviousSearchResultsReplaced) {
   TranspositionTable tt(1);
