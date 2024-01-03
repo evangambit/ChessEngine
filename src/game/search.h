@@ -747,6 +747,7 @@ static SearchResult<Color::WHITE> search(Thinker *thinker, const GoCommand& comm
   copy.set_piece_maps(thinker->pieceMaps);
 
   thinker->stopThinkingCondition->start_thinking(*thinker);
+  thinker->clear_history_heuristic();
   thinker->cache.starting_search(copy.hash_);
 
   std::vector<Thread> threadObjs;

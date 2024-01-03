@@ -45,12 +45,12 @@ struct SpinLock {
 // Transposition table is guaranteed to be a multiple of this.
 constexpr int64_t kTranspositionTableFactor = 1024;
 const CacheResult kMissingCacheResult = CacheResult{
-  0,
+  uint64_t(0),
   -99,  // depth is -99 so this is always a useless result
   0, kNullMove, NodeTypePV, 0 // these values should never matter
 };
 inline bool isNullCacheResult(const CacheResult& cr) {
-  return cr.depthRemaining == -1;
+  return cr.positionHash == 0;
 }
 
 std::ostream& operator<<(std::ostream& stream, CacheResult cr) {

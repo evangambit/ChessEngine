@@ -272,6 +272,9 @@ class PlayTask : public Task {
         break;
       }
       std::cout << " " << result.move << std::flush;
+
+      state->thinker.get_variation(&goCommand.pos, result.move);
+
       if (goCommand.pos.turn_ == Color::WHITE) {
         make_move<Color::WHITE>(&goCommand.pos, result.move);
         if (is_checkmate<Color::BLACK>(&goCommand.pos)) {
@@ -372,7 +375,7 @@ class LoadWeightsTask : public Task {
 class NewGameTask : public Task {
  public:
   void start(UciEngineState *state) {
-    state->thinker.reset_stuff();
+    state->thinker.clear_tt();
   }
 };
 

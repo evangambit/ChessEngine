@@ -73,7 +73,8 @@ struct Thinker {
   SpinLock stopThinkingLock;
 
   Thinker() : cache(10000), stopThinkingCondition(new NeverStopThinkingCondition()), lastRootHash(0) {
-    reset_stuff();
+    this->clear_history_heuristic();
+    this->nodeCounter = 0;
     multiPV = 1;
     numThreads = 1;
   }
@@ -154,10 +155,11 @@ struct Thinker {
 
   void clear_tt() {
     cache.clear();
+    // If you're clearing the tranposition table you probably want to clear the history heuristi too.
+    this->clear_history_heuristic();
   }
 
-  void reset_stuff() {
-    this->nodeCounter = 0;
+  void clear_history_heuristic() {
     std::fill_n(historyHeuristicTable[Color::WHITE][0], 64 * 64, 0);
     std::fill_n(historyHeuristicTable[Color::BLACK][0], 64 * 64, 0);
   }

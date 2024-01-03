@@ -339,7 +339,6 @@ void mymain(std::vector<Position>& positions, const std::string& mode, double ti
     return;
   } else if (mode == "analyze") {
     for (auto pos : positions) {
-      gThinker.reset_stuff();
       GoCommand goCommand;
       goCommand.pos = pos;
       goCommand.timeLimitMs = timeLimitMs;

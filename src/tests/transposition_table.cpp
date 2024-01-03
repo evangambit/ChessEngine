@@ -7,6 +7,7 @@
 #include <ctime>
 #include <cstdlib>
 
+#include <thread>
 #include <vector>
 
 #include "../game/TranspositionTable.h"
@@ -97,6 +98,45 @@ TEST(Position, PreviousSearchResultsReplaced) {
   ));
 
   EXPECT_EQ(tt.find<false>(uint64_t(2)).eval, 20);
+}
+
+TEST(Position, ThreadSafe) {
+  TranspositionTable tt(1);
+  tt.set_size_to_one();  // Forcing collisions.
+
+  constexpr int kNumberOfThreads = 10;
+  constexpr int kResultsPerThread = 10;
+
+  tt.starting_search(kRootHash);
+  std::vector<CacheResult> results;
+  for (int i = 0; i < kNumberOfThreads * kResultsPerThread; ++i) {
+    results.push_back(tt.create_cache_result(
+      uint64_t(i), Depth(i), Evaluation(i), kRandomMove, NodeTypePV, 0));
+  }
+
+  std::vector<std::thread> threads;
+  for (size_t i = 0; i < kNumberOfThreads; ++i) {
+    threads.push_back(std::thread([](TranspositionTable *tt, const std::vector<CacheResult>& results, int start, int end) {
+        for (int j = start; j < end; ++j) {
+          tt->insert<true>(results[j]);
+        }
+      },
+      &tt,
+      results,
+      i * kResultsPerThread,
+      (i + 1) * kResultsPerThread
+    ));
+  }
+  for (size_t i = 0; i < threads.size(); ++i) {
+    threads[i].join();
+  }
+
+  for (int i = 0; i < results.size(); ++i) {
+    CacheResult r = tt.find<false>(results[i].positionHash);
+    if (!isNullCacheResult(r)) {
+      std::cout << r << std::endl;
+    }
+  }
 }
 
 TEST(Position, PreviousSearchResultsNotIgnored) {

@@ -16,7 +16,6 @@ using namespace ChessEngine;
 SearchResult<Color::WHITE> go(Thinker* thinker, std::string fen, size_t depth) {
   Position position(fen);
   thinker->load_weights_from_file("./src/tests/test-weights.txt");
-  thinker->reset_stuff();
   GoCommand cmd;
   cmd.pos = position;
   cmd.depthLimit = depth;
