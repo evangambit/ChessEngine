@@ -637,6 +637,10 @@ static SearchResult<TURN> search(
     }
   }
 
+  #if SIMPLE_SEARCH
+  r.score = std::max(originalAlpha, std::min(originalBeta, r.score));
+  #endif
+
   if (r.analysisComplete) {
     NodeType nodeType = NodeTypePV;
     if (r.score >= originalBeta) {
@@ -647,7 +651,7 @@ static SearchResult<TURN> search(
     const CacheResult cr = thinker->cache.create_cache_result(
       thread->pos.hash_,
       depthRemaining,
-      std::max(originalAlpha, std::min(originalBeta, r.score)),
+      r.score,
       r.move,
       nodeType,
       distFromPV

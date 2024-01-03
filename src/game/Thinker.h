@@ -140,8 +140,13 @@ struct Thinker {
     }
     if (pos->turn_ == Color::BLACK) {
       originalCacheResult.eval *= -1;
+      if (originalCacheResult.nodeType == NodeType::NodeTypeAll_UpperBound) {
+        originalCacheResult.nodeType = NodeType::NodeTypeCut_LowerBound;
+      } else if (originalCacheResult.nodeType == NodeType::NodeTypeCut_LowerBound) {
+        originalCacheResult.nodeType = NodeType::NodeTypeAll_UpperBound;
+      }
     }
-    originalCacheResult.eval = int64_t(originalCacheResult.eval) * 100 / this->evaluator.pawnValue();
+    originalCacheResult.eval = int64_t(originalCacheResult.eval);
     while (!isNullCacheResult(cr) && cr.bestMove != kNullMove && moves.size() < 10) {
       moves.push_back(cr.bestMove);
       this->make_move(pos, cr.bestMove);

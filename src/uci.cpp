@@ -197,7 +197,7 @@ class ProbeTask : public Task {
     if (isNullCacheResult(variation.first)) {
       std::cout << "Cache result for " << query.fen() << " is missing" << std::endl;
     }
-    std::cout << variation.first.eval;
+    std::cout << "[" << variation.first.lowerbound() << ", " << variation.first.upperbound() << "]";
     for (const auto& move : variation.second) {
       std::cout << " " << move;
     }
