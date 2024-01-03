@@ -20,6 +20,10 @@
 #include "movegen/sliding.h"
 #include "Evaluator.h"
 
+#ifndef SIMPLE_SEARCH
+#define SIMPLE_SEARCH 0
+#endif
+
 #ifndef COMPLEX_SEARCH
 #define COMPLEX_SEARCH 0
 #endif
@@ -326,43 +330,66 @@ static SearchResult<TURN> search(
   }
 
   if (depthRemaining <= 0) {
-    // Quiescence Search
-    // (+0.4453 ± 0.0072) after 256 games at 50,000 nodes/move
-    SearchResult<TURN> r = qsearch<TURN>(thinker, thread, 0, plyFromRoot, alpha, beta);
-
-    // Extensions
-    // (0.0413 ± 0.0081) after 1024 games at 50,000 nodes/move
-    if (SEARCH_TYPE == SearchTypeNormal) {
-      if (r.score >= alpha && r.score <= beta) {
-        r = search<TURN, SearchTypeExtended, IS_PARALLEL>(
-          thinker,           // thinker
-          thread,
-          2,                 // depthRemaining
-          plyFromRoot,       // plyFromRoot
-          alpha,             // alpha
-          beta,              // beta
-          recommendedMoves,  // recommendedMoves
-          distFromPV         // distFromPV
-        );
+    #if SIMPLE_SEARCH
+    {
+      SearchResult<TURN> r(thinker->evaluator.score<TURN>(thread->pos), kNullMove);
+      NodeType nodeType = NodeTypePV;
+      if (r.score >= beta) {
+        nodeType = NodeTypeCut_LowerBound;
+      } else if (r.score <= alpha) {
+        nodeType = NodeTypeAll_UpperBound;
       }
+      thinker->cache.insert<IS_PARALLEL>(thinker->cache.create_cache_result(
+        thread->pos.hash_,
+        depthRemaining,
+        std::max(originalAlpha, std::min(originalBeta, r.score)),
+        r.move,
+        nodeType,
+        distFromPV
+      ));
+      return r;
     }
+    #else
+    {
+      // Quiescence Search
+      // (+0.4453 ± 0.0072) after 256 games at 50,000 nodes/move
+      SearchResult<TURN> r = qsearch<TURN>(thinker, thread, 0, plyFromRoot, alpha, beta);
 
-    NodeType nodeType = NodeTypePV;
-    if (r.score >= beta) {
-      nodeType = NodeTypeCut_LowerBound;
-    } else if (r.score <= alpha) {
-      nodeType = NodeTypeAll_UpperBound;
+      // Extensions
+      // (0.0413 ± 0.0081) after 1024 games at 50,000 nodes/move
+      if (SEARCH_TYPE == SearchTypeNormal) {
+        if (r.score >= alpha && r.score <= beta) {
+          r = search<TURN, SearchTypeExtended, IS_PARALLEL>(
+            thinker,           // thinker
+            thread,
+            2,                 // depthRemaining
+            plyFromRoot,       // plyFromRoot
+            alpha,             // alpha
+            beta,              // beta
+            recommendedMoves,  // recommendedMoves
+            distFromPV         // distFromPV
+          );
+        }
+      }
+
+      NodeType nodeType = NodeTypePV;
+      if (r.score >= beta) {
+        nodeType = NodeTypeCut_LowerBound;
+      } else if (r.score <= alpha) {
+        nodeType = NodeTypeAll_UpperBound;
+      }
+      const CacheResult cr = thinker->cache.create_cache_result(
+        thread->pos.hash_,
+        depthRemaining,
+        std::max(originalAlpha, std::min(originalBeta, r.score)),
+        r.move,
+        nodeType,
+        distFromPV
+      );
+      thinker->cache.insert<IS_PARALLEL>(cr);
+      return r;
     }
-    const CacheResult cr = thinker->cache.create_cache_result(
-      thread->pos.hash_,
-      depthRemaining,
-      std::max(originalAlpha, std::min(originalBeta, r.score)),
-      r.move,
-      nodeType,
-      distFromPV
-    );
-    thinker->cache.insert<IS_PARALLEL>(cr);
-    return r;
+    #endif
   }
 
   // Futility pruning
@@ -448,19 +475,21 @@ static SearchResult<TURN> search(
     // (+0.0703 ± 0.0148) after 256 games at 50,000 nodes/move
     move->score += value_or_zero((move->move == lastFoundBestMove) && (depthRemaining >= 1), 5000);
 
-    // Bonus if siblings like a move.
-    // (+0.0144 ± 0.0074) after 1024 games at 50,000 nodes/move
-    move->score += value_or_zero(move->move == recommendedMoves.moves[0], 50);
-    move->score += value_or_zero(move->move == recommendedMoves.moves[1], 50);
+    #if !SIMPLE_SEARCH
+      // Bonus if siblings like a move.
+      // (+0.0144 ± 0.0074) after 1024 games at 50,000 nodes/move
+      move->score += value_or_zero(move->move == recommendedMoves.moves[0], 50);
+      move->score += value_or_zero(move->move == recommendedMoves.moves[1], 50);
 
-    // History Heuristic
-    // (+0.0310 ± 0.0073) after 1024 games at 50,000 nodes/move
-    const int32_t history = thinker->historyHeuristicTable[TURN][move->move.from][move->move.to];
-    move->score += value_or_zero(history > 0, 20);
-    move->score += value_or_zero(history > 4, 20);
-    move->score += value_or_zero(history > 16, 20);
-    move->score += value_or_zero(history > 64, 20);
-    move->score += value_or_zero(history > 256, 20);
+      // History Heuristic
+      // (+0.0310 ± 0.0073) after 1024 games at 50,000 nodes/move
+      const int32_t history = thinker->historyHeuristicTable[TURN][move->move.from][move->move.to];
+      move->score += value_or_zero(history > 0, 20);
+      move->score += value_or_zero(history > 4, 20);
+      move->score += value_or_zero(history > 16, 20);
+      move->score += value_or_zero(history > 64, 20);
+      move->score += value_or_zero(history > 256, 20);
+    #endif
   }
 
   std::sort(moves, movesEnd, [](ExtMove a, ExtMove b) {
@@ -518,14 +547,18 @@ static SearchResult<TURN> search(
       // (+0.0269 ± 0.0072) after 1024 games at 50,000 nodes/move
       SearchResult<TURN> a(0, kNullMove);
       constexpr SearchType kChildSearchType = SEARCH_TYPE == SearchTypeRoot ? SearchTypeNormal : SEARCH_TYPE;
-      if (extMove == moves) {
-        a = flip(search<opposingColor, kChildSearchType, IS_PARALLEL>(thinker, thread, depthRemaining - 1, plyFromRoot + 1, -beta, -alpha, recommendationsForChildren, distFromPV + (extMove != moves)));
-      } else {
-        a = flip(search<opposingColor, SearchTypeNullWindow, IS_PARALLEL>(thinker, thread, depthRemaining - 1, plyFromRoot + 1, -(alpha + 1), -alpha, recommendationsForChildren, distFromPV + (extMove != moves)));
-        if (a.score > alpha) {
-          a = flip(search<opposingColor, kChildSearchType, IS_PARALLEL>(thinker, thread, depthRemaining - 1, plyFromRoot + 1, -beta, -(alpha + 1), recommendationsForChildren, distFromPV + (extMove != moves)));
+      #if !SIMPLE_SEARCH
+        if (extMove == moves) {
+          a = flip(search<opposingColor, kChildSearchType, IS_PARALLEL>(thinker, thread, depthRemaining - 1, plyFromRoot + 1, -beta, -alpha, recommendationsForChildren, distFromPV + (extMove != moves)));
+        } else {
+          a = flip(search<opposingColor, SearchTypeNullWindow, IS_PARALLEL>(thinker, thread, depthRemaining - 1, plyFromRoot + 1, -(alpha + 1), -alpha, recommendationsForChildren, distFromPV + (extMove != moves)));
+          if (a.score > alpha) {
+            a = flip(search<opposingColor, kChildSearchType, IS_PARALLEL>(thinker, thread, depthRemaining - 1, plyFromRoot + 1, -beta, -(alpha + 1), recommendationsForChildren, distFromPV + (extMove != moves)));
+          }
         }
-      }
+      #else
+        a = flip(search<opposingColor, kChildSearchType, IS_PARALLEL>(thinker, thread, depthRemaining - 1, plyFromRoot + 1, -beta, -alpha, recommendationsForChildren, distFromPV + (extMove != moves)));
+      #endif
 
       if (IS_PARALLEL) {
         thinker->_manager.finished_searching(thread->pos.hash_);
