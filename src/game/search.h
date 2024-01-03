@@ -356,7 +356,7 @@ static SearchResult<TURN> search(
     const CacheResult cr = thinker->cache.create_cache_result(
       thread->pos.hash_,
       depthRemaining,
-      r.score,
+      std::max(originalAlpha, std::min(originalBeta, r.score)),
       r.move,
       nodeType,
       distFromPV
@@ -614,7 +614,7 @@ static SearchResult<TURN> search(
     const CacheResult cr = thinker->cache.create_cache_result(
       thread->pos.hash_,
       depthRemaining,
-      r.score,
+      std::max(originalAlpha, std::min(originalBeta, r.score)),
       r.move,
       nodeType,
       distFromPV
