@@ -179,7 +179,7 @@ struct TranspositionTable {
         spinLocks[idx % kTranspositionTableFactor].lock();
       }
       CacheResult *cr = &data[idx];
-      if (cr->priority != 0 && cr->positionHash == hash) {
+      if (cr->positionHash == hash) {
         // Mark this entry as "fresh".
         cr->rootCounter = rootCounter;
         if (IS_PARALLEL) {
@@ -199,7 +199,7 @@ struct TranspositionTable {
     const size_t delta = (hash >> 32) % 16;
     for (size_t i = 0; i < kTranspositionTableMaxSteps; ++i) {
       CacheResult *cr = &data[idx];
-      if (cr->priority != 0 && cr->positionHash == hash) {
+      if (cr->positionHash == hash) {
         return *cr;
       }
       idx = (idx + delta) % size;
