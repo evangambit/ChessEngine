@@ -289,6 +289,8 @@ static SearchResult<TURN> search(
   constexpr Color opposingColor = opposite_color<TURN>();
   constexpr ColoredPiece moverKing = coloredPiece<TURN, Piece::KING>();
 
+  thinker->cache.prefetch(thread->pos.hash_);
+
   if (depthRemaining >= kThreadingDepth) {
     thinker->stopThinkingLock.lock();
     const bool shouldStopThinking = thinker->stopThinkingCondition->should_stop_thinking(*thinker);

@@ -53,6 +53,13 @@ TEST(Draws, FiftyMoveRule) {
   EXPECT_EQ(go(&thinker, "1k6/8/2K5/2R5/8/8/8/8 w - - 97 1", 4).score, -(kCheckmate + 3));
 }
 
+TEST(Draws, SimplifyToDrawnKPKV) {
+  Thinker thinker;
+  SearchResult<Color::WHITE> result = go(&thinker, "6k1/8/8/6p1/5P2/6P1/1K6/8 b - - 0 1", 2);
+  EXPECT_EQ(result.score, 0);
+  EXPECT_EQ(result.move.uci(), "g5f4");
+}
+
 
 
 int main(int argc, char *argv[]) {

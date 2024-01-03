@@ -86,7 +86,6 @@ struct TranspositionTable {
   }
 
   void starting_search(uint64_t rootHash) {
-    std::cout << "starting_search" << std::endl;
     if (rootHash != this->currentRootHash) {
       this->currentRootHash = rootHash;
       this->rootCounter = (this->rootCounter + 1) % kNumRootCounters;
@@ -163,8 +162,11 @@ struct TranspositionTable {
       idx = (idx + delta) % size;
     }
   }
+  void prefetch(uint64_t hash) {
+    // TODO
+    // _mm_prefetch((char *)&data[hash & size], _MM_HINT_NTA);
+  }
   void clear() {
-    std::cout << "clear" << std::endl;
     std::fill_n((uint8_t *)data, sizeof(CacheResult) * size, 0);
     rootCounter = 1;  // Set this to one so all zeroed-out entries are considered old.
   }
