@@ -726,15 +726,15 @@ struct StopThinkingTimeCondition : public StopThinkingCondition {
   void start_thinking(const Thinker& thinker) {
     startTime = this->current_time();
   }
-  std::chrono::time_point<std::chrono::steady_clock> current_time() const {
-    return std::chrono::steady_clock::now();
+  std::chrono::time_point<std::chrono::system_clock> current_time() const {
+    return std::chrono::system_clock::now();
   }
   bool should_stop_thinking(const Thinker& thinker) {
     std::chrono::duration<double> delta = this->current_time() - startTime;
     return std::chrono::duration_cast<std::chrono::milliseconds>(delta).count() > milliseconds;
   }
  private:
-  std::chrono::high_resolution_clock::time_point startTime;
+  std::chrono::time_point<std::chrono::system_clock> startTime;
   uint64_t milliseconds;
 };
 

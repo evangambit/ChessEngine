@@ -5,6 +5,7 @@
 #include "Evaluator.h"
 #include "TranspositionTable.h"
 #include "SearchResult.h"
+#include "Position.h"
 
 namespace ChessEngine {
 
@@ -83,7 +84,7 @@ struct Thinker {
     cache.set_cache_size(kilobytes);
   }
 
-  void make_move(Position* pos, Move move) const {
+  void _make_move(Position* pos, Move move) const {
     if (pos->turn_ == Color::WHITE) {
       make_move<Color::WHITE>(pos, move);
     } else {
@@ -91,7 +92,7 @@ struct Thinker {
     }
   }
 
-  void undo(Position* pos) const {
+  void _undo(Position* pos) const {
     if (pos->turn_ == Color::BLACK) {
       undo<Color::WHITE>(pos);
     } else {
@@ -128,13 +129,13 @@ struct Thinker {
     std::vector<Move> moves;
     if (move != kNullMove) {
       moves.push_back(move);
-      this->make_move(pos, move);
+      this->_make_move(pos, move);
     }
     CacheResult originalCacheResult = this->cache.unsafe_find(pos->hash_);
     CacheResult cr = originalCacheResult;
 
     if (isNullCacheResult(cr)) {
-      this->undo(pos);
+      this->_undo(pos);
       throw std::runtime_error("Could not get variation starting with " + move.uci());
       return std::make_pair(kMissingCacheResult, moves);
     }
@@ -149,11 +150,11 @@ struct Thinker {
     originalCacheResult.eval = int64_t(originalCacheResult.eval);
     while (!isNullCacheResult(cr) && cr.bestMove != kNullMove && moves.size() < 10) {
       moves.push_back(cr.bestMove);
-      this->make_move(pos, cr.bestMove);
+      this->_make_move(pos, cr.bestMove);
       cr = cache.unsafe_find(pos->hash_);
     }
     for (size_t i = 0; i < moves.size(); ++i) {
-      this->undo(pos);
+      this->_undo(pos);
     }
     return std::make_pair(originalCacheResult, moves);
   }
