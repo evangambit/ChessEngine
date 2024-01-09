@@ -74,8 +74,8 @@ GoCommand make_go_command(std::deque<std::string> *command, Position *pos) {
   }
 
   std::unordered_set<std::string> legalMoves = compute_legal_moves_set(pos);
-  if (goCommand.moves.size() == 0) {
-    goCommand.moves = legalMoves;
+  if (moves.size() == 0) {
+    moves = legalMoves;
   }
 
   // Remove invalid moves.
@@ -346,6 +346,13 @@ class PrintOptionsTask : public Task {
     std::cout << "MultiPV: " << state->thinker.multiPV << " variations" << std::endl;
     std::cout << "Threads: " << state->thinker.numThreads << " threads" << std::endl;
     std::cout << "Hash: " << state->thinker.cache.kb_size() << " kilobytes" << std::endl;
+  }
+};
+
+class QuitTask : public Task {
+ public:
+  void start(UciEngineState *state) {
+    exit(0);
   }
 };
 
@@ -639,8 +646,16 @@ struct UciEngine {
     this->state.pos = Position("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
     this->state.thinker.load_weights_from_file("weights.txt");
   }
-  void start(std::istream& cin) {
+  void start(std::istream& cin, const std::vector<std::string>& commands) {
     UciEngineState *state = &this->state;
+
+    for (std::string command : commands) {
+      if(command.find_first_not_of(' ') == std::string::npos) {
+        continue;
+      }
+      this->handle_uci_command(state, &command);
+    }
+
     std::thread eventRunner([state]() {
       while (true) {
         wait_for_task(state);
@@ -726,6 +741,8 @@ struct UciEngine {
       state->taskQueue.push_back(std::make_shared<ProbeTask>(parts));
     } else if (parts[0] == "hash") {
       state->taskQueue.push_back(std::make_shared<HashTask>(parts));
+    } else if (parts[0] == "lazyquit") {
+      state->taskQueue.push_back(std::make_shared<QuitTask>());
     } else {
       state->taskQueue.push_back(std::make_shared<UnrecognizedCommandTask>(parts));
     }
@@ -739,14 +756,21 @@ struct UciEngine {
 int main(int argc, char *argv[]) {
   std::cout << "Chess Engine" << std::endl;
 
+  std::vector<std::string> commands;
+  for (int i = 1; i < argc; ++i) {
+    commands.push_back(argv[i]);
+  }
+
   // Wait for "uci" command.
-  while (true) {
-    std::string line;
-    getline(std::cin, line);
-    if (line == "uci") {
-      break;
-    } else {
-      std::cout << "Unrecognized command " << repr(line) << std::endl;
+  if (commands.size() == 0) {
+    while (true) {
+      std::string line;
+      getline(std::cin, line);
+      if (line == "uci") {
+        break;
+      } else {
+        std::cout << "Unrecognized command " << repr(line) << std::endl;
+      }
     }
   }
 
@@ -755,5 +779,5 @@ int main(int argc, char *argv[]) {
   initialize_movegen();
 
   UciEngine engine;
-  engine.start(std::cin);
+  engine.start(std::cin, commands);
 }
