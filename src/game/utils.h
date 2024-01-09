@@ -7,6 +7,7 @@
 #include <deque>
 #include <iostream>
 #include <vector>
+#include <unordered_set>
 
 namespace ChessEngine {
 
@@ -151,11 +152,28 @@ std::vector<std::string> split(const std::string& text, char delimiter);
 template<class T>
 std::ostream& operator<<(std::ostream& stream, const std::vector<T>& vec) {
   if (vec.size() == 0) {
-    return stream << "{}";
+    return stream << "[]";
   }
-  stream << "{" << vec[0];
+  stream << "[" << vec[0];
   for (size_t i = 1; i < vec.size(); ++i) {
     stream << ", " << vec[i];
+  }
+  return stream << "]";
+}
+
+template<class T>
+std::ostream& operator<<(std::ostream& stream, const std::unordered_set<T>& set) {
+  if (set.size() == 0) {
+    return stream << "{}";
+  }
+  stream << "{";
+  bool isFirst = true;
+  for (const auto& val : set) {
+    if (!isFirst) {
+      std::cout << ", ";
+    }
+    stream << val;
+    isFirst = true;
   }
   return stream << "}";
 }
