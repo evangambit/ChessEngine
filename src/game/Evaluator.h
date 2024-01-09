@@ -158,6 +158,7 @@ enum EF {
   THEIR_KING_HAS_2_ESCAPE_SQUARES,
 
   OPPOSITE_SIDE_KINGS_PAWN_STORM,
+  IN_CHECK_AND_OUR_HANGING_QUEENS,
 
   NUM_EVAL_FEATURES,
 };
@@ -283,6 +284,7 @@ std::string EFSTR[] = {
   "OUR_KING_HAS_2_ESCAPE_SQUARES",
   "THEIR_KING_HAS_2_ESCAPE_SQUARES",
   "OPPOSITE_SIDE_KINGS_PAWN_STORM",
+  "IN_CHECK_AND_OUR_HANING_QUEENS",
 };
 
 // captures = difference in values divided by 2
@@ -630,7 +632,7 @@ struct Evaluator {
       features[EF::THEIR_HANGING_PAWNS] = std::popcount(theirPawns & themHanging) && !anyOfThemHanging;
       features[EF::OUR_HANGING_PAWNS] = std::popcount(ourPawns & usHanging) && !anyOfUsHanging;
 
-      
+      features[EF::IN_CHECK_AND_OUR_HANGING_QUEENS] = features[EF::OUR_HANGING_QUEENS] * features[EF::IN_CHECK];
 
       const int wx = ourKingSq % 8;
       const int wy = ourKingSq / 8;
