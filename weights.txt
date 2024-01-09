@@ -114,6 +114,8 @@
      3  // early OUR_KING_HAS_2_ESCAPE_SQUARES
      8  // early THEIR_KING_HAS_2_ESCAPE_SQUARES
      1  // early OPPOSITE_SIDE_KINGS_PAWN_STORM
+     0  // early IN_CHECK_AND_OUR_HANGING_QUEENS
+     0  // early PROMOTABLE_PAWN
     -4  // late bias
    266  // late OUR_PAWNS
    800  // late OUR_KNIGHTS
@@ -230,6 +232,8 @@
      2  // late OUR_KING_HAS_2_ESCAPE_SQUARES
     47  // late THEIR_KING_HAS_2_ESCAPE_SQUARES
     -7  // late OPPOSITE_SIDE_KINGS_PAWN_STORM
+     0  // late IN_CHECK_AND_OUR_HANGING_QUEENS
+     0  // late PROMOTABLE_PAWN
     -8  // clipped bias
     70  // clipped OUR_PAWNS
    247  // clipped OUR_KNIGHTS
@@ -346,6 +350,8 @@
     12  // clipped OUR_KING_HAS_2_ESCAPE_SQUARES
    -16  // clipped THEIR_KING_HAS_2_ESCAPE_SQUARES
      0  // clipped OPPOSITE_SIDE_KINGS_PAWN_STORM
+     0  // clipped IN_CHECK_AND_OUR_HANGING_QUEENS
+     0  // clipped PROMOTABLE_PAWN
 // ?
     0     0     0     0     0     0     0     0
     0     0     0     0     0     0     0     0

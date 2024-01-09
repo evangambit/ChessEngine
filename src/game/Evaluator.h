@@ -159,6 +159,7 @@ enum EF {
 
   OPPOSITE_SIDE_KINGS_PAWN_STORM,
   IN_CHECK_AND_OUR_HANGING_QUEENS,
+  PROMOTABLE_PAWN,
 
   NUM_EVAL_FEATURES,
 };
@@ -285,6 +286,7 @@ std::string EFSTR[] = {
   "THEIR_KING_HAS_2_ESCAPE_SQUARES",
   "OPPOSITE_SIDE_KINGS_PAWN_STORM",
   "IN_CHECK_AND_OUR_HANING_QUEENS",
+  "PROMOTABLE_PAWN",
 };
 
 // captures = difference in values divided by 2
@@ -554,6 +556,18 @@ struct Evaluator {
       features[EF::PROTECTED_PASSED_PAWNS] = std::popcount(pawnAnalysis.ourPassedPawns & threats.ourPawnTargets) - std::popcount(pawnAnalysis.theirPassedPawns & threats.theirPawnTargets);
 
       features[EF::NUM_PIECES_HARRASSABLE_BY_PAWNS] = std::popcount(pawnAnalysis.piecesOurPawnsCanThreaten) - std::popcount(pawnAnalysis.piecesTheirPawnsCanThreaten);
+
+      Bitboard whitePromoSquares = shift<Direction::NORTH>(pos.pieceBitboards_[ColoredPiece::WHITE_PAWN] & kRanks[1]);
+      Bitboard blackPromoSquares = shift<Direction::SOUTH>(pos.pieceBitboards_[ColoredPiece::BLACK_PAWN] & kRanks[6]);
+      if (US == Color::WHITE) {
+        features[EF::PROMOTABLE_PAWN] =
+        std::popcount(whitePromoSquares & ~threats.badForOur[Piece::QUEEN] & ~everyone)
+        - std::popcount(blackPromoSquares & ~threats.badForTheir[Piece::QUEEN] & ~everyone);
+      } else {
+        features[EF::PROMOTABLE_PAWN] =
+        std::popcount(blackPromoSquares & ~threats.badForOur[Piece::QUEEN & ~everyone])
+        - std::popcount(whitePromoSquares & ~threats.badForTheir[Piece::QUEEN] & ~everyone);
+      }
     }
 
     const Bitboard ourBishopTargetsIgnoringNonBlockades = compute_bishoplike_targets(ourBishops, pawnAnalysis.ourBlockadedPawns);
