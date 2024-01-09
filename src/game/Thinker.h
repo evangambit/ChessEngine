@@ -135,7 +135,21 @@ struct Thinker {
     CacheResult cr = originalCacheResult;
 
     if (isNullCacheResult(cr)) {
+      const bool isDraw = pos->is_3fold_repetition(1) || this->evaluator.is_material_draw(*pos);
       this->_undo(pos);
+
+      if (isDraw) {
+        return std::make_pair(CacheResult{
+          pos->hash_,
+          0,  // depth
+          0,  // evaluation
+          kNullMove,
+          NodeTypePV,
+          0,
+          0
+        }, moves);
+      }
+
       throw std::runtime_error("Could not get variation starting with " + move.uci());
       return std::make_pair(kMissingCacheResult, moves);
     }

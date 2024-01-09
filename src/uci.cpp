@@ -210,12 +210,16 @@ class ProbeTask : public Task {
 
 class HashTask : public Task {
  public:
-  HashTask(std::deque<std::string> command) : command(command) {}
   void start(UciEngineState *state) {
     std::cout << state->pos.hash_ << std::endl;
   }
- private:
-  std::deque<std::string> command;
+};
+
+class PrintFenTask : public Task {
+ public:
+  void start(UciEngineState *state) {
+    std::cout << state->pos.fen() << std::endl;
+  }
 };
 
 class EvalTask : public Task {
@@ -740,9 +744,11 @@ struct UciEngine {
     } else if (parts[0] == "probe") {
       state->taskQueue.push_back(std::make_shared<ProbeTask>(parts));
     } else if (parts[0] == "hash") {
-      state->taskQueue.push_back(std::make_shared<HashTask>(parts));
+      state->taskQueue.push_back(std::make_shared<HashTask>());
     } else if (parts[0] == "lazyquit") {
       state->taskQueue.push_back(std::make_shared<QuitTask>());
+    } else if (parts[0] == "printfen") {
+      state->taskQueue.push_back(std::make_shared<PrintFenTask>());
     } else {
       state->taskQueue.push_back(std::make_shared<UnrecognizedCommandTask>(parts));
     }
