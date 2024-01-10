@@ -10,8 +10,6 @@ import torch
 from torch import nn, optim
 import torch.utils.data as tdata
 
-from protos.weights_pb2 import Weights
-
 varnames = [
   "OUR_PAWNS",
   "OUR_KNIGHTS",
@@ -128,7 +126,8 @@ varnames = [
   "OUR_KING_HAS_2_ESCAPE_SQUARES",
   "THEIR_KING_HAS_2_ESCAPE_SQUARES",
   "OPPOSITE_SIDE_KINGS_PAWN_STORM",
-  # "IN_CHECK_AND_OUR_HANING_QUEENS",
+  "IN_CHECK_AND_OUR_HANING_QUEENS",
+  "PROMOTABLE_PAWN",
 ]
 
 class PCA:
@@ -183,8 +182,12 @@ cat = np.concatenate
 # X = cat([X, np.load(os.path.join('traindata', f'x.make_train_any_d10_n1.npy')).astype(np.float64)], 0)
 # Y = cat([Y, np.load(os.path.join('traindata', f'y.make_train_any_d10_n1.npy')).astype(np.float64)], 0)
 
-X = np.load(os.path.join('traindata', f'x.make_train_any_d6_n0.npy')).astype(np.float64)
-Y = np.load(os.path.join('traindata', f'y.make_train_any_d6_n0.npy')).astype(np.float64)
+# X = np.load(os.path.join('traindata', f'x.make_train_any_d6_n0.npy')).astype(np.float64)
+# Y = np.load(os.path.join('traindata', f'y.make_train_any_d6_n0.npy')).astype(np.float64)
+
+F = np.load('F.npy')
+X = np.load('X.npy').astype(np.float64)
+Y = np.load('Y.npy').astype(np.float64)
 
 T = X[:,varnames.index('TIME')].copy()
 
@@ -245,17 +248,15 @@ L = []
 
 windowSize = 500
 
-# for bs in 2**(np.linspace(4, 14, 11)):
-for bs in 2**(np.linspace(4, 5, 2)):
+for bs in 2**(np.linspace(4, 14, 11)):
+# for bs in 2**(np.linspace(4, 5, 2)):
   bs = int(bs)
   dataloader = tdata.DataLoader(dataset, batch_size=bs, shuffle=True, drop_last=True)
 
   l = []
   for x, t, y in forever(dataloader):
-    pwin = ((y[:,0] + 1) + (y[:,1] + 1) / 2) / (y.sum(1) + 3)
-    y = logit(pwin)
     yhat = model(x, t)
-    loss = loss_fn(yhat, y)
+    loss = loss_fn(yhat, y / 100)
     opt.zero_grad()
     loss.backward()
     opt.step()

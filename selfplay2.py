@@ -89,7 +89,7 @@ def play(fen0, player1, player2, nodes = 100_000):
       print('a')
       print('isPlayer1', mover == player1)
       print(fen0)
-      print(moves)
+      print(' '.join(moves))
       print(board.fen())
       raise e
     moves.append(move)

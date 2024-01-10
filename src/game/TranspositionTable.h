@@ -17,6 +17,19 @@ enum NodeType {
   NodeTypePV,
 };
 
+std::string nodeTypeToString(NodeType nodeType) {
+  switch (nodeType) {
+    case NodeTypeAll_UpperBound:
+      return "all";
+    case NodeTypeCut_LowerBound:
+      return "cut";
+    case NodeTypePV:
+      return "pv";
+    default:
+      return "??";
+  }
+}
+
 const int32_t kMaxCachePriority = 16383;
 const int32_t kNumRootCounters = 8;
 
@@ -70,7 +83,7 @@ std::ostream& operator<<(std::ostream& stream, CacheResult cr) {
 // but this kind of behavior seems really scary. I should a *least* write some tests for the transposition table,
 // and possible refactor how it handles duplicates.
 
-constexpr size_t kTranspositionTableMaxSteps = 3;
+constexpr size_t kTranspositionTableMaxSteps = 1;
 struct TranspositionTable {
   TranspositionTable(size_t kilobytes) : rootCounter(0), currentRootHash(0) {
     if (kilobytes < 1) {
@@ -147,7 +160,7 @@ struct TranspositionTable {
         // Forget any entry that wasn't used in the last search.
         age_of_entry(it) > 1
         // Replace shallow entries with deeper entries with a small penalty for older results.
-        || cr.depthRemaining + age_of_entry(it) >= it->depthRemaining
+        || cr.depthRemaining + age_of_entry(it) > it->depthRemaining
         // If entries are otherwise identical, prefer the one closer to the PV.
         || (cr.depthRemaining == it->depthRemaining && cr.priority > it->priority)) {
         *it = cr;

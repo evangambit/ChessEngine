@@ -19,7 +19,7 @@ struct SearchResult {
 
 template<Color PERSPECTIVE>
 std::ostream& operator<<(std::ostream& stream, SearchResult<PERSPECTIVE> sr) {
-  return stream << "(" << sr.move << " " << sr.score << ")" << std::endl;
+  return stream << "(" << sr.move << " " << sr.score << ")";
 }
 
 std::ostream& operator<<(std::ostream& stream, SearchResult<Color::WHITE> sr) {
