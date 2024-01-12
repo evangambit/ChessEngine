@@ -30,7 +30,7 @@ std::string nodeTypeToString(NodeType nodeType) {
   }
 }
 
-const int32_t kMaxCachePriority = 16383;
+const int32_t kMaxCachePriority = 8191;
 const int32_t kNumRootCounters = 8;
 
 struct CacheResult {  // 16 bytes
@@ -39,7 +39,7 @@ struct CacheResult {  // 16 bytes
   Evaluation eval;        // 2 bytes
   Move bestMove;          // 2 bytes
   NodeType nodeType;      // 1 byte
-  unsigned priority : 14;      // 2 bytes; kMaxCachePriority if primary variation
+  unsigned priority : 13;      // 2 bytes; kMaxCachePriority if primary variation
   unsigned rootCounter : 3;
   inline Evaluation lowerbound() const {
     return (nodeType == NodeTypeAll_UpperBound) ? kMinEval : eval;
@@ -68,9 +68,9 @@ inline bool isNullCacheResult(const CacheResult& cr) {
 
 std::ostream& operator<<(std::ostream& stream, CacheResult cr) {
   if (isNullCacheResult(cr)) {
-    return stream << "[NULL]" << std::endl;
+    return stream << "[NULL]";
   }
-  return stream << "[ hash:" << cr.positionHash << " depth:" << uint16_t(cr.depthRemaining) << " eval:" << cr.eval << " move:" << cr.bestMove << " nodeType:" << unsigned(cr.nodeType) << " priority:" << unsigned(cr.priority) << " ]";
+  return stream << "[ hash:" << cr.positionHash << " depth:" << uint16_t(cr.depthRemaining) << " eval:" << cr.eval << " move:" << cr.bestMove << " nodeType:" << nodeTypeToString(cr.nodeType) << " priority:" << unsigned(cr.priority) << " rootCounter:" << unsigned(cr.rootCounter) << " ]";
 }
 
 // TODO: it's possible for the same position to occur multiple times in this table.
@@ -83,7 +83,7 @@ std::ostream& operator<<(std::ostream& stream, CacheResult cr) {
 // but this kind of behavior seems really scary. I should a *least* write some tests for the transposition table,
 // and possible refactor how it handles duplicates.
 
-constexpr size_t kTranspositionTableMaxSteps = 1;
+constexpr size_t kTranspositionTableMaxSteps = 3;
 struct TranspositionTable {
   TranspositionTable(size_t kilobytes) : rootCounter(0), currentRootHash(0) {
     if (kilobytes < 1) {
@@ -145,12 +145,11 @@ struct TranspositionTable {
         spinLocks[idx % kTranspositionTableFactor].lock();
       }
       CacheResult *it = &data[idx];
-      if (cr.positionHash == it->positionHash) {
+      if (age_of_entry(it) > 0) {
+        *it = cr;
+      } else if (cr.positionHash == it->positionHash) {
         if (cr.depthRemaining > it->depthRemaining || (cr.nodeType == NodeTypePV && it->nodeType != NodeTypePV)) {
           *it = cr;
-        } else {
-          // Mark this entry as "fresh".
-          it->rootCounter = this->rootCounter;
         }
         if (IS_PARALLEL) {
           spinLocks[idx % kTranspositionTableFactor].unlock();
@@ -158,9 +157,9 @@ struct TranspositionTable {
         return;
       } else if (
         // Forget any entry that wasn't used in the last search.
-        age_of_entry(it) > 1
+        age_of_entry(it) > 0
         // Replace shallow entries with deeper entries with a small penalty for older results.
-        || cr.depthRemaining + age_of_entry(it) > it->depthRemaining
+        || cr.depthRemaining > it->depthRemaining
         // If entries are otherwise identical, prefer the one closer to the PV.
         || (cr.depthRemaining == it->depthRemaining && cr.priority > it->priority)) {
         *it = cr;
@@ -193,8 +192,7 @@ struct TranspositionTable {
       }
       CacheResult *cr = &data[idx];
       if (cr->positionHash == hash) {
-        // Mark this entry as "fresh".
-        cr->rootCounter = rootCounter;
+        cr->rootCounter = this->rootCounter;
         if (IS_PARALLEL) {
           spinLocks[idx % kTranspositionTableFactor].unlock();
         }

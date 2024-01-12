@@ -222,6 +222,20 @@ class PrintFenTask : public Task {
   }
 };
 
+class SilenceTask : public Task {
+ public:
+  SilenceTask(std::deque<std::string> command) : command(command) {}
+  void start(UciEngineState *state) {
+    if (command.at(1) == "1") {
+      std::cout.setstate(std::ios::failbit);
+    } else {
+      std::cout.clear();
+    }
+  }
+ private:
+  std::deque<std::string> command;
+};
+
 class EvalTask : public Task {
  public:
   EvalTask(std::deque<std::string> command) : command(command) {}
@@ -749,6 +763,8 @@ struct UciEngine {
       state->taskQueue.push_back(std::make_shared<QuitTask>());
     } else if (parts[0] == "printfen") {
       state->taskQueue.push_back(std::make_shared<PrintFenTask>());
+    } else if (parts[0] == "silence") {
+      state->taskQueue.push_back(std::make_shared<SilenceTask>(parts));
     } else {
       state->taskQueue.push_back(std::make_shared<UnrecognizedCommandTask>(parts));
     }

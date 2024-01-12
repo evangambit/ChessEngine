@@ -265,6 +265,9 @@ static SearchResult<TURN> qsearch(Thinker *thinker, Thread *thread, int32_t dept
 
 constexpr int kThreadingDepth = 2;
 
+#define IS_PRINT_NODE 0
+// #define IS_PRINT_NODE (thread->pos.hash_  % 425984 == 958)
+
 template<Color TURN, SearchType SEARCH_TYPE, bool IS_PARALLEL>
 static SearchResult<TURN> search(
   Thinker *thinker,
@@ -274,6 +277,10 @@ static SearchResult<TURN> search(
   Evaluation alpha, const Evaluation beta,
   RecommendedMoves recommendedMoves,
   uint16_t distFromPV) {
+
+  if (IS_PRINT_NODE) {
+    std::cout << "start " << thread->pos.hash_ << " (depth:" << int(depthRemaining) << " alpha:" << alpha << " beta:" << beta << ")" << std::endl;
+  }
 
 
   const Evaluation originalAlpha = alpha;
@@ -300,19 +307,31 @@ static SearchResult<TURN> search(
     const bool shouldStopThinking = thinker->stopThinkingCondition->should_stop_thinking(*thinker);
     thinker->stopThinkingLock.unlock();
     if (shouldStopThinking) {
+      if (IS_PRINT_NODE) {
+        std::cout << "  end " << thread->pos.hash_ << " interrupted" << std::endl;
+      }
       return SearchResult<TURN>(0, kNullMove, false);
     }
   }
 
   if (std::popcount(thread->pos.pieceBitboards_[coloredPiece<TURN, Piece::KING>()]) == 0) {
+    if (IS_PRINT_NODE) {
+      std::cout << "  end " << thread->pos.hash_ << " no king" << std::endl;
+    }
     return SearchResult<TURN>(kMissingKing, kNullMove);
   }
 
   if (thread->pos.is_3fold_repetition(plyFromRoot)) {
+    if (IS_PRINT_NODE) {
+      std::cout << "  end " << thread->pos.hash_ << " 3fold draw" << std::endl;
+    }
     return SearchResult<TURN>(Evaluation(0), kNullMove);
   }
 
   if (SEARCH_TYPE != SearchTypeRoot && thread->evaluator.is_material_draw(thread->pos)) {
+    if (IS_PRINT_NODE) {
+      std::cout << "  end " << thread->pos.hash_ << " material draw" << std::endl;
+    }
     return SearchResult<TURN>(Evaluation(0), kNullMove);
   }
 
@@ -324,6 +343,9 @@ static SearchResult<TURN> search(
     // so that thinker->variations is properly set.
     if (!isNullCacheResult(cr) && cr.depthRemaining >= depthRemaining) {
       if (cr.nodeType == NodeTypePV || cr.lowerbound() >= beta || cr.upperbound() <= alpha) {
+        if (IS_PRINT_NODE) {
+          std::cout << "  end " << thread->pos.hash_ << " cached " << cr << std::endl;
+        }
         return SearchResult<TURN>(cr.eval, cr.bestMove);
       }
     }
@@ -347,6 +369,9 @@ static SearchResult<TURN> search(
         nodeType,
         distFromPV
       ));
+      if (IS_PRINT_NODE) {
+        std::cout << "  end " << thread->pos.hash_ << " qsearch " << r << std::endl;
+      }
       return r;
     }
     #else
@@ -355,21 +380,25 @@ static SearchResult<TURN> search(
       // (+0.4453 ± 0.0072) after 256 games at 50,000 nodes/move
       SearchResult<TURN> r = qsearch<TURN>(thinker, thread, 0, plyFromRoot, alpha, beta);
 
-      // Extensions
-      // (0.0413 ± 0.0081) after 1024 games at 50,000 nodes/move
-      if (SEARCH_TYPE == SearchTypeNormal) {
-        if (r.score >= alpha && r.score <= beta) {
-          r = search<TURN, SearchTypeExtended, IS_PARALLEL>(
-            thinker,           // thinker
-            thread,
-            2,                 // depthRemaining
-            plyFromRoot,       // plyFromRoot
-            alpha,             // alpha
-            beta,              // beta
-            recommendedMoves,  // recommendedMoves
-            distFromPV         // distFromPV
-          );
-        }
+      // // Extensions
+      // // (0.0413 ± 0.0081) after 1024 games at 50,000 nodes/move
+      // if (SEARCH_TYPE == SearchTypeNormal) {
+      //   if (r.score >= alpha && r.score <= beta) {
+      //     r = search<TURN, SearchTypeExtended, IS_PARALLEL>(
+      //       thinker,           // thinker
+      //       thread,
+      //       2,                 // depthRemaining
+      //       plyFromRoot,       // plyFromRoot
+      //       alpha,             // alpha
+      //       beta,              // beta
+      //       recommendedMoves,  // recommendedMoves
+      //       distFromPV         // distFromPV
+      //     );
+      //   }
+      // }
+
+      if (IS_PRINT_NODE) {
+        std::cout << "  end " << thread->pos.hash_ << " qsearch " << r << std::endl;
       }
 
       NodeType nodeType = NodeTypePV;
@@ -425,6 +454,9 @@ static SearchResult<TURN> search(
   if (depthRemaining <= cr.depthRemaining + kFutilityPruningDepthLimit) {
     const int delta = futilityThreshold * (depthRemaining - cr.depthRemaining);
     if (cr.lowerbound() >= beta + delta || cr.upperbound() <= alpha - delta) {
+      if (IS_PRINT_NODE) {
+        std::cout << "  end " << thread->pos.hash_ << " futile1" << std::endl;
+      }
       return SearchResult<TURN>(cr.eval, cr.bestMove);
     }
   }
@@ -432,6 +464,9 @@ static SearchResult<TURN> search(
     SearchResult<TURN> r = qsearch<TURN>(thinker, thread, 0, plyFromRoot, alpha, beta);
     const int32_t delta = futilityThreshold * depthRemaining;
     if (r.score >= beta + delta || r.score <= alpha - delta) {
+      if (IS_PRINT_NODE) {
+        std::cout << "  end " << thread->pos.hash_ << " futile2" << std::endl;
+      }
       return r;
     }
   }
@@ -451,14 +486,41 @@ static SearchResult<TURN> search(
 
   if (movesEnd - moves == 0) {
     if (inCheck) {
+      if (IS_PRINT_NODE) {
+        std::cout << "  end " << thread->pos.hash_ << " checkmate" << std::endl;
+      }
+      const CacheResult cr = thinker->cache.create_cache_result(
+        thread->pos.hash_,
+        99,
+        kCheckmate,
+        kNullMove,
+        NodeTypePV,
+        distFromPV
+      );
+      thinker->cache.insert<IS_PARALLEL>(cr);
       return SearchResult<TURN>(kCheckmate + plyFromRoot, kNullMove);
     } else {
+      if (IS_PRINT_NODE) {
+        std::cout << "  end " << thread->pos.hash_ << " stalemate" << std::endl;
+      }
+      const CacheResult cr = thinker->cache.create_cache_result(
+        thread->pos.hash_,
+        99,
+        0,
+        kNullMove,
+        NodeTypePV,
+        distFromPV
+      );
+      thinker->cache.insert<IS_PARALLEL>(cr);
       return SearchResult<TURN>(Evaluation(0), kNullMove);
     }
   }
 
   // We need to check this *after* we do the checkmate test above.
   if (thread->pos.is_fifty_move_rule()) {
+    if (IS_PRINT_NODE) {
+      std::cout << "  end " << thread->pos.hash_ << " 50 move draw " << std::endl;
+    }
     return SearchResult<TURN>(Evaluation(0), kNullMove);
   }
 
@@ -659,6 +721,9 @@ static SearchResult<TURN> search(
     thinker->cache.insert<IS_PARALLEL>(cr);
   }
 
+  if (IS_PRINT_NODE) {
+    std::cout << "  end " << thread->pos.hash_ << " return " << r << std::endl;
+  }
 
   return r;
 }
@@ -813,61 +878,35 @@ static SearchResult<Color::WHITE> search(Thinker *thinker, const GoCommand& comm
   // our old best move was terrible, but isn't done analyzing all its siblings yet.
   // (+0.0869 ± 0.0160) after 256 games at 50,000 nodes/move
   if (stoppedEarly) {
-    std::vector<SearchResult<Color::WHITE>> children;
-    for_all_moves(&copy, [thinker, command, &children](const Position& pos, ExtMove move) {
-      CacheResult cr = thinker->cache.unsafe_find(pos.hash_);
-      if (!command.moves.contains(move.uci())) {
-        return;
-      }
-      if (isNullCacheResult(cr)) {
-        return;
-      }
-      if (cr.nodeType != NodeTypePV) {
-        return;
-      }
-      Evaluation eval = cr.lowerbound();
-      if (pos.turn_ == Color::BLACK) {
-        eval *= -1;
-      }
-      children.push_back(SearchResult<Color::WHITE>(eval, move.move));
-    });
+    std::unique_ptr<StopThinkingCondition> foo = std::make_unique<NeverStopThinkingCondition>();
+    std::swap(thinker->stopThinkingCondition, foo);
     if (copy.turn_ == Color::WHITE) {
-      std::sort(
-        children.begin(),
-        children.end(),
-        [](SearchResult<Color::WHITE> a, SearchResult<Color::WHITE> b) -> bool {
-          return a.score > b.score;
-      });
+      search<Color::WHITE, SearchTypeRoot, false>(
+        thinker,
+        &threadObjs[0],
+        1,  // depth=1
+        0,
+        kMinEval,
+        kMaxEval,
+        RecommendedMoves(),
+        0
+      );
     } else {
-      std::sort(
-        children.begin(),
-        children.end(),
-        [](SearchResult<Color::WHITE> a, SearchResult<Color::WHITE> b) -> bool {
-          return a.score < b.score;
-      });
+      search<Color::BLACK, SearchTypeRoot, false>(
+        thinker,
+        &threadObjs[0],
+        1,  // depth=1
+        0,
+        kMinEval,
+        kMaxEval,
+        RecommendedMoves(),
+        0
+      );
     }
-
-    // This may not always be true. For instance, if we're using an aspiration window,
-    // we might stop after analyzing the first move, and the first move may fail low,
-    // in which case we will have no primary variations in the cache. In this case,
-    // we simply use the result of the last search. Unfortunately this means using
-    // a move whose score just dropped, but since all our other moves only have bounds
-    // (not exact scores) it's not clear that we can do better than this. Also this
-    // function probably plays weirdly with incomplete, multi-pv, aspiration-window
-    // searches, since the 1st PV might be completely searched, worse than the
-    // aspiration bounds, and marked as non-PV, while the 5th PV hasn't been searched
-    // at this depth yet, and so it is considered "better" than the 1st PV. If might
-    // be worth using special PV-ness logic for in the root node to prevent this, but
-    // for now we're focused on improving the performance when multiPV=1.
-    if (children.size() > 0) {
-      thinker->variations.clear();
-      for (size_t i = 0; i < std::min(children.size(), thinker->multiPV); ++i) {
-        thinker->variations.push_back(children[i]);
-      }
-      std::chrono::duration<double> delta = std::chrono::steady_clock::now() - tstart;
-      const double secs = std::max(0.001, std::chrono::duration_cast<std::chrono::milliseconds>(delta).count() / 1000.0);
-      callback(&copy, thinker->variations[0], depth, secs);
-    }
+    std::swap(thinker->stopThinkingCondition, foo);
+    std::chrono::duration<double> delta = std::chrono::steady_clock::now() - tstart;
+    const double secs = std::max(0.001, std::chrono::duration_cast<std::chrono::milliseconds>(delta).count() / 1000.0);
+    callback(&copy, thinker->variations[0], depth, secs);
   }
 
   return thinker->variations[0];

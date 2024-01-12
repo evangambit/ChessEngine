@@ -135,6 +135,44 @@ struct Thinker {
     CacheResult cr = originalCacheResult;
 
     if (isNullCacheResult(cr)) {
+      /**
+       * It's pretty tricky to both (1) reuse previous transposition table
+       * results in the next search and (2) without hurting the odds that your
+       * primary variation(s) will be in the transposition table when you're
+       * done searching.
+       *
+       * Consider a table with size=10 (so hash=1 and hash=11 collide)
+       *
+       * Search 1 inserts <hash:1  nodeType:pv depth:5>
+       * Search 2 inserts <hash:11 nodeType:pv depth:2>
+       * ^ ignored bc the depth is too small
+       *
+       * <hash:11> won't be in the table!
+       *
+       * "That's fine", you say, "I'll just give new inserts complete priority
+       * when being inserted. I'll ignore depth completely".
+       *
+       * Okay, now consider this:
+       *
+       * Search 1 inserts <hash:1  nodeType:pv depth:5>
+       * Search 2 inserts <hash:11 nodeType:pv depth:1>
+       * ^ ignored bc it is inferior, but entry is marked "fresh" since it was
+       *   inserted during search 2
+       * Search 2 inserts <hash:11 nodeType:pv depth:2>
+       *
+       * "FINE!", you yell, "then I won't mark anything as fresh!"
+       *
+       * Search 1 inserts <hash:1 nodeType:pv depth:5>
+       * Search 2 inserts <hash:11 nodeType:pv depth:2>
+       * <hash:1> is the primary variation
+       *
+       * "What?! How can hash:1 be the PV if it was never inserted?
+       * You see... the cached result beat all the searched results.
+       *
+       * What *does* seem to work is this:
+       * 1) *only* PV results refresh
+       * 2) PV results always beat any non-pv results
+       */
       const bool isDraw = pos->is_3fold_repetition(1) || this->evaluator.is_material_draw(*pos);
       this->_undo(pos);
 
