@@ -192,17 +192,17 @@ class ProbeTask : public Task {
       throw std::runtime_error("Unexpected token \"" + command[0] + "\" in probe command");
     }
 
-    std::pair<CacheResult, std::vector<Move>> variation = state->thinker.get_variation(&query, kNullMove);
+    // state->thinker.get_variation(&query, kNullMove);
 
-    if (isNullCacheResult(variation.first)) {
-      std::cout << "Cache result for " << query.fen() << " is missing" << std::endl;
-    }
-    std::cout << "[" << variation.first.lowerbound() << ", " << variation.first.upperbound() << "]";
-    for (const auto& move : variation.second) {
-      std::cout << " " << move;
-    }
-    std::cout << " " << query.hash_;
-    std::cout << std::endl;
+    // if (isNullCacheResult(variation.first)) {
+    //   std::cout << "Cache result for " << query.fen() << " is missing" << std::endl;
+    // }
+    // std::cout << "[" << variation.first.lowerbound() << ", " << variation.first.upperbound() << "]";
+    // for (const auto& move : variation.second) {
+    //   std::cout << " " << move;
+    // }
+    // std::cout << " " << query.hash_;
+    // std::cout << std::endl;
   }
  private:
   std::deque<std::string> command;
@@ -290,8 +290,6 @@ class PlayTask : public Task {
         break;
       }
       std::cout << " " << result.move << std::flush;
-
-      state->thinker.get_variation(&goCommand.pos, result.move);
 
       if (goCommand.pos.turn_ == Color::WHITE) {
         make_move<Color::WHITE>(&goCommand.pos, result.move);
@@ -564,7 +562,7 @@ class GoTask : public Task {
   static void _threaded_think(UciEngineState *state, GoCommand goCommand, bool *isRunning) {
     state->stopThinkingSwitch = std::make_shared<StopThinkingSwitch>();
 
-    SearchResult<Color::WHITE> result = search(&state->thinker, goCommand, state->stopThinkingSwitch, [state](Position *position, SearchResult<Color::WHITE> results, size_t depth, double secs) {
+    SearchResult<Color::WHITE> result = search(&state->thinker, goCommand, state->stopThinkingSwitch, [state](Position *position, VariationHead<Color::WHITE> results, size_t depth, double secs) {
       GoTask::_print_variations(state, depth, secs);
     });
 
@@ -599,15 +597,15 @@ class GoTask : public Task {
   static void _print_variations(UciEngineState* state, int depth, double secs) {
     const size_t multiPV = state->thinker.multiPV;
     const uint64_t timeMs = secs * 1000;
-    std::vector<SearchResult<Color::WHITE>> variations = state->thinker.variations;
+    std::vector<VariationHead<Color::WHITE>> variations = state->thinker.variations;
     if (variations.size() == 0) {
       throw std::runtime_error("No variations found!");
     }
     const int32_t pawnValue = state->thinker.evaluator.pawnValue();
     for (size_t i = 0; i < std::min(multiPV, variations.size()); ++i) {
-      std::pair<CacheResult, std::vector<Move>> variation = state->thinker.get_variation(&state->pos, variations[i].move);
+      std::pair<Evaluation, std::vector<Move>> variation = state->thinker.get_variation(&state->pos, variations[i].move);
 
-      Evaluation eval = variation.first.eval;
+      Evaluation eval = variation.first;
       if (state->pos.turn_ == Color::BLACK) {
         // Score should be from mover's perspective, not white's.
         eval *= -1;
@@ -615,9 +613,9 @@ class GoTask : public Task {
 
       std::cout << "info depth " << depth;
       std::cout << " multipv " << (i + 1);
-      if (variation.first.eval <= kLongestForcedMate) {
+      if (variation.first <= kLongestForcedMate) {
         std::cout << " score mate " << -(eval - kCheckmate + 1) / 2;
-      } else if (variation.first.eval >= -kLongestForcedMate) {
+      } else if (variation.first >= -kLongestForcedMate) {
         std::cout << " score mate " << (-eval - kCheckmate + 1) / 2;
       } else {
         std::cout << " score cp " << eval;

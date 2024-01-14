@@ -381,7 +381,7 @@ static SearchResult<TURN> search(
       SearchResult<TURN> r = qsearch<TURN>(thinker, thread, 0, plyFromRoot, alpha, beta);
 
       // // Extensions
-      // // (0.0413 ± 0.0081) after 1024 games at 50,000 nodes/move
+      // // (0.0859 ± 0.0258) after 128 games at 100,000 nodes/move
       // if (SEARCH_TYPE == SearchTypeNormal) {
       //   if (r.score >= alpha && r.score <= beta) {
       //     r = search<TURN, SearchTypeExtended, IS_PARALLEL>(
@@ -569,7 +569,7 @@ static SearchResult<TURN> search(
   );
 
   // Should be optimized away if SEARCH_TYPE != SearchTypeRoot.
-  std::vector<SearchResult<TURN>> children;
+  std::vector<VariationHead<TURN>> children;
   size_t numValidMoves = 0;
   for (int isDeferred = 0; isDeferred <= 1; ++isDeferred) {
     ExtMove *start = (isDeferred ? deferredMoves : &moves[0]);
@@ -633,12 +633,12 @@ static SearchResult<TURN> search(
       r.analysisComplete &= a.analysisComplete;
 
       if (SEARCH_TYPE == SearchTypeRoot) {
+        children.push_back(VariationHead<TURN>(a.score, extMove->move, a.move));
         a.move = extMove->move;
-        children.push_back(a);
         std::sort(
           children.begin(),
           children.end(),
-          [](SearchResult<TURN> a, SearchResult<TURN> b) -> bool {
+          [](VariationHead<TURN> a, VariationHead<TURN> b) -> bool {
             return a.score > b.score;
         });
         if (a.score > r.score) {
@@ -827,7 +827,7 @@ struct StopThinkingSwitch : public StopThinkingCondition {
 };
 
 // TODO: making threads work with multiPV seems really nontrivial.
-static SearchResult<Color::WHITE> search(Thinker *thinker, const GoCommand& command, std::shared_ptr<StopThinkingCondition> condition, std::function<void(Position *, SearchResult<Color::WHITE>, size_t, double)> callback) {
+static SearchResult<Color::WHITE> search(Thinker *thinker, const GoCommand& command, std::shared_ptr<StopThinkingCondition> condition, std::function<void(Position *, VariationHead<Color::WHITE>, size_t, double)> callback) {
 
   if (!condition) {
     condition = std::make_shared<NeverStopThinkingCondition>();
@@ -909,11 +909,11 @@ static SearchResult<Color::WHITE> search(Thinker *thinker, const GoCommand& comm
     callback(&copy, thinker->variations[0], depth, secs);
   }
 
-  return thinker->variations[0];
+  return thinker->variations[0].to_search_result();
 }
 
 static SearchResult<Color::WHITE> search(Thinker *thinker, GoCommand command, std::shared_ptr<StopThinkingCondition> condition) {
-  return search(thinker, command, condition, [](Position *position, SearchResult<Color::WHITE> results, size_t depth, double secs) {});
+  return search(thinker, command, condition, [](Position *position, VariationHead<Color::WHITE> results, size_t depth, double secs) {});
 }
 
 // TODO: there is a bug where

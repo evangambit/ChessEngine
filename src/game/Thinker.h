@@ -58,6 +58,34 @@ struct NeverStopThinkingCondition : public StopThinkingCondition {
   }
 };
 
+template<Color PERSPECTIVE>
+struct VariationHead {
+  VariationHead(Evaluation score, Move move, Move response)
+  : score(score), move(move), response(response) {}
+  SearchResult<PERSPECTIVE> to_search_result() const {
+    return SearchResult<PERSPECTIVE>(score, move);
+  }
+  Evaluation score;
+  Move move;
+  Move response;
+};
+
+template<Color PERSPECTIVE>
+VariationHead<Color::WHITE> to_white(const VariationHead<PERSPECTIVE> vh) {
+  return vh;
+}
+
+template<>
+VariationHead<Color::WHITE> to_white(const VariationHead<Color::BLACK> vh) {
+  return VariationHead<Color::WHITE>(-vh.score, vh.move, vh.response);
+}
+
+template<Color COLOR>
+std::ostream& operator<<(std::ostream& os, const VariationHead<COLOR>& vh) {
+  os << vh.move.uci() << " " << vh.response.uci() << " " << vh.score;
+  return os;
+}
+
 struct Thinker {
   size_t nodeCounter;
   Evaluator evaluator;
@@ -69,7 +97,7 @@ struct Thinker {
   PieceMaps pieceMaps;
   uint64_t lastRootHash;
 
-  std::vector<SearchResult<Color::WHITE>> variations;
+  std::vector<VariationHead<Color::WHITE>> variations;
 
   SpinLock stopThinkingLock;
 
@@ -125,90 +153,43 @@ struct Thinker {
     myfile.close();
   }
 
-  std::pair<CacheResult, std::vector<Move>> get_variation(Position *pos, Move move) const {
-    std::vector<Move> moves;
-    if (move != kNullMove) {
-      moves.push_back(move);
-      this->_make_move(pos, move);
-    }
-    CacheResult originalCacheResult = this->cache.unsafe_find(pos->hash_);
-    CacheResult cr = originalCacheResult;
-
-    if (isNullCacheResult(cr)) {
-      /**
-       * It's pretty tricky to both (1) reuse previous transposition table
-       * results in the next search and (2) without hurting the odds that your
-       * primary variation(s) will be in the transposition table when you're
-       * done searching.
-       *
-       * Consider a table with size=10 (so hash=1 and hash=11 collide)
-       *
-       * Search 1 inserts <hash:1  nodeType:pv depth:5>
-       * Search 2 inserts <hash:11 nodeType:pv depth:2>
-       * ^ ignored bc the depth is too small
-       *
-       * <hash:11> won't be in the table!
-       *
-       * "That's fine", you say, "I'll just give new inserts complete priority
-       * when being inserted. I'll ignore depth completely".
-       *
-       * Okay, now consider this:
-       *
-       * Search 1 inserts <hash:1  nodeType:pv depth:5>
-       * Search 2 inserts <hash:11 nodeType:pv depth:1>
-       * ^ ignored bc it is inferior, but entry is marked "fresh" since it was
-       *   inserted during search 2
-       * Search 2 inserts <hash:11 nodeType:pv depth:2>
-       *
-       * "FINE!", you yell, "then I won't mark anything as fresh!"
-       *
-       * Search 1 inserts <hash:1 nodeType:pv depth:5>
-       * Search 2 inserts <hash:11 nodeType:pv depth:2>
-       * <hash:1> is the primary variation
-       *
-       * "What?! How can hash:1 be the PV if it was never inserted?
-       * You see... the cached result beat all the searched results.
-       *
-       * What *does* seem to work is this:
-       * 1) *only* PV results refresh
-       * 2) PV results always beat any non-pv results
-       */
-      const bool isDraw = pos->is_3fold_repetition(1) || this->evaluator.is_material_draw(*pos);
-      this->_undo(pos);
-
-      if (isDraw) {
-        return std::make_pair(CacheResult{
-          pos->hash_,
-          0,  // depth
-          0,  // evaluation
-          kNullMove,
-          NodeTypePV,
-          0,
-          0
-        }, moves);
+  std::pair<Evaluation, std::vector<Move>> get_variation(Position *pos, Move move) const {
+    VariationHead<Color::WHITE> const * vh = nullptr;
+    for (const VariationHead<Color::WHITE>& v : this->variations) {
+      if (v.move == move) {
+        vh = &v;
+        break;
       }
+    }
 
+    if (vh == nullptr) {
       throw std::runtime_error("Could not get variation starting with " + move.uci());
-      return std::make_pair(kMissingCacheResult, moves);
     }
-    if (pos->turn_ == Color::BLACK) {
-      originalCacheResult.eval *= -1;
-      if (originalCacheResult.nodeType == NodeType::NodeTypeAll_UpperBound) {
-        originalCacheResult.nodeType = NodeType::NodeTypeCut_LowerBound;
-      } else if (originalCacheResult.nodeType == NodeType::NodeTypeCut_LowerBound) {
-        originalCacheResult.nodeType = NodeType::NodeTypeAll_UpperBound;
-      }
+
+    std::vector<Move> moves;
+
+    if (vh->move != kNullMove) {
+      this->_make_move(pos, vh->move);
+      moves.push_back(vh->move);
     }
-    originalCacheResult.eval = int64_t(originalCacheResult.eval);
+
+    if (vh->response != kNullMove) {
+      this->_make_move(pos, vh->response);
+      moves.push_back(vh->response);
+    }
+
+    CacheResult cr = this->cache.unsafe_find(pos->hash_);
     while (!isNullCacheResult(cr) && cr.bestMove != kNullMove && moves.size() < 10) {
       moves.push_back(cr.bestMove);
       this->_make_move(pos, cr.bestMove);
       cr = cache.unsafe_find(pos->hash_);
     }
+
     for (size_t i = 0; i < moves.size(); ++i) {
       this->_undo(pos);
     }
-    return std::make_pair(originalCacheResult, moves);
+
+    return std::make_pair(vh->score, moves);
   }
 
   void clear_tt() {
