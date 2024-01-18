@@ -82,7 +82,7 @@ VariationHead<Color::WHITE> to_white(const VariationHead<Color::BLACK> vh) {
 
 template<Color COLOR>
 std::ostream& operator<<(std::ostream& os, const VariationHead<COLOR>& vh) {
-  os << vh.move.uci() << " " << vh.response.uci() << " " << vh.score;
+  os << vh.move.uci() << " " << vh.response.uci() << " " << eval2str(vh.score);
   return os;
 }
 

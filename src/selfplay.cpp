@@ -30,14 +30,16 @@ Thinker thinker1;
 Thinker thinker2;
 
 bool make_move(Thinker *thinker, Position *pos, size_t nodeLimit) {
-  thinker->reset_stuff();
-  SearchResult<Color::WHITE> results(Evaluation(0), kNullMove);
-  for (size_t depth = 1; depth < 99; ++depth) {
-    results = thinker->search(pos, Depth(depth), results);
-    if (thinker->nodeCounter >= nodeLimit) {
-      break;
-    }
-  }
+
+  GoCommand goCommand;
+  goCommand.pos = *pos;
+  goCommand.nodeLimit = nodeLimit;
+  goCommand.depthLimit = 32;
+  goCommand.moves = compute_legal_moves_set(pos);
+  SearchResult<Color::WHITE> results = search(thinker, goCommand, nullptr, [](Position *position, VariationHead<Color::WHITE> results, size_t depth, double secs) {});
+
+  std::cout << results.move << " " << std::flush;
+
   if (results.move == kNullMove) {
     return false;
   }
@@ -90,7 +92,10 @@ int play(Thinker *thinkerWhite, Thinker *thinkerBlack, const std::string& fen, c
     if (!make_move(thinker, &pos, nodeLimit)) {
       break;
     }
-    if (pos.is_draw_assuming_no_checkmate() || is_material_draw(pos)) {
+    if (isStalemate(&pos, thinkerWhite->evaluator)) {
+      break;
+    }
+    if (isCheckmate(&pos)) {
       break;
     }
     if (pos.history_.size() >= maxMoves) {
@@ -104,15 +109,21 @@ int play(Thinker *thinkerWhite, Thinker *thinkerBlack, const std::string& fen, c
     throw std::runtime_error("missing black king");
   }
   if (pos.history_.size() >= maxMoves) {
+    std::cout << "1/2-1/2" << std::endl;
     return 0;
   }
-  if (pos.is_draw_assuming_no_checkmate() || is_material_draw(pos)) {
+  if (isStalemate(&pos, thinkerWhite->evaluator)) {
+    std::cout << "1/2-1/2" << std::endl;
     return 0;
   }
-  if (can_enemy_attack<Color::BLACK>(pos, lsb(pos.pieceBitboards_[ColoredPiece::BLACK_KING]))) {
-    return 1;
-  } else if (can_enemy_attack<Color::WHITE>(pos, lsb(pos.pieceBitboards_[ColoredPiece::WHITE_KING]))) {
-    return -1;
+  if (isCheckmate(&pos)) {
+    if (pos.turn_ == Color::WHITE) {
+      std::cout << "0-1" << std::endl;
+      return -1;
+    } else {
+      std::cout << "1-0" << std::endl;
+      return 1;
+    }
   }
   return 0;
 }
@@ -173,7 +184,9 @@ int main(int argc, char *argv[]) {
   // Prints 1 if thinker1 wins
   // Prints -1 if thinker2 wins
   for (const auto& fen : fens) {
+    // thinker1.clear_tt(); thinker2.clear_tt();
     std::cout << play(&thinker1, &thinker2, fen, nodeLimit, maxMoves) << std::endl;
+    // thinker1.clear_tt(); thinker2.clear_tt();
     std::cout << -play(&thinker2, &thinker1, fen, nodeLimit, maxMoves) << std::endl;
   }
 

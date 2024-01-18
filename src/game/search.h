@@ -501,7 +501,7 @@ static SearchResult<TURN> search(
   // We need to check this *after* we do the checkmate test above.
   if (thread->pos.is_fifty_move_rule()) {
     if (IS_PRINT_NODE) {
-      std::cout << "  end " << thread->pos.hash_ << " 50 move draw " << std::endl;
+      std::cout << "  end " << thread->pos.hash_ << " 50 move draw" << std::endl;
     }
     return SearchResult<TURN>(Evaluation(0), kNullMove);
   }
@@ -740,6 +740,51 @@ static void _search_with_aspiration_window(Thinker* thinker, std::vector<Thread>
 }
 
 template<Color TURN>
+bool _isCheckmate(Position *pos) {
+  ExtMove moves[256];
+  ExtMove *end = compute_legal_moves<TURN>(pos, moves);
+  if (moves != end) {
+    return false;
+  }
+  constexpr ColoredPiece moverKing = coloredPiece<TURN, Piece::KING>();
+  const bool inCheck = can_enemy_attack<TURN>(*pos, lsb(pos->pieceBitboards_[moverKing]));
+  return inCheck;
+}
+
+bool isCheckmate(Position *pos) {
+  if (pos->turn_ == Color::WHITE) {
+    return _isCheckmate<Color::WHITE>(pos);
+  } else {
+    return _isCheckmate<Color::BLACK>(pos);
+  }
+}
+
+template<Color TURN>
+bool _isStalemate(Position* pos, const Evaluator& evaluator) {
+  if (_isCheckmate<TURN>(pos)) {
+    return false;
+  }
+  if (pos->is_fifty_move_rule()) {
+    return true;
+  }
+  if (pos->is_3fold_repetition(0)) {
+    return true;
+  }
+  if (evaluator.is_material_draw(*pos)) {
+    return true;
+  }
+  return false;
+}
+
+bool isStalemate(Position *pos, const Evaluator& evaluator) {
+  if (pos->turn_ == Color::WHITE) {
+    return _isStalemate<Color::WHITE>(pos, evaluator);
+  } else {
+    return _isStalemate<Color::BLACK>(pos, evaluator);
+  }
+}
+
+template<Color TURN>
 static SearchResult<Color::WHITE> _search_fixed_depth(Thinker *thinker, const Position& pos, std::vector<Thread> *threadObjs, Depth depth) {
   if (pos.turn_ == Color::WHITE) {
     _search_with_aspiration_window<TURN>(thinker, threadObjs, depth);
@@ -829,6 +874,21 @@ static SearchResult<Color::WHITE> search(Thinker *thinker, const GoCommand& comm
   // It's important to call this at the beginning of a search, since if we're sharing Position (e.g. selfplay.cpp) we
   // need to recompute piece map scores using our own weights.
   copy.set_piece_maps(thinker->pieceMaps);
+
+  if (isCheckmate(&copy)) {
+    VariationHead<Color::WHITE> variation(kCheckmate, kNullMove, kNullMove);
+    callback(&copy, variation, 0, 0.0);
+    if (copy.turn_ == Color::WHITE) {
+      return SearchResult<Color::WHITE>(kCheckmate, kNullMove);
+    } else {
+      return SearchResult<Color::WHITE>(-kCheckmate, kNullMove);
+    }
+  }
+  if (isStalemate(&copy, thinker->evaluator)) {
+    VariationHead<Color::WHITE> variation(0, kNullMove, kNullMove);
+    callback(&copy, variation, 0, 0.0);
+    return SearchResult<Color::WHITE>(0, kNullMove);
+  }
 
   thinker->stopThinkingCondition->start_thinking(*thinker);
   thinker->clear_history_heuristic();

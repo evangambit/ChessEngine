@@ -53,7 +53,8 @@ class UciPlayer:
     else:
       self.command(f"position fen {fen} moves {' '.join(moves)}")
     if 'stockfish' not in self.name[0]:
-      self.command(f"go nodes {nodes}")
+      # self.command(f"go nodes {nodes}")
+      self.command("go depth 3")
     else:
       self.command(f"go nodes {self.name[1]}")
     lines = []
@@ -149,9 +150,9 @@ def create_fen_batch(n):
 if __name__ == '__main__':
   mp.set_start_method('spawn')
   t0 = time.time()
-  numWorkers = 8
+  numWorkers = 16
   batches = []
-  for i in range(0, 128, numWorkers):
+  for i in range(0, 2048, numWorkers):
     batches.append(create_fen_batch(numWorkers))
 
   R = []
