@@ -1,24 +1,9 @@
-/*
-
-g++ src/uci.cpp src/game/*.cpp src/protos/weights.pb.cc \
--std=c++20 \
--O3 \
--DNDEBUG \
--o uci  \
--lprotobuf \
--L /opt/homebrew/Cellar/protobuf/24.4/lib \
--L /opt/homebrew/Cellar/abseil/20230802.1/lib \
--I /opt/homebrew/Cellar/protobuf/24.4/include \
--I /opt/homebrew/Cellar/abseil/20230802.1/include \
--I src
-
-*/
-
 #import "game/search.h"
 #import "game/Position.h"
 #import "game/movegen.h"
 #import "game/utils.h"
 #import "game/string_utils.h"
+#import "game/Queue.h"
 
 #include <condition_variable>
 #include <deque>
@@ -141,9 +126,8 @@ struct UciEngineState {
   std::mutex mutex;
   std::condition_variable condVar;
 
-  std::deque<std::shared_ptr<Task>> taskQueue;
-  SpinLock taskQueueLock;
   std::shared_ptr<Task> currentTask;
+  Queue<Task> taskQueue;
 };
 
 class UnrecognizedCommandTask : public Task {
@@ -635,25 +619,6 @@ class GoTask : public Task {
   bool isRunning;
 };
 
-void wait_for_task(UciEngineState *state) {
-  state->taskQueueLock.lock();
-  if (state->taskQueue.size() > 0) {
-    state->taskQueueLock.unlock();
-    return;
-  }
-  state->taskQueueLock.unlock();
-  while (true) {
-    std::unique_lock<std::mutex> lock(state->mutex);
-    state->condVar.wait(lock);  // Wait for data
-    state->taskQueueLock.lock();
-    if (state->taskQueue.size() > 0) {
-      state->taskQueueLock.unlock();
-      return;
-    }
-    state->taskQueueLock.unlock();
-  }
-}
-
 struct UciEngine {
   UciEngineState state;
 
@@ -674,25 +639,15 @@ struct UciEngine {
 
     std::thread eventRunner([state]() {
       while (true) {
-        wait_for_task(state);
+        std::unique_lock<std::mutex> lock(state->mutex);
+        state->condVar.wait(lock);  // Wait for data
 
-        // Wait until not busy.
-        state->taskQueueLock.lock();
-        while (state->currentTask != nullptr && state->currentTask->is_running()) {
-          state->taskQueueLock.unlock();
-          std::unique_lock<std::mutex> lock(state->mutex);
-          state->condVar.wait(lock);  // Wait for data
-          state->taskQueueLock.lock();
+        if (state->currentTask != nullptr && state->currentTask->is_running()) {
+          continue;
         }
 
-        if (state->taskQueue.size() == 0) {
-          throw std::runtime_error("No task to enque");
-        }
-
-        state->currentTask = state->taskQueue.front();
-        state->taskQueue.pop_front();
+        state->currentTask = state->taskQueue.pop();
         state->currentTask->start(state);
-        state->taskQueueLock.unlock();
       }
     });
     while (true) {
@@ -730,43 +685,41 @@ struct UciEngine {
       }
     }
 
-    state->taskQueueLock.lock();
     if (parts[0] == "position") {
-      state->taskQueue.push_back(std::make_shared<PositionTask>(parts));
+      state->taskQueue.push(std::make_shared<PositionTask>(parts));
     } else if (parts[0] == "go") {
-      state->taskQueue.push_back(std::make_shared<GoTask>(parts));
+      state->taskQueue.push(std::make_shared<GoTask>(parts));
     } else if (parts[0] == "setoption") {
-      state->taskQueue.push_back(std::make_shared<SetOptionTask>(parts));
+      state->taskQueue.push(std::make_shared<SetOptionTask>(parts));
     } else if (parts[0] == "ucinewgame") {
-      state->taskQueue.push_back(std::make_shared<NewGameTask>());
+      state->taskQueue.push(std::make_shared<NewGameTask>());
     } else if (parts[0] == "stop") {
       // This runs immediately.
       StopTask task;
       task.start(state);
     } else if (parts[0] == "loadweights") {  // Custom commands below this line.
-      state->taskQueue.push_back(std::make_shared<LoadWeightsTask>(parts));
+      state->taskQueue.push(std::make_shared<LoadWeightsTask>(parts));
     } else if (parts[0] == "play") {
-      state->taskQueue.push_back(std::make_shared<PlayTask>(parts));
+      state->taskQueue.push(std::make_shared<PlayTask>(parts));
     } else if (parts[0] == "printoptions") {
-      state->taskQueue.push_back(std::make_shared<PrintOptionsTask>());
+      state->taskQueue.push(std::make_shared<PrintOptionsTask>());
     } else if (parts[0] == "move") {
-      state->taskQueue.push_back(std::make_shared<MoveTask>(parts));
+      state->taskQueue.push(std::make_shared<MoveTask>(parts));
     } else if (parts[0] == "eval") {
-      state->taskQueue.push_back(std::make_shared<EvalTask>(parts));
+      state->taskQueue.push(std::make_shared<EvalTask>(parts));
     } else if (parts[0] == "probe") {
-      state->taskQueue.push_back(std::make_shared<ProbeTask>(parts));
+      state->taskQueue.push(std::make_shared<ProbeTask>(parts));
     } else if (parts[0] == "hash") {
-      state->taskQueue.push_back(std::make_shared<HashTask>());
+      state->taskQueue.push(std::make_shared<HashTask>());
     } else if (parts[0] == "lazyquit") {
-      state->taskQueue.push_back(std::make_shared<QuitTask>());
+      state->taskQueue.push(std::make_shared<QuitTask>());
     } else if (parts[0] == "printfen") {
-      state->taskQueue.push_back(std::make_shared<PrintFenTask>());
+      state->taskQueue.push(std::make_shared<PrintFenTask>());
     } else if (parts[0] == "silence") {
-      state->taskQueue.push_back(std::make_shared<SilenceTask>(parts));
+      state->taskQueue.push(std::make_shared<SilenceTask>(parts));
     } else {
-      state->taskQueue.push_back(std::make_shared<UnrecognizedCommandTask>(parts));
+      state->taskQueue.push(std::make_shared<UnrecognizedCommandTask>(parts));
     }
-    state->taskQueueLock.unlock();
 
     std::unique_lock<std::mutex> lock(state->mutex);
     state->condVar.notify_one();
