@@ -857,9 +857,12 @@ static SearchResult<Color::WHITE> search(Thinker *thinker, const GoCommand& comm
     threadObjs.push_back(Thread(i, copy, thinker->evaluator, command.moves));
   }
 
+  std::vector<VariationHead<Color::WHITE>> lastVar;
+
   size_t depth;
   bool stoppedEarly = false;
   for (depth = 1; depth <= command.depthLimit; ++depth) {
+    lastVar = thinker->variations;
     if (copy.turn_ == Color::WHITE) {
       _search_fixed_depth<Color::WHITE>(thinker, copy, &threadObjs, Depth(depth));
     } else {
@@ -874,36 +877,10 @@ static SearchResult<Color::WHITE> search(Thinker *thinker, const GoCommand& comm
     callback(&copy, thinker->variations[0], depth, secs);
   }
 
-  // Before we return, we make one last pass through our children. This is important if our interrupted search has proven
-  // our old best move was terrible, but isn't done analyzing all its siblings yet.
-  // (+0.0869 ± 0.0160) after 256 games at 50,000 nodes/move
+  // We simply fall back on our previous search results if we are interrupted.
+  // (+0.3125 ± 0.0204) after 128 games at 100,000 nodes/move
   if (stoppedEarly) {
-    std::unique_ptr<StopThinkingCondition> foo = std::make_unique<NeverStopThinkingCondition>();
-    std::swap(thinker->stopThinkingCondition, foo);
-    if (copy.turn_ == Color::WHITE) {
-      search<Color::WHITE, SearchTypeRoot, false>(
-        thinker,
-        &threadObjs[0],
-        1,  // depth=1
-        0,
-        kMinEval,
-        kMaxEval,
-        RecommendedMoves(),
-        0
-      );
-    } else {
-      search<Color::BLACK, SearchTypeRoot, false>(
-        thinker,
-        &threadObjs[0],
-        1,  // depth=1
-        0,
-        kMinEval,
-        kMaxEval,
-        RecommendedMoves(),
-        0
-      );
-    }
-    std::swap(thinker->stopThinkingCondition, foo);
+    thinker->variations = lastVar;
     std::chrono::duration<double> delta = std::chrono::steady_clock::now() - tstart;
     const double secs = std::max(0.001, std::chrono::duration_cast<std::chrono::milliseconds>(delta).count() / 1000.0);
     callback(&copy, thinker->variations[0], depth, secs);
