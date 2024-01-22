@@ -192,17 +192,8 @@ class ProbeTask : public Task {
       throw std::runtime_error("Unexpected token \"" + command[0] + "\" in probe command");
     }
 
-    // state->thinker.get_variation(&query, kNullMove);
-
-    // if (isNullCacheResult(variation.first)) {
-    //   std::cout << "Cache result for " << query.fen() << " is missing" << std::endl;
-    // }
-    // std::cout << "[" << variation.first.lowerbound() << ", " << variation.first.upperbound() << "]";
-    // for (const auto& move : variation.second) {
-    //   std::cout << " " << move;
-    // }
-    // std::cout << " " << query.hash_;
-    // std::cout << std::endl;
+    CacheResult cr = state->thinker.cache.find<false>(query.hash_);
+    std::cout << cr << std::endl;
   }
  private:
   std::deque<std::string> command;
