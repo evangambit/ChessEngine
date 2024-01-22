@@ -24,10 +24,6 @@
 #define SIMPLE_SEARCH 0
 #endif
 
-#ifndef COMPLEX_SEARCH
-#define COMPLEX_SEARCH 0
-#endif
-
 namespace ChessEngine {
 
 struct GoCommand {
@@ -402,57 +398,6 @@ static SearchResult<TURN> search(
     }
     #endif
   }
-
-  // Futility pruning
-  //  nodes/position, gain from futility pruning
-  // 100_000, 0.0703 ± 0.0218
-  //
-  // Note that not having *any* depth limit for futility pruning is terrible. For example, if
-  // there is a line that loses a queen in one move but leads to forced mate in K ply, you won't
-  // find the forced mate until you search to (roughly) a depth of
-  // queenValue / futilityThreshold + K
-  // this is really bad when you factor in the expoential relationship between depth and time.
-  //
-  // A simple solution is to just require the engine to search to a *least* a given depth (say 7)
-  // when evaluating any position, but thinker seems hacky and we'd really like to have a strong
-  // engine that works well at any depth (e.g. when we're doing self-play at a shallow depth), so
-  // instead we increase the futility depth limit as a function of the total search depth.
-  // Increasing by 1 every depth falls into the same problem, so instead we decrease by 0.5 every
-  // depth. thinker should guarantee we find any mate-in-n-ply after searching 2*n ply.
-  //
-  // Also note that most people recommend giving a bonus when comparing against beta because we
-  // should be able to find a quiet move that improves our score. In our opinion thinker is bad
-  // because:
-  // 1) A good evaluation function should account for a tempo bonus (e.g. we give bonuses for
-  // hanging pieces)
-  // 2) We're not just pruning with depth = 1, so it's not even clear if we have a tempo
-  // advantage
-  // 3) If we're using a score from the transposition table, the previous search already looked
-  // at all of our moves.
-  #if COMPLEX_SEARCH
-  const int totalDepth = plyFromRoot + depthRemaining;
-  const int kFutilityPruningDepthLimit = totalDepth / 2;
-  const int32_t futilityThreshold = 100;
-  if (depthRemaining <= cr.depthRemaining + kFutilityPruningDepthLimit) {
-    const int delta = futilityThreshold * (depthRemaining - cr.depthRemaining);
-    if (cr.lowerbound() >= beta + delta || cr.upperbound() <= alpha - delta) {
-      if (IS_PRINT_NODE) {
-        std::cout << "  end " << thread->pos.hash_ << " futile1" << std::endl;
-      }
-      return SearchResult<TURN>(cr.eval, cr.bestMove);
-    }
-  }
-  if (isNullCacheResult(cr) && depthRemaining <= kFutilityPruningDepthLimit) {
-    SearchResult<TURN> r = qsearch<TURN>(thinker, thread, 0, plyFromRoot, alpha, beta);
-    const int32_t delta = futilityThreshold * depthRemaining;
-    if (r.score >= beta + delta || r.score <= alpha - delta) {
-      if (IS_PRINT_NODE) {
-        std::cout << "  end " << thread->pos.hash_ << " futile2" << std::endl;
-      }
-      return r;
-    }
-  }
-  #endif
 
   const bool inCheck = can_enemy_attack<TURN>(thread->pos, lsb(thread->pos.pieceBitboards_[moverKing]));
 
