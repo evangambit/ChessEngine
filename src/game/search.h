@@ -91,7 +91,6 @@ enum SearchType {
   SearchTypeRoot,
   SearchTypeNormal,
   SearchTypeNullWindow,
-  SearchTypeExtended,
 };
 
 constexpr int kQSimplePieceValues[7] = {
@@ -379,23 +378,6 @@ static SearchResult<TURN> search(
       // Quiescence Search
       // (+0.4453 ± 0.0072) after 256 games at 50,000 nodes/move
       SearchResult<TURN> r = qsearch<TURN>(thinker, thread, 0, plyFromRoot, alpha, beta);
-
-      // // Extensions
-      // // (0.0859 ± 0.0258) after 128 games at 100,000 nodes/move
-      // if (SEARCH_TYPE == SearchTypeNormal) {
-      //   if (r.score >= alpha && r.score <= beta) {
-      //     r = search<TURN, SearchTypeExtended, IS_PARALLEL>(
-      //       thinker,           // thinker
-      //       thread,
-      //       2,                 // depthRemaining
-      //       plyFromRoot,       // plyFromRoot
-      //       alpha,             // alpha
-      //       beta,              // beta
-      //       recommendedMoves,  // recommendedMoves
-      //       distFromPV         // distFromPV
-      //     );
-      //   }
-      // }
 
       if (IS_PRINT_NODE) {
         std::cout << "  end " << thread->pos.hash_ << " qsearch " << r << std::endl;
