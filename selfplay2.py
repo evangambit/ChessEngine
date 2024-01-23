@@ -53,8 +53,8 @@ class UciPlayer:
     else:
       self.command(f"position fen {fen} moves {' '.join(moves)}")
     if 'stockfish' not in self.name[0]:
-      # self.command(f"go nodes {nodes}")
-      self.command("go depth 3")
+      self.command(f"go nodes {nodes}")
+      # self.command("go depth 3")
     else:
       self.command(f"go nodes {self.name[1]}")
     lines = []
@@ -76,7 +76,7 @@ class UciPlayer:
     assert 'bestmove ' in lines[-1] # e.g. "bestmove h6h7 ponder a2a3"
     return lines[-1].split(' ')[1]
 
-def play(fen0, player1, player2, nodes = 100_000):
+def play(fen0, player1, player2, nodes = 50_000):
   player1.command("setoption name clear-tt")
   player2.command("setoption name clear-tt")
   isPlayer1White = ' w ' in fen0
@@ -150,16 +150,16 @@ def create_fen_batch(n):
 if __name__ == '__main__':
   mp.set_start_method('spawn')
   t0 = time.time()
-  numWorkers = 16
+  numWorkers = 8
   batches = []
-  for i in range(0, 2048, numWorkers):
+  for i in range(0, 512, numWorkers):
     batches.append(create_fen_batch(numWorkers))
 
   R = []
   with mp.Pool(numWorkers) as pool:
     for batch in tqdm(batches):
       try:
-        r = pool.map_async(thread_main, batch).get(timeout=30)
+        r = pool.map_async(thread_main, batch).get(timeout=60)
         R += r
       except mp.context.TimeoutError:
         print('timeout')

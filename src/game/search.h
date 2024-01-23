@@ -20,6 +20,10 @@
 #include "movegen/sliding.h"
 #include "Evaluator.h"
 
+#ifndef COMPLEX_SEARCH
+#define COMPLEX_SEARCH 0
+#endif
+
 #ifndef SIMPLE_SEARCH
 #define SIMPLE_SEARCH 0
 #endif
@@ -87,6 +91,7 @@ enum SearchType {
   SearchTypeRoot,
   SearchTypeNormal,
   SearchTypeNullWindow,
+  SearchTypeExtended,
 };
 
 constexpr int kQSimplePieceValues[7] = {
@@ -332,7 +337,7 @@ static SearchResult<TURN> search(
 
   CacheResult cr = thinker->cache.find<IS_PARALLEL>(thread->pos.hash_);
   // Short-circuiting due to a cached result.
-  // (+0.0254 ± 0.0148) after 256 games at 50,000 nodes/move
+  // 0.0729 ± 0.0109 after 512 games at 50,000 nodes/move
   if (!(SEARCH_TYPE == SearchTypeRoot && thread->id == 0)) {
     // It's important that the root node of thread 0 not short-circuit here
     // so that thinker->variations is properly set.
@@ -372,7 +377,7 @@ static SearchResult<TURN> search(
     #else
     {
       // Quiescence Search
-      // (+0.4453 ± 0.0072) after 256 games at 50,000 nodes/move
+      // 0.4814 ± 0.0035 after 512 games at 50,000 nodes/move
       SearchResult<TURN> r = qsearch<TURN>(thinker, thread, 0, plyFromRoot, alpha, beta);
 
       if (IS_PRINT_NODE) {
@@ -400,6 +405,22 @@ static SearchResult<TURN> search(
   }
 
   const bool inCheck = can_enemy_attack<TURN>(thread->pos, lsb(thread->pos.pieceBitboards_[moverKing]));
+
+  #if COMPLEX_SEARCH
+  if (!isNullCacheResult(cr)) {
+    // 0.0444 ± 0.0119 after 512 games at 50,000 nodes/move
+    const int32_t futilityThreshold = 100;
+    if (depthRemaining <= cr.depthRemaining + 1) {
+      if (int32_t(cr.lowerbound()) >= beta + futilityThreshold || int32_t(cr.upperbound()) <= alpha - futilityThreshold) {
+        if (IS_PRINT_NODE) {
+          std::cout << "  end " << thread->pos.hash_ << " futile1" << std::endl;
+        }
+        return SearchResult<TURN>(cr.eval, cr.bestMove);
+      }
+    }
+    // TODO: if we have no cached result, use qsearch?
+  }
+  #endif COMPLEX_SEARCH
 
   Move lastFoundBestMove = (isNullCacheResult(cr) ? kNullMove : cr.bestMove);
 
