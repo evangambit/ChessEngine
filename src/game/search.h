@@ -420,7 +420,7 @@ static SearchResult<TURN> search(
     }
     // TODO: if we have no cached result, use qsearch?
   }
-  #endif COMPLEX_SEARCH
+  #endif  // COMPLEX_SEARCH
 
   Move lastFoundBestMove = (isNullCacheResult(cr) ? kNullMove : cr.bestMove);
 
