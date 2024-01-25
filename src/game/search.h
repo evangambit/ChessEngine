@@ -380,6 +380,12 @@ static SearchResult<TURN> search(
       // 0.4814 ± 0.0035 after 512 games at 50,000 nodes/move
       SearchResult<TURN> r = qsearch<TURN>(thinker, thread, 0, plyFromRoot, alpha, beta);
 
+      // Search Extensions
+      // 0.0293 ± 0.0116 after 512 games at 50,000 nodes/move
+      if (SEARCH_TYPE != SearchTypeExtended && r.score > alpha && r.score < beta) {
+        r = search<TURN, SearchTypeExtended, IS_PARALLEL>(thinker, thread, 2, plyFromRoot, alpha, beta, recommendedMoves, distFromPV);
+      }
+
       if (IS_PRINT_NODE) {
         std::cout << "  end " << thread->pos.hash_ << " qsearch " << r << std::endl;
       }
@@ -487,7 +493,7 @@ static SearchResult<TURN> search(
 
     #if !SIMPLE_SEARCH
       // Bonus if siblings like a move.
-      // (+0.0144 ± 0.0074) after 1024 games at 50,000 nodes/move
+      // (+0.0343 ± 0.0117) after 512 games at 50,000 nodes/move
       move->score += value_or_zero(move->move == recommendedMoves.moves[0], 50);
       move->score += value_or_zero(move->move == recommendedMoves.moves[1], 50);
 
@@ -569,6 +575,9 @@ static SearchResult<TURN> search(
       #else
         a = flip(search<opposingColor, kChildSearchType, IS_PARALLEL>(thinker, thread, depthRemaining - 1, plyFromRoot + 1, -beta, -alpha, recommendationsForChildren, distFromPV + (extMove != moves)));
       #endif
+
+      a.score -= (a.score > -kQLongestForcedMate);
+      a.score += (a.score <  kQLongestForcedMate);
 
       if (IS_PARALLEL) {
         thinker->_manager.finished_searching(thread->pos.hash_);
