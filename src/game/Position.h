@@ -84,6 +84,7 @@ void initialize_zorbrist();
 class Position {
  public:
   Position() : turn_(Color::WHITE), pieceMaps_(&kZeroPieceMap) {
+    this->turn_ = Color::WHITE;
     this->_empty_();
   };
   Position(const std::string& fen);

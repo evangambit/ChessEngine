@@ -7,6 +7,8 @@
 
 #include "movegen/bishops.h"
 #include "movegen/rooks.h"
+#include "movegen/knights.h"
+#include "movegen/kings.h"
 
 namespace ChessEngine {
 
