@@ -243,6 +243,7 @@ class EvalTask : public Task {
       return;
     }
     Evaluator& evaluator = state->thinker.evaluator;
+    state->pos.set_piece_maps(state->thinker.pieceMaps);
     if (state->pos.turn_ == Color::WHITE) {
       std::cout << evaluator.score<Color::WHITE>(state->pos) << std::endl;
     } else {
@@ -251,6 +252,9 @@ class EvalTask : public Task {
     if (command.size() > 1 && command.at(1) == "vec") {
       for (int i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
         std::cout << evaluator.features[i] << "  // " << EFSTR[i] << std::endl;
+      }
+      for (int i = 0; i < PieceMapType::PieceMapTypeCount; ++i) {
+        std::cout << state->pos.pieceMapScores[i] << "  // piece map" << std::endl;
       }
     }
   }

@@ -44,7 +44,6 @@ struct PieceMaps {
   void load_weights_from_file(std::ifstream &myfile) {
     std::string line;
     std::vector<std::string> params;
-
     for (size_t k = 0; k < PieceMapType::PieceMapTypeCount; ++k) {
       for (size_t i = NO_COLORED_PIECE; i <= WHITE_KING; ++i) {
         getline(myfile, line);
@@ -62,8 +61,11 @@ struct PieceMaps {
             if (i >= ColoredPiece::BLACK_PAWN) {
               continue;
             }
-            pieceMaps[i * 64 + y * 8 + x][k] = stoi(parts[x]);
-            pieceMaps[(i + ColoredPiece::BLACK_PAWN - ColoredPiece::WHITE_PAWN) * 64 + (7 - y) * 8 + x][k] = -stoi(parts[x]);
+            int val = stoi(parts[x]);
+            pieceMaps[i * 64 + y * 8 + x][k] = val;
+            if (i != ColoredPiece::NO_COLORED_PIECE) {
+              pieceMaps[(i + ColoredPiece::BLACK_PAWN - ColoredPiece::WHITE_PAWN) * 64 + (7 - y) * 8 + x][k] = -val;
+            }
           }
         }
       }

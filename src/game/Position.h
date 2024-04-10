@@ -138,13 +138,15 @@ class Position {
 
   inline void increment_piece_map(ColoredPiece cp, Square sq) {
     int32_t const *w = pieceMaps_->weights(cp, sq);
-    pieceMapScores[0] += w[0];
-    pieceMapScores[1] += w[1];
+    for (int i = 0; i < PieceMapType::PieceMapTypeCount; ++i) {
+      pieceMapScores[i] += w[i];
+    }
   }
   inline void decrement_piece_map(ColoredPiece cp, Square sq) {
     int32_t const *w = pieceMaps_->weights(cp, sq);
-    pieceMapScores[0] -= w[0];
-    pieceMapScores[1] -= w[1];
+    for (int i = 0; i < PieceMapType::PieceMapTypeCount; ++i) {
+      pieceMapScores[i] -= w[i];
+    }
   }
 
   void assert_valid_state() const;
@@ -350,34 +352,6 @@ void make_move(Position *pos, Move move) {
   const ColoredPiece promoPiece = move.moveType == MoveType::PROMOTION ? coloredPiece<TURN>(Piece(move.promotion + 2)) : movingPiece;
   constexpr Color opposingColor = opposite_color<TURN>();
   const ColoredPiece capturedPiece = pos->tiles_[move.to];
-
-  #ifndef NDEBUG
-  if (pos->turn_ != TURN) {
-    gDebugPos = new Position(*pos);
-    std::cout << "=== " << move.uci() << " ===" << std::endl;
-    throw std::runtime_error("make_move a");
-  }
-  if (cp2color(promoPiece) != TURN) {
-    gDebugPos = new Position(*pos);
-    std::cout << "=== " << move.uci() << " ===" << std::endl;
-    throw std::runtime_error("make_move b");
-  }
-  if (movingPiece == ColoredPiece::NO_COLORED_PIECE) {
-    gDebugPos = new Position(*pos);
-    std::cout << "=== " << move.uci() << " ===" << std::endl;
-    throw std::runtime_error("make_move c");
-  }
-  if (cp2color(movingPiece) != TURN) {
-    gDebugPos = new Position(*pos);
-    std::cout << "=== " << move.uci() << " ===" << std::endl;
-    throw std::runtime_error("make_move d");
-  }
-  if (cp2color(capturedPiece) == TURN) {
-    gDebugPos = new Position(*pos);
-    std::cout << "=== " << move.uci() << " ===" << std::endl;
-    throw std::runtime_error("make_move e");
-  }
-  #endif
 
   const Location f = square2location(move.from);
   const Location t = square2location(move.to);
