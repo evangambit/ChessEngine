@@ -557,23 +557,14 @@ class GoTask : public Task {
       GoTask::_print_variations(state, depth, secs);
     });
 
-    if (state->pos.turn_ == Color::WHITE) {
-      make_move<Color::WHITE>(&state->pos, result.move);
-    } else {
-      make_move<Color::BLACK>(&state->pos, result.move);
+    if (state->thinker.variations.size() > 0) {
+      VariationHead<Color::WHITE> head = state->thinker.variations[0];
+      std::cout << "bestmove " << head.move;
+      if (head.response != kNullMove) {
+        std::cout << " ponder " << head.response;
+      }
+      std::cout << std::endl;
     }
-    CacheResult cr = state->thinker.cache.find<false>(state->pos.hash_);
-    if (state->pos.turn_ == Color::WHITE) {
-      undo<Color::BLACK>(&state->pos);
-    } else {
-      undo<Color::WHITE>(&state->pos);
-    }
-
-    std::cout << "bestmove " << result.move;
-    if (!isNullCacheResult(cr)) {
-      std::cout << " ponder " << cr.bestMove;
-    }
-    std::cout << std::endl;
 
     *isRunning = false;
 
@@ -590,7 +581,12 @@ class GoTask : public Task {
     const uint64_t timeMs = secs * 1000;
     std::vector<VariationHead<Color::WHITE>> variations = state->thinker.variations;
     if (variations.size() == 0) {
-      throw std::runtime_error("No variations found!");
+      if (isStalemate(&state->pos, state->thinker.evaluator)) {
+        std::cout << "info depth 0 score cp 0" << std::endl;
+        return;
+      } else {
+        throw std::runtime_error("todo");
+      }
     }
     const int32_t pawnValue = state->thinker.evaluator.pawnValue();
     for (size_t i = 0; i < std::min(multiPV, variations.size()); ++i) {

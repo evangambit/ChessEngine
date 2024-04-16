@@ -31,17 +31,24 @@ Thinker thinker2;
 
 bool make_move(Thinker *thinker, Position *pos, size_t nodeLimit) {
 
+  // Do a preliminary search at depth=1 to guarantee a result.
   GoCommand goCommand;
   goCommand.pos = *pos;
-  goCommand.nodeLimit = nodeLimit;
-  goCommand.depthLimit = 32;
+  goCommand.depthLimit = 1;
   goCommand.moves = compute_legal_moves_set(pos);
   SearchResult<Color::WHITE> results = search(thinker, goCommand, nullptr, [](Position *position, VariationHead<Color::WHITE> results, size_t depth, double secs) {});
 
-  std::cout << results.move << " " << std::flush;
+  // Do the "real" search with the given node limit.
+  goCommand.nodeLimit = nodeLimit;
+  goCommand.depthLimit = 32;
+  results = search(thinker, goCommand, nullptr, [](Position *position, VariationHead<Color::WHITE> results, size_t depth, double secs) {});
 
   if (results.move == kNullMove) {
     return false;
+  }
+  if (goCommand.moves.count(results.move.uci()) == 0) {
+    std::cout << "\"" << results.move.uci() << "\" not a legal move" << std::endl;
+    exit(1);
   }
   if (pos->turn_ == Color::WHITE) {
     make_move<Color::WHITE>(pos, results.move);
@@ -109,19 +116,15 @@ int play(Thinker *thinkerWhite, Thinker *thinkerBlack, const std::string& fen, c
     throw std::runtime_error("missing black king");
   }
   if (pos.history_.size() >= maxMoves) {
-    std::cout << "1/2-1/2" << std::endl;
     return 0;
   }
   if (isStalemate(&pos, thinkerWhite->evaluator)) {
-    std::cout << "1/2-1/2" << std::endl;
     return 0;
   }
   if (isCheckmate(&pos)) {
     if (pos.turn_ == Color::WHITE) {
-      std::cout << "0-1" << std::endl;
       return -1;
     } else {
-      std::cout << "1-0" << std::endl;
       return 1;
     }
   }

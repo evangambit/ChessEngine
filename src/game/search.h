@@ -748,6 +748,17 @@ bool _isStalemate(Position* pos, const Evaluator& evaluator) {
   if (evaluator.is_material_draw(*pos)) {
     return true;
   }
+
+  ExtMove moves[kMaxNumMoves];
+  ExtMove *end;
+  if (pos->turn_ == Color::WHITE) {
+    end = compute_legal_moves<Color::WHITE>(pos, moves);
+  } else {
+    end = compute_legal_moves<Color::BLACK>(pos, moves);
+  }
+  if (moves == end) {
+    return true;
+  }
   return false;
 }
 
@@ -761,17 +772,22 @@ bool isStalemate(Position *pos, const Evaluator& evaluator) {
 
 template<Color TURN>
 static SearchResult<Color::WHITE> _search_fixed_depth(Thinker *thinker, const Position& pos, std::vector<Thread> *threadObjs, Depth depth) {
+  if (_isCheckmate<TURN>(&((*threadObjs)[0].pos))) {
+    return to_white(SearchResult<TURN>(kCheckmate, kNullMove));
+  }
   if (pos.turn_ == Color::WHITE) {
     _search_with_aspiration_window<TURN>(thinker, threadObjs, depth);
   } else {
     _search_with_aspiration_window<TURN>(thinker, threadObjs, depth);
   }
 
-  CacheResult cr = thinker->cache.find<false>(pos.hash_);
-  if (isNullCacheResult(cr)) {
+  if (thinker->variations.size() == 0) {
     throw std::runtime_error("Null result from search");
   }
-  return to_white(SearchResult<TURN>(cr.eval, cr.bestMove));
+  VariationHead<Color::WHITE> pv = thinker->variations[0];
+
+
+  return to_white(SearchResult<TURN>(pv.score, pv.move));
 }
 
 struct StopThinkingNodeCountCondition : public StopThinkingCondition {
@@ -849,6 +865,8 @@ static SearchResult<Color::WHITE> search(Thinker *thinker, const GoCommand& comm
   // It's important to call this at the beginning of a search, since if we're sharing Position (e.g. selfplay.cpp) we
   // need to recompute piece map scores using our own weights.
   copy.set_piece_maps(thinker->pieceMaps);
+
+  thinker->variations.clear();
 
   if (isCheckmate(&copy)) {
     VariationHead<Color::WHITE> variation(kCheckmate, kNullMove, kNullMove);
