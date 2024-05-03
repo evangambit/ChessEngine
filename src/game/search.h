@@ -413,18 +413,22 @@ static SearchResult<TURN> search(
   const bool inCheck = can_enemy_attack<TURN>(thread->pos, lsb(thread->pos.pieceBitboards_[moverKing]));
 
   #if COMPLEX_SEARCH
-  if (!isNullCacheResult(cr)) {
-    // 0.0444 ± 0.0119 after 512 games at 50,000 nodes/move
-    const int32_t futilityThreshold = 100;
-    if (depthRemaining <= cr.depthRemaining + 1) {
+  if (depthRemaining == 1) {
+    const int32_t futilityThreshold = 150;
+    if (!isNullCacheResult(cr)) {
+      // 0.3633 ± 0.0294 after 64 games at 100,000 nodes/move
       if (int32_t(cr.lowerbound()) >= beta + futilityThreshold || int32_t(cr.upperbound()) <= alpha - futilityThreshold) {
         if (IS_PRINT_NODE) {
           std::cout << "  end " << thread->pos.hash_ << " futile1" << std::endl;
         }
-        return SearchResult<TURN>(cr.eval, cr.bestMove);
+        return SearchResult<TURN>(std::max<int32_t>(alpha, std::min<int32_t>(beta, cr.eval)), cr.bestMove);
+      }
+    } else {
+      SearchResult<TURN> r = qsearch<TURN>(thinker, thread, 0, plyFromRoot, alpha, beta);
+      if (int32_t(r.score) >= beta + futilityThreshold || int32_t(r.score) <= alpha - futilityThreshold) {
+        return SearchResult<TURN>(std::max<int32_t>(alpha, std::min<int32_t>(beta, r.score)), r.move);
       }
     }
-    // TODO: if we have no cached result, use qsearch?
   }
   #endif  // COMPLEX_SEARCH
 
