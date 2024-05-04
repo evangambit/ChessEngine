@@ -14,11 +14,12 @@ g++ src/uci.cpp src/game/*.cpp src/protos/weights.pb.cc \
 
 */
 
-#import "game/search.h"
-#import "game/Position.h"
-#import "game/movegen.h"
-#import "game/utils.h"
-#import "game/string_utils.h"
+#include "game/search.h"
+#include "game/Position.h"
+#include "game/movegen.h"
+#include "game/utils.h"
+#include "game/string_utils.h"
+#include "game/SquareEmbeddings.h"
 
 #include <condition_variable>
 #include <deque>
