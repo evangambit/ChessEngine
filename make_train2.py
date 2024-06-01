@@ -30,170 +30,132 @@ ESTR = [
   "THEIR_BISHOPS",
   "THEIR_ROOKS",
   "THEIR_QUEENS",
-  # "IN_CHECK",
-  # "KING_ON_BACK_RANK",
-  # "KING_ON_CENTER_FILE",
-  # "KING_ACTIVE",
-  # "THREATS_NEAR_KING_2",
-  # "THREATS_NEAR_KING_3",
-  # "PASSED_PAWNS",
-  # "ISOLATED_PAWNS",
-  # "DOUBLED_PAWNS",
-  # "DOUBLE_ISOLATED_PAWNS",
-  # "PAWNS_CENTER_16",
-  # "PAWNS_CENTER_4",
-  # "ADVANCED_PASSED_PAWNS_2",
-  # "ADVANCED_PASSED_PAWNS_3",
-  # "ADVANCED_PASSED_PAWNS_4",
-  # "PAWN_MINOR_CAPTURES",
-  # "PAWN_MAJOR_CAPTURES",
-  # "PROTECTED_PAWNS",
-  # "PROTECTED_PASSED_PAWNS",
-  # "BISHOPS_DEVELOPED",
-  # "BISHOP_PAIR",
-  # "BLOCKADED_BISHOPS",
-  # "SCARY_BISHOPS",
-  # "SCARIER_BISHOPS",
-  # "BLOCKADED_ROOKS",
-  # "SCARY_ROOKS",
-  # "INFILTRATING_ROOKS",
-  # "KNIGHTS_DEVELOPED",
-  # "KNIGHT_MAJOR_CAPTURES",
-  # "KNIGHTS_CENTER_16",
-  # "KNIGHTS_CENTER_4",
-  # "KNIGHT_ON_ENEMY_SIDE",
-  # "OUR_HANGING_PAWNS",
-  # "OUR_HANGING_KNIGHTS",
-  # "OUR_HANGING_BISHOPS",
-  # "OUR_HANGING_ROOKS",
-  # "OUR_HANGING_QUEENS",
-  # "THEIR_HANGING_PAWNS",
-  # "THEIR_HANGING_KNIGHTS",
-  # "THEIR_HANGING_BISHOPS",
-  # "THEIR_HANGING_ROOKS",
-  # "THEIR_HANGING_QUEENS",
-  # "LONELY_KING_IN_CENTER",
-  # "LONELY_KING_AWAY_FROM_ENEMY_KING",
-  # "TIME",
-  # "KPVK_OPPOSITION",
-  # "SQUARE_RULE",
-  # "ADVANCED_PAWNS_1",
-  # "ADVANCED_PAWNS_2",
-  # "OPEN_ROOKS",
-  # "ROOKS_ON_THEIR_SIDE",
-  # "KING_IN_FRONT_OF_PASSED_PAWN",
-  # "KING_IN_FRONT_OF_PASSED_PAWN2",
-  # "OUR_MATERIAL_THREATS",
-  # "THEIR_MATERIAL_THREATS",
-  # "LONELY_KING_ON_EDGE",
-  # "OUTPOSTED_KNIGHTS",
-  # "OUTPOSTED_BISHOPS",
-  # "PAWN_MOVES",
-  # "KNIGHT_MOVES",
-  # "BISHOP_MOVES",
-  # "ROOK_MOVES",
-  # "QUEEN_MOVES",
-  # "PAWN_MOVES_ON_THEIR_SIDE",
-  # "KNIGHT_MOVES_ON_THEIR_SIDE",
-  # "BISHOP_MOVES_ON_THEIR_SIDE",
-  # "ROOK_MOVES_ON_THEIR_SIDE",
-  # "QUEEN_MOVES_ON_THEIR_SIDE",
-  # "KING_HOME_QUALITY",
-  # "BISHOPS_BLOCKING_KNIGHTS",
-  # "OUR_HANGING_PAWNS_2",
-  # "OUR_HANGING_KNIGHTS_2",
-  # "OUR_HANGING_BISHOPS_2",
-  # "OUR_HANGING_ROOKS_2",
-  # "OUR_HANGING_QUEENS_2",
-  # "THEIR_HANGING_PAWNS_2",
-  # "THEIR_HANGING_KNIGHTS_2",
-  # "THEIR_HANGING_BISHOPS_2",
-  # "THEIR_HANGING_ROOKS_2",
-  # "THEIR_HANGING_QUEENS_2",
-  # "QUEEN_THREATS_NEAR_KING",
-  # "MISSING_FIANCHETTO_BISHOP",
-  # "NUM_BAD_SQUARES_FOR_PAWNS",
-  # "NUM_BAD_SQUARES_FOR_MINORS",
-  # "NUM_BAD_SQUARES_FOR_ROOKS",
-  # "NUM_BAD_SQUARES_FOR_QUEENS",
-  # "IN_TRIVIAL_CHECK",
-  # "IN_DOUBLE_CHECK",
-  # "THREATS_NEAR_OUR_KING",
-  # "THREATS_NEAR_THEIR_KING",
-  # "NUM_PIECES_HARRASSABLE_BY_PAWNS",
-  # "PAWN_CHECKS",
-  # "KNIGHT_CHECKS",
-  # "BISHOP_CHECKS",
-  # "ROOK_CHECKS",
-  # "QUEEN_CHECKS",
-  # "BACK_RANK_MATE_THREAT_AGAINST_US",
-  # "BACK_RANK_MATE_THREAT_AGAINST_THEM",
-  # "OUR_KING_HAS_0_ESCAPE_SQUARES",
-  # "THEIR_KING_HAS_0_ESCAPE_SQUARES",
-  # "OUR_KING_HAS_1_ESCAPE_SQUARES",
-  # "THEIR_KING_HAS_1_ESCAPE_SQUARES",
-  # "OUR_KING_HAS_2_ESCAPE_SQUARES",
-  # "THEIR_KING_HAS_2_ESCAPE_SQUARES",
-  # "OPPOSITE_SIDE_KINGS_PAWN_STORM",
-  # "IN_CHECK_AND_OUR_HANING_QUEENS",
-  # "PROMOTABLE_PAWN",
-  # "THEIR_HANGING_PAWNS_MODERN",
-  # "THEIR_HANGING_KNIGHTS_MODERN",
-  # "THEIR_HANGING_BISHOPS_MODERN",
-  # "THEIR_HANGING_ROOKS_MODERN",
-  # "THEIR_HANGING_QUEENS_MODERN",
-
-  "TIME",
-  "CENTER_CONTROL",
-  "DOMINATION",
-  "BACK_RANK_CONTROL",
-  "FREEDOM",
-  "KING_HOME_QUALITY",
-  "OUR_HANGING_PAWNS",
-  "THEIR_HANGING_PAWNS",
-  "OUR_HANGING_KNIGHTS",
-  "THEIR_HANGING_KNIGHTS",
-  "OUR_HANGING_BISHOPS",
-  "THEIR_HANGING_BISHOPS",
-  "OUR_HANGING_ROOKS",
-  "THEIR_HANGING_ROOKS",
-  "OUR_HANGING_QUEENS",
-  "THEIR_HANGING_QUEENS",
-  "OUR_HANGING_PAWNS_2",
-  "THEIR_HANGING_PAWNS_2",
-  "OUR_HANGING_KNIGHTS_2",
-  "THEIR_HANGING_KNIGHTS_2",
-  "OUR_HANGING_BISHOPS_2",
-  "THEIR_HANGING_BISHOPS_2",
-  "OUR_HANGING_ROOKS_2",
-  "THEIR_HANGING_ROOKS_2",
-  "OUR_HANGING_QUEENS_2",
-  "THEIR_HANGING_QUEENS_2",
-  "PASSED_PAWN_PROGRESS",
-  "PASSED_PAWN_KING_DIST",
-  "KING_ACTIVE",
+  "IN_CHECK",
   "KING_ON_BACK_RANK",
   "KING_ON_CENTER_FILE",
+  "KING_ACTIVE",
   "THREATS_NEAR_KING_2",
   "THREATS_NEAR_KING_3",
+  "PASSED_PAWNS",
+  "ISOLATED_PAWNS",
+  "DOUBLED_PAWNS",
+  "DOUBLE_ISOLATED_PAWNS",
+  "PAWNS_CENTER_16",
+  "PAWNS_CENTER_4",
+  "ADVANCED_PASSED_PAWNS_2",
+  "ADVANCED_PASSED_PAWNS_3",
+  "ADVANCED_PASSED_PAWNS_4",
+  "PAWN_MINOR_CAPTURES",
+  "PAWN_MAJOR_CAPTURES",
+  "PROTECTED_PAWNS",
+  "PROTECTED_PASSED_PAWNS",
+  "BISHOPS_DEVELOPED",
+  "BISHOP_PAIR",
+  "BLOCKADED_BISHOPS",
+  "SCARY_BISHOPS",
+  "SCARIER_BISHOPS",
+  "BLOCKADED_ROOKS",
+  "SCARY_ROOKS",
+  "INFILTRATING_ROOKS",
+  "KNIGHTS_DEVELOPED",
+  "KNIGHT_MAJOR_CAPTURES",
+  "KNIGHTS_CENTER_16",
+  "KNIGHTS_CENTER_4",
+  "KNIGHT_ON_ENEMY_SIDE",
+  "OUR_HANGING_PAWNS",
+  "OUR_HANGING_KNIGHTS",
+  "OUR_HANGING_BISHOPS",
+  "OUR_HANGING_ROOKS",
+  "OUR_HANGING_QUEENS",
+  "THEIR_HANGING_PAWNS",
+  "THEIR_HANGING_KNIGHTS",
+  "THEIR_HANGING_BISHOPS",
+  "THEIR_HANGING_ROOKS",
+  "THEIR_HANGING_QUEENS",
+  "LONELY_KING_IN_CENTER",
+  "LONELY_KING_AWAY_FROM_ENEMY_KING",
+  "TIME",
+  "KPVK_OPPOSITION",
+  "SQUARE_RULE",
+  "ADVANCED_PAWNS_1",
+  "ADVANCED_PAWNS_2",
+  "OPEN_ROOKS",
+  "ROOKS_ON_THEIR_SIDE",
+  "KING_IN_FRONT_OF_PASSED_PAWN",
+  "KING_IN_FRONT_OF_PASSED_PAWN2",
+  "OUR_MATERIAL_THREATS",
+  "THEIR_MATERIAL_THREATS",
+  "LONELY_KING_ON_EDGE",
+  "OUTPOSTED_KNIGHTS",
+  "OUTPOSTED_BISHOPS",
+  "PAWN_MOVES",
+  "KNIGHT_MOVES",
+  "BISHOP_MOVES",
+  "ROOK_MOVES",
+  "QUEEN_MOVES",
+  "PAWN_MOVES_ON_THEIR_SIDE",
+  "KNIGHT_MOVES_ON_THEIR_SIDE",
+  "BISHOP_MOVES_ON_THEIR_SIDE",
+  "ROOK_MOVES_ON_THEIR_SIDE",
+  "QUEEN_MOVES_ON_THEIR_SIDE",
+  "KING_HOME_QUALITY",
+  "BISHOPS_BLOCKING_KNIGHTS",
+  "OUR_HANGING_PAWNS_2",
+  "OUR_HANGING_KNIGHTS_2",
+  "OUR_HANGING_BISHOPS_2",
+  "OUR_HANGING_ROOKS_2",
+  "OUR_HANGING_QUEENS_2",
+  "THEIR_HANGING_PAWNS_2",
+  "THEIR_HANGING_KNIGHTS_2",
+  "THEIR_HANGING_BISHOPS_2",
+  "THEIR_HANGING_ROOKS_2",
+  "THEIR_HANGING_QUEENS_2",
   "QUEEN_THREATS_NEAR_KING",
+  "MISSING_FIANCHETTO_BISHOP",
+  "NUM_BAD_SQUARES_FOR_PAWNS",
+  "NUM_BAD_SQUARES_FOR_MINORS",
+  "NUM_BAD_SQUARES_FOR_ROOKS",
+  "NUM_BAD_SQUARES_FOR_QUEENS",
+  "IN_TRIVIAL_CHECK",
+  "IN_DOUBLE_CHECK",
   "THREATS_NEAR_OUR_KING",
   "THREATS_NEAR_THEIR_KING",
-  "KNOWN_DRAW",
-  "SPECIAL",
-  "BISHOP_PAIR",
-  "OPEN_ROOKS",
+  "NUM_PIECES_HARRASSABLE_BY_PAWNS",
+  "PAWN_CHECKS",
+  "KNIGHT_CHECKS",
+  "BISHOP_CHECKS",
+  "ROOK_CHECKS",
+  "QUEEN_CHECKS",
+  "BACK_RANK_MATE_THREAT_AGAINST_US",
+  "BACK_RANK_MATE_THREAT_AGAINST_THEM",
+  "OUR_KING_HAS_0_ESCAPE_SQUARES",
+  "THEIR_KING_HAS_0_ESCAPE_SQUARES",
+  "OUR_KING_HAS_1_ESCAPE_SQUARES",
+  "THEIR_KING_HAS_1_ESCAPE_SQUARES",
+  "OUR_KING_HAS_2_ESCAPE_SQUARES",
+  "THEIR_KING_HAS_2_ESCAPE_SQUARES",
+  "OPPOSITE_SIDE_KINGS_PAWN_STORM",
+  "IN_CHECK_AND_OUR_HANING_QUEENS",
+  "PROMOTABLE_PAWN",
 ]
 
 def sql_inserter(resultQueue, args):
   conn = sqlite3.connect("db.sqlite3")
   c = conn.cursor()
   c.execute(f"""CREATE TABLE IF NOT EXISTS {get_table_name(args)} (
-    fen BLOB,
-    moverWin INTEGER,
-    moverDraw INTEGER,
-    moverLose INTEGER,
-    moverEval STRING
+    fen STRING,
+    Move1 STRING,
+    MoverScore1 INTEGER,
+    Move1IsCapture INTEGER,
+    Move2 STRING,
+    MoverScore2 INTEGER,
+    Move2IsCapture INTEGER,
+    Move3 STRING,
+    MoverScore3 INTEGER,
+    Move3IsCapture INTEGER,
+    Move4 STRING,
+    MoverScore4 INTEGER,
+    Move4IsCapture INTEGER
   );""")
 
   fens = set()
@@ -213,13 +175,26 @@ def sql_inserter(resultQueue, args):
     fens.add(result["fen"])
 
     c.execute(f"""INSERT INTO {get_table_name(args)}
-      (fen, moverWin, moverDraw, moverLose, moverEval)
-      VALUES (?, ?, ?, ?, ?)""", (
+      (fen,
+      Move1, MoverScore1, Move1IsCapture,
+      Move2, MoverScore2, Move2IsCapture,
+      Move3, MoverScore3, Move3IsCapture,
+      Move4, MoverScore4, Move4IsCapture
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", (
       result["fen"],
-      result["moverWin"],
-      result["moverDraw"],
-      result["moverLose"],
-      json.dumps(result["moverEval"]),
+      result["Move1"],
+      result["MoverScore1"],
+      result["Move1IsCapture"],
+      result["Move2"],
+      result["MoverScore2"],
+      result["Move2IsCapture"],
+      result["Move3"],
+      result["MoverScore3"],
+      result["Move3IsCapture"],
+      result["Move4"],
+      result["MoverScore4"],
+      result["Move4IsCapture"],
     ))
 
     numInserted += 1
@@ -239,12 +214,16 @@ def eval2score(e, clip):
   assert isinstance(e[1], int)
   if e[0] == 'mate':
     return sign(e[1]) * clip
-  return e[1]
+  return max(-clip, min(clip, e[1]))
+
+def is_capture(fen, uci_move):
+  board = chess.Board(fen)
+  move = chess.Move.from_uci(uci_move)
+  return board.is_capture(move)
 
 def analyzer(fenQueue, resultQueue, args):
     stockfish = UciPlayer(path=args.stockpath)
-    stockfish.set_multipv(2)
-    stockfish.setoption('UCI_ShowWDL', 'true')
+    stockfish.set_multipv(4)
     while True:
         fen = fenQueue.get()
 
@@ -257,35 +236,36 @@ def analyzer(fenQueue, resultQueue, args):
           moves = stockfish.go(fen=fen, depth=args.depth)
         except KeyboardInterrupt:
           stockfish = UciPlayer(path=args.stockpath)
-          stockfish.set_multipv(2)
-          stockfish.setoption('UCI_ShowWDL', 'true')
+          stockfish.set_multipv(4)
           continue
 
-        if len(moves) < 2:
+        if len(moves) < 4:
           continue
 
-        if 'score' not in moves[0]:
-          print('****' * 9)
-          print(fen)
-          print('****' * 9)
+        moves[0]['score'] = eval2score(moves[0]['score'], clip=1000)
+        moves[1]['score'] = eval2score(moves[1]['score'], clip=1000)
+        moves[2]['score'] = eval2score(moves[2]['score'], clip=1000)
+        moves[3]['score'] = eval2score(moves[3]['score'], clip=1000)
 
-        moves[0]['score'] = moves[0]['score']
-        moves[1]['score'] = moves[1]['score']
-
+        # We've already searched this position... might as well insert it. We can filter afterwards.
         # Skip not-quiet moves.
-        if abs(eval2score(moves[0]['score'], clip=1000) - eval2score(moves[1]['score'], clip=1000)) > 100:
-          continue
-
-        board = chess.Board(fen)
-
-        bestmove = moves[0]['pv'][0]
+        # if abs(eval2score(moves[0]['score'], clip=1000) - eval2score(moves[1]['score'], clip=1000)) > 100:
+        #   continue
 
         resultQueue.put({
           "fen": fen,
-          "moverWin": moves[0]['wdl'][0],
-          "moverDraw": moves[0]['wdl'][1],
-          "moverLose": moves[0]['wdl'][2],
-          "moverEval": moves[0]['score'],
+          "Move1": moves[0]['pv'][0],
+          "MoverScore1": moves[0]['score'],
+          "Move1IsCapture": is_capture(fen, moves[0]['pv'][0]),
+          "Move2": moves[1]['pv'][0],
+          "MoverScore2": moves[1]['score'],
+          "Move2IsCapture": is_capture(fen, moves[1]['pv'][0]),
+          "Move3": moves[2]['pv'][0],
+          "MoverScore3": moves[2]['score'],
+          "Move3IsCapture": is_capture(fen, moves[2]['pv'][0]),
+          "Move4": moves[3]['pv'][0],
+          "MoverScore4": moves[3]['score'],
+          "Move4IsCapture": is_capture(fen, moves[3]['pv'][0]),
         })
 
 def pgn_iterator(noise, downsample):
@@ -329,22 +309,31 @@ if __name__ == '__main__':
   parser.add_argument("--threads", type=int, default=10)
   parser.add_argument("--stockpath", default="/usr/local/bin/stockfish", type=str)
   parser.add_argument("--downsample", type=int, default=50, help="{1, 2, ..}")
+  parser.add_argument("--include_tables", type=int, default=0, help="{0, 1}")
+  parser.add_argument("--analysis", type=str, default='')
+  parser.add_argument("--filter_range", type=int, default=300, help="9999 to disable")
+  parser.add_argument("--filter_quiet1", type=int, default=50, help="9999 to disable")
+  parser.add_argument("--filter_quiet2", type=int, default=50, help="9999 to disable")
+  parser.add_argument("--filter_quiet3", type=int, default=50, help="9999 to disable")
   args = parser.parse_args()
 
   assert args.stage in ['positions', 'vectors']
   assert args.noise >= 0
   assert args.depth > 1
+  if args.analysis != '':
+    args.analysis += f'_{args.filter_range}_{args.filter_quiet1}_{args.filter_quiet2}_{args.filter_quiet3}.txt'
 
   if args.stage == 'positions':
-    # generate work
     fenQueue = Queue()
     resultQueue = Queue()
 
-    conn = sqlite3.connect("db.sqlite3")
-    c = conn.cursor()
-    c.execute(f"""SELECT fen FROM {get_table_name(args)}""")
-    fens = set([x[0] for x in c.fetchall()])
-    conn.close()
+    try:
+      with sqlite3.connect("db.sqlite3") as conn:
+        c = conn.cursor()
+        c.execute(f"""SELECT fen FROM {get_table_name(args)}""")
+        fens = set([x[0] for x in c.fetchall()])
+    except sqlite3.OperationalError:
+      fens = set()
 
     analyzers = [Process(target=analyzer, args=(fenQueue, resultQueue, args)) for _ in range(args.threads)]
     for p in analyzers:
@@ -362,10 +351,20 @@ if __name__ == '__main__':
   else:  # vectors
     conn = sqlite3.connect("db.sqlite3")
     c = conn.cursor()
-    c.execute(f"""SELECT fen, moverEval FROM {get_table_name(args)}""")
+    c.execute(f"""SELECT fen, MoverScore1 FROM {get_table_name(args)}
+      WHERE
+          MoverScore1 < MoverScore2 + {args.filter_quiet1}
+      AND MoverScore1 < MoverScore3 + {args.filter_quiet2}
+      AND MoverScore1 < MoverScore4 + {args.filter_quiet3}
+      AND MoverScore1 > -{args.filter_range}
+      AND MoverScore1 < {args.filter_range}
+      AND Move1IsCapture = 0
+    """)
     rows = c.fetchall()
     fens = [row[0] for row in rows]
     evals = [row[1] for row in rows]
+
+    print('Found %i positions' % len(fens))
 
     # Remove duplicates
     A, B = [], []
@@ -380,9 +379,12 @@ if __name__ == '__main__':
 
     with open('/tmp/fens.txt', 'w') as f:
       f.write('\n'.join(fens))
-    os.system("sh build.sh src/main.cpp -o main -DSquareControl && ./main mode printvec-cpu fens /tmp/fens.txt > /tmp/vecs.txt")
+    # os.system("sh build.sh src/main.cpp -o main && ./main mode printvec-cpu fens /tmp/fens.txt > /tmp/vecs.txt")
+    os.system("./main mode printvec-cpu fens /tmp/fens.txt > /tmp/vecs.txt")
 
-    os.system("sh build.sh src/make_tables.cpp -o make_tables -DSquareControl && ./make_tables")
+    if args.include_tables:
+      # os.system("sh build.sh src/make_tables.cpp -o make_tables && ./make_tables")
+      os.system("./make_tables /tmp/fens.txt > /tmp/tables.txt")
 
     with open('/tmp/vecs.txt', 'r') as f:
       lines = f.read().split('\n')
@@ -402,7 +404,7 @@ if __name__ == '__main__':
         line = [0] * X[-1].shape[0]
       F.append(fen)
       X.append(np.array(line, dtype=np.int16))
-      Y.append(eval2score(json.loads(evals[i]), clip=1000))
+      Y.append(evals[i])
 
     good_indices = np.array(good_indices)
 
@@ -414,78 +416,59 @@ if __name__ == '__main__':
     np.save('X.npy', X)
     np.save('Y.npy', Y)
 
-    good = (np.abs(Y) < 300)
-    X, Y, F = X[good], Y[good], F[good]
+    if args.analysis == '':
+      exit(0)
 
-    thq = X[:, ESTR.index('THEIR_HANGING_QUEENS')].reshape(-1, 1)
-    thr = X[:, ESTR.index('THEIR_HANGING_ROOKS')].reshape(-1, 1)
-    thb = X[:, ESTR.index('THEIR_HANGING_BISHOPS')].reshape(-1, 1)
-    thn = X[:, ESTR.index('THEIR_HANGING_KNIGHTS')].reshape(-1, 1)
-
-    thq2 = X[:, ESTR.index('THEIR_HANGING_QUEENS_2')].reshape(-1, 1)
-    thr2 = X[:, ESTR.index('THEIR_HANGING_ROOKS_2')].reshape(-1, 1)
-    thb2 = X[:, ESTR.index('THEIR_HANGING_BISHOPS_2')].reshape(-1, 1)
-    thn2 = X[:, ESTR.index('THEIR_HANGING_KNIGHTS_2')].reshape(-1, 1)
-
-    ohq = X[:, ESTR.index('OUR_HANGING_QUEENS')].reshape(-1, 1)
-    ohr = X[:, ESTR.index('OUR_HANGING_ROOKS')].reshape(-1, 1)
-    ohb = X[:, ESTR.index('OUR_HANGING_BISHOPS')].reshape(-1, 1)
-    ohn = X[:, ESTR.index('OUR_HANGING_KNIGHTS')].reshape(-1, 1)
-
-    ohq2 = X[:, ESTR.index('OUR_HANGING_QUEENS_2')].reshape(-1, 1)
-    ohr2 = X[:, ESTR.index('OUR_HANGING_ROOKS_2')].reshape(-1, 1)
-    ohb2 = X[:, ESTR.index('OUR_HANGING_BISHOPS_2')].reshape(-1, 1)
-    ohn2 = X[:, ESTR.index('OUR_HANGING_KNIGHTS_2')].reshape(-1, 1)
-
-    def npmax(*args):
-      r = np.maximum(args[0], args[1])
-      for arg in args[2:]:
-        r = np.maximum(r, arg)
-      return r
-
-    Z = np.concatenate([
-      X,
-      # TODO: why doesn't "4r2k/6pp/3KQq2/p2P4/6P1/8/8/2R3R1 b - - 5 34" count as OUR_HANGING_QUEENS?
-      # Answer: bc we use "isHanging = threats.theirTargets & ~threats.ourTargets & pos.colorBitboards_[US]"
-      # which is not very good for a queen
-    ], 1)
+    # TODO: why doesn't "4r2k/6pp/3KQq2/p2P4/6P1/8/8/2R3R1 b - - 5 34" count as OUR_HANGING_QUEENS?
+    # Answer: bc we use "isHanging = threats.theirTargets & ~threats.ourTargets & pos.colorBitboards_[US]"
+    # which is not very good for a queen
 
     time = (X[:,ESTR.index('TIME')].clip(0, 18) / 18).reshape(-1, 1)
-    Xlate = Z * time
-    Xearly = Z * (1.0 - time)
+    Xlate = X * time
+    Xearly = X * (1.0 - time)
     Ylate = Y * time.squeeze()
     Yearly = Y * (1.0 - time.squeeze())
-
     wEarly = np.linalg.lstsq(Xearly, Yearly, rcond=0.001)[0]
     wLate = np.linalg.lstsq(Xlate, Ylate, rcond=0.001)[0]
-
     Yhat = Xearly @ wEarly + Xlate @ wLate
 
-    # for i in range(wEarly.shape[0]):
-    #   print(
-    #     ('%.1f' % wEarly[i]).rjust(8),
-    #     ('%.1f' % wLate[i]).rjust(8),
-    #     ESTR[i]
-    #   )
+    if args.include_tables:
+      Rearly = (Yearly - Xearly @ wEarly)
+      Rlate = (Ylate - Xlate @ wLate)
 
-    for i in range(wEarly.shape[0]):
-      print(f"early += features[{ESTR[i]}] * {int(round(wEarly[i] * 4))} / 4;")
+      tables = np.frombuffer(open('/tmp/tables.txt', 'rb').read(), dtype=np.int8) - 49
+      tables = tables.reshape(-1, 7 * 64)
+      tables = tables[good_indices]
+      np.save('tables.npy', tables)
 
-    for i in range(wEarly.shape[0]):
-      print(f"late += features[{ESTR[i]}] * {int(round(wLate[i] * 4))} / 4;")
+      # Naive estimate of piece square tables
+      T = []
+      n = tables.shape[0]
+      for R, t in [(Rearly, (1.0 - time)), (Rlate, time)]:
+        regularizer = 0.001
+        tt = tables * t
+        tt = tt - tt.mean(0)
+        R = R - R.mean(0)
+        cov = tt[:n].T @ tt[:n]
+        icov = np.linalg.inv(cov + np.eye(cov.shape[0]) * regularizer)
+        w = np.linalg.multi_dot([icov, tt[:n].T, R[:n]])
+        T.append(w.reshape(7, 8, 8))
+      T = np.concatenate(T, 0)
+    else:
+      T = np.zeros((14, 8, 8))
 
-    I = np.argsort(-np.abs(Yhat - Y))
+    s = 100.0 / wEarly[0]
+    text = ""
+    for k, w in zip(['early', 'late', 'clipped'], [wEarly, wLate, np.zeros(wEarly.shape)]):
+      text += ('%i' % 0).rjust(7) + f'  // {k} bias\n'
+      for i, varname in enumerate(ESTR):
+        text += ('%i' % round(float(w[i]) * s)).rjust(7) + f'  // {k} {varname}\n'
 
-    Rearly = (Yearly - Xearly @ wEarly)
-    Rlate = (Ylate - Xlate @ wLate)
+    for i in range(14):
+      text += f'// {"?PNBRQK?PNBRQK"[i]}\n'
+      for j in range(8):
+        text += '    ' + ' '.join([str(round(x * s)).rjust(6) for x in T[i, j]]) + '\n'
 
-    tables = np.frombuffer(open('/tmp/tables.txt', 'rb').read(), dtype=np.uint8)
-    tables = tables.reshape(-1, 7 * 64)
-    tables = tables[good_indices]
-    np.save('tables.npy', tables)
-
-    # Naive estimate of piece square tables
-    for R in [Rearly, Rlate]:
-      t = (((R - R.mean()) / R.std()).reshape((1, -1)) @ (tables / (tables.std(0) + 0.1))).reshape((7, 8, 8)) / tables.shape[0]
-      t *= R.std() / ((tables.std(0) + 0.1).reshape(t.shape) + 1e-6)
+    with open(args.analysis, 'w+') as f:
+      f.write(text)
 
