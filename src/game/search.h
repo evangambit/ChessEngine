@@ -33,7 +33,7 @@ namespace ChessEngine {
 struct GoCommand {
   GoCommand()
   : depthLimit(100), nodeLimit(-1), timeLimitMs(-1),
-  wtimeMs(-1), btimeMs(-1), wIncrementMs(0), bIncrementMs(0), movesUntilTimeControl(-1) {}
+  wtimeMs(0), btimeMs(0), wIncrementMs(0), bIncrementMs(0), movesUntilTimeControl(-1) {}
 
   Position pos;
 
@@ -864,9 +864,17 @@ static SearchResult<Color::WHITE> search(Thinker *thinker, const GoCommand& comm
 
   thinker->nodeCounter = 0;
 
+  uint64_t timeLimitMs = command.timeLimitMs;
+
+  const uint64_t increment = command.pos.turn_ == Color::WHITE ? command.wIncrementMs : command.bIncrementMs;
+  const uint64_t timeRemaining = (command.pos.turn_ == Color::WHITE ? command.wtimeMs : command.btimeMs) + increment;
+  if (timeRemaining != 0) {
+    timeLimitMs = increment + timeRemaining / 20;
+  }
+
   thinker->stopThinkingCondition = std::make_unique<OrStopCondition>(
     std::make_shared<StopThinkingNodeCountCondition>(command.nodeLimit),
-    std::make_shared<StopThinkingTimeCondition>(command.timeLimitMs),
+    std::make_shared<StopThinkingTimeCondition>(timeLimitMs),
     condition
   );
 
