@@ -274,7 +274,7 @@ static SearchResult<TURN> search(
   Thread *thread,
   const Depth depthRemaining,
   const Depth plyFromRoot,
-  Evaluation alpha, const Evaluation beta,
+  Evaluation alpha, Evaluation beta,
   RecommendedMoves recommendedMoves,
   uint16_t distFromPV) {
 
@@ -346,8 +346,15 @@ static SearchResult<TURN> search(
         if (IS_PRINT_NODE) {
           std::cout << "  end " << thread->pos.hash_ << " cached " << cr << std::endl;
         }
-        return SearchResult<TURN>(cr.eval, cr.bestMove);
+        return SearchResult<TURN>(std::max(alpha, std::min(beta, cr.eval)), cr.bestMove);
       }
+
+      // Adjust alpha/beta based on cached value. This helps us achieve more cuts and avoid returning
+      // scores we know are wrong. We don't want to do this for root nodes since a partially-searched
+      // root node could return a terrible move.
+      // 0.1553 ± 0.0128 after 512 games at 50,000 nodes/move
+      alpha = std::max(alpha, cr.lowerbound());
+      beta = std::min(beta, cr.upperbound());
     }
   }
 
