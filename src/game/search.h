@@ -601,21 +601,26 @@ static SearchResult<TURN> search(
       r.analysisComplete &= a.analysisComplete;
 
       if (SEARCH_TYPE == SearchTypeRoot) {
-        children.push_back(VariationHead<TURN>(a.score, extMove->move, a.move));
-        a.move = extMove->move;
-        std::sort(
-          children.begin(),
-          children.end(),
-          [](VariationHead<TURN> a, VariationHead<TURN> b) -> bool {
-            return a.score > b.score;
-        });
-        if (a.score > r.score) {
-          r.score = a.score;
-          r.move = extMove->move;
-          recommendationsForChildren.add(a.move);
-        }
-        if (children.size() >= thinker->multiPV) {
-          alpha = std::max(alpha, children[thinker->multiPV - 1].score);
+        if (children.size() < thinker->multiPV || children.back().score < a.score) {
+          children.push_back(VariationHead<TURN>(a.score, extMove->move, a.move));
+          a.move = extMove->move;
+          std::stable_sort(
+            children.begin(),
+            children.end(),
+            [](VariationHead<TURN> a, VariationHead<TURN> b) -> bool {
+              return a.score > b.score;
+          });
+          if (children.size() > thinker->multiPV) {
+            children.pop_back();
+          }
+          if (a.score > r.score) {
+            r.score = a.score;
+            r.move = extMove->move;
+            recommendationsForChildren.add(a.move);
+          }
+          if (children.size() >= thinker->multiPV) {
+            alpha = std::max(alpha, children[thinker->multiPV - 1].score);
+          }
         }
       } else {
         if (a.score > r.score) {
