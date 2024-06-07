@@ -19,7 +19,6 @@ g++ src/uci.cpp src/game/*.cpp src/protos/weights.pb.cc \
 #include "game/movegen.h"
 #include "game/utils.h"
 #include "game/string_utils.h"
-#include "game/SquareEmbeddings.h"
 
 #include <condition_variable>
 #include <deque>

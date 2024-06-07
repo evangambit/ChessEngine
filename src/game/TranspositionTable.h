@@ -1,8 +1,8 @@
 #ifndef TRANSPOSITION_TABLE_H
 #define TRANSPOSITION_TABLE_H
 
-#import "utils.h"
-#import "Position.h"
+#include "utils.h"
+#include "Position.h"
 
 namespace ChessEngine {
 
