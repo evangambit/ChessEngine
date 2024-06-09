@@ -1,9 +1,3 @@
-// Production:
-// g++ src/selfplay.cpp src/game/*.cpp -std=c++20 -O3 -DNDEBUG -o selfplay -o selfplay
-// 
-// Debug:
-// g++ src/selfplay.cpp src/game/*.cpp -std=c++20 -std=c++20 -rdynamic -g1 -o selfplay
-
 #include <cassert>
 #include <cstdint>
 #include <ctime>

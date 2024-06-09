@@ -1,5 +1,3 @@
-// g++ src/tests/static_exchange.cpp src/game/*.cpp -std=c++20 -I/opt/homebrew/Cellar/googletest/1.14.0/include -L/opt/homebrew/Cellar/googletest/1.14.0/lib -lgtest -o static_exchange_tests
-
 #include "gtest/gtest.h"
 
 #include <cassert>

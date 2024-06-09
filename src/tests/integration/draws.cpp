@@ -1,5 +1,3 @@
-// g++ src/tests/draws.cpp src/game/geometry.cpp src/game/utils.cpp src/game/Position.cpp src/game/piece_maps.cpp src/game/kpvk.cpp -std=c++20 -I/opt/homebrew/Cellar/googletest/1.14.0/include -L/opt/homebrew/Cellar/googletest/1.14.0/lib -lgtest -o test
-
 #include "gtest/gtest.h"
 
 #include <cassert>

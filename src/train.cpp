@@ -1,9 +1,3 @@
-// Production:
-// g++ src/main.cpp src/game/*.cpp -std=c++20 -O3 -DNDEBUG -o main
-// 
-// Debug:
-// g++ src/main.cpp src/game/*.cpp -std=c++20 -rdynamic -g1
-//
 // To Generate train.txt
 // ./a.out mode printvec fens eval.txt > ./train.txt
 //

@@ -1,5 +1,3 @@
-// clang++ src/tests/position.cpp src/game/Position.cpp src/game/piece_maps.cpp src/game/utils.cpp src/game/geometry.cpp -I/opt/homebrew/Cellar/googletest/1.14.0/include -std=c++20 -L/opt/homebrew/Cellar/googletest/1.14.0/lib -lgtest && ./a.out
-
 #include "gtest/gtest.h"
 
 #include <cassert>
