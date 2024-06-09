@@ -47,6 +47,7 @@ uint64_t perft(std::string fen, uint16_t depth) {
   }
 }
 
+// Positions taken from https://www.chessprogramming.org/Perft_Results
 
 TEST(Perft, InitialPosition) {
   ASSERT_EQ(perft("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", 1), 20);
