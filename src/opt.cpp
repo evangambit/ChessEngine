@@ -1,4 +1,4 @@
-// g++ src/opt.cpp src/game/*.cpp -std=c++20 -O3 -DNDEBUG -o opt
+// sqlite3 db.sqlite3 "select * from make_train2_d6_n0 limit 5;" > training_data.txt
 
 #include <cassert>
 #include <cstdint>
@@ -32,121 +32,118 @@ int64_t elapsed_ms(std::chrono::time_point<std::chrono::steady_clock> start, std
   return std::chrono::duration_cast<std::chrono::milliseconds>(delta).count();
 }
 
-double sigmoid(double x) {
-  x /= 200.0;
-  return 1.0 / (1.0 + std::exp(-x));
-}
-
-enum BoundType {
-  LOWER,
-  UPPER,
-  EXACT
-};
-
-struct SimpleCacheResult {
-  uint64_t hash;
-  Evaluation eval;
-  Move bestMove;
-  Depth depth;
-  BoundType boundType;
-};
-
-constexpr uint64_t kSimpleCacheSize = 8192;
-struct SimpleSearchThread : public Thread {
-  SimpleSearchThread(uint64_t id, const Position& pos, const Evaluator& e, const std::unordered_set<std::string>& moves)
-  : Thread(id, pos, e, moves) {
-    this->reset_cache();
-  }
-  SimpleCacheResult cache[kSimpleCacheSize];
-  void reset_cache() {
-    for (uint64_t i = 0; i < kSimpleCacheSize; ++i) {
-      cache[i].bestMove = kNullMove;
-      cache[i].depth = 0;
-    }
-  }
+struct Result {
+  std::vector<std::pair<Evaluation, std::string>> pvs;
 };
 
 template<Color TURN>
-static SearchResult<TURN> simple_search(
-  Thinker *thinker,
-  SimpleSearchThread *thread,
-  const Depth depthRemaining,
-  const Depth plyFromRoot,
-  Evaluation alpha,
+Evaluation simple_qsearch(
+  Position *position,
+  Evaluator *evaluator,
+  const Depth depth,
+  Evaluation alpha, 
   Evaluation beta) {
-  if (depthRemaining == 0) {
-    return qsearch<TURN>(thinker, thread, 0, plyFromRoot, alpha, beta);
+  
+  if (std::popcount(position->pieceBitboards_[coloredPiece<TURN, Piece::KING>()]) == 0) {
+    return alpha;
   }
+
+  const bool lookAtChecksToo = depth < 2;
+
+  constexpr Color opposingColor = opposite_color<TURN>();
+  constexpr ColoredPiece moverKing = coloredPiece<TURN, Piece::KING>();
+  const bool inCheck = can_enemy_attack<TURN>(*position, lsb(position->pieceBitboards_[moverKing]));
+
+  ExtMove moves[kMaxNumMoves];
+  ExtMove *end;
+  if (lookAtChecksToo) {
+    end = compute_moves<TURN, MoveGenType::CHECKS_AND_CAPTURES>(*position, moves);
+  } else {
+    end = compute_moves<TURN, MoveGenType::CAPTURES>(*position, moves);
+  }
+
+  if (moves == end && inCheck) {
+    return std::max<Evaluation>(kQCheckmate + depth, alpha);
+  }
+
+  for (ExtMove *move = moves; move < end; ++move) {
+    move->score = kMoveOrderPieceValues[move->capture];
+    move->score -= kMoveOrderPieceValues[move->piece];
+    move->score += (move->capture != Piece::NO_PIECE) * 1000;
+  }
+  std::sort(moves, end, [](ExtMove a, ExtMove b) {
+    return a.score > b.score;
+  });
+
+  Evaluation e = evaluator->score<TURN>(*position);
+  if (e >= beta) {
+    return beta;
+  }
+  alpha = std::max(alpha, e);
+
+  for (ExtMove *move = moves; move < end; ++move) {
+    make_move<TURN>(position, move->move);
+    Evaluation child = -simple_qsearch<opposingColor>(position, evaluator, depth + 1, -beta, -alpha);
+    undo<TURN>(position);
+
+    child -= (child > -kQLongestForcedMate);
+    child += (child <  kQLongestForcedMate);
+
+    if (child > alpha) {
+      alpha = child;
+      if (alpha >= beta) {
+        return beta;
+      }
+    }
+  }
+
+
+  return alpha;
+}
+
+template<Color TURN>
+static void simple_search(
+  Position *position,
+  Evaluator *evaluator,
+  Result *result,
+  int multiPV) {
 
   constexpr Color opposingColor = opposite_color<TURN>();
   constexpr ColoredPiece moverKing = coloredPiece<TURN, Piece::KING>();
 
   ExtMove moves[kMaxNumMoves];
-  ExtMove *movesEnd;
-  if (plyFromRoot == 0) {
-    movesEnd = compute_legal_moves<TURN>(&thread->pos, moves);
-  } else {
-    movesEnd = compute_moves<TURN, MoveGenType::ALL_MOVES>(thread->pos, moves);
-  }
-
-  if (movesEnd - moves == 0) {
-    const bool inCheck = can_enemy_attack<TURN>(thread->pos, lsb(thread->pos.pieceBitboards_[moverKing]));
-    if (inCheck) {
-      return SearchResult<TURN>(kCheckmate + plyFromRoot, kNullMove);
-    } else {
-      return SearchResult<TURN>(Evaluation(0), kNullMove);
-    }
-  }
-
-  SimpleCacheResult& cr = thread->cache[thread->pos.hash_ % kSimpleCacheSize];
-  if (cr.depth >= depthRemaining && cr.hash == thread->pos.hash_) {
-    return SearchResult<TURN>(cr.eval, cr.bestMove);
-  }
+  ExtMove *movesEnd = compute_legal_moves<TURN>(position, moves);
 
   for (ExtMove *move = moves; move < movesEnd; ++move) {
     move->score = kMoveOrderPieceValues[move->capture];
     move->score -= kMoveOrderPieceValues[move->piece];
-    if (move->move == cr.bestMove) {
-      move->score += 9999;
-    }
+    move->score += (move->capture != Piece::NO_PIECE) * 1000;
   }
-
-  // avg=10.6166 std=0.1013 val=185 delta=0 nodes=31120k 8539ms
-  // avg=10.6166 std=0.1013 val=185 delta=0 nodes=31139k 8628ms
-
   std::sort(moves, movesEnd, [](ExtMove a, ExtMove b) {
     return a.score > b.score;
   });
 
-  SearchResult<TURN> r(
-    kMinEval + 1,
-    kNullMove
-  );
+  const Evaluation beta = kMaxEval;
+  Evaluation alpha = kMinEval;
+
+  result->pvs.clear();
 
   for (ExtMove *move = moves; move < movesEnd; ++move) {
-    make_move<TURN>(&thread->pos, move->move);
-    SearchResult<TURN> a = flip(
-      simple_search<opposingColor>(thinker, thread, depthRemaining - 1, plyFromRoot + 1, -beta, -alpha)
-    );
-    undo<TURN>(&thread->pos);
-    if (a.score > r.score) {
-      r.score = a.score;
-      r.move = move->move;
-      alpha = std::max(alpha, a.score);
-      if (a.score >= beta) {
-        break;
-      }
+    make_move<TURN>(position, move->move);
+    Evaluation a = -simple_qsearch<opposingColor>(position, evaluator, 0, -beta, -alpha);
+    undo<TURN>(position);
+
+    result->pvs.push_back(std::make_pair(a, move->move.uci()));
+    if (result->pvs.size() > multiPV) {
+      std::sort(result->pvs.begin(), result->pvs.end(), [](std::pair<Evaluation, std::string> a, std::pair<Evaluation, std::string> b) {
+        return a.first > b.first;
+      });
+      result->pvs.pop_back();
+    }
+    if (result->pvs.size() >= multiPV) {
+      alpha = result->pvs.back().first;
     }
   }
-
-  if (depthRemaining > cr.depth) {
-    cr.eval = r.score;
-    cr.bestMove = r.move;
-    cr.depth = depthRemaining;
-    cr.hash = thread->pos.hash_;
-  }
-
-  return r;
 }
 
 struct Datapoint {
@@ -155,77 +152,6 @@ struct Datapoint {
   std::vector<Evaluation> evals;
 };
 
-struct Result {
-  double avgCpLoss;
-  double stdCpLoss;
-  uint64_t numNodes;
-};
-
-template<Color TURN>
-std::string evaluate(SimpleSearchThread *threadObj, Thinker *thinker, int depth) {
-  SearchResult<TURN> result = simple_search<TURN>(
-    thinker,
-    threadObj,
-    1,
-    0,
-    kMinEval,
-    kMaxEval
-  );
-  if (depth > 1) {
-    result = simple_search<TURN>(
-      thinker,
-      threadObj,
-      depth,
-      0,
-      kMinEval,
-      kMaxEval
-    );
-  }
-  return result.move.uci();
-}
-
-Result evaluate(Thinker *thinker, const std::vector<Datapoint>& datapoints, int depth) {
-  double num1 = 0.0;
-  double num2 = 0.0;
-  double den = 0.0;
-  uint64_t nodes = 0;
-  for (const auto& datapoint : datapoints) {
-    Position pos(datapoint.fen);
-    SimpleSearchThread threadObj(0, pos, thinker->evaluator, compute_legal_moves_set(&pos));
-
-    std::string bestPredictedMove;
-    if (pos.turn_ == Color::WHITE) {
-      bestPredictedMove = evaluate<Color::WHITE>(&threadObj, thinker, depth);
-    } else {
-      bestPredictedMove = evaluate<Color::BLACK>(&threadObj, thinker, depth);
-    }
-
-    nodes += threadObj.nodeCounter;
-
-    auto it = std::find(datapoint.ucis.begin(), datapoint.ucis.end(), bestPredictedMove);
-    double delta;
-    if (it != datapoint.ucis.end()) {
-      delta = sigmoid(datapoint.evals[0]) - sigmoid(datapoint.evals[it - datapoint.ucis.begin()]);
-    } else {
-      delta = sigmoid(datapoint.evals[0]) - sigmoid(datapoint.evals[datapoint.evals.size() - 1]);
-    }
-    num1 += delta;
-    num2 += delta * delta;
-    den += 1.0;
-  }
-
-  double avg = num1 / den;
-  double stdev = std::sqrt(num2 / den - avg * avg);
-  stdev /= std::sqrt(datapoints.size());
-
-  return Result{
-    avg * 100.0,
-    stdev * 100.0,
-    nodes
-  };
-}
-
-// ./opt $depth $idx delta1 delta2 ...
 int main(int argc, char *argv[]) {
   initialize_geometry();
   initialize_zorbrist();
@@ -236,8 +162,13 @@ int main(int argc, char *argv[]) {
     args.push_back(argv[i]);
   }
 
+  if (args.size() != 3) {
+    throw std::runtime_error("Usage: opt <train.txt> <weights.txt> <SampleSize>");
+  }
+  const int sampleSize = std::stoi(args[2]);
+
   std::ifstream myfile;
-  myfile.open("train.txt");
+  myfile.open(args[0]);
   if (!myfile.is_open()) {
     std::cout << "Failed to open file" << std::endl;
     return 1;
@@ -248,44 +179,75 @@ int main(int argc, char *argv[]) {
   std::string line;
   getline(myfile, line);
   while (line.size() > 0) {
-    std::vector<std::string> parts = split(line, ':');
-    if (parts.size() != 2) {
-      throw std::runtime_error("weird line \"" + line + "\"");
-    }
+    std::vector<std::string> parts = split(line, '|');
 
     datapoints.push_back(Datapoint{});
     Datapoint& datapoint = datapoints.back();
     datapoint.fen = parts[0];
-    parts = split(parts[1], ' ');
 
-    for (size_t i = 0; i < parts.size(); i += 2) {
+    for (size_t i = 1; i < parts.size(); i += 3) {
       datapoint.ucis.push_back(parts[i + 0]);
       datapoint.evals.push_back(std::stoi(parts[i + 1]));
+      // parts[i + 2] is "isCapture"
     }
 
-    if (datapoints.size() >= 100'000) {
+    if (datapoints.size() >= sampleSize) {
       break;
     }
 
     getline(myfile, line);
   }
 
-  Thinker thinker;
-  thinker.load_weights_from_file("weights.txt");
-  int depth = std::stoi(argv[1]);
-  int idx = std::stoi(argv[2]);
-  const int oldValue = thinker.evaluator.earlyW[idx];
-
-  for (int i = 3; i < argc; ++i) {
-    int delta = std::stoi(argv[i]);
-    thinker.evaluator.earlyW[idx] = oldValue + delta;
-
-    auto t0 = current_time();
-    auto e = evaluate(&thinker, datapoints, depth);
-    auto t1 = current_time();
-
-    printf("avg=%.4f std=%.4f val=%i delta=%i nodes=%lluk %llums\n", e.avgCpLoss, e.stdCpLoss, oldValue + delta, delta, e.numNodes / 1000, elapsed_ms(t0, t1));
+  Evaluator evaluator;
+  PieceMaps pieceMaps;
+  {
+    std::ifstream f;
+    f.open(args[1]);
+    if (!f.is_open()) {
+      std::cout << "Failed to open file" << std::endl;
+      return 1;
+    }
+    evaluator.load_weights_from_file(f);
+    pieceMaps.load_weights_from_file(f);
   }
+
+  const int multiPV = 1;
+
+  double loss = 0.0;
+  double loss2 = 0.0;
+  for (const Datapoint& datapoint : datapoints) {
+    Position pos(datapoint.fen);
+    pos.set_piece_maps(pieceMaps);
+    
+    Result result;
+    if (pos.turn_ == Color::WHITE) {
+      simple_search<WHITE>(&pos, &evaluator, &result, multiPV);
+    } else {
+      simple_search<BLACK>(&pos, &evaluator, &result, multiPV);
+    }
+    std::vector<std::pair<Evaluation, std::string>> pvs = result.pvs;
+
+    double score = datapoint.evals.back();  // Default
+    for (size_t i = 0; i < datapoint.evals.size(); ++i) {
+      if (datapoint.ucis[i] == pvs[0].second) {
+        score = datapoint.evals[i];
+        break;
+      }
+    }
+
+    double delta = std::min(datapoint.evals[0] - score, 50.0);
+    if (delta < 0.0) {
+      throw std::runtime_error("lalala");
+    }
+
+    loss += delta;
+    loss2 += delta * delta;
+  }
+
+  double mean = loss / datapoints.size();
+  double variance = (loss2 / datapoints.size() - mean * mean) / (datapoints.size() - 1);
+
+  std::cout << mean << " ± " << std::sqrt(variance) << std::endl;
 
   return 0;
 }
