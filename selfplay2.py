@@ -139,8 +139,9 @@ def thread_main(fen):
   try:
     a = play(fen, player1, player2)
     b = play(fen, player2, player1)
-  except:
+  except Exception as e:
     print('!!!!    ERROR    !!!!')
+    print(e)
     return 0
   return (a - b) / 2.0
 
