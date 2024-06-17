@@ -218,9 +218,8 @@ class Model(nn.Module):
       nn.init.zeros_(self.w[k].bias)
 
   def forward(self, x, t):
-    t = t.clip(0, 18)
-    early = self.w["early"](x).squeeze() * (18 - t) / 18
-    late = self.w["late"](x).squeeze() * t / 18
+    early = self.w["early"](x).squeeze() * (1 - t) / 1
+    late = self.w["late"](x).squeeze() * t / 1
     clipped = self.w["clipped"](x).squeeze().clip(-1, 1)
     return early + late + clipped
 
