@@ -92,6 +92,7 @@ enum SearchType {
   SearchTypeNormal,
   SearchTypeNullWindow,
   SearchTypeExtended,
+  SearchTypeNullWindowExtended,
 };
 
 constexpr int kQSimplePieceValues[7] = {
@@ -268,6 +269,14 @@ constexpr int kThreadingDepth = 2;
 #define IS_PRINT_NODE 0
 // #define IS_PRINT_NODE (thread->pos.hash_  % 425984 == 958)
 
+std::string pad(int n) {
+  std::string r = "";
+  for (int i = 0; i < n; ++i) {
+    r += "  ";
+  }
+  return r;
+}
+
 template<Color TURN, SearchType SEARCH_TYPE, bool IS_PARALLEL>
 static SearchResult<TURN> search(
   Thinker *thinker,
@@ -279,7 +288,7 @@ static SearchResult<TURN> search(
   uint16_t distFromPV) {
 
   if (IS_PRINT_NODE) {
-    std::cout << "start " << thread->pos.hash_ << " (depth:" << int(depthRemaining) << " alpha:" << alpha << " beta:" << beta << ")" << std::endl;
+    std::cout << pad(plyFromRoot) << "start " << thread->pos.hash_ << " (depth:" << int(depthRemaining) << " alpha:" << alpha << " beta:" << beta << ")" << std::endl;
   }
 
 
@@ -308,7 +317,7 @@ static SearchResult<TURN> search(
     thinker->stopThinkingLock.unlock();
     if (shouldStopThinking) {
       if (IS_PRINT_NODE) {
-        std::cout << "  end " << thread->pos.hash_ << " interrupted" << std::endl;
+        std::cout << pad(plyFromRoot) << "  end " << thread->pos.hash_ << " interrupted" << std::endl;
       }
       return SearchResult<TURN>(0, kNullMove, false);
     }
@@ -316,21 +325,21 @@ static SearchResult<TURN> search(
 
   if (std::popcount(thread->pos.pieceBitboards_[coloredPiece<TURN, Piece::KING>()]) == 0) {
     if (IS_PRINT_NODE) {
-      std::cout << "  end " << thread->pos.hash_ << " no king" << std::endl;
+      std::cout << pad(plyFromRoot) << "  end " << thread->pos.hash_ << " no king" << std::endl;
     }
     return SearchResult<TURN>(kMissingKing, kNullMove);
   }
 
   if (thread->pos.is_3fold_repetition(plyFromRoot)) {
     if (IS_PRINT_NODE) {
-      std::cout << "  end " << thread->pos.hash_ << " 3fold draw" << std::endl;
+      std::cout << pad(plyFromRoot) << "  end " << thread->pos.hash_ << " 3fold draw" << std::endl;
     }
     return SearchResult<TURN>(Evaluation(0), kNullMove);
   }
 
   if (SEARCH_TYPE != SearchTypeRoot && thread->evaluator.is_material_draw(thread->pos)) {
     if (IS_PRINT_NODE) {
-      std::cout << "  end " << thread->pos.hash_ << " material draw" << std::endl;
+      std::cout << pad(plyFromRoot) << "  end " << thread->pos.hash_ << " material draw" << std::endl;
     }
     return SearchResult<TURN>(Evaluation(0), kNullMove);
   }
@@ -344,7 +353,7 @@ static SearchResult<TURN> search(
     if (!isNullCacheResult(cr) && cr.depthRemaining >= depthRemaining) {
       if (cr.nodeType == NodeTypePV || cr.lowerbound() >= beta || cr.upperbound() <= alpha) {
         if (IS_PRINT_NODE) {
-          std::cout << "  end " << thread->pos.hash_ << " cached " << cr << std::endl;
+          std::cout << pad(plyFromRoot) << "  end " << thread->pos.hash_ << " cached " << cr << std::endl;
         }
         return SearchResult<TURN>(std::max(alpha, std::min(beta, cr.eval)), cr.bestMove);
       }
@@ -377,7 +386,8 @@ static SearchResult<TURN> search(
         distFromPV
       ));
       if (IS_PRINT_NODE) {
-        std::cout << "  end " << thread->pos.hash_ << " qsearch " << r << std::endl;
+        std::cout << pad(plyFromRoot) << "  insert " << cr << std::endl;
+        std::cout << pad(plyFromRoot) << "  end " << thread->pos.hash_ << " qsearch " << r << std::endl;
       }
       return r;
     }
@@ -394,7 +404,7 @@ static SearchResult<TURN> search(
       }
 
       if (IS_PRINT_NODE) {
-        std::cout << "  end " << thread->pos.hash_ << " qsearch " << r << std::endl;
+        std::cout << pad(plyFromRoot) << "  end " << thread->pos.hash_ << " qsearch " << r << std::endl;
       }
 
       NodeType nodeType = NodeTypePV;
@@ -411,6 +421,9 @@ static SearchResult<TURN> search(
         nodeType,
         distFromPV
       );
+      if (IS_PRINT_NODE) {
+        std::cout << pad(plyFromRoot) << "  insert " << cr << std::endl;
+      }
       thinker->cache.insert<IS_PARALLEL>(cr);
       return r;
     }
@@ -426,7 +439,7 @@ static SearchResult<TURN> search(
       // 0.3633 ± 0.0294 after 64 games at 100,000 nodes/move
       if (int32_t(cr.lowerbound()) >= beta + futilityThreshold || int32_t(cr.upperbound()) <= alpha - futilityThreshold) {
         if (IS_PRINT_NODE) {
-          std::cout << "  end " << thread->pos.hash_ << " futile1" << std::endl;
+          std::cout << pad(plyFromRoot) << "  end " << thread->pos.hash_ << " futile1" << std::endl;
         }
         return SearchResult<TURN>(std::max<int32_t>(alpha, std::min<int32_t>(beta, cr.eval)), cr.bestMove);
       }
@@ -452,7 +465,7 @@ static SearchResult<TURN> search(
   if (movesEnd - moves == 0) {
     if (inCheck) {
       if (IS_PRINT_NODE) {
-        std::cout << "  end " << thread->pos.hash_ << " checkmate" << std::endl;
+        std::cout << pad(plyFromRoot) << "  end " << thread->pos.hash_ << " checkmate" << std::endl;
       }
       const CacheResult cr = thinker->cache.create_cache_result(
         thread->pos.hash_,
@@ -466,7 +479,7 @@ static SearchResult<TURN> search(
       return SearchResult<TURN>(kCheckmate + plyFromRoot, kNullMove);
     } else {
       if (IS_PRINT_NODE) {
-        std::cout << "  end " << thread->pos.hash_ << " stalemate" << std::endl;
+        std::cout << pad(plyFromRoot) << "  end " << thread->pos.hash_ << " stalemate" << std::endl;
       }
       const CacheResult cr = thinker->cache.create_cache_result(
         thread->pos.hash_,
@@ -484,7 +497,7 @@ static SearchResult<TURN> search(
   // We need to check this *after* we do the checkmate test above.
   if (thread->pos.is_fifty_move_rule()) {
     if (IS_PRINT_NODE) {
-      std::cout << "  end " << thread->pos.hash_ << " 50 move draw" << std::endl;
+      std::cout << pad(plyFromRoot) << "  end " << thread->pos.hash_ << " 50 move draw" << std::endl;
     }
     return SearchResult<TURN>(Evaluation(0), kNullMove);
   }
@@ -570,6 +583,12 @@ static SearchResult<TURN> search(
 
       ++numValidMoves;
 
+      if (IS_PRINT_NODE) {
+        if (plyFromRoot == 0) {
+          std::cout << pad(plyFromRoot) << "> move " << extMove->move << std::endl;
+        }
+      }
+
       // Null-window search.
       // (+0.0269 ± 0.0072) after 1024 games at 50,000 nodes/move
       SearchResult<TURN> a(0, kNullMove);
@@ -594,6 +613,12 @@ static SearchResult<TURN> search(
         thinker->_manager.finished_searching(thread->pos.hash_);
       }
       undo<TURN>(&thread->pos);
+
+      if (IS_PRINT_NODE) {
+        if (plyFromRoot == 0) {
+          std::cout << pad(plyFromRoot) << "< move " << extMove->move << std::endl;
+        }
+      }
 
       // We don't bother to break here, since all of our children will automatically return a low-cost,
       // good-faith estimate (unless our depth is 4, in which case thinker will be true for the depth above
@@ -691,11 +716,14 @@ static SearchResult<TURN> search(
       nodeType,
       distFromPV
     );
+    if (IS_PRINT_NODE) {
+      std::cout << pad(plyFromRoot) << "  insert " << cr << std::endl;
+    }
     thinker->cache.insert<IS_PARALLEL>(cr);
   }
 
   if (IS_PRINT_NODE) {
-    std::cout << "  end " << thread->pos.hash_ << " return " << r << std::endl;
+    std::cout << pad(plyFromRoot) << "  end " << thread->pos.hash_ << " return " << r << std::endl;
   }
 
   return r;
