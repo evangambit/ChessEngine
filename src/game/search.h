@@ -92,7 +92,6 @@ enum SearchType {
   SearchTypeNormal,
   SearchTypeNullWindow,
   SearchTypeExtended,
-  SearchTypeNullWindowExtended,
 };
 
 constexpr int kQSimplePieceValues[7] = {
@@ -399,7 +398,7 @@ static SearchResult<TURN> search(
 
       // Search Extensions
       // 0.0293 ± 0.0116 after 512 games at 50,000 nodes/move
-      if (SEARCH_TYPE != SearchTypeExtended && r.score > alpha && r.score < beta) {
+      if (SEARCH_TYPE == SearchTypeNormal && r.score > alpha && r.score < beta) {
         r = search<TURN, SearchTypeExtended, IS_PARALLEL>(thinker, thread, 2, plyFromRoot, alpha, beta, recommendedMoves, distFromPV);
       }
 
