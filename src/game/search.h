@@ -30,6 +30,19 @@
 
 namespace ChessEngine {
 
+bool history_is(const Position& pos, std::string movesString) {
+  std::vector<std::string> moves = split(movesString, ' ');
+  if (pos.history_.size() != moves.size()) {
+    return false;
+  }
+  for (size_t i = 0; i < moves.size(); ++i) {
+    if (pos.history_[i].uci() != moves[i]) {
+      return false;
+    }
+  }
+  return true;
+}
+
 struct GoCommand {
   GoCommand()
   : depthLimit(100), nodeLimit(-1), timeLimitMs(-1),
@@ -266,6 +279,7 @@ static SearchResult<TURN> qsearch(Thinker *thinker, Thread *thread, int32_t dept
 constexpr int kThreadingDepth = 2;
 
 #define IS_PRINT_NODE 0
+// #define IS_PRINT_NODE history_is(thread->pos, "h8f8 c7c8 f8c8 c1c8 a8b7")
 // #define IS_PRINT_NODE (thread->pos.hash_ == 17112545643981194285LLU)
 // #define IS_PRINT_NODE (thread->pos.hash_  % 425984 == 958)
 
@@ -288,7 +302,7 @@ static SearchResult<TURN> search(
   uint16_t distFromPV) {
 
   if (IS_PRINT_NODE) {
-    std::cout << pad(plyFromRoot) << "start " << thread->pos.hash_ << " (depth:" << int(depthRemaining) << " alpha:" << alpha << " beta:" << beta << ")" << std::endl;
+    std::cout << pad(plyFromRoot) << "start " << thread->pos.hash_ << " (depth:" << int(depthRemaining) << " alpha:" << alpha << " beta:" << beta << ") " << thread->pos.history_ << std::endl;
   }
 
 
@@ -476,7 +490,7 @@ static SearchResult<TURN> search(
         distFromPV
       );
       thinker->cache.insert<IS_PARALLEL>(cr);
-      return SearchResult<TURN>(kCheckmate + plyFromRoot, kNullMove);
+      return SearchResult<TURN>(kCheckmate, kNullMove);
     } else {
       if (IS_PRINT_NODE) {
         std::cout << pad(plyFromRoot) << "end j " << thread->pos.hash_ << " stalemate" << std::endl;
@@ -603,6 +617,10 @@ static SearchResult<TURN> search(
       #else
         a = flip(search<opposingColor, kChildSearchType, IS_PARALLEL>(thinker, thread, depthRemaining - 1, plyFromRoot + 1, -beta, -alpha, recommendationsForChildren, distFromPV + (extMove != moves)));
       #endif
+
+      if (IS_PRINT_NODE) {
+        std::cout << pad(plyFromRoot) << ": a " << a << std::endl;
+      }
 
       a.score -= (a.score > -kQLongestForcedMate);
       a.score += (a.score <  kQLongestForcedMate);

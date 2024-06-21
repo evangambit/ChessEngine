@@ -588,10 +588,10 @@ class GoTask : public Task {
 
       std::cout << "info depth " << depth;
       std::cout << " multipv " << (i + 1);
-      if (variation.first <= kLongestForcedMate) {
-        std::cout << " score mate " << -(eval - kCheckmate + 1) / 2;
-      } else if (variation.first >= -kLongestForcedMate) {
-        std::cout << " score mate " << (-eval - kCheckmate + 1) / 2;
+      if (eval <= kLongestForcedMate) {
+        std::cout << " A score mate " << -(eval - kCheckmate + 1) / 2;
+      } else if (eval >= -kLongestForcedMate) {
+        std::cout << " B score mate " << -(eval + kCheckmate - 1) / 2;
       } else {
         std::cout << " score cp " << eval;
       }
