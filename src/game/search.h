@@ -186,6 +186,7 @@ static SearchResult<TURN> qsearch(Thinker *thinker, Thread *thread, int32_t dept
     return SearchResult<TURN>(kMissingKing, kNullMove);
   }
 
+  // +0.0402 ± 0.0124 after 512 games at 50,000 nodes/move
   const bool lookAtChecksToo = depth < 2;
 
   constexpr Color opposingColor = opposite_color<TURN>();
@@ -250,6 +251,7 @@ static SearchResult<TURN> qsearch(Thinker *thinker, Thread *thread, int32_t dept
   });
 
   for (ExtMove *move = moves; move < end; ++move) {
+    // Should be "(move->score < 0 && !inCheck)" ?
     if (move->score < 0 && r.score > kQLongestForcedMate) {
       break;
     }
