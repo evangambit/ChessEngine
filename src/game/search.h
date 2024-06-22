@@ -201,7 +201,7 @@ static SearchResult<TURN> qsearch(Thinker *thinker, Thread *thread, int32_t dept
   }
 
   if (moves == end && inCheck) {
-    return SearchResult<TURN>(kQCheckmate + plyFromRoot, kNullMove);
+    return SearchResult<TURN>(kQCheckmate, kNullMove);
   }
 
   // If we can stand pat for a beta cutoff, or if we have no moves, return.
