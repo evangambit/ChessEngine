@@ -202,7 +202,7 @@ static SearchResult<TURN> qsearch(Thinker *thinker, Thread *thread, int32_t dept
   }
 
   if (moves == end && inCheck) {
-    return SearchResult<TURN>(kQCheckmate, kNullMove);
+    return SearchResult<TURN>(depth == 0 ? kCheckmate : kQCheckmate, kNullMove);
   }
 
   // If we can stand pat for a beta cutoff, or if we have no moves, return.
@@ -393,16 +393,17 @@ static SearchResult<TURN> search(
       } else if (r.score <= alpha) {
         nodeType = NodeTypeAll_UpperBound;
       }
-      thinker->cache.insert<IS_PARALLEL>(thinker->cache.create_cache_result(
+      CacheResult newCr = thinker->cache.create_cache_result(
         thread->pos.hash_,
         depthRemaining,
         std::max(originalAlpha, std::min(originalBeta, r.score)),
         r.move,
         nodeType,
         distFromPV
-      ));
+      );
+      thinker->cache.insert<IS_PARALLEL>(newCr);
       if (IS_PRINT_NODE) {
-        std::cout << pad(plyFromRoot) << "  insert " << cr << std::endl;
+        std::cout << pad(plyFromRoot) << "  insert " << newCr << std::endl;
         std::cout << pad(plyFromRoot) << "end f " << thread->pos.hash_ << " qsearch " << r << std::endl;
       }
       return r;

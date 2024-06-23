@@ -124,14 +124,24 @@ bool can_enemy_attack(const Position& pos, Square sq) {
 // 1 if any piece can get to a square.
 // 0 if no piece can get to a square.
 // Includes "self captures"
-template<Color US>
+template<Color US, bool IGNORE_ENEMY_KING=false>
 Bitboard compute_my_targets(const Position& pos) {
+
+  Bitboard occupied;
+  if (IGNORE_ENEMY_KING) {
+    constexpr ColoredPiece enemyKing = coloredPiece<opposite_color<US>(), Piece::KING>();
+    occupied = (pos.colorBitboards_[US] | pos.colorBitboards_[opposite_color<US>()]) & ~pos.pieceBitboards_[enemyKing];
+  } else {
+    occupied = (pos.colorBitboards_[US] | pos.colorBitboards_[opposite_color<US>()]);
+  }
+
   Bitboard r = compute_pawn_targets<US>(pos);
   r |= compute_knight_targets<US>(pos);
   const Bitboard bishopLikePieces = pos.pieceBitboards_[coloredPiece<US, Piece::BISHOP>()] | pos.pieceBitboards_[coloredPiece<US, Piece::QUEEN>()];
-  r |= compute_bishoplike_targets<US>(pos, bishopLikePieces);
+  r |= compute_bishoplike_targets(bishopLikePieces, occupied & ~bishopLikePieces);
   const Bitboard rookLikePieces = pos.pieceBitboards_[coloredPiece<US, Piece::ROOK>()] | pos.pieceBitboards_[coloredPiece<US, Piece::QUEEN>()];
-  r |= compute_rooklike_targets<US>(pos, rookLikePieces);
+
+  r |= compute_rooklike_targets(rookLikePieces, occupied & ~rookLikePieces);
   const Square kingSq = lsb(pos.pieceBitboards_[coloredPiece<US, Piece::KING>()]);
   r |= compute_king_targets<US>(pos, kingSq);
   return r;
@@ -340,7 +350,7 @@ ExtMove* compute_moves(const Position& pos, ExtMove *moves) {
     target = kSquaresBetween[ourKing][lsb(checkers)];
   }
 
-  const Bitboard validKingSquares = ~compute_my_targets<opposite_color<US>()>(pos);
+  const Bitboard validKingSquares = ~compute_my_targets<opposite_color<US>(), true>(pos);
 
   // TODO: if MGT == CHECKS_AND_CAPTURES we won't consider moves where the queen moves like
   // a bishop and checks like a rook (or vice versa).
