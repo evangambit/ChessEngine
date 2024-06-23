@@ -386,7 +386,7 @@ static SearchResult<TURN> search(
   if (depthRemaining <= 0) {
     #if SIMPLE_SEARCH
     {
-      SearchResult<TURN> r(thinker->evaluator.score<TURN>(thread->pos), kNullMove);
+      SearchResult<TURN> r = qsearch<TURN>(thinker, thread, 0, plyFromRoot, alpha, beta);
       NodeType nodeType = NodeTypePV;
       if (r.score >= beta) {
         nodeType = NodeTypeCut_LowerBound;
