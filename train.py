@@ -1,5 +1,6 @@
 import os
- 
+import re
+
 import chess
 from chess import pgn
 
@@ -9,6 +10,8 @@ import matplotlib.pyplot as plt
 import torch
 from torch import nn, optim
 import torch.utils.data as tdata
+
+from collections import defaultdict
 
 varnames = [
   "OUR_PAWNS",
@@ -130,6 +133,56 @@ varnames = [
   "PROMOTABLE_PAWN",
 ]
 
+class Weights:
+  def __init__(self, f):
+    lines = f.read().split('\n')
+    if lines[-1] == '':
+      lines.pop()
+    self.lines = []
+    for line in lines:
+      M = re.findall(r"^ +(-?\d+) +//(.+)$", line)
+      if M:
+        self.lines.append({
+          "value": int(M[0][0]),
+          "comment": M[0][1],
+          "type": "float",
+        })
+        continue
+      M = re.findall(r" +(-?\d+) +(-?\d+) +(-?\d+) +(-?\d+) +(-?\d+) +(-?\d+) +(-?\d+) +(-?\d+)", line)
+      if M:
+        self.lines.append({
+          "value": list(map(int, M[0])),
+          "type": "array",
+        })
+        continue
+      assert line.startswith('//'), repr(line)
+      self.lines.append({
+        "comment": line[2:],
+        "type": "comment",
+      })
+
+    self.biases = {}
+    self.vecs = defaultdict(list)
+    for line in self.lines:
+       if line['type'] == 'float':
+        name = line['comment'].strip().split(' ')[0]
+        if ' bias' in line['comment']:
+          self.biases[name] = line['value']
+        else:
+          self.vecs[name].append(line['value'])
+    for k in self.vecs:
+      self.vecs[k] = np.array(self.vecs[k],  dtype=np.float32)
+
+  def write(self, f):
+    for line in self.lines:
+      if line["type"] == "float":
+        f.write((" %d" % line["value"]).rjust(6) + "  //" + line["comment"] + "\n")
+      elif line["type"] == "array":
+        A = [str(a).rjust(4) for a in line["value"]]
+        f.write(" ".join(A) + "\n")
+      elif line["type"] == "comment":
+        f.write("//%s\n" % line["comment"])
+
 class PCA:
   def __init__(self, X, reg = 0.0, scale = True):
     X = X.reshape(-1, X.shape[-1])
@@ -169,6 +222,15 @@ class PCA:
     w = w @ V.T
     return w.reshape(s)
 
+  def slope_forward(self, w):
+    D, V = np.sqrt(self.D), self.V
+    s = w.shape
+    w = w.reshape(1, -1)
+    w = w @ V
+    if self.scale:
+      w = w * D
+    return w.reshape(s)
+
 def lpad(t, n, c=' '):
   t = str(t)
   return max(n - len(t), 0) * c + t
@@ -189,9 +251,9 @@ F = np.load('F.npy')
 X = np.load('X.npy').astype(np.float64)
 Y = np.load('Y.npy').astype(np.float64)
 
-T = X[:,varnames.index('TIME')].copy()
+T = X[:,varnames.index('TIME')].copy() / 18.0
 
-pca = PCA(X, 0.001, scale=False)
+pca = PCA(X, 0.001, scale=True)
 
 X = pca.points_forward(X)
 
@@ -218,8 +280,8 @@ class Model(nn.Module):
       nn.init.zeros_(self.w[k].bias)
 
   def forward(self, x, t):
-    early = self.w["early"](x).squeeze() * (1 - t) / 1
-    late = self.w["late"](x).squeeze() * t / 1
+    early = self.w["early"](x).squeeze() * (1 - t)
+    late = self.w["late"](x).squeeze() * t
     clipped = self.w["clipped"](x).squeeze().clip(-1, 1)
     return early + late + clipped
 
@@ -230,6 +292,12 @@ def forever(loader):
 
 model = Model()
 opt = optim.AdamW(model.parameters(), lr=3e-3)
+
+with open('w2.txt', 'r') as f:
+  weights = Weights(f)
+with torch.no_grad():
+  for k in model.w:
+    model.w[k].weight += torch.tensor(pca.slope_forward(weights.vecs[k] / 100.0))
 
 Xth = torch.tensor(X, dtype=torch.float32)
 Yth = torch.tensor(Y, dtype=torch.float32)
