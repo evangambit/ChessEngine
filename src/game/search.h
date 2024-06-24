@@ -280,10 +280,16 @@ static SearchResult<TURN> qsearch(Thinker *thinker, Thread *thread, int32_t dept
 
 constexpr int kThreadingDepth = 2;
 
+#ifdef PRINT_DEBUG
+bool gPrintDebug = false;
+#define IS_PRINT_NODE gPrintDebug
+#else
 #define IS_PRINT_NODE 0
+// #define IS_PRINT_NODE 0
 // #define IS_PRINT_NODE history_is(thread->pos, "h8f8 c7c8 f8c8 c1c8 a8b7")
 // #define IS_PRINT_NODE (thread->pos.hash_ == 17112545643981194285LLU)
 // #define IS_PRINT_NODE (thread->pos.hash_  % 425984 == 958)
+#endif
 
 std::string pad(int n) {
   std::string r = "";
@@ -346,6 +352,10 @@ static SearchResult<TURN> search(
     return SearchResult<TURN>(kMissingKing, kNullMove);
   }
 
+  if (IS_PRINT_NODE) {
+    std::cout << thread->pos.hashes_ << std::endl;
+  }
+
   if (thread->pos.is_3fold_repetition(plyFromRoot)) {
     if (IS_PRINT_NODE) {
       std::cout << pad(plyFromRoot) << "end c " << thread->pos.hash_ << " 3fold draw" << std::endl;
@@ -368,6 +378,18 @@ static SearchResult<TURN> search(
     // so that thinker->variations is properly set.
     if (!isNullCacheResult(cr) && cr.depthRemaining >= depthRemaining) {
       if (cr.nodeType == NodeTypePV || cr.lowerbound() >= beta || cr.upperbound() <= alpha) {
+        // We need to make sure returning the cached node doesn't enable our opponent to achieve
+        // a 3-fold repetition.
+        make_move<TURN>(&thread->pos, cr.bestMove);
+        const bool is3FoldDraw = thread->pos.is_3fold_repetition(plyFromRoot + 1);
+        undo<TURN>(&thread->pos);
+        if (is3FoldDraw) {
+          if (IS_PRINT_NODE) {
+            std::cout << pad(plyFromRoot) << "end e " << thread->pos.hash_ << " cached but draw " << cr << std::endl;
+          }
+          return SearchResult<TURN>(Evaluation(0), kNullMove);
+        }
+
         if (IS_PRINT_NODE) {
           std::cout << pad(plyFromRoot) << "end e " << thread->pos.hash_ << " cached " << cr << std::endl;
         }

@@ -315,27 +315,29 @@ L = []
 
 windowSize = 500
 
-for bs in 2**(np.linspace(4, 14, 11)):
-# for bs in 2**(np.linspace(4, 5, 2)):
-  bs = int(bs)
-  dataloader = tdata.DataLoader(dataset, batch_size=bs, shuffle=True, drop_last=True)
+# for bs in 2**(np.linspace(4, 14, 11)):
+# # for bs in 2**(np.linspace(4, 5, 2)):
+#   bs = int(bs)
+#   dataloader = tdata.DataLoader(dataset, batch_size=bs, shuffle=True, drop_last=True)
 
-  l = []
-  for x, t, y in forever(dataloader):
-    yhat = model(x, t)
-    loss = loss_fn(yhat, y / 100)
-    opt.zero_grad()
-    loss.backward()
-    opt.step()
-    l.append(float(loss))
-    L.append(float(loss))
-    if len(l) == windowSize:
-      firstHalf = np.array(l[:windowSize//2]).mean()
-      secondHalf = np.array(l[windowSize//2:]).mean()
-      l = []
-      print('%i %.4f %.4f' % (bs, firstHalf, secondHalf))
-      if firstHalf < secondHalf:
-        break
+#   l = []
+#   for x, t, y in forever(dataloader):
+#     yhat = model(x, t)
+#     loss = loss_fn(yhat, y / 100)
+#     opt.zero_grad()
+#     loss.backward()
+#     opt.step()
+#     l.append(float(loss))
+#     L.append(float(loss))
+#     if len(l) == windowSize:
+#       firstHalf = np.array(l[:windowSize//2]).mean()
+#       secondHalf = np.array(l[windowSize//2:]).mean()
+#       l = []
+#       print('%i %.4f %.4f' % (bs, firstHalf, secondHalf))
+#       if firstHalf < secondHalf:
+#         break
+
+Residuals = (Yth / 100 - model(Xth, Tth)).detach().numpy()
 
 for k in model.w:
   w = model.w[k].weight.detach().numpy()
@@ -347,139 +349,35 @@ for k in model.w:
 
 print(sum(L[-100:]) / 100)
 
+def naive_linear_regression(X, Y, reg = 1e-5):
+  assert X.shape[0] == Y.shape[0]
+  assert X.ndim == 2
+  assert Y.ndim == 1
+  # slope = cov(x, y) * std(y) / std(x)
+  xstd = X.std(0).reshape((1, -1)) + reg
+  ystd = Y.std()
+  cov = (X.T @ Y) / X.shape[0] / xstd  # (d, 1)
+  return (cov * ystd / xstd).squeeze()
+
+tables = np.load('tables.npy')
+
+n = 200_000
+wEarly = naive_linear_regression(tables[:n] * (1 - T[:n]).reshape(-1, 1), Residuals[:n] * (1 - T[:n]), reg=0.01).reshape(7, 8, 8)
+wLate = naive_linear_regression(tables[:n] * T[:n].reshape(-1, 1), Residuals[:n] * T[:n], reg=0.01).reshape(7, 8, 8)
+
 text = ""
 for k in ['early', 'late', 'clipped']:
   text += ('%i' % round(float(model.w[k].bias) * 100)).rjust(7) + f'  // {k} bias\n'
   for i, varname in enumerate(varnames):
     text += ('%i' % round(float(model.w[k].weight[0,i]) * 100)).rjust(7) + f'  // {k} {varname}\n'
 
-text += """// ?
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-// P
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-// N
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-// B
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-// R
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-// Q
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-// K
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-// ?
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-// P
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-// N
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-// B
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-// R
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-// Q
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-// K
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-    0     0     0     0     0     0     0     0
-"""
+for w in [wEarly, wLate]:
+  for i, p in enumerate('?PNBRQK'):
+    text += "// %s\n" % p
+    for r in range(8):
+      for f in range(8):
+        text += ('%i' % round(w[i,r,f] * 100)).rjust(6)
+      text += '\n'
 
 with open('w2.txt', 'w+') as f:
   f.write(text)
