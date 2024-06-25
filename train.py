@@ -315,27 +315,27 @@ L = []
 
 windowSize = 500
 
-# for bs in 2**(np.linspace(4, 14, 11)):
-# # for bs in 2**(np.linspace(4, 5, 2)):
-#   bs = int(bs)
-#   dataloader = tdata.DataLoader(dataset, batch_size=bs, shuffle=True, drop_last=True)
+for bs in 2**(np.linspace(4, 14, 11)):
+# for bs in 2**(np.linspace(4, 5, 2)):
+  bs = int(bs)
+  dataloader = tdata.DataLoader(dataset, batch_size=bs, shuffle=True, drop_last=True)
 
-#   l = []
-#   for x, t, y in forever(dataloader):
-#     yhat = model(x, t)
-#     loss = loss_fn(yhat, y / 100)
-#     opt.zero_grad()
-#     loss.backward()
-#     opt.step()
-#     l.append(float(loss))
-#     L.append(float(loss))
-#     if len(l) == windowSize:
-#       firstHalf = np.array(l[:windowSize//2]).mean()
-#       secondHalf = np.array(l[windowSize//2:]).mean()
-#       l = []
-#       print('%i %.4f %.4f' % (bs, firstHalf, secondHalf))
-#       if firstHalf < secondHalf:
-#         break
+  l = []
+  for x, t, y in forever(dataloader):
+    yhat = model(x, t)
+    loss = loss_fn(yhat, y / 100)
+    opt.zero_grad()
+    loss.backward()
+    opt.step()
+    l.append(float(loss))
+    L.append(float(loss))
+    if len(l) == windowSize:
+      firstHalf = np.array(l[:windowSize//2]).mean()
+      secondHalf = np.array(l[windowSize//2:]).mean()
+      l = []
+      print('%i %.4f %.4f' % (bs, firstHalf, secondHalf))
+      if firstHalf < secondHalf:
+        break
 
 Residuals = (Yth / 100 - model(Xth, Tth)).detach().numpy()
 

@@ -352,10 +352,6 @@ static SearchResult<TURN> search(
     return SearchResult<TURN>(kMissingKing, kNullMove);
   }
 
-  if (IS_PRINT_NODE) {
-    std::cout << thread->pos.hashes_ << std::endl;
-  }
-
   if (thread->pos.is_3fold_repetition(plyFromRoot)) {
     if (IS_PRINT_NODE) {
       std::cout << pad(plyFromRoot) << "end c " << thread->pos.hash_ << " 3fold draw" << std::endl;
@@ -380,9 +376,15 @@ static SearchResult<TURN> search(
       if (cr.nodeType == NodeTypePV || cr.lowerbound() >= beta || cr.upperbound() <= alpha) {
         // We need to make sure returning the cached node doesn't enable our opponent to achieve
         // a 3-fold repetition.
-        make_move<TURN>(&thread->pos, cr.bestMove);
-        const bool is3FoldDraw = thread->pos.is_3fold_repetition(plyFromRoot + 1);
-        undo<TURN>(&thread->pos);
+        bool is3FoldDraw = false;
+        if (cr.bestMove != kNullMove) {
+          make_move<TURN>(&thread->pos, cr.bestMove);
+          is3FoldDraw = thread->pos.is_3fold_repetition(plyFromRoot + 1);
+          undo<TURN>(&thread->pos);
+        }
+        /**
+         * TODO: do we have a similar 3-fold repetition bug where self.child.child.child is a draw?
+         */
         if (is3FoldDraw) {
           if (IS_PRINT_NODE) {
             std::cout << pad(plyFromRoot) << "end e " << thread->pos.hash_ << " cached but draw " << cr << std::endl;
