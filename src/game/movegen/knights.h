@@ -107,7 +107,7 @@ ExtMove *compute_knight_moves(const Position& pos, ExtMove *moves, Bitboard targ
     Bitboard tos = kKnightMoves[from] & target;
     while (tos) {
       Square to = pop_lsb(tos);
-      *moves++ = ExtMove(Piece::KNIGHT, cp2p(pos.tiles_[to]), Move{from, to, 0, MoveType::NORMAL});
+      *moves++ = ExtMove(Piece::KNIGHT, pos.tiles_[to], Move{from, to, 0, MoveType::NORMAL});
     }
   }
   return moves;

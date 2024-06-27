@@ -323,7 +323,7 @@ ExtMove *compute_bishop_like_moves(const Position& pos, ExtMove *moves, Bitboard
 
     while (tos) {
       Square to = pop_lsb(tos);
-      *moves++ = ExtMove(piece, cp2p(pos.tiles_[to]), Move{from, to, 0, MoveType::NORMAL});
+      *moves++ = ExtMove(piece, pos.tiles_[to], Move{from, to, 0, MoveType::NORMAL});
     }
   }
 

@@ -48,15 +48,15 @@ struct Move {
 
 struct ExtMove {
   ExtMove() {}
-  ExtMove(Piece piece, Move move) : piece(piece), capture(Piece::NO_PIECE), move(move) {}
-  ExtMove(Piece piece, Piece capture, Move move) : piece(piece), capture(capture), move(move) {}
+  ExtMove(Piece piece, Move move) : piece(piece), capture(ColoredPiece::NO_COLORED_PIECE), move(move) {}
+  ExtMove(Piece piece, ColoredPiece capture2, Move move) : piece(piece), capture(capture2), move(move) {}
 
   std::string str() const;
 
   std::string uci() const;
 
   Piece piece : 4;
-  Piece capture : 4;
+  ColoredPiece capture : 4;
   Move move;  // 16 bits
   Evaluation score;  // 16 bits
 };
@@ -162,6 +162,18 @@ class Position {
 
   void update_hash_on_state_change(PositionState a, PositionState b);
 
+  // This is used to avoid accidentally making a TT move in an invalid
+  // position. It't unclear how necessary it is, since the only time we
+  // blindly trust TT's bestMove is when checking for 3-fold draws (see
+  // "search.h") and "illegal" moves are probably mostly okay here, since we
+  // immediately undo them (e.g. capturing your own pieces or sliding over
+  // pieces are fine).
+  template<Color TURN>
+  bool is_valid_move(Move move) const {
+    // TODO: make more robust?
+    return tiles_[move.from] != ColoredPiece::NO_COLORED_PIECE;
+  }
+
  private:
   void _empty_();
 };
@@ -214,7 +226,7 @@ void undo(Position *pos) {
 
   const Move move = extMove.move;
   const ColoredPiece movingPiece = move.moveType == MoveType::PROMOTION ? coloredPiece<MOVER_TURN, Piece::PAWN>() : pos->tiles_[move.to];
-  const ColoredPiece capturedPiece = coloredPiece<opposite_color<MOVER_TURN>()>(extMove.capture);
+  const ColoredPiece capturedPiece = extMove.capture;
   const ColoredPiece promoPiece = move.moveType == MoveType::PROMOTION ? coloredPiece<MOVER_TURN>(Piece(move.promotion + 2)) : movingPiece;
   const Location f = square2location(move.from);
   const Location t = square2location(move.to);
@@ -310,7 +322,7 @@ void make_nullmove(Position *pos) {
 
   pos->states_.push_back(pos->currentState_);
 
-  pos->history_.push_back(ExtMove(Piece::NO_PIECE, Piece::NO_PIECE, kNullMove));
+  pos->history_.push_back(ExtMove(Piece::NO_PIECE, ColoredPiece::NO_COLORED_PIECE, kNullMove));
 
   pos->currentState_.epSquare = Square::NO_SQUARE;
 
@@ -357,7 +369,7 @@ void make_move(Position *pos, Move move) {
   const Location t = square2location(move.to);
 
   pos->states_.push_back(pos->currentState_);
-  pos->history_.push_back(ExtMove(cp2p(movingPiece), cp2p(capturedPiece), move));
+  pos->history_.push_back(ExtMove(cp2p(movingPiece), capturedPiece, move));
 
   // Remove castling rights if a rook moves or is captured.
   pos->currentState_.castlingRights &= ~four_corners_to_byte(f);

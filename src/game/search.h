@@ -238,12 +238,12 @@ static SearchResult<TURN> qsearch(Thinker *thinker, Thread *thread, int32_t dept
   }
 
   for (ExtMove *move = moves; move < end; ++move) {
-    move->score = kQSimplePieceValues[move->capture];
+    move->score = kQSimplePieceValues[cp2p(move->capture)];
     move->score -= value_or_zero(
       ((threats.badForOur[move->piece] & bb(move->move.to)) > 0) && !((threats.badForOur[move->piece] & bb(move->move.from)) > 0),
       kQSimplePieceValues[move->piece]
     );
-    move->score += (move->capture != Piece::NO_PIECE) * 1000;
+    move->score += (move->capture != ColoredPiece::NO_COLORED_PIECE) * 1000;
   }
 
   std::sort(moves, end, [](ExtMove a, ExtMove b) {
@@ -378,9 +378,13 @@ static SearchResult<TURN> search(
         // a 3-fold repetition.
         bool is3FoldDraw = false;
         if (cr.bestMove != kNullMove) {
-          make_move<TURN>(&thread->pos, cr.bestMove);
-          is3FoldDraw = thread->pos.is_3fold_repetition(plyFromRoot + 1);
-          undo<TURN>(&thread->pos);
+          // Hash collisions can mean cr.bestMove is not actually valid, which can cause
+          // Position to reach a bad state... so we need to check the move is valid first.
+          if (thread->pos.is_valid_move<TURN>(cr.bestMove)) {
+            make_move<TURN>(&thread->pos, cr.bestMove);
+            is3FoldDraw = thread->pos.is_3fold_repetition(plyFromRoot + 1);
+            undo<TURN>(&thread->pos);
+          }
         }
         /**
          * TODO: do we have a similar 3-fold repetition bug where self.child.child.child is a draw?
@@ -550,7 +554,7 @@ static SearchResult<TURN> search(
 
     // Bonus for capturing a piece.
     // (+0.1042 ± 0.0146) after 256 games at 50,000 nodes/move
-    move->score += kMoveOrderPieceValues[move->capture];
+    move->score += kMoveOrderPieceValues[cp2p(move->capture)];
 
     // Bonus if it was the last-found best move.
     // (+0.0703 ± 0.0148) after 256 games at 50,000 nodes/move
@@ -674,7 +678,7 @@ static SearchResult<TURN> search(
       undo<TURN>(&thread->pos);
 
       if (IS_PRINT_NODE) {
-        std::cout << pad(plyFromRoot) << "< move " << extMove->move << " " << a << std::endl;
+        std::cout << pad(plyFromRoot) << "< move " << extMove->move << " -> " << a << std::endl;
       }
 
       // We don't bother to break here, since all of our children will automatically return a low-cost,
@@ -711,7 +715,7 @@ static SearchResult<TURN> search(
           recommendationsForChildren.add(a.move);
           if (r.score >= beta) {
             // TODO: make thinker thread safe.
-            thinker->historyHeuristicTable[TURN][r.move.from][r.move.to] += value_or_zero(extMove->capture == Piece::NO_PIECE, depthRemaining * depthRemaining);
+            thinker->historyHeuristicTable[TURN][r.move.from][r.move.to] += value_or_zero(extMove->capture == ColoredPiece::NO_COLORED_PIECE, depthRemaining * depthRemaining);
             break;
           }
           if (r.score > alpha) {

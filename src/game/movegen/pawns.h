@@ -99,7 +99,7 @@ ExtMove *compute_pawn_moves(const Position& pos, ExtMove *moves, Bitboard target
     b1 &= ~promoting;
     while (promoting) {
       Square to = pop_lsb(promoting);
-      Piece capture = cp2p(pos.tiles_[to]);
+      ColoredPiece capture = pos.tiles_[to];
       if (MGT != MoveGenType::CHECKS_AND_CAPTURES) {
         *moves++ = ExtMove(Piece::PAWN, capture, Move{to - CAPTURE_NE, to, 0, MoveType::PROMOTION});
         *moves++ = ExtMove(Piece::PAWN, capture, Move{to - CAPTURE_NE, to, 1, MoveType::PROMOTION});
@@ -109,8 +109,7 @@ ExtMove *compute_pawn_moves(const Position& pos, ExtMove *moves, Bitboard target
     }
     while (b1) {
       Square to = pop_lsb(b1);
-      Piece capture = cp2p(pos.tiles_[to]);
-      *moves++ = ExtMove(Piece::PAWN, capture, Move{to - CAPTURE_NE, to, 0, MoveType::NORMAL});
+      *moves++ = ExtMove(Piece::PAWN, pos.tiles_[to], Move{to - CAPTURE_NE, to, 0, MoveType::NORMAL});
     }
 
     b1 = shift<CAPTURE_NW>(pawns & ~(pm.vertical | pm.northeast)) & (enemies | epLoc);
@@ -119,7 +118,7 @@ ExtMove *compute_pawn_moves(const Position& pos, ExtMove *moves, Bitboard target
     b1 &= ~promoting;
     while (promoting) {
       Square to = pop_lsb(promoting);
-      Piece capture = cp2p(pos.tiles_[to]);
+      ColoredPiece capture = pos.tiles_[to];
       *moves++ = ExtMove(Piece::PAWN, capture, Move{to - CAPTURE_NW, to, 0, MoveType::PROMOTION});
       *moves++ = ExtMove(Piece::PAWN, capture, Move{to - CAPTURE_NW, to, 1, MoveType::PROMOTION});
       *moves++ = ExtMove(Piece::PAWN, capture, Move{to - CAPTURE_NW, to, 2, MoveType::PROMOTION});
@@ -127,7 +126,7 @@ ExtMove *compute_pawn_moves(const Position& pos, ExtMove *moves, Bitboard target
     }
     while (b1) {
       Square to = pop_lsb(b1);
-      Piece capture = cp2p(pos.tiles_[to]);
+      ColoredPiece capture = pos.tiles_[to];
       *moves++ = ExtMove(Piece::PAWN, capture, Move{to - CAPTURE_NW, to, 0, MoveType::NORMAL});
     }
   }

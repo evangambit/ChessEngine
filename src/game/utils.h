@@ -96,7 +96,7 @@ enum Piece {
   KING = 6,
 };
 
-enum ColoredPiece : int {
+enum ColoredPiece : unsigned {
   NO_COLORED_PIECE = 0,
   WHITE_PAWN = 1,
   WHITE_KNIGHT = 2,

@@ -99,7 +99,7 @@ ExtMove *compute_king_moves(const Position& pos, ExtMove *moves, Bitboard target
     }
     while (tos) {
       Square to = pop_lsb(tos);
-      *moves++ = ExtMove(Piece::KING, cp2p(pos.tiles_[to]), Move{from, to, 0, MoveType::NORMAL});
+      *moves++ = ExtMove(Piece::KING, pos.tiles_[to], Move{from, to, 0, MoveType::NORMAL});
     }
   }
 
@@ -114,7 +114,7 @@ ExtMove *compute_king_moves(const Position& pos, ExtMove *moves, Bitboard target
           && !can_enemy_attack<US>(pos, Square::F1)
           && !can_enemy_attack<US>(pos, Square::G1)
           && (target & bb(Square::G1))) {
-          *moves++ = ExtMove(Piece::KING, Piece::NO_PIECE, Move{Square::E1, Square::G1, 0, MoveType::CASTLE});
+          *moves++ = ExtMove(Piece::KING, ColoredPiece::NO_COLORED_PIECE, Move{Square::E1, Square::G1, 0, MoveType::CASTLE});
         }
         if (!inCheck
           && ((allPieces & (bb(59) | bb(58) | bb(57))) == 0)
@@ -122,7 +122,7 @@ ExtMove *compute_king_moves(const Position& pos, ExtMove *moves, Bitboard target
           && !can_enemy_attack<US>(pos, Square::D1)
           && !can_enemy_attack<US>(pos, Square::C1)
           && (target & bb(Square::C1))) {
-          *moves++ = ExtMove(Piece::KING, Piece::NO_PIECE, Move{Square::E1, Square::C1, 0, MoveType::CASTLE});
+          *moves++ = ExtMove(Piece::KING, ColoredPiece::NO_COLORED_PIECE, Move{Square::E1, Square::C1, 0, MoveType::CASTLE});
         }
       } else {
         if (((allPieces & (bb(5) | bb(6))) == 0)
@@ -130,14 +130,14 @@ ExtMove *compute_king_moves(const Position& pos, ExtMove *moves, Bitboard target
           && !can_enemy_attack<US>(pos, Square(5))
           && !can_enemy_attack<US>(pos, Square(6))
           && (target & bb(6))) {
-          *moves++ = ExtMove(Piece::KING, Piece::NO_PIECE, Move{Square::E8, Square(6), 0, MoveType::CASTLE});
+          *moves++ = ExtMove(Piece::KING, ColoredPiece::NO_COLORED_PIECE, Move{Square::E8, Square(6), 0, MoveType::CASTLE});
         }
         if (((allPieces & (bb(1) | bb(2) | bb(3))) == 0)
           && (cr & kCastlingRights_BlackQueen)
           && !can_enemy_attack<US>(pos, Square(2))
           && !can_enemy_attack<US>(pos, Square(3))
           && (target & bb(2))) {
-          *moves++ = ExtMove(Piece::KING, Piece::NO_PIECE, Move{Square::E8, Square(2), 0, MoveType::CASTLE});
+          *moves++ = ExtMove(Piece::KING, ColoredPiece::NO_COLORED_PIECE, Move{Square::E8, Square(2), 0, MoveType::CASTLE});
         }
       }
     }

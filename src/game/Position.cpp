@@ -39,7 +39,7 @@ std::string ExtMove::str() const {
   std::string r = "";
   r += char(piece_to_char(this->piece) + 'A' - 'a');
   r += square_to_string(this->move.from);
-  if (this->capture != Piece::NO_PIECE) {
+  if (this->capture != ColoredPiece::NO_COLORED_PIECE) {
     r += "x";
   }
   r += square_to_string(this->move.to);
@@ -276,7 +276,7 @@ bool Position::is_3fold_repetition(unsigned plyFromRoot) const {
         return true;
       }
     }
-    if (this->history_[i].capture != Piece::NO_PIECE || this->history_[i].piece == Piece::PAWN) {
+    if (this->history_[i].capture != ColoredPiece::NO_COLORED_PIECE || this->history_[i].piece == Piece::PAWN) {
       break;
     }
   }
