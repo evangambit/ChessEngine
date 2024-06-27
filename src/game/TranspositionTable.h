@@ -70,7 +70,7 @@ std::ostream& operator<<(std::ostream& stream, CacheResult cr) {
   if (isNullCacheResult(cr)) {
     return stream << "[NULL]";
   }
-  return stream << "[ hash:" << cr.positionHash << " depth:" << uint16_t(cr.depthRemaining) << " eval:[" << cr.lowerbound() << ", " << cr.upperbound() << "] move:" << cr.bestMove << " nodeType:" << nodeTypeToString(cr.nodeType) << " priority:" << unsigned(cr.priority) << " rootCounter:" << unsigned(cr.rootCounter) << " ]";
+  return stream << "[ hash:" << cr.positionHash << " depth:" << uint16_t(cr.depthRemaining) << " eval:[" << eval2str(cr.lowerbound()) << ", " << eval2str(cr.upperbound()) << "] move:" << cr.bestMove << " nodeType:" << nodeTypeToString(cr.nodeType) << " priority:" << unsigned(cr.priority) << " rootCounter:" << unsigned(cr.rootCounter) << " ]";
 }
 
 // TODO: it's possible for the same position to occur multiple times in this table.

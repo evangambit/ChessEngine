@@ -12,11 +12,42 @@ Color opposite_color(Color color) {
 
 std::string eval2str(Evaluation eval) {
   if (eval == kMissingKing || eval == -kMissingKing) {
-    return "noking";
+    return "noKing";
+  } else if (eval == kMinEval) {
+    return "minEval";
+  } else if (eval == kMaxEval) {
+    return "maxEval";
   } else if (-std::abs(eval) <= kLongestForcedMate) {
-    return "mate in " + std::to_string((-kCheckmate - std::abs(eval) + 1)) + " ply";
+    return "mate in " + std::to_string((-kCheckmate - std::abs(eval))) + " ply";
   }
   return std::to_string(eval);
+}
+
+Evaluation child_eval_to_parent_eval(Evaluation eval) {
+  eval *= -1;
+  if (eval <= kQLongestForcedMate) {
+    eval += 1;
+  }
+  if (eval >= -kQLongestForcedMate) {
+    eval -= 1;
+  }
+  return eval;
+}
+
+/*
+ * Parent has mate in 2
+ * Only interested in children with mate in 1
+ */
+
+Evaluation parent_eval_to_child_eval(Evaluation eval) {
+  eval *= -1;
+  if (eval <= kQLongestForcedMate && eval > kMinEval) {
+    eval -= 1;
+  }
+  if (eval >= -kQLongestForcedMate && eval < kMaxEval) {
+    eval += 1;
+  }
+  return eval;
 }
 
 void assert_valid_color(Color color) {

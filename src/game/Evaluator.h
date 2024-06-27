@@ -21,6 +21,16 @@ namespace ChessEngine {
 // Arbitrary constant that our "special_boosts" will never accidentally return.
 static const Evaluation kKnownDraw = kMinEval + 10;
 
+/**
+ * Engine is bad at
+ * 1) knowing when trapped pieces (e.g. knights in corners) aren't long for this world
+ * 2) knowing when very extended/isolated pawns will probably be captured in endgames
+ *    (bc one king is close to it and the other is far)
+ * 3) more generally, understanding what squares the king wants to get to, and rewarding
+ *    the king for being close to them (namely promotion squares and isolated pawns).
+ * 4) pawn storms
+ */
+
 enum EF {
   OUR_PAWNS,
   OUR_KNIGHTS,

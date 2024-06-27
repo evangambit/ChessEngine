@@ -33,6 +33,11 @@ SearchResult<opposite_color<COLOR>()> flip(SearchResult<COLOR> r) {
 }
 
 template<Color COLOR>
+SearchResult<opposite_color<COLOR>()> child2parent(SearchResult<COLOR> r) {
+  return SearchResult<opposite_color<COLOR>()>(child_eval_to_parent_eval(r.score), r.move);
+}
+
+template<Color COLOR>
 SearchResult<Color::WHITE> to_white(SearchResult<COLOR> r);
 
 template<>

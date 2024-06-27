@@ -310,7 +310,7 @@ static SearchResult<TURN> search(
   uint16_t distFromPV) {
 
   if (IS_PRINT_NODE) {
-    std::cout << pad(plyFromRoot) << "start " << thread->pos.hash_ << " (depth:" << int(depthRemaining) << " alpha:" << alpha << " beta:" << beta << ") " << thread->pos.history_ << std::endl;
+    std::cout << pad(plyFromRoot) << "start " << thread->pos.hash_ << " (depth:" << int(depthRemaining) << " alpha:" << eval2str(alpha) << " beta:" << eval2str(beta) << ") " << thread->pos.history_ << std::endl;
   }
 
 
@@ -620,8 +620,12 @@ static SearchResult<TURN> search(
         }
       }
 
+      const Evaluation child_alpha = parent_eval_to_child_eval(alpha);
+      const Evaluation child_alpha_plus1 = std::min(int32_t(child_alpha) + 1, int32_t(kMaxEval));
+      const Evaluation child_beta = parent_eval_to_child_eval(beta);
+
       if (IS_PRINT_NODE) {
-        std::cout << pad(plyFromRoot) << "> move " << extMove->move << std::endl;
+        std::cout << pad(plyFromRoot) << "> move " << extMove->move << " (h = " << thread->pos.hash_ << "; alpha = " << eval2str(child_alpha) << "; beta = " << eval2str(child_beta) << ")" << std::endl;
       }
 
       make_move<TURN>(&thread->pos, extMove->move);
@@ -654,23 +658,20 @@ static SearchResult<TURN> search(
       constexpr SearchType kChildSearchType = SEARCH_TYPE == SearchTypeRoot ? SearchTypeNormal : SEARCH_TYPE;
       #if !SIMPLE_SEARCH
         if (extMove == moves) {
-          a = flip(search<opposingColor, kChildSearchType, IS_PARALLEL>(thinker, thread, depthRemaining - 1, plyFromRoot + 1, -beta, -alpha, recommendationsForChildren, distFromPV + (extMove != moves)));
+          a = child2parent(search<opposingColor, kChildSearchType, IS_PARALLEL>(thinker, thread, depthRemaining - 1, plyFromRoot + 1, child_beta, child_alpha, recommendationsForChildren, distFromPV + (extMove != moves)));
         } else {
-          a = flip(search<opposingColor, SearchTypeNullWindow, IS_PARALLEL>(thinker, thread, depthRemaining - 1, plyFromRoot + 1, -(alpha + 1), -alpha, recommendationsForChildren, distFromPV + (extMove != moves)));
+          a = child2parent(search<opposingColor, SearchTypeNullWindow, IS_PARALLEL>(thinker, thread, depthRemaining - 1, plyFromRoot + 1, child_alpha_plus1, child_alpha, recommendationsForChildren, distFromPV + (extMove != moves)));
           if (a.score > alpha) {
-            a = flip(search<opposingColor, kChildSearchType, IS_PARALLEL>(thinker, thread, depthRemaining - 1, plyFromRoot + 1, -beta, -(alpha + 1), recommendationsForChildren, distFromPV + (extMove != moves)));
+            a = child2parent(search<opposingColor, kChildSearchType, IS_PARALLEL>(thinker, thread, depthRemaining - 1, plyFromRoot + 1, child_beta, child_alpha_plus1, recommendationsForChildren, distFromPV + (extMove != moves)));
           }
         }
       #else
-        a = flip(search<opposingColor, kChildSearchType, IS_PARALLEL>(thinker, thread, depthRemaining - 1, plyFromRoot + 1, -beta, -alpha, recommendationsForChildren, distFromPV + (extMove != moves)));
+        a = child2parent(search<opposingColor, kChildSearchType, IS_PARALLEL>(thinker, thread, depthRemaining - 1, plyFromRoot + 1, child_beta, child_alpha, recommendationsForChildren, distFromPV + (extMove != moves)));
       #endif
 
-      if (IS_PRINT_NODE) {
-        std::cout << pad(plyFromRoot) << ": a " << a << std::endl;
+      if (IS_PRINT_NODE || SEARCH_TYPE == SearchTypeRoot) {
+        std::cout << pad(plyFromRoot) << ": a " << extMove->move << " " << a << std::endl;
       }
-
-      a.score -= (a.score > -kQLongestForcedMate);
-      a.score += (a.score <  kQLongestForcedMate);
 
       if (IS_PARALLEL) {
         thinker->_manager.finished_searching(thread->pos.hash_);
@@ -741,7 +742,7 @@ static SearchResult<TURN> search(
   }
 
   if (numValidMoves == 0) {
-    r.score = inCheck ? kCheckmate + plyFromRoot : 0;
+    r.score = inCheck ? kCheckmate : 0;
     r.move = kNullMove;
   }
 
