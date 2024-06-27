@@ -347,6 +347,23 @@ class MoveTask : public Task {
   std::deque<std::string> command;
 };
 
+class UndoTask : public Task {
+ public:
+  UndoTask(std::deque<std::string> command) {}
+  void start(UciEngineState *state) {
+    if (state->pos.history_.size() == 0) {
+      std::cout << "No moves to undo" << std::endl;
+      return;
+    }
+    if (state->pos.turn_ == Color::WHITE) {
+      undo<Color::BLACK>(&state->pos);
+    } else {
+      undo<Color::WHITE>(&state->pos);
+    }
+  }
+};
+
+
 class PrintOptionsTask : public Task {
  public:
   void start(UciEngineState *state) {
@@ -738,6 +755,8 @@ struct UciEngine {
       state->taskQueue.push_back(std::make_shared<PrintOptionsTask>());
     } else if (parts[0] == "move") {
       state->taskQueue.push_back(std::make_shared<MoveTask>(parts));
+    } else if (parts[0] == "undo") {
+      state->taskQueue.push_back(std::make_shared<UndoTask>(parts));
     } else if (parts[0] == "eval") {
       state->taskQueue.push_back(std::make_shared<EvalTask>(parts));
     } else if (parts[0] == "probe") {
