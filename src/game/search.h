@@ -621,7 +621,7 @@ static SearchResult<TURN> search(
       }
 
       const Evaluation child_alpha = parent_eval_to_child_eval(alpha);
-      const Evaluation child_alpha_plus1 = std::min(int32_t(child_alpha) + 1, int32_t(kMaxEval));
+      const Evaluation child_alpha_plus1 = std::max(int32_t(child_alpha) - 1, int32_t(kMinEval));
       const Evaluation child_beta = parent_eval_to_child_eval(beta);
 
       if (IS_PRINT_NODE) {
@@ -669,7 +669,7 @@ static SearchResult<TURN> search(
         a = child2parent(search<opposingColor, kChildSearchType, IS_PARALLEL>(thinker, thread, depthRemaining - 1, plyFromRoot + 1, child_beta, child_alpha, recommendationsForChildren, distFromPV + (extMove != moves)));
       #endif
 
-      if (IS_PRINT_NODE || SEARCH_TYPE == SearchTypeRoot) {
+      if (IS_PRINT_NODE) {
         std::cout << pad(plyFromRoot) << ": a " << extMove->move << " " << a << std::endl;
       }
 
