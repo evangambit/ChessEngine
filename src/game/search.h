@@ -652,21 +652,24 @@ static SearchResult<TURN> search(
 
       ++numValidMoves;
 
+      // (+0.0210 ± 0.0124) Extend checks.
+      const Depth childDepth = depthRemaining - !inCheck;
+
       // Null-window search.
       // (+0.0269 ± 0.0072) after 1024 games at 50,000 nodes/move
       SearchResult<TURN> a(0, kNullMove);
       constexpr SearchType kChildSearchType = SEARCH_TYPE == SearchTypeRoot ? SearchTypeNormal : SEARCH_TYPE;
       #if !SIMPLE_SEARCH
         if (extMove == moves) {
-          a = child2parent(search<opposingColor, kChildSearchType, IS_PARALLEL>(thinker, thread, depthRemaining - 1, plyFromRoot + 1, child_beta, child_alpha, recommendationsForChildren, distFromPV + (extMove != moves)));
+          a = child2parent(search<opposingColor, kChildSearchType, IS_PARALLEL>(thinker, thread, childDepth, plyFromRoot + 1, child_beta, child_alpha, recommendationsForChildren, distFromPV + (extMove != moves)));
         } else {
-          a = child2parent(search<opposingColor, SearchTypeNullWindow, IS_PARALLEL>(thinker, thread, depthRemaining - 1, plyFromRoot + 1, child_alpha_plus1, child_alpha, recommendationsForChildren, distFromPV + (extMove != moves)));
+          a = child2parent(search<opposingColor, SearchTypeNullWindow, IS_PARALLEL>(thinker, thread, childDepth, plyFromRoot + 1, child_alpha_plus1, child_alpha, recommendationsForChildren, distFromPV + (extMove != moves)));
           if (a.score > alpha) {
-            a = child2parent(search<opposingColor, kChildSearchType, IS_PARALLEL>(thinker, thread, depthRemaining - 1, plyFromRoot + 1, child_beta, child_alpha_plus1, recommendationsForChildren, distFromPV + (extMove != moves)));
+            a = child2parent(search<opposingColor, kChildSearchType, IS_PARALLEL>(thinker, thread, childDepth, plyFromRoot + 1, child_beta, child_alpha_plus1, recommendationsForChildren, distFromPV + (extMove != moves)));
           }
         }
       #else
-        a = child2parent(search<opposingColor, kChildSearchType, IS_PARALLEL>(thinker, thread, depthRemaining - 1, plyFromRoot + 1, child_beta, child_alpha, recommendationsForChildren, distFromPV + (extMove != moves)));
+        a = child2parent(search<opposingColor, kChildSearchType, IS_PARALLEL>(thinker, thread, childDepth, plyFromRoot + 1, child_beta, child_alpha, recommendationsForChildren, distFromPV + (extMove != moves)));
       #endif
 
       if (IS_PRINT_NODE) {
