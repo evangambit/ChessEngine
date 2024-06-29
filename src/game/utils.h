@@ -97,6 +97,7 @@ enum Piece {
   ROOK = 4,
   QUEEN = 5,
   KING = 6,
+  NUM_PIECES = 7,
 };
 
 enum ColoredPiece : unsigned {

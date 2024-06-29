@@ -14,8 +14,22 @@
 
 namespace ChessEngine {
 
+// For each piece type and each square, we have a bitboard of all squares the piece
+// can move to, from that square.
+Bitboard kFreePieceMoves[Piece::NUM_PIECES][kNumSquares];
+
 void initialize_movegen() {
   initialize_sliding();
+  for (Square sq = Square(0); sq < kNumSquares; sq = Square(sq + 1)) {
+    const Bitboard b = bb(sq);
+    kFreePieceMoves[Piece::NO_PIECE][sq] = kEmptyBitboard;
+    kFreePieceMoves[Piece::PAWN][sq] = kKingMoves[sq];  // Obviously this is wrong, but what can you do?
+    kFreePieceMoves[Piece::KNIGHT][sq] = kKnightMoves[sq];
+    kFreePieceMoves[Piece::BISHOP][sq] = compute_bishoplike_targets(b, kEmptyBitboard);
+    kFreePieceMoves[Piece::ROOK][sq] = compute_rooklike_targets(b, kEmptyBitboard);
+    kFreePieceMoves[Piece::QUEEN][sq] = kFreePieceMoves[Piece::BISHOP][sq] | kFreePieceMoves[Piece::ROOK][sq];
+    kFreePieceMoves[Piece::KING][sq] = kKingMoves[sq];
+  }
 }
 
 namespace StaticExchangeAnalysis {
