@@ -256,9 +256,12 @@ static SearchResult<TURN> qsearch(Thinker *thinker, Thread *thread, int32_t dept
       break;
     }
 
+    Evaluation child_alpha = parent_eval_to_child_eval(alpha);
+    Evaluation child_beta = parent_eval_to_child_eval(beta);
+
     make_move<TURN>(&thread->pos, move->move);
 
-    SearchResult<TURN> child = flip(qsearch<opposingColor>(thinker, thread, depth + 1, plyFromRoot + 1, -beta, -alpha));
+    SearchResult<TURN> child = child2parent(qsearch<opposingColor>(thinker, thread, depth + 1, plyFromRoot + 1, child_alpha, child_beta));
     child.score -= (child.score > -kQLongestForcedMate);
     child.score += (child.score <  kQLongestForcedMate);
 
