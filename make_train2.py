@@ -303,7 +303,7 @@ if __name__ == '__main__':
 
   parser = argparse.ArgumentParser()
   parser.add_argument("pgnfiles", nargs='*')
-  parser.add_argument("--stage", type=str, help="{positions, vectors}")
+  parser.add_argument("--stage", type=str, help="{positions, vectors, analysis}")
   parser.add_argument("--noise", type=int, default=0, help="{0, 1, 2, ..}")
   parser.add_argument("--depth", type=int, default=6, help="{1, 2, ..}")
   parser.add_argument("--threads", type=int, default=10)
@@ -317,11 +317,9 @@ if __name__ == '__main__':
   parser.add_argument("--filter_quiet3", type=int, default=50, help="9999 to disable")
   args = parser.parse_args()
 
-  assert args.stage in ['positions', 'vectors']
+  assert args.stage in ['positions', 'vectors', 'analysis']
   assert args.noise >= 0
   assert args.depth > 1
-  if args.analysis != '':
-    args.analysis += f'_{args.filter_range}_{args.filter_quiet1}_{args.filter_quiet2}_{args.filter_quiet3}.txt'
 
   if args.stage == 'positions':
     fenQueue = Queue()
@@ -348,10 +346,10 @@ if __name__ == '__main__':
       if fen not in fens:
         fens.add(fen)
         fenQueue.put(fen)
-  else:  # vectors
+  elif args.stage == 'vectors':
     conn = sqlite3.connect("db.sqlite3")
     c = conn.cursor()
-    c.execute(f"""SELECT fen, MoverScore1 FROM {get_table_name(args)}
+    c.execute(f"""SELECT fen, MoverScore1, MoverScore2, MoverScore3, MoverScore4 FROM {get_table_name(args)}
       WHERE
           MoverScore1 < MoverScore2 + {args.filter_quiet1}
       AND MoverScore1 < MoverScore3 + {args.filter_quiet2}
@@ -362,7 +360,7 @@ if __name__ == '__main__':
     """)
     rows = c.fetchall()
     fens = [row[0] for row in rows]
-    evals = [row[1] for row in rows]
+    evals = [row[1:] for row in rows]
 
     print('Found %i positions' % len(fens))
 
@@ -413,33 +411,66 @@ if __name__ == '__main__':
     Y = np.stack(Y, dtype=np.float32)[good_indices]
 
     np.save('F.npy', F)
-    np.save('X.npy', X)
-    np.save('Y.npy', Y)
+    np.save('X.npy', X.astype(np.int8))
+    np.save('Y.npy', Y.astype(np.int16))
 
+    if args.include_tables:
+      tables = np.frombuffer(open('/tmp/tables.txt', 'rb').read(), dtype=np.int8) - 49
+      tables = tables.reshape(-1, 7 * 64)
+      tables = tables[good_indices]
+      np.save('tables.npy', tables)
+
+  else:  # analysis
     if args.analysis == '':
-      exit(0)
+      args.analysis = 'default_analysis'
+    args.analysis += f'_fr{args.filter_range}_fq1{args.filter_quiet1}_fq2{args.filter_quiet2}_fq3{args.filter_quiet3}.txt'
 
     # TODO: why doesn't "4r2k/6pp/3KQq2/p2P4/6P1/8/8/2R3R1 b - - 5 34" count as OUR_HANGING_QUEENS?
     # Answer: bc we use "isHanging = threats.theirTargets & ~threats.ourTargets & pos.colorBitboards_[US]"
     # which is not very good for a queen
 
+    X = np.load('X.npy')
+    Y = np.load('Y.npy')
+
+    print('Loaded data', X.shape[0])
+
+    I = (
+      Y[:,0] < Y[:,1] + args.filter_quiet1
+    ) * (
+      Y[:,0] < Y[:,2] + args.filter_quiet2
+    ) * (
+      Y[:,0] < Y[:,3] + args.filter_quiet3
+    ) * (
+      np.abs(Y[:,0]) < args.filter_range
+    )
+
+    X = X[I].astype(np.float32)
+    Y = Y[I,0].astype(np.float32)
     time = (X[:,ESTR.index('TIME')].clip(0, 18) / 18).reshape(-1, 1)
-    Xlate = X * time
+
+    print('Filtered data', X.shape[0])
+
     Xearly = X * (1.0 - time)
-    Ylate = Y * time.squeeze()
     Yearly = Y * (1.0 - time.squeeze())
     wEarly = np.linalg.lstsq(Xearly, Yearly, rcond=0.001)[0]
+    Yhat = Xearly @ wEarly
+    Xearly, Yearly = None, None
+
+    print('Learned early')
+
+    Xlate = X * time
+    Ylate = Y * time.squeeze()
     wLate = np.linalg.lstsq(Xlate, Ylate, rcond=0.001)[0]
-    Yhat = Xearly @ wEarly + Xlate @ wLate
+    Yhat += Xlate @ wLate
+    Xlate, Ylate = None, None
+
+    print('Learned late')
 
     if args.include_tables:
       Rearly = (Yearly - Xearly @ wEarly)
       Rlate = (Ylate - Xlate @ wLate)
 
-      tables = np.frombuffer(open('/tmp/tables.txt', 'rb').read(), dtype=np.int8) - 49
-      tables = tables.reshape(-1, 7 * 64)
-      tables = tables[good_indices]
-      np.save('tables.npy', tables)
+      tables = np.load('tables.npy')
 
       # Naive estimate of piece square tables
       T = []
@@ -457,17 +488,16 @@ if __name__ == '__main__':
     else:
       T = np.zeros((14, 8, 8))
 
-    s = 100.0 / wEarly[0]
     text = ""
     for k, w in zip(['early', 'late', 'clipped'], [wEarly, wLate, np.zeros(wEarly.shape)]):
       text += ('%i' % 0).rjust(7) + f'  // {k} bias\n'
       for i, varname in enumerate(ESTR):
-        text += ('%i' % round(float(w[i]) * s)).rjust(7) + f'  // {k} {varname}\n'
+        text += ('%i' % round(float(w[i]))).rjust(7) + f'  // {k} {varname}\n'
 
     for i in range(14):
       text += f'// {"?PNBRQK?PNBRQK"[i]}\n'
       for j in range(8):
-        text += '    ' + ' '.join([str(round(x * s)).rjust(6) for x in T[i, j]]) + '\n'
+        text += '    ' + ' '.join([str(round(x)).rjust(6) for x in T[i, j]]) + '\n'
 
     with open(args.analysis, 'w+') as f:
       f.write(text)
