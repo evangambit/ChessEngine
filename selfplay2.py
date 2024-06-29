@@ -162,13 +162,13 @@ if __name__ == '__main__':
       try:
         r = pool.map_async(thread_main, batch).get(timeout=60)
         R += r
+        r = np.array(R, dtype=np.float64).reshape(-1)
+        stderr = r.std(ddof=1) / np.sqrt(r.shape[0])
+        avg = r.mean()
+        print('%.3f ± %.3f' % (avg, stderr))
       except mp.context.TimeoutError:
         print('timeout')
         pass
-  r = np.array(R, dtype=np.float64).reshape(-1)
-
-  stderr = r.std(ddof=1) / np.sqrt(r.shape[0])
-  avg = r.mean()
 
   dt = time.time() - t0
   if dt < 60:

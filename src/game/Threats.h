@@ -107,6 +107,11 @@ struct Threats {
     this->ourKingTargets = compute_king_targets<US>(pos, ourKingSq);
     this->theirKingTargets = compute_king_targets<THEM>(pos, theirKingSq);
 
+    const Bitboard ourPieces = pos.colorBitboards_[US] & ~pos.pieceBitboards_[coloredPiece<US, Piece::PAWN>()];
+    const Bitboard theirPieces = pos.colorBitboards_[THEM] & ~pos.pieceBitboards_[coloredPiece<THEM, Piece::PAWN>()];
+    const Bitboard ourMajors = ourPieces & ~pos.pieceBitboards_[coloredPiece<US, Piece::KNIGHT>()] & ~pos.pieceBitboards_[coloredPiece<US, Piece::BISHOP>()];
+    const Bitboard theirMajors = theirPieces & ~pos.pieceBitboards_[coloredPiece<THEM, Piece::KNIGHT>()] & ~pos.pieceBitboards_[coloredPiece<THEM, Piece::BISHOP>()];
+
     this->ourTargets = ourPawn1 | ourPawn2;
     this->ourDoubleTargets = ourPawn1 & ourPawn2;
     this->theirTargets = theirPawn1 | theirPawn2;
@@ -147,18 +152,18 @@ struct Threats {
     const Bitboard theirMinorTargets = this->theirKnightTargets | this->theirBishopTargets;
     const Bitboard ourMinorTargets = this->ourKnightTargets | this->ourBishopTargets;
 
-    this->badForOur[Piece::PAWN]   = badForAllOfUs | (this->theirDoubleTargets & ~this->ourDoubleTargets);
-    this->badForOur[Piece::KNIGHT] = badForAllOfUs | this->theirPawnTargets | (this->theirDoubleTargets & ~this->ourDoubleTargets);
+    this->badForOur[Piece::PAWN]   = (badForAllOfUs | (this->theirDoubleTargets & ~this->ourDoubleTargets)) & ~pos.colorBitboards_[THEM];
+    this->badForOur[Piece::KNIGHT] = (badForAllOfUs | this->theirPawnTargets | (this->theirDoubleTargets & ~this->ourDoubleTargets)) & ~theirPieces;
     this->badForOur[Piece::BISHOP] = this->badForOur[Piece::KNIGHT];
-    this->badForOur[Piece::ROOK]   = badForAllOfUs | this->theirPawnTargets | theirMinorTargets | (this->theirDoubleTargets & ~this->ourDoubleTargets);
-    this->badForOur[Piece::QUEEN]  = badForAllOfUs | this->theirPawnTargets | theirMinorTargets | this->theirRookTargets | (this->theirDoubleTargets & ~this->ourDoubleTargets);
+    this->badForOur[Piece::ROOK]   = (badForAllOfUs | this->theirPawnTargets | theirMinorTargets | (this->theirDoubleTargets & ~this->ourDoubleTargets)) & ~theirMajors;
+    this->badForOur[Piece::QUEEN]  = (badForAllOfUs | this->theirPawnTargets | theirMinorTargets | this->theirRookTargets | (this->theirDoubleTargets & ~this->ourDoubleTargets)) & ~pos.pieceBitboards_[coloredPiece<THEM, Piece::QUEEN>()];
     this->badForOur[Piece::KING]   = this->theirTargets;
 
-    this->badForTheir[Piece::PAWN]   = badForAllOfThem | (this->ourDoubleTargets & ~this->theirDoubleTargets);
-    this->badForTheir[Piece::KNIGHT] = badForAllOfThem | this->ourPawnTargets | (this->ourDoubleTargets & ~this->theirDoubleTargets);
+    this->badForTheir[Piece::PAWN]   = (badForAllOfThem | (this->ourDoubleTargets & ~this->theirDoubleTargets)) & ~pos.colorBitboards_[US];
+    this->badForTheir[Piece::KNIGHT] = (badForAllOfThem | this->ourPawnTargets | (this->ourDoubleTargets & ~this->theirDoubleTargets)) & ~ourPieces;
     this->badForTheir[Piece::BISHOP] = this->badForTheir[Piece::KNIGHT];
-    this->badForTheir[Piece::ROOK]   = badForAllOfThem | this->ourPawnTargets | ourMinorTargets | (this->ourDoubleTargets & ~this->theirDoubleTargets & this->ourRookTargets);
-    this->badForTheir[Piece::QUEEN]  = badForAllOfThem | this->ourPawnTargets | ourMinorTargets | this->ourRookTargets | (this->ourDoubleTargets & ~this->theirDoubleTargets);
+    this->badForTheir[Piece::ROOK]   = (badForAllOfThem | this->ourPawnTargets | ourMinorTargets | (this->ourDoubleTargets & ~this->theirDoubleTargets & this->ourRookTargets)) & ~ourMajors;
+    this->badForTheir[Piece::QUEEN]  = (badForAllOfThem | this->ourPawnTargets | ourMinorTargets | this->ourRookTargets | (this->ourDoubleTargets & ~this->theirDoubleTargets)) & ~pos.pieceBitboards_[coloredPiece<US, Piece::QUEEN>()];
     this->badForTheir[Piece::KING]   = this->ourTargets;
   }
 };
