@@ -6,6 +6,7 @@
 #include "TranspositionTable.h"
 #include "SearchResult.h"
 #include "Position.h"
+// #include "nnue.h"
 
 namespace ChessEngine {
 
@@ -95,6 +96,7 @@ struct Thinker {
   size_t numThreads;
 
   PieceMaps pieceMaps;
+  std::shared_ptr<NnueNetwork> nnue;
   uint64_t lastRootHash;
 
   std::vector<VariationHead<Color::WHITE>> variations;
@@ -104,6 +106,7 @@ struct Thinker {
   Thinker() : cache(10000), stopThinkingCondition(new NeverStopThinkingCondition()), lastRootHash(0) {
     this->clear_history_heuristic();
     this->nodeCounter = 0;
+    this->nnue = std::make_shared<NnueNetwork>();
     multiPV = 1;
     numThreads = 1;
   }
@@ -138,6 +141,9 @@ struct Thinker {
     this->evaluator.save_weights_to_file(myfile);
     this->pieceMaps.save_weights_to_file(myfile);
     myfile.close();
+    std::cout << "reading nnue" << std::endl;
+    this->nnue->load("nnue.bin");
+    std::cout << "/reading nnue" << std::endl;
   }
 
 
@@ -151,6 +157,9 @@ struct Thinker {
     this->evaluator.load_weights_from_file(myfile);
     this->pieceMaps.load_weights_from_file(myfile);
     myfile.close();
+    std::cout << "reading nnue" << std::endl;
+    this->nnue->load("nnue.bin");
+    std::cout << "/reading nnue" << std::endl;
   }
 
   std::pair<Evaluation, std::vector<Move>> get_variation(Position *pos, Move move) const {

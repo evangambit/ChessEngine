@@ -303,13 +303,12 @@ if __name__ == '__main__':
 
   parser = argparse.ArgumentParser()
   parser.add_argument("pgnfiles", nargs='*')
-  parser.add_argument("--stage", type=str, help="{positions, vectors, analysis}")
+  parser.add_argument("--stage", type=str, help="{positions, vectors}")
   parser.add_argument("--noise", type=int, default=0, help="{0, 1, 2, ..}")
   parser.add_argument("--depth", type=int, default=6, help="{1, 2, ..}")
   parser.add_argument("--threads", type=int, default=10)
   parser.add_argument("--stockpath", default="/usr/local/bin/stockfish", type=str)
   parser.add_argument("--downsample", type=int, default=50, help="{1, 2, ..}")
-  parser.add_argument("--include_tables", type=int, default=0, help="{0, 1}")
   parser.add_argument("--analysis", type=str, default='')
   parser.add_argument("--filter_range", type=int, default=300, help="9999 to disable")
   parser.add_argument("--filter_quiet1", type=int, default=50, help="9999 to disable")
@@ -365,7 +364,7 @@ if __name__ == '__main__':
     print('Found %i positions' % len(fens))
 
     # Remove duplicates
-    A, B = [], []
+    A, B, C = [], [], []
     seen = set()
     for fen, e in zip(fens, evals):
       if fen in seen:
@@ -373,132 +372,24 @@ if __name__ == '__main__':
       seen.add(fen)
       A.append(fen)
       B.append(e)
-    fens, evals = A, B
+      C.append(int(' w ' in fen) * 2 - 1)
+    fens, evals, turns = A, B, C
+
+    print('Found %i positions after removing duplicates' % len(fens))
 
     with open('/tmp/fens.txt', 'w') as f:
       f.write('\n'.join(fens))
-    # os.system("sh build.sh src/main.cpp -o main && ./main mode printvec-cpu fens /tmp/fens.txt > /tmp/vecs.txt")
-    os.system("./main mode printvec-cpu fens /tmp/fens.txt > /tmp/vecs.txt")
 
-    if args.include_tables:
-      # os.system("sh build.sh src/make_tables.cpp -o make_tables && ./make_tables")
-      os.system("./make_tables /tmp/fens.txt > /tmp/tables.txt")
+    np.save('F.npy', np.array(fens))
+    np.save('turns', np.array(turns, dtype=np.int16).reshape((-1, 1)))
+    # np.save('Y.npy', np.array(evals, dtype=np.int16))
 
-    with open('/tmp/vecs.txt', 'r') as f:
-      lines = f.read().split('\n')
-    assert lines[-1] == ''
-    lines.pop()
-    assert len(lines) == len(fens) * 2
+    # print('Computing tables')
 
-    X, F, Y = [], [], []
-    good_indices = []
-    for i, fen in tqdm(enumerate(fens), total=len(fens)):
-      assert lines[2 * i + 0] == fen
-      line = lines[2 * i + 1].split(' ')
-      try:
-        line = [int(val) for val in line]
-        good_indices.append(i)
-      except:
-        line = [0] * X[-1].shape[0]
-      F.append(fen)
-      X.append(np.array(line, dtype=np.int16))
-      Y.append(evals[i])
+    # # os.system("sh build.sh src/make_tables.cpp -o make_tables && ./make_tables")
+    # os.system("./make_tables /tmp/fens.txt > /tmp/tables.txt")
 
-    good_indices = np.array(good_indices)
-
-    F = np.array(F)[good_indices]
-    X = np.stack(X)[good_indices]
-    Y = np.stack(Y, dtype=np.float32)[good_indices]
-
-    np.save('F.npy', F)
-    np.save('X.npy', X.astype(np.int8))
-    np.save('Y.npy', Y.astype(np.int16))
-
-    if args.include_tables:
-      tables = np.frombuffer(open('/tmp/tables.txt', 'rb').read(), dtype=np.int8) - 49
-      tables = tables.reshape(-1, 7 * 64)
-      tables = tables[good_indices]
-      np.save('tables.npy', tables)
-
-  else:  # analysis
-    if args.analysis == '':
-      args.analysis = 'default_analysis'
-    args.analysis += f'_fr{args.filter_range}_fq1{args.filter_quiet1}_fq2{args.filter_quiet2}_fq3{args.filter_quiet3}.txt'
-
-    # TODO: why doesn't "4r2k/6pp/3KQq2/p2P4/6P1/8/8/2R3R1 b - - 5 34" count as OUR_HANGING_QUEENS?
-    # Answer: bc we use "isHanging = threats.theirTargets & ~threats.ourTargets & pos.colorBitboards_[US]"
-    # which is not very good for a queen
-
-    X = np.load('X.npy')
-    Y = np.load('Y.npy')
-
-    print('Loaded data', X.shape[0])
-
-    I = (
-      Y[:,0] < Y[:,1] + args.filter_quiet1
-    ) * (
-      Y[:,0] < Y[:,2] + args.filter_quiet2
-    ) * (
-      Y[:,0] < Y[:,3] + args.filter_quiet3
-    ) * (
-      np.abs(Y[:,0]) < args.filter_range
-    )
-
-    X = X[I].astype(np.float32)
-    Y = Y[I,0].astype(np.float32)
-    time = (X[:,ESTR.index('TIME')].clip(0, 18) / 18).reshape(-1, 1)
-
-    print('Filtered data', X.shape[0])
-
-    Xearly = X * (1.0 - time)
-    Yearly = Y * (1.0 - time.squeeze())
-    wEarly = np.linalg.lstsq(Xearly, Yearly, rcond=0.001)[0]
-    Yhat = Xearly @ wEarly
-    Xearly, Yearly = None, None
-
-    print('Learned early')
-
-    Xlate = X * time
-    Ylate = Y * time.squeeze()
-    wLate = np.linalg.lstsq(Xlate, Ylate, rcond=0.001)[0]
-    Yhat += Xlate @ wLate
-    Xlate, Ylate = None, None
-
-    print('Learned late')
-
-    if args.include_tables:
-      Rearly = (Yearly - Xearly @ wEarly)
-      Rlate = (Ylate - Xlate @ wLate)
-
-      tables = np.load('tables.npy')
-
-      # Naive estimate of piece square tables
-      T = []
-      n = tables.shape[0]
-      for R, t in [(Rearly, (1.0 - time)), (Rlate, time)]:
-        regularizer = 0.001
-        tt = tables * t
-        tt = tt - tt.mean(0)
-        R = R - R.mean(0)
-        cov = tt[:n].T @ tt[:n]
-        icov = np.linalg.inv(cov + np.eye(cov.shape[0]) * regularizer)
-        w = np.linalg.multi_dot([icov, tt[:n].T, R[:n]])
-        T.append(w.reshape(7, 8, 8))
-      T = np.concatenate(T, 0)
-    else:
-      T = np.zeros((14, 8, 8))
-
-    text = ""
-    for k, w in zip(['early', 'late', 'clipped'], [wEarly, wLate, np.zeros(wEarly.shape)]):
-      text += ('%i' % 0).rjust(7) + f'  // {k} bias\n'
-      for i, varname in enumerate(ESTR):
-        text += ('%i' % round(float(w[i]))).rjust(7) + f'  // {k} {varname}\n'
-
-    for i in range(14):
-      text += f'// {"?PNBRQK?PNBRQK"[i]}\n'
-      for j in range(8):
-        text += '    ' + ' '.join([str(round(x)).rjust(6) for x in T[i, j]]) + '\n'
-
-    with open(args.analysis, 'w+') as f:
-      f.write(text)
+    # tables = np.frombuffer(open('/tmp/tables.txt', 'rb').read(), dtype=np.int8) - 97
+    # tables = tables.reshape(-1, 784)
+    # np.save('tables.npy', tables)
 

@@ -2,6 +2,7 @@
 #include "game/Position.h"
 #include "game/movegen.h"
 #include "game/utils.h"
+#include "game/Thinker.h"
 #include "game/string_utils.h"
 
 #include <condition_variable>
@@ -240,6 +241,7 @@ class EvalTask : public Task {
     }
     Evaluator& evaluator = state->thinker.evaluator;
     state->pos.set_piece_maps(state->thinker.pieceMaps);
+    state->pos.set_network(state->thinker.nnue);
     if (state->pos.turn_ == Color::WHITE) {
       std::cout << evaluator.score<Color::WHITE>(state->pos) << std::endl;
     } else {
