@@ -199,7 +199,7 @@ class PCA:
     x = x.reshape(-1, s[-1])
     x = x @ self.V
     if self.scale:
-      x = x / np.sqrt(self.D)
+      x /= np.sqrt(self.D)
     return x.reshape(s)
 
   def points_backward(self, x):
@@ -238,23 +238,20 @@ def lpad(t, n, c=' '):
 def logit(x):
   return torch.log(x / (1.0 - x))
 
-# X = np.load(os.path.join('traindata', f'x.make_train_any_d10_n0.npy')).astype(np.float64)
-# Y = np.load(os.path.join('traindata', f'y.make_train_any_d10_n0.npy')).astype(np.float64)
 cat = np.concatenate
-# X = cat([X, np.load(os.path.join('traindata', f'x.make_train_any_d10_n1.npy')).astype(np.float64)], 0)
-# Y = cat([Y, np.load(os.path.join('traindata', f'y.make_train_any_d10_n1.npy')).astype(np.float64)], 0)
 
-# X = np.load(os.path.join('traindata', f'x.make_train_any_d6_n0.npy')).astype(np.float64)
-# Y = np.load(os.path.join('traindata', f'y.make_train_any_d6_n0.npy')).astype(np.float64)
-
-F = np.load('F.npy')
-X = np.load('X.npy').astype(np.float64)
-Y = np.load('Y.npy').astype(np.float64)
+Y = np.frombuffer(open('/tmp/y.bin', 'rb').read(), dtype=np.int16).reshape(-1, 3)
+X = np.frombuffer(open('/tmp/x.bin', 'rb').read(), dtype=np.int8).reshape(Y.shape[0], -1)
+Y = (Y[:,0] + Y[:,1] * 0.5 + 1.5) / (Y.sum(1) + 3)
+logit = lambda x: np.log(x / (1 - x))
+Y = logit(Y)
 
 T = X[:,varnames.index('TIME')].copy() / 18.0
 
-pca = PCA(X, 0.001, scale=True)
+print('Computing PCA...')
+pca = PCA(X[:1_000_000].astype(np.float32), 0.001, scale=True)
 
+print('Applying PCA...')
 X = pca.points_forward(X)
 
 def soft_clip(x, k = 4.0):
@@ -290,15 +287,31 @@ def forever(loader):
     for batch in loader:
       yield batch
 
+print('Setting up model...')
 model = Model()
 opt = optim.AdamW(model.parameters(), lr=3e-3)
 
-with open('w2.txt', 'r') as f:
-  weights = Weights(f)
-with torch.no_grad():
-  for k in model.w:
-    model.w[k].weight += torch.tensor(pca.slope_forward(weights.vecs[k] / 100.0))
+# Sensible initialization
+n = 500_000
+bearly = (Y[:n] * (1 - T[:n])).mean()
+wearly = np.linalg.lstsq(X[:n].astype(np.float32) * (1 - T[:n]).astype(np.float32).reshape(-1, 1), Y[:n] * (1 - T[:n]) - bearly, rcond=0.001)[0]
+blate = (Y[:n] * T[:n]).mean()
+wlate = np.linalg.lstsq(X[:n].astype(np.float32) * T[:n].astype(np.float32).reshape(-1, 1), Y[:n] * T[:n], rcond=0.001)[0]
 
+with torch.no_grad():
+  model.w['early'].weight += torch.tensor(wearly, dtype=torch.float32)
+  model.w['early'].bias += torch.tensor(bearly, dtype=torch.float32)
+  model.w['late'].weight += torch.tensor(wlate, dtype=torch.float32)
+  model.w['late'].bias += torch.tensor(blate, dtype=torch.float32)
+
+# with open('w2.txt', 'r') as f:
+#   weights = Weights(f)
+
+# with torch.no_grad():
+#   for k in model.w:
+#     model.w[k].weight += torch.tensor(pca.slope_forward(weights.vecs[k] / 100.0))
+
+print('Creating Pytorch tensors...')
 Xth = torch.tensor(X, dtype=torch.float32)
 Yth = torch.tensor(Y, dtype=torch.float32)
 Tth = torch.tensor(T, dtype=torch.float32)
@@ -315,15 +328,15 @@ L = []
 
 windowSize = 500
 
+print('Training...')
 for bs in 2**(np.linspace(4, 14, 11)):
 # for bs in 2**(np.linspace(4, 5, 2)):
   bs = int(bs)
   dataloader = tdata.DataLoader(dataset, batch_size=bs, shuffle=True, drop_last=True)
-
   l = []
   for x, t, y in forever(dataloader):
     yhat = model(x, t)
-    loss = loss_fn(yhat, y / 100)
+    loss = loss_fn(yhat, y)
     opt.zero_grad()
     loss.backward()
     opt.step()
