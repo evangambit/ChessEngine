@@ -482,7 +482,7 @@ struct Evaluator {
 
     const int16_t ourPiecesRemaining = std::popcount(pos.colorBitboards_[US] & ~ourPawns) + std::popcount(ourQueens) * 2 - 1;
     const int16_t theirPiecesRemaining = std::popcount(pos.colorBitboards_[THEM] & ~theirPawns) + std::popcount(theirQueens) * 2 - 1;
-    const int32_t time = 18 - (ourPiecesRemaining + theirPiecesRemaining);
+    const int32_t time = std::max(0, std::min(18, 18 - (ourPiecesRemaining + theirPiecesRemaining)));
 
     #ifndef SquareControl
 

@@ -67,9 +67,9 @@ Evaluation simple_qsearch(
   }
 
   for (ExtMove *move = moves; move < end; ++move) {
-    move->score = kMoveOrderPieceValues[move->capture];
+    move->score = kMoveOrderPieceValues[cp2p(move->capture)];
     move->score -= kMoveOrderPieceValues[move->piece];
-    move->score += (move->capture != Piece::NO_PIECE) * 1000;
+    move->score += (move->capture != ColoredPiece::NO_COLORED_PIECE) * 1000;
   }
   std::sort(moves, end, [](ExtMove a, ExtMove b) {
     return a.score > b.score;
@@ -115,9 +115,9 @@ static void simple_search(
   ExtMove *movesEnd = compute_legal_moves<TURN>(position, moves);
 
   for (ExtMove *move = moves; move < movesEnd; ++move) {
-    move->score = kMoveOrderPieceValues[move->capture];
+    move->score = kMoveOrderPieceValues[cp2p(move->capture)];
     move->score -= kMoveOrderPieceValues[move->piece];
-    move->score += (move->capture != Piece::NO_PIECE) * 1000;
+    move->score += (move->capture != ColoredPiece::NO_COLORED_PIECE) * 1000;
   }
   std::sort(moves, movesEnd, [](ExtMove a, ExtMove b) {
     return a.score > b.score;
