@@ -89,6 +89,11 @@ ExtMove *compute_rook_like_moves(const Position& pos, ExtMove *moves, Bitboard t
 
     Bitboard tos = kEmptyBitboard;
 
+    const Bitboard required = target
+      // Target (above) handles checks. The lines below handle pins.
+      & select((pm.horizontal & fromLoc) > 0, pm.horizontal, kUniverse)
+      & select((pm.vertical & fromLoc) > 0, pm.vertical, kUniverse);
+
     {  // Compute east/west moves.
       const unsigned rankShift = y * 8;
       uint8_t fromByte = fromLoc >> rankShift;
@@ -110,7 +115,7 @@ ExtMove *compute_rook_like_moves(const Position& pos, ExtMove *moves, Bitboard t
       tos &= enemies | checkMask;
     }
 
-    tos &= target;
+    tos &= required;
 
     while (tos) {
       Square to = pop_lsb(tos);

@@ -14,17 +14,25 @@ namespace ChessEngine {
 typedef uint64_t Bitboard;
 typedef uint64_t Location;
 
+std::string bstr(Bitboard b);
+
+std::string bstr(uint8_t b);
+
 struct PinMasks {
   Bitboard horizontal;
   Bitboard vertical;
   Bitboard northeast;
   Bitboard northwest;
   Bitboard all;
+  friend std::ostream& operator<<(std::ostream& out, PinMasks pm) {
+    out << bstr(pm.horizontal) << std::endl;
+    out << bstr(pm.vertical) << std::endl;
+    out << bstr(pm.northeast) << std::endl;
+    out << bstr(pm.northwest) << std::endl;
+    return out;
+  }
 };
 
-std::string bstr(Bitboard b);
-
-std::string bstr(uint8_t b);
 
 constexpr Bitboard kEmptyBitboard = 0;
 constexpr Bitboard kUniverse = ~Bitboard(0);

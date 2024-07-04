@@ -19,13 +19,19 @@
 
 using namespace ChessEngine;
 
-template<Color TURN>
+template<Color TURN, bool USE_LEGAL_MOVES = true>
 uint64_t _perft(Position *position, uint16_t depthRemaining) {
   if (depthRemaining == 0) {
     return 1;
   }
   ExtMove moves[kMaxNumMoves];
-  ExtMove *movesEnd = compute_legal_moves<TURN>(position, moves);
+  ExtMove *movesEnd;
+  if (USE_LEGAL_MOVES) {
+    movesEnd = compute_legal_moves<TURN>(position, moves);
+  } else {
+    movesEnd = compute_moves<TURN, MoveGenType::ALL_MOVES>(*position, moves);
+  }
+
   if (depthRemaining == 1) {
     return movesEnd - moves;
   }

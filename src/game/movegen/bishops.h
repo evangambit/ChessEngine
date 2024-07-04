@@ -298,6 +298,12 @@ ExtMove *compute_bishop_like_moves(const Position& pos, ExtMove *moves, Bitboard
 
     Bitboard tos = kEmptyBitboard;
 
+    const Bitboard required = target
+      // Target (above) handles checks. The lines below handle pins.
+      & select((pm.northwest & fromLoc) > 0, pm.northwest, kUniverse)
+      & select((pm.northeast & fromLoc) > 0, pm.northeast, kUniverse);
+
+
     {  // Southeast/Northwest diagonal.
       uint8_t occ = diag::southeast_diag_to_byte(from, enemies | (friends & ~fromLoc));
       uint8_t fromByte = diag::southeast_diag_to_byte(from, fromLoc);
@@ -309,7 +315,7 @@ ExtMove *compute_bishop_like_moves(const Position& pos, ExtMove *moves, Bitboard
       tos |= diag::byte_to_southwest_diag(from, sliding_moves(fromByte, occ)) & ~friends;
     }
 
-    tos &= target;
+    tos &= required;
 
     if (MGT == MoveGenType::ALL_MOVES) {
       // no-op

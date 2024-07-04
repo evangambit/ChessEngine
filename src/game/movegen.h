@@ -338,7 +338,10 @@ PinMasks compute_absolute_pin_masks(const Position& pos) {
   return compute_pin_masks<US>(pos, lsb(pos.pieceBitboards_[coloredPiece<US, Piece::KING>()]));
 }
 
-// We take the liberty of ignoring MGT if you're in check.
+// According to perft tests, the only illegal moves this will generate are enpassants that put you
+// in check (example: "8/8/2k5/8/r2pP1K1/8/8/8 b - e3 0 9").
+
+// Note: we take the liberty of ignoring MGT if you're in check.
 template<Color US, MoveGenType MGT>
 ExtMove* compute_moves(const Position& pos, ExtMove *moves) {
   constexpr Color enemyColor = opposite_color<US>();
