@@ -37,7 +37,7 @@ struct Result {
 };
 
 template<Color TURN>
-Evaluation simple_qsearch(
+std::pair<Evaluation, Move> simple_qsearch(
   Position *position,
   Evaluator *evaluator,
   const Depth depth,
@@ -45,7 +45,7 @@ Evaluation simple_qsearch(
   Evaluation beta) {
   
   if (std::popcount(position->pieceBitboards_[coloredPiece<TURN, Piece::KING>()]) == 0) {
-    return alpha;
+    return std::make_pair(alpha, kNullMove);
   }
 
   const bool lookAtChecksToo = depth < 2;
@@ -63,7 +63,7 @@ Evaluation simple_qsearch(
   }
 
   if (moves == end && inCheck) {
-    return std::max<Evaluation>(kQCheckmate + depth, alpha);
+    return std::make_pair(std::max<Evaluation>(kQCheckmate + depth, alpha), kNullMove);
   }
 
   for (ExtMove *move = moves; move < end; ++move) {
@@ -76,29 +76,36 @@ Evaluation simple_qsearch(
   });
 
   Evaluation e = evaluator->score<TURN>(*position);
+  if (inCheck) {
+    e = kQCheckmate;
+  }
+
   if (e >= beta) {
-    return beta;
+    return std::make_pair(beta, Move{Square::A1, Square::A2});
   }
   alpha = std::max(alpha, e);
 
+  Move bestmove = kNullMove;
   for (ExtMove *move = moves; move < end; ++move) {
     make_move<TURN>(position, move->move);
-    Evaluation child = -simple_qsearch<opposingColor>(position, evaluator, depth + 1, -beta, -alpha);
+    std::pair<Evaluation, Move> a = simple_qsearch<opposingColor>(position, evaluator, depth + 1, -beta, -alpha);
+    Evaluation child = -a.first;
     undo<TURN>(position);
 
     child -= (child > -kQLongestForcedMate);
     child += (child <  kQLongestForcedMate);
 
     if (child > alpha) {
-      alpha = child;
+      alpha = std::min(beta, child);
+      bestmove = move->move;
       if (alpha >= beta) {
-        return beta;
+        return std::make_pair(beta, bestmove);
       }
     }
   }
 
 
-  return alpha;
+  return std::make_pair(alpha, bestmove);
 }
 
 template<Color TURN>
@@ -130,12 +137,13 @@ static void simple_search(
 
   for (ExtMove *move = moves; move < movesEnd; ++move) {
     make_move<TURN>(position, move->move);
-    Evaluation a = -simple_qsearch<opposingColor>(position, evaluator, 0, -beta, -alpha);
+    std::pair<Evaluation, Move> a = simple_qsearch<opposingColor>(position, evaluator, 0, -beta, -alpha);
+    Evaluation childScore = -a.first;
     undo<TURN>(position);
 
-    result->pvs.push_back(std::make_pair(a, move->move.uci()));
+    result->pvs.push_back(std::make_pair(childScore, move->move.uci()));
     if (result->pvs.size() > multiPV) {
-      std::sort(result->pvs.begin(), result->pvs.end(), [](std::pair<Evaluation, std::string> a, std::pair<Evaluation, std::string> b) {
+      std::stable_sort(result->pvs.begin(), result->pvs.end(), [](std::pair<Evaluation, std::string> a, std::pair<Evaluation, std::string> b) {
         return a.first > b.first;
       });
       result->pvs.pop_back();
@@ -152,20 +160,99 @@ struct Datapoint {
   std::vector<Evaluation> evals;
 };
 
+std::pair<double, double> process_datapoints(int threadId, const Datapoint *start, const Datapoint *end, std::string weightsFile) {
+  Evaluator evaluator;
+  PieceMaps pieceMaps;
+  {
+    std::ifstream f;
+    f.open(weightsFile);
+    if (!f.is_open()) {
+      std::cout << "Failed to open file" << std::endl;
+      return std::make_pair(0.0, 0.0);
+    }
+    evaluator.load_weights_from_file(f);
+    pieceMaps.load_weights_from_file(f);
+  }
+
+  const int multiPV = 1;
+
+  double loss = 0.0;
+  double loss2 = 0.0;
+  for (const Datapoint *datapoint = start; datapoint != end; ++datapoint) {
+    Position pos(datapoint->fen);
+    pos.set_piece_maps(pieceMaps);
+    
+    Result result;
+    if (pos.turn_ == Color::WHITE) {
+      simple_search<WHITE>(&pos, &evaluator, &result, multiPV);
+    } else {
+      simple_search<BLACK>(&pos, &evaluator, &result, multiPV);
+    }
+    std::vector<std::pair<Evaluation, std::string>> pvs = result.pvs;
+
+    double score = datapoint->evals.back();  // Default
+    for (size_t i = 0; i < datapoint->evals.size(); ++i) {
+      if (datapoint->ucis[i] == pvs[0].second) {
+        score = datapoint->evals[i];
+        break;
+      }
+    }
+
+    double delta = std::min(datapoint->evals[0] - score, 200.0);
+    if (delta < 0.0) {
+      throw std::runtime_error("lalala");
+    }
+    if (delta > 190.0) {
+      std::cout << datapoint->fen << std::endl;
+      std::cout << datapoint->ucis << std::endl;
+      std::cout << datapoint->evals << std::endl;
+      std::cout << result.pvs[0] << std::endl << std::endl;
+    }
+
+    loss += delta;
+    loss2 += delta * delta;
+  }
+
+  return std::make_pair(loss, loss2);
+}
+
 int main(int argc, char *argv[]) {
   initialize_geometry();
   initialize_zorbrist();
   initialize_movegen();
+
+  // Evaluator evaluator;
+  // PieceMaps pieceMaps;
+  // {
+  //   std::ifstream f;
+  //   f.open("weights.txt");
+  //   if (!f.is_open()) {
+  //     std::cout << "Failed to open file" << std::endl;
+  //     return 1;
+  //   }
+  //   evaluator.load_weights_from_file(f);
+  //   pieceMaps.load_weights_from_file(f);
+  // }
+
+  // Position pos("1kr2b1r/pp3pp1/1nb1p2p/q2pP3/1N1P4/P1P5/1QBB1PPP/RR4K1 w - - 10 21");
+  // Result result;
+  // if (pos.turn_ == Color::WHITE) {
+  //   simple_search<WHITE>(&pos, &evaluator, &result, 1);
+  // } else {
+  //   simple_search<BLACK>(&pos, &evaluator, &result, 1);
+  // }
+  // std::cout << result.pvs[0] << std::endl;
 
   std::deque<std::string> args;
   for (size_t i = 1; i < argc; ++i) {
     args.push_back(argv[i]);
   }
 
-  if (args.size() != 3) {
-    throw std::runtime_error("Usage: opt <train.txt> <weights.txt> <SampleSize>");
+  if (args.size() != 4) {
+    throw std::runtime_error("Usage: opt <train.txt> <weights.txt> <SampleSize> <NumThreads>");
   }
   const int sampleSize = std::stoi(args[2]);
+  const int numThreads = std::stoi(args[3]);
 
   std::ifstream myfile;
   myfile.open(args[0]);
@@ -198,54 +285,27 @@ int main(int argc, char *argv[]) {
     getline(myfile, line);
   }
 
-  Evaluator evaluator;
-  PieceMaps pieceMaps;
-  {
-    std::ifstream f;
-    f.open(args[1]);
-    if (!f.is_open()) {
-      std::cout << "Failed to open file" << std::endl;
-      return 1;
-    }
-    evaluator.load_weights_from_file(f);
-    pieceMaps.load_weights_from_file(f);
+  std::vector<std::pair<double, double>> results(numThreads);
+  std::vector<std::thread> threads;
+  for (int i = 0; i < numThreads; ++i) {
+    threads.push_back(std::thread([i, numThreads, &results, &datapoints, &args] {
+      const uint64_t n = datapoints.size();
+      const uint64_t start = i * n / numThreads;
+      const uint64_t end = (i == numThreads - 1 ? n : (i + 1) * n / numThreads);
+      results[i] = process_datapoints(i, &datapoints[0] + start, &datapoints[0] + end, args[1]);
+    }));
   }
 
-  const int multiPV = 1;
-
-  double loss = 0.0;
+  double loss1 = 0.0;
   double loss2 = 0.0;
-  for (const Datapoint& datapoint : datapoints) {
-    Position pos(datapoint.fen);
-    pos.set_piece_maps(pieceMaps);
-    
-    Result result;
-    if (pos.turn_ == Color::WHITE) {
-      simple_search<WHITE>(&pos, &evaluator, &result, multiPV);
-    } else {
-      simple_search<BLACK>(&pos, &evaluator, &result, multiPV);
-    }
-    std::vector<std::pair<Evaluation, std::string>> pvs = result.pvs;
-
-    double score = datapoint.evals.back();  // Default
-    for (size_t i = 0; i < datapoint.evals.size(); ++i) {
-      if (datapoint.ucis[i] == pvs[0].second) {
-        score = datapoint.evals[i];
-        break;
-      }
-    }
-
-    double delta = std::min(datapoint.evals[0] - score, 50.0);
-    if (delta < 0.0) {
-      throw std::runtime_error("lalala");
-    }
-
-    loss += delta;
-    loss2 += delta * delta;
+  for (int i = 0; i < numThreads; ++i) {
+    threads[i].join();
+    loss1 += results[i].first;
+    loss2 += results[i].second;
   }
 
-  double mean = loss / datapoints.size();
-  double variance = (loss2 / datapoints.size() - mean * mean) / (datapoints.size() - 1);
+  const double mean = loss1 / datapoints.size();
+  const double variance = (loss2 / datapoints.size() - mean * mean) / (datapoints.size() - 1);
 
   std::cout << mean << " ± " << std::sqrt(variance) << std::endl;
 
