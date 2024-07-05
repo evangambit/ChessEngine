@@ -31,6 +31,14 @@ struct PinMasks {
     out << bstr(pm.northwest) << std::endl;
     return out;
   }
+  PinMasks& operator|=(const PinMasks& that) {
+    this->horizontal |= that.horizontal;
+    this->vertical |= that.vertical;
+    this->northeast |= that.northeast;
+    this->northwest |= that.northwest;
+    this->all |= that.all;
+    return *this;
+  }
 };
 
 

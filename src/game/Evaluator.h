@@ -170,6 +170,7 @@ enum EF {
   OPPOSITE_SIDE_KINGS_PAWN_STORM,
   IN_CHECK_AND_OUR_HANGING_QUEENS,
   PROMOTABLE_PAWN,
+  PINNED_PIECES,
 
   NUM_EVAL_FEATURES,
 };
@@ -297,6 +298,7 @@ std::string EFSTR[] = {
   "OPPOSITE_SIDE_KINGS_PAWN_STORM",
   "IN_CHECK_AND_OUR_HANING_QUEENS",
   "PROMOTABLE_PAWN",
+  "PINNED_PIECES",
 };
 
 // captures = difference in values divided by 2
@@ -519,6 +521,29 @@ struct Evaluator {
     features[EF::THREATS_NEAR_OUR_KING] = std::popcount(kNearby[1][ourKingSq] & threats.theirDoubleTargets & ~threats.ourDoubleTargets);
     features[EF::THREATS_NEAR_THEIR_KING] = std::popcount(kNearby[1][theirKingSq] & threats.ourDoubleTargets & ~threats.theirDoubleTargets);
 
+    PinMasks ourPinnedMask = compute_pin_masks<US>(pos, ourKingSq);
+    PinMasks theirPinnedMask = compute_pin_masks<THEM>(pos, theirKingSq);
+    ourPinnedMask |= compute_pin_masks<US>(pos, lsb_or(ourQueens, ourKingSq));
+    theirPinnedMask |= compute_pin_masks<THEM>(pos, lsb_or(theirQueens, theirKingSq));
+
+    //   0: 21.8462 ± 0.0106847
+    // -10: 21.826 ± 0.0106827
+    // -20: 21.819  ± 0.0106812
+    // -40: 21.8631 ± 0.0106809
+
+    // -20: 21.8045 ± 0.0106802
+    // -40: 21.7966 ± 0.0106796
+    // -60: 21.7961 ± 0.0106792
+
+    // Bishops being pinned by a bishop or rooks being pinned by a rook aren't
+    // a big deal. We're concerned with pieces being pinned and not being able
+    // to capture their pinner.
+     // 0.021 ± 0.015
+    features[EF::PINNED_PIECES] = 
+      std::popcount((ourPinnedMask.horizontal | ourPinnedMask.vertical) & (ourPieces & ~ourRooks))
+      + std::popcount((ourPinnedMask.northeast | ourPinnedMask.northwest) & (ourPieces & ~ourBishops))
+      - std::popcount((theirPinnedMask.horizontal | theirPinnedMask.vertical) & (theirPieces & ~theirRooks))
+      - std::popcount((theirPinnedMask.northeast | theirPinnedMask.northwest) & (theirPieces & ~theirBishops));
 
     {  // Add penalty if the king is in a fianchettoed corner and his bishop is not on the main diagonal.
       // Note: the "color" of a corner is the color of its fianchettoed bishop.

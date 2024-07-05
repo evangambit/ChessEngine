@@ -97,11 +97,30 @@ TEST(Eval, THREATS_NEAR_KING) {
 // THREATS_NEAR_OUR_KING
 }
 
+TEST(Eval, PINNED_PIECES) {
+  // No pins.
+  ASSERT_EQ(f("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", EF::ABSOLUTE_PINNED_PIECES), 0);
 
+  // Both side has a pin (cancels each other out).
+  ASSERT_EQ(f("4k3/8/2r5/bB6/8/2N5/8/4K3 w - - 0 1", EF::ABSOLUTE_PINNED_PIECES), 0);
+
+  // White has a pin.
+  ASSERT_EQ(f("4k3/8/8/b7/8/2N5/8/4K3 w - - 0 1", EF::ABSOLUTE_PINNED_PIECES), 1);
+
+  // White has two pins.
+  ASSERT_EQ(f("4k3/4r3/8/b7/4B3/2N5/8/4K3 w - - 0 1", EF::ABSOLUTE_PINNED_PIECES), 2);
+
+  // A bishop cannot pin a bishop.
+  ASSERT_EQ(f("4k3/8/8/b7/8/2B5/8/4K3 w - - 0 1", EF::ABSOLUTE_PINNED_PIECES), 0);
+
+  // Pins against the queen count too.
+  ASSERT_EQ(f("4k3/8/8/b7/8/2R5/8/4QK2 w - - 0 1", EF::ABSOLUTE_PINNED_PIECES), 1);
+}
 
 int main(int argc, char *argv[]) {
   initialize_geometry();
   initialize_zorbrist();
+  initialize_sliding();
   testing::InitGoogleTest();
   return RUN_ALL_TESTS();
 }
