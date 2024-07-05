@@ -369,20 +369,44 @@ ExtMove* compute_moves(const Position& pos, ExtMove *moves) {
 
   const Bitboard validKingSquares = ~compute_my_targets<opposite_color<US>(), true>(pos);
 
+  const Bitboard friends = pos.colorBitboards_[US];
+  const Bitboard enemies = pos.colorBitboards_[opposite_color<US>()];
+  const Bitboard everyone = friends | enemies;
+
+  Bitboard rookCheckMask;
+  if (MGT == MoveGenType::CHECKS_AND_CAPTURES) {
+    rookCheckMask = compute_rook_check_mask(
+      pos.pieceBitboards_[coloredPiece<opposite_color<US>(), Piece::KING>()],
+      everyone
+    );
+  } else {
+    rookCheckMask = kUniverse;
+  }
+
+  Bitboard bishopCheckMask;
+  if (MGT == MoveGenType::CHECKS_AND_CAPTURES) {
+    bishopCheckMask = compute_bishop_check_mask(
+      pos.pieceBitboards_[coloredPiece<opposite_color<US>(), Piece::KING>()],
+      everyone
+    );
+  } else {
+    bishopCheckMask = kUniverse;
+  }
+
   // TODO: if MGT == CHECKS_AND_CAPTURES we won't consider moves where the queen moves like
   // a bishop and checks like a rook (or vice versa).
   if (numCheckers > 0) {
     moves = compute_pawn_moves<US, MoveGenType::ALL_MOVES>(pos, moves, target, pm);
     moves = compute_knight_moves<US, MoveGenType::ALL_MOVES>(pos, moves, target, pm);
     moves = compute_king_moves<US, MoveGenType::ALL_MOVES, true>(pos, moves, validKingSquares);
-    moves = compute_bishop_like_moves<US, MoveGenType::ALL_MOVES>(pos, moves, target, pm);
-    moves = compute_rook_like_moves<US, MoveGenType::ALL_MOVES>(pos, moves, target, pm);
+    moves = compute_bishop_like_moves<US, MoveGenType::ALL_MOVES>(pos, moves, target, pm, bishopCheckMask, rookCheckMask);
+    moves = compute_rook_like_moves<US, MoveGenType::ALL_MOVES>(pos, moves, target, pm, rookCheckMask, bishopCheckMask);
   } else {
     moves = compute_pawn_moves<US, MGT>(pos, moves, target, pm);
     moves = compute_knight_moves<US, MGT>(pos, moves, target, pm);
     moves = compute_king_moves<US, MGT, false>(pos, moves, validKingSquares);
-    moves = compute_bishop_like_moves<US, MGT>(pos, moves, target, pm);
-    moves = compute_rook_like_moves<US, MGT>(pos, moves, target, pm);
+    moves = compute_bishop_like_moves<US, MGT>(pos, moves, target, pm, bishopCheckMask, rookCheckMask);
+    moves = compute_rook_like_moves<US, MGT>(pos, moves, target, pm, rookCheckMask, bishopCheckMask);
   }
   return moves;
 }

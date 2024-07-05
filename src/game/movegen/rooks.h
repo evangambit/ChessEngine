@@ -45,40 +45,39 @@ Bitboard compute_rooklike_targets(const Position& pos, Bitboard rookLikePieces) 
   return compute_rooklike_targets(rookLikePieces, occupied);
 }
 
+Bitboard compute_rook_check_mask(const Location king, const Bitboard everyone) {
+  Bitboard checkMask = kEmptyBitboard;
+  const Square kingSq = lsb(king);
+  {  // East/west.
+    unsigned y = kingSq / 8;
+    const unsigned rankShift = y * 8;
+    uint8_t fromByte = king >> rankShift;
+    uint8_t occupied = (everyone & ~king) >> rankShift;
+    checkMask |= Bitboard(sliding_moves(fromByte, occupied)) << rankShift;
+  }
+  {  // North/south
+    const unsigned x = kingSq % 8;
+    const unsigned columnShift = 7 - x;
+    uint8_t fromByte = (((king << columnShift) & kFiles[7]) * kRookMagic) >> 56;
+    uint8_t occupied = ((((everyone & ~king) << columnShift) & kFiles[7]) * kRookMagic) >> 56;
+    uint8_t toByte = sliding_moves(fromByte, occupied);
+    checkMask |= (((Bitboard(toByte & 254) * kRookMagic) & kFiles[0]) | (toByte & 1)) << x;
+  }
+  return checkMask;
+}
+
 // Computes moves for rook and rook-like moves for queen.
 template<Color US, MoveGenType MGT>
-ExtMove *compute_rook_like_moves(const Position& pos, ExtMove *moves, Bitboard target, const PinMasks& pm) {
+ExtMove *compute_rook_like_moves(const Position& pos, ExtMove *moves, Bitboard target, const PinMasks& pm, Bitboard rookCheckMask, Bitboard bishopCheckMask) {
   constexpr ColoredPiece myRookPiece = (US == Color::WHITE ? ColoredPiece::WHITE_ROOK : ColoredPiece::BLACK_ROOK);
   constexpr ColoredPiece myQueenPiece = (US == Color::WHITE ? ColoredPiece::WHITE_QUEEN : ColoredPiece::BLACK_QUEEN);
   const Bitboard friends = pos.colorBitboards_[US];
   const Bitboard enemies = pos.colorBitboards_[opposite_color<US>()];
+  const Bitboard myQueens = pos.pieceBitboards_[myQueenPiece];
   Bitboard rookLikePieces = pos.pieceBitboards_[myRookPiece] | pos.pieceBitboards_[myQueenPiece];
 
   // TODO: horizontal/vertical pins
   rookLikePieces &= ~(pm.northeast | pm.northwest);
-
-  Bitboard checkMask;
-  if (MGT == MoveGenType::CHECKS_AND_CAPTURES) {
-    checkMask = kEmptyBitboard;
-    const Bitboard enemyKing = pos.pieceBitboards_[coloredPiece<opposite_color<US>(), Piece::KING>()];
-    const Square enemyKingSq = lsb(enemyKing);
-    {  // East/west.
-      unsigned y = enemyKingSq / 8;
-      const unsigned rankShift = y * 8;
-      uint8_t fromByte = enemyKing >> rankShift;
-      uint8_t occupied = ((enemies & ~enemyKing) | friends) >> rankShift;
-      checkMask |= Bitboard(sliding_moves(fromByte, occupied)) << rankShift;
-    }
-    {  // North/south
-      const unsigned x = enemyKingSq % 8;
-      const unsigned columnShift = 7 - x;
-      uint8_t fromByte = (((enemyKing << columnShift) & kFiles[7]) * kRookMagic) >> 56;
-      uint8_t occupied = (((((enemies & ~enemyKing) | friends) << columnShift) & kFiles[7]) * kRookMagic) >> 56;
-      uint8_t toByte = sliding_moves(fromByte, occupied);
-      checkMask |= (((Bitboard(toByte & 254) * kRookMagic) & kFiles[0]) | (toByte & 1)) << x;    }
-  } else {
-    checkMask = kUniverse;
-  }
 
   while (rookLikePieces) {
     const Square from = pop_lsb(rookLikePieces);
@@ -112,7 +111,7 @@ ExtMove *compute_rook_like_moves(const Position& pos, ExtMove *moves, Bitboard t
     if (MGT == MoveGenType::CAPTURES) {
       tos &= enemies;
     } else if (MGT == MoveGenType::CHECKS_AND_CAPTURES) {
-      tos &= enemies | checkMask;
+      tos &= enemies | rookCheckMask | value_or_zero((fromLoc & myQueens) > 0, bishopCheckMask);
     }
 
     tos &= required;
