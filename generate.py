@@ -12,6 +12,9 @@ from multiprocessing import Process, Queue
 import chess
 from chess import engine as chess_engine
 
+def wdl2score(wdl):
+  return (wdl.wins + wdl.draws * 0.5) / (wdl.wins + wdl.draws + wdl.losses)
+
 def score2float(score):
   wdl = score.white().wdl()
   return (wdl.wins + wdl.draws * 0.5) / (wdl.wins + wdl.draws + wdl.losses)
@@ -23,28 +26,28 @@ def analyzer(resultQueue, args):
 
 def helper(engine, resultQueue, args):
   board = chess.Board()
-  while not board.is_game_over() and not board.is_repetition() and board.ply() < 150:
+  while not board.is_game_over() and not board.is_repetition() and board.ply() < 100:
     lines = engine.analyse(board, chess_engine.Limit(depth=args.depth), multipv=args.multipv)
+
+    if len(lines) < 3:
+      board.push(lines[0]['pv'][0])
+      continue
+
     for line in lines:
       wdl = line['score'].white().wdl()
       moves = line['pv']
-
-      # Stockfish sometimes gives truncated lines :(
       if len(moves) < 3:
         continue
-
-      # Travel along the variation until we find a non-capture
-      b = board.copy()
+      b = chess.Board(board.fen())
       b.push(moves[0])
-      for i in range(1, len(moves)):
-        if b.piece_at(moves[i].to_square) is None:
+      is_quiet = False
+      for i in range(1, len(moves) - 3):
+        if b.piece_at(moves[i].to_square) is not None:
+          is_quiet = True
           break
-        b.push(moves[i])
-
-      # If this position has been analyzed to a depth of 3 we consider the evaluation good enough.
-      if i < len(moves) - 3:
+      if is_quiet:
         resultQueue.put((b.fen(), wdl.wins, wdl.draws, wdl.losses))
-    b = None
+      b = None
 
     wdl = lines[0]['score'].white().wdl()
     if wdl.wins > 995 or wdl.losses > 995:
