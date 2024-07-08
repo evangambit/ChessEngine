@@ -85,16 +85,15 @@ class Model(nn.Module):
   def __init__(self):
     super().__init__()
     """
-     1024, 256, 256: 0.040934631042182444
+     512, 64: 0.04689538702368736
     """
     self.seq = nn.Sequential(
-      nn.Linear(12 * 8 * 8 + 8, 1024),
+      nn.Linear(12 * 8 * 8 + 8, 512),
       nn.ReLU(),
-      nn.Linear(1024, 256),
+      nn.Linear(512, 64),
       nn.ReLU(),
-      nn.Linear(256, 1, bias=False),
+      nn.Linear(64, 1, bias=False),
       nn.Sigmoid(),
-      # nn.Linear(12 * 8 * 8 + 8, 2, bias=False),
     )
     for layer in self.seq:
       if isinstance(layer, nn.Linear):

@@ -51,41 +51,48 @@ int main(int argc, char* argv[]) {
   //         [0.3604],
   //         [0.1570]], grad_fn=<SigmoidBackward0>)
 
-  for (size_t i = 0; i < 2; ++i) {
-    {
-      Position pos("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
-      pos.set_network(network);
-      std::cout << sigmoid(network->slowforward()) << std::endl;
-    }
+  // for (size_t i = 0; i < 2; ++i) {
+  //   {
+  //     Position pos("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+  //     pos.set_network(network);
+  //     std::cout << sigmoid(network->slowforward()) << std::endl;
+  //   }
 
     {
-      // Position pos("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1");
       Position pos = Position::init();
-      make_uci_move(&pos, "e2e4");
       pos.set_network(network);
-      std::cout << sigmoid(network->slowforward()) << std::endl;
+      std::cout << "a " << network->slowforward() << std::endl;
+      make_move<Color::WHITE>(&pos, Move{Square::E2, Square::E4});
+      make_move<Color::BLACK>(&pos, Move{Square::A7, Square::A6});
+      make_move<Color::WHITE>(&pos, Move{Square::E1, Square::E2});
+      // undo<Color::BLACK>(&pos);
+      // undo<Color::WHITE>(&pos);
+      std::cout << "b " << network->fastforward() << std::endl;
+      network->x0.setZero();
+      pos.set_network(network);
+      std::cout << "c " << network->slowforward() << std::endl;
     }
 
-    {
-      Position pos("rnbqkbnr/pppppppp/8/8/3PP3/2N2N2/PPP2PPP/R1BQKB1R w KQkq - 5 5");
-      pos.set_network(network);
-      std::cout << sigmoid(network->slowforward()) << std::endl;
-    }
+  //   {
+  //     Position pos("rnbqkbnr/pppppppp/8/8/3PP3/2N2N2/PPP2PPP/R1BQKB1R w KQkq - 5 5");
+  //     pos.set_network(network);
+  //     std::cout << sigmoid(network->slowforward()) << std::endl;
+  //   }
 
-    {
-      Position pos("rnbqkb1r/ppp1pppp/5n2/3p4/5P2/8/PPPPP1PP/RNBQKBNR b KQkq - 3 3");
-      pos.set_network(network);
-      std::cout << sigmoid(network->slowforward()) << std::endl;
-    }
+  //   {
+  //     Position pos("rnbqkb1r/ppp1pppp/5n2/3p4/5P2/8/PPPPP1PP/RNBQKBNR b KQkq - 3 3");
+  //     pos.set_network(network);
+  //     std::cout << sigmoid(network->slowforward()) << std::endl;
+  //   }
 
-    {
-      Position pos("r1b1k2r/ppq1bppp/2n2n2/2ppp3/8/8/PPPPPPPP/RNBQKBNR b KQkq - 3 8");
-      pos.set_network(network);
-      std::cout << sigmoid(network->slowforward()) << std::endl;
-    }
+  //   {
+  //     Position pos("r1b1k2r/ppq1bppp/2n2n2/2ppp3/8/8/PPPPPPPP/RNBQKBNR b KQkq - 3 8");
+  //     pos.set_network(network);
+  //     std::cout << sigmoid(network->slowforward()) << std::endl;
+  //   }
 
-    std::cout << std::endl;
-  }
+  //   std::cout << std::endl;
+  // }
 
   return 0;
 }

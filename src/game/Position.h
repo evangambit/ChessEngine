@@ -122,7 +122,7 @@ class Position {
   void set_network(std::shared_ptr<NnueNetwork> network) {
     this->network = network;
 
-    network->x0.setZero();
+    network->empty();
     for (int sq = 0; sq < kNumSquares; ++sq) {
       ColoredPiece cp = this->tiles_[sq];
       if (cp == ColoredPiece::NO_COLORED_PIECE) {
@@ -130,13 +130,12 @@ class Position {
       }
       network->set_piece(cp, Square(sq), 1);
     }
+
     network->set_index(NnueFeatures::NF_IS_WHITE_TURN, (this->turn_ == Color::WHITE));
     network->set_index(NnueFeatures::NF_WHITE_KING_CASTLING, ((this->currentState_.castlingRights & kCastlingRights_WhiteKing) > 0));
     network->set_index(NnueFeatures::NF_WHITE_QUEEN_CASTLING, ((this->currentState_.castlingRights & kCastlingRights_WhiteQueen) > 0));
     network->set_index(NnueFeatures::NF_BLACK_KING_CASTLING, ((this->currentState_.castlingRights & kCastlingRights_BlackKing) > 0));
     network->set_index(NnueFeatures::NF_BLACK_QUEEN_CASTLING, ((this->currentState_.castlingRights & kCastlingRights_BlackQueen) > 0));
-
-    // network->update_x1();
   }
 
 
@@ -166,11 +165,19 @@ class Position {
     for (int i = 0; i < PieceMapType::PieceMapTypeCount; ++i) {
       pieceMapScores[i] += w[i];
     }
+
+    if (cp != ColoredPiece::NO_COLORED_PIECE) {
+      this->network->set_piece(cp, sq, 1);
+    }
   }
   inline void decrement_piece_map(ColoredPiece cp, Square sq) {
     int32_t const *w = pieceMaps_->weights(cp, sq);
     for (int i = 0; i < PieceMapType::PieceMapTypeCount; ++i) {
       pieceMapScores[i] -= w[i];
+    }
+
+    if (cp != ColoredPiece::NO_COLORED_PIECE) {
+      this->network->set_piece(cp, sq, 0);
     }
   }
 
@@ -270,12 +277,6 @@ void undo(Position *pos) {
   pos->decrement_piece_map(promoPiece, move.to);
   pos->increment_piece_map(capturedPiece, move.to);
 
-  pos->network->set_piece(movingPiece, move.from, 1);
-  pos->network->set_piece(promoPiece, move.to, 0);
-  if (capturedPiece != ColoredPiece::NO_COLORED_PIECE) {
-    pos->network->set_piece(capturedPiece, move.to, 1);
-  }
-
   const bool hasCapturedPiece = (capturedPiece != ColoredPiece::NO_COLORED_PIECE);
   pos->pieceBitboards_[capturedPiece] |= t;
   pos->colorBitboards_[opposite_color<MOVER_TURN>()] |= t * hasCapturedPiece;
@@ -307,9 +308,6 @@ void undo(Position *pos) {
 
     pos->increment_piece_map(myRookPiece, rookOrigin);
     pos->decrement_piece_map(myRookPiece, rookDestination);
-
-    pos->network->set_piece(myRookPiece, rookDestination, 0);
-    pos->network->set_piece(myRookPiece, rookOrigin, 1);
   }
 
   if (move.to == epSquare && movingPiece == coloredPiece<MOVER_TURN, Piece::PAWN>()) {
@@ -334,9 +332,8 @@ void undo(Position *pos) {
     pos->tiles_[enpassantSq] = opposingPawn;
     pos->hash_ ^= kZorbristNumbers[opposingPawn][enpassantSq];
 
+    // TODO: tell network about en passant square
     pos->increment_piece_map(opposingPawn, enpassantSq);
-
-    pos->network->set_piece(opposingPawn, enpassantSq, 1);
   }
 
   pos->network->set_index(NnueFeatures::NF_IS_WHITE_TURN, (MOVER_TURN == Color::WHITE));
@@ -420,6 +417,7 @@ void make_move(Position *pos, Move move) {
   pos->currentState_.castlingRights &= ~four_corners_to_byte(t);
 
   // TODO: Set epSquare to NO_SQUARE if there is now way your opponent can play en passant next move.
+  //       This will make it easier to count 3-fold draw.
   const Square epSquare = pos->currentState_.epSquare;
   if (TURN == Color::WHITE) {
     bool cond = (movingPiece == coloredPiece<TURN, Piece::PAWN>() && move.from - move.to == 16);
@@ -458,12 +456,6 @@ void make_move(Position *pos, Move move) {
   pos->decrement_piece_map(capturedPiece, move.to);
   pos->decrement_piece_map(movingPiece, move.from);
 
-  pos->network->set_piece(promoPiece, move.to, 1);
-  if (capturedPiece != ColoredPiece::NO_COLORED_PIECE) {
-    pos->network->set_piece(capturedPiece, move.to, 0);
-  }
-  pos->network->set_piece(movingPiece, move.from, 0);
-
   if (move.moveType == MoveType::CASTLE) {
     // TODO: get rid of if statement
     if (TURN == Color::BLACK) {
@@ -491,9 +483,6 @@ void make_move(Position *pos, Move move) {
 
     pos->increment_piece_map(myRookPiece, rookDestination);
     pos->decrement_piece_map(myRookPiece, rookOrigin);
-
-    pos->network->set_piece(myRookPiece, rookDestination, 1);
-    pos->network->set_piece(myRookPiece, rookOrigin, 0);
   }
 
   if (move.to == epSquare && movingPiece == coloredPiece<TURN, Piece::PAWN>()) {
@@ -517,8 +506,6 @@ void make_move(Position *pos, Move move) {
     pos->tiles_[enpassantSq] = ColoredPiece::NO_COLORED_PIECE;
     pos->hash_ ^= kZorbristNumbers[opposingPawn][enpassantSq];
     pos->decrement_piece_map(opposingPawn, enpassantSq);
-
-    pos->network->set_piece(opposingPawn, enpassantSq, 0);
   }
 
   if (TURN == Color::BLACK) {
