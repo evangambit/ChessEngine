@@ -419,8 +419,11 @@ struct Evaluator {
 
   template<Color US>
   Evaluation score(const Position& pos, const Threats<US>& threats) {
-    float score = pos.network->slowforward();
-    return Evaluation(std::round(score * 100));
+    float score = pos.network->fastforward();
+    if (US == Color::BLACK) {
+      score *= -1;
+    }
+    return Evaluation(std::round(score * 500));
   }
 
   template<Color US>

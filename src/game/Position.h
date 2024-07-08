@@ -120,27 +120,23 @@ class Position {
   PieceMaps const * pieceMaps_;
 
   void set_network(std::shared_ptr<NnueNetwork> network) {
-    std::cout << "set network " << network << std::endl;
     this->network = network;
 
     network->x0.setZero();
-    for (int y = 0; y < 8; ++y) {
-      for (int x = 0; x < 8; ++x) {
-        ColoredPiece cp = this->tiles_[y * 8 + x];
-        if (cp == ColoredPiece::NO_COLORED_PIECE) {
-          continue;
-        }
-        network->x0(0, (cp - 1) * 64 + y * 8 + x) = 1;
+    for (int sq = 0; sq < kNumSquares; ++sq) {
+      ColoredPiece cp = this->tiles_[sq];
+      if (cp == ColoredPiece::NO_COLORED_PIECE) {
+        continue;
       }
+      network->set_piece(cp, Square(sq), 1);
     }
-    network->x0(0, NnueFeatures::NF_IS_WHITE_TURN) = (this->turn_ == Color::WHITE);
-    network->x0(0, NnueFeatures::NF_IS_BLACK_TURN) = (this->turn_ == Color::BLACK);
-    network->x0(0, NnueFeatures::NF_WHITE_KING_CASTLING) = ((this->currentState_.castlingRights & kCastlingRights_WhiteKing) > 0);
-    network->x0(0, NnueFeatures::NF_WHITE_QUEEN_CASTLING) = ((this->currentState_.castlingRights & kCastlingRights_WhiteQueen) > 0);
-    network->x0(0, NnueFeatures::NF_BLACK_KING_CASTLING) = ((this->currentState_.castlingRights & kCastlingRights_BlackKing) > 0);
-    network->x0(0, NnueFeatures::NF_BLACK_QUEEN_CASTLING) = ((this->currentState_.castlingRights & kCastlingRights_BlackQueen) > 0);
+    network->set_index(NnueFeatures::NF_IS_WHITE_TURN, (this->turn_ == Color::WHITE));
+    network->set_index(NnueFeatures::NF_WHITE_KING_CASTLING, ((this->currentState_.castlingRights & kCastlingRights_WhiteKing) > 0));
+    network->set_index(NnueFeatures::NF_WHITE_QUEEN_CASTLING, ((this->currentState_.castlingRights & kCastlingRights_WhiteQueen) > 0));
+    network->set_index(NnueFeatures::NF_BLACK_KING_CASTLING, ((this->currentState_.castlingRights & kCastlingRights_BlackKing) > 0));
+    network->set_index(NnueFeatures::NF_BLACK_QUEEN_CASTLING, ((this->currentState_.castlingRights & kCastlingRights_BlackQueen) > 0));
 
-    network->update_x1();
+    // network->update_x1();
   }
 
 
@@ -344,7 +340,6 @@ void undo(Position *pos) {
   }
 
   pos->network->set_index(NnueFeatures::NF_IS_WHITE_TURN, (MOVER_TURN == Color::WHITE));
-  pos->network->set_index(NnueFeatures::NF_IS_BLACK_TURN, (MOVER_TURN == Color::BLACK));
 
   // TODO: only update if castling rights change.
   pos->network->set_index(NnueFeatures::NF_WHITE_KING_CASTLING, ((pos->currentState_.castlingRights & kCastlingRights_WhiteKing) > 0));
@@ -537,7 +532,6 @@ void make_move(Position *pos, Move move) {
   pos->update_hash_on_state_change(pos->states_.back(), pos->currentState_);
 
   pos->network->set_index(NnueFeatures::NF_IS_WHITE_TURN, (opposingColor == Color::WHITE));
-  pos->network->set_index(NnueFeatures::NF_IS_BLACK_TURN, (opposingColor == Color::BLACK));
 
   // TODO: only update if castling rights change.
   pos->network->set_index(NnueFeatures::NF_WHITE_KING_CASTLING, ((pos->currentState_.castlingRights & kCastlingRights_WhiteKing) > 0));
