@@ -405,6 +405,19 @@ class LoadWeightsTask : public Task {
   std::deque<std::string> command;
 };
 
+class LoadNnueTask : public Task {
+ public:
+  LoadNnueTask(std::deque<std::string> command) : command(command) {}
+  void start(UciEngineState *state) {
+    assert(command.at(0) == "loadnnue");
+    if (command.size() != 2) {
+      invalid(join(command, " "));
+    }
+    state->thinker.nnue->load(command.at(1));
+  }
+  std::deque<std::string> command;
+};
+
 class NewGameTask : public Task {
  public:
   void start(UciEngineState *state) {
@@ -751,6 +764,8 @@ struct UciEngine {
       task.start(state);
     } else if (parts[0] == "loadweights") {  // Custom commands below this line.
       state->taskQueue.push_back(std::make_shared<LoadWeightsTask>(parts));
+    } else if (parts[0] == "loadnnue") {  // Custom commands below this line.
+      state->taskQueue.push_back(std::make_shared<LoadNnueTask>(parts));
     } else if (parts[0] == "play") {
       state->taskQueue.push_back(std::make_shared<PlayTask>(parts));
     } else if (parts[0] == "printoptions") {
