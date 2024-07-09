@@ -1,3 +1,4 @@
+import math
 import os
 import re
 
@@ -202,7 +203,7 @@ labels = torch.tensor(labels, dtype=torch.int16)
 
 dataset = tdata.TensorDataset(tables, misc_features, labels)
 
-loss_fn = nn.MSELoss()
+loss_fn = nn.MSELoss(reduction='none')
 
 L = []
 
@@ -247,12 +248,13 @@ for t, m, y in tqdm(dataloader):
   loss = loss_fn(yhat.squeeze(), y / 1000)
 
   opt.zero_grad()
-  loss.backward()
+  loss.mean().backward()
   opt.step()
-  L.append(float(loss))
+  L.append((float(loss.mean()), float(loss.std()) / math.sqrt(loss.shape[0])))
   it += 1
   if it % 100 == 0:
-    print(sum(L[-100:]) / 100)
+    mean, std = L[-1]
+    print('%.4f ± %.4f' % (mean, std))
 
 test_raw = np.frombuffer(open('alice-00001', 'rb').read(), dtype=np.uint8)
 test_raw = np.unpackbits(test_raw, bitorder='little')
@@ -278,27 +280,15 @@ Stockfish's depth=10 evaluations are
 +218
  -80
 -323
-
-tensor([[0.5061],
-        [0.5058],
-        [0.7971],
-        [0.3706],
-        [0.1827]], grad_fn=<SigmoidBackward0>)
-
-
-import numpy as np
-A = np.arange(15, dtype=np.float32).reshape(3, 5)
-f = open('a.bin', 'wb')
-f.write(A.T.tobytes())
-
-
-FILE *f = fopen(filename.c_str(), "wb");
-Matrix<float, 3, 5> w;
-fwrite(w.data(), sizeof(float), w.size(), f);
-fclose(f);
-
-
 """
+
+linears = [l for l in model.seq if isinstance(l, nn.Linear)]
+linears = [l.to_linear() if isinstance(l, ExpandedLinear) else l for l in linears]
+
+widths =  [l.weight.shape[1] for l in linears]
+outfile = 'nnue-' + '-'.join(str(x) for x in widths) + '.bin'
+
+print('writing out to "%s"' % outfile)
 
 w1 = model.seq[0].to_linear().weight.detach().numpy()
 w2 = model.seq[2].weight.detach().numpy()
@@ -307,7 +297,7 @@ b1 = model.seq[0].bias.detach().numpy()
 b2 = model.seq[2].bias.detach().numpy()
 
 # save
-with open('nnue.bin', 'wb') as f:
+with open(outfile, 'wb') as f:
   f.write(w1.tobytes())
   f.write(w2.tobytes())
   f.write(w3.tobytes())
