@@ -14,6 +14,40 @@ import torch.utils.data as tdata
 
 from collections import defaultdict
 
+class ExpandedLinear(nn.Linear):
+  def __init__(self, in_features, out_features, *args, expansion = None, **kwargs):
+    if expansion is not None:
+      assert expansion.shape[0] == in_features, f'{expansion.shape[0]} != {in_features}'
+      super().__init__(in_features + expansion.shape[1], out_features, *args, **kwargs)
+      self.expansion = nn.Parameter(torch.tensor(
+        expansion, dtype=torch.float32,
+      ), requires_grad=False)
+    else:
+      super().__init__(in_features, out_features, *args, **kwargs)
+      self.expansion = None
+
+  def forward(self, x):
+    if self.expansion is not None:
+      x = torch.cat([x, x @ self.expansion], 1)
+    return super().forward(x)
+
+
+  def to_linear(self):
+    if self.expansion is None:
+      merged = self.weight
+      dout, din = self.weight.shape
+    else:
+      dex = self.expansion.shape[1]
+      din = self.weight.shape[1] - dex
+      dout = self.weight.shape[0]
+      merged = self.weight[:, :din] + self.weight[:, din:] @ self.expansion.T
+    linear = nn.Linear(din, dout)
+    with torch.no_grad():
+      linear.weight[:] = merged
+      if self.bias is not None:
+        linear.bias[:] = self.bias
+    return linear
+
 """
 
 sqlite3 positions.db "SELECT fen FROM positions ORDER BY fen ASC" > /tmp/pos.txt
@@ -52,13 +86,13 @@ def load_shard(n, prefix='data'):
 
 print('loading')
 tables, misc_features, labels = [], [], []
-for i in tqdm(list(range(122))):
+for i in tqdm(list(range(122))):  # 122
   a, b, c = load_shard(i + 1)
   tables.append(a)
   misc_features.append(b)
   labels.append(c)
 
-for i in tqdm(list(range(77))):
+for i in tqdm(list(range(77))):  # 77
   a, b, c = load_shard(i + 1, 'remote')
   tables.append(a)
   misc_features.append(b)
@@ -85,10 +119,41 @@ class Model(nn.Module):
   def __init__(self):
     super().__init__()
     """
-     512, 64: 0.04689538702368736
+         512, 64: 0.04407808091491461
+                  0.042864857465028765
     """
+    expansion = [
+    ]
+
+    # Piece differences
+    for i in range(5):
+      a = np.zeros((12, 8, 8))
+      a[i,:,:] = 1
+      a[6 + i,:,:] = -1
+      expansion.append(a)
+
+    # Rough estimate of material imbalance
+    expansion.append(
+      expansion[-5] * 1 + expansion[-4] * 3 + expansion[-3] * 3 + expansion[-2] * 5 + expansion[-1] * 9
+    )
+
+    # King locations
+    for i in [5, 11]:
+      x = np.zeros((12, 8, 8))
+      x[i,:,:] = np.tile(np.linspace(-1.0, 1.0, 8).reshape(1, 1, -1), (1, 8, 1))
+      expansion.append(x)
+
+      x = np.zeros((12, 8, 8))
+      x[i,:,:] = np.tile(np.linspace(-1.0, 1.0, 8).reshape(1, -1, 1), (1, 1, 8))
+      expansion.append(x)
+
+    expansion = np.concatenate(expansion, 0).reshape(-1, 12 * 8 * 8)
+
+    # Add dummy variables for misc features
+    expansion = np.concatenate([expansion, np.zeros((expansion.shape[0], 8))], 1).T
+
     self.seq = nn.Sequential(
-      nn.Linear(12 * 8 * 8 + 8, 512),
+      ExpandedLinear(12 * 8 * 8 + 8, 512, expansion=expansion),
       nn.ReLU(),
       nn.Linear(512, 64),
       nn.ReLU(),
@@ -143,8 +208,8 @@ L = []
 
 dataloader = tdata.DataLoader(dataset, batch_size=2048, shuffle=True, drop_last=True)
 scheduler = PiecewiseFunction(
-  [0, 50, len(dataloader)],
-  [0.0, 3e-3, 1e-4],
+  [0, 50, len(dataloader) // 2, len(dataloader)],
+  [0.0, 3e-3, 3e-4, 3e-5],
 )
 
 
@@ -167,11 +232,11 @@ for t, m, y in tqdm(dataloader):
     torch.flip(t[:,:6,:,:], (2,)),
   ], 1)
   flipped_misc = torch.zeros(m.shape)
-  flipped_misc[:,-1] = 1 - m[:,-1]  # turn
-  flipped_misc[:,-2] = m[:,-4]
-  flipped_misc[:,-3] = m[:,-5]
-  flipped_misc[:,-4] = m[:,-2]
-  flipped_misc[:,-5] = m[:,-3]
+  flipped_misc[:,0] = 1 - m[:,0]  # turn
+  flipped_misc[:,1] = m[:,3]
+  flipped_misc[:,2] = m[:,4]
+  flipped_misc[:,3] = m[:,1]
+  flipped_misc[:,4] = m[:,2]
 
   t = torch.cat([t, flipped_tables], 0)
   m = torch.cat([m, flipped_misc], 0)
@@ -235,7 +300,7 @@ fclose(f);
 
 """
 
-w1 = model.seq[0].weight.detach().numpy()
+w1 = model.seq[0].to_linear().weight.detach().numpy()
 w2 = model.seq[2].weight.detach().numpy()
 w3 = model.seq[4].weight.detach().numpy()
 b1 = model.seq[0].bias.detach().numpy()

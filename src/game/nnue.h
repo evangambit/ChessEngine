@@ -117,12 +117,7 @@ struct NnueNetwork {
   }
 
   void set_index(size_t index, float newValue) {
-    if (index >= 768) { // todo: remove this
-      newValue = 1;
-    }
-    assert(newValue == 1.0 || newValue == 0.0);
     float delta = newValue - x0(0, index);
-    assert(delta == 1.0 || delta == 0.0 || delta ==-1.0);
     if (delta == 0.0) {
       return;
     }
@@ -131,6 +126,8 @@ struct NnueNetwork {
       x1.row(0).noalias() += w0.row(index);
     } else if (delta == -1.0) {
       x1.row(0).noalias() -= w0.row(index);
+    } else {
+      x1.row(0).noalias() += w0.row(index) * delta;
     }
   }
 };

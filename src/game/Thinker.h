@@ -141,9 +141,6 @@ struct Thinker {
     this->evaluator.save_weights_to_file(myfile);
     this->pieceMaps.save_weights_to_file(myfile);
     myfile.close();
-    std::cout << "reading nnue" << std::endl;
-    this->nnue->load("nnue.bin");
-    std::cout << "/reading nnue" << std::endl;
   }
 
 
@@ -157,9 +154,7 @@ struct Thinker {
     this->evaluator.load_weights_from_file(myfile);
     this->pieceMaps.load_weights_from_file(myfile);
     myfile.close();
-    std::cout << "reading nnue" << std::endl;
     this->nnue->load("nnue.bin");
-    std::cout << "/reading nnue" << std::endl;
   }
 
   std::pair<Evaluation, std::vector<Move>> get_variation(Position *pos, Move move) const {
