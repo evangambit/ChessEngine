@@ -87,7 +87,7 @@ class Position {
   Position() : turn_(Color::WHITE), pieceMaps_(&kZeroPieceMap) {
     this->turn_ = Color::WHITE;
     this->_empty_();
-    this->network = std::make_shared<NnueNetwork>();
+    this->network = std::make_shared<NnueNetworkInterface>();
   };
   Position(const std::string& fen);
 
@@ -106,7 +106,7 @@ class Position {
   std::vector<uint64_t> hashes_;
   PositionState currentState_;
 
-  std::shared_ptr<NnueNetwork> network;
+  std::shared_ptr<NnueNetworkInterface> network;
 
   void set_piece_maps(const PieceMaps& pieceMaps) {
     pieceMaps_ = &pieceMaps;
@@ -119,7 +119,7 @@ class Position {
   }
   PieceMaps const * pieceMaps_;
 
-  void set_network(std::shared_ptr<NnueNetwork> network) {
+  void set_network(std::shared_ptr<NnueNetworkInterface> network) {
     this->network = network;
 
     network->empty();

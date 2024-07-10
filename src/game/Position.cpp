@@ -120,31 +120,31 @@ void Position::_empty_() {
 }
 
 Position::Position(const std::string& fen) : pieceMaps_(&kZeroPieceMap) {
-  this->network = std::make_shared<NnueNetwork>();
+  this->network = std::make_shared<NnueNetworkInterface>();
   
   std::vector<std::string> parts = split(fen, ' ');
   if (parts.size() != 6) {
     throw std::runtime_error("Position::Position error 1");
   }
 
-  std::vector<std::string> rows = split(parts[0], '/');
-  if (rows.size() != 8) {
-    throw std::runtime_error("Position::Position error 2");
-  }
-
   this->_empty_();
-
-  for (size_t y = 0; y < 8; ++y) {
-    size_t x = 0;
-    for (size_t i = 0; i < rows[y].size(); ++i) {
-      char c = rows[y][i];
-      if (c >= '1' && c <= '8') {
-        x += (c - '0');
-        continue;
-      }
-      this->place_piece_(char_to_colored_piece(c), Square(8 * y + x));
-      ++x;
+  int y = 0;
+  int x = 0;
+  for (auto c : parts[0]) {
+    if (c == '/') {
+      y += 1;
+      x = 0;
+      continue;
     }
+    if (c >= '1' && c <= '8') {
+      x += (c - '0');
+      continue;
+    }
+    this->place_piece_(char_to_colored_piece(c), Square(8 * y + x));
+    ++x;
+  }
+  if (y != 7 || x != 8) {
+    throw std::runtime_error("Position::Position error 2");
   }
 
   if (parts[1] != "w" && parts[1] != "b") {

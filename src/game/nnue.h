@@ -31,7 +31,16 @@ enum NnueFeatures {
   NF_NUM_FEATURES = 776,
 };
 
-struct NnueNetwork {
+struct NnueNetworkInterface {
+  virtual void empty() {}
+  virtual float slowforward() { return 0.0; }
+  virtual float fastforward() { return 0.0; }
+  virtual void load(std::string filename) {}
+  virtual void set_piece(ColoredPiece piece, Square square, float newValue) {}
+  virtual void set_index(size_t index, float newValue) {}
+};
+
+struct NnueNetwork : public NnueNetworkInterface {
   static constexpr int kInputDim = 12 * 8 * 8 + 8;
   static constexpr int kWidth1 = 512;
   static constexpr int kWidth2 = 64;
