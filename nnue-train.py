@@ -51,17 +51,11 @@ class ExpandedLinear(nn.Linear):
 
 """
 
-sqlite3 positions.db "SELECT fen FROM positions ORDER BY fen ASC" > /tmp/pos.txt
-sqlite3 positions.db "SELECT wins, draws, losses FROM positions ORDER BY fen ASC" > /tmp/evals.txt
+sqlite3 positions.db "SELECT fen, wins, draws, losses FROM positions ORDER BY fen ASC" > /tmp/pos.txt
+./make_tables /tmp/pos.txt /tmp/pos
 
-sqlite3 positions.remote.db "SELECT fen FROM positions ORDER BY fen ASC" > /tmp/remote.pos.txt
-sqlite3 positions.remote.db "SELECT wins, draws, losses FROM positions ORDER BY fen ASC" > /tmp/remote.evals.txt
-./make_tables /tmp/remote.pos.txt /tmp/remote.evals.txt /tmp/remote
-
-
-./make_tables /tmp/toy.pos.txt /tmp/toy.evals.txt /tmp/toy.data
-
-./make_tables /tmp/pos.txt /tmp/evals.txt /tmp/data
+sqlite3 positions.remote.db "SELECT fen, wins, draws, losses FROM positions ORDER BY fen ASC" > /tmp/remote.pos.txt
+./make_tables /tmp/remote.pos.txt /tmp/remote
 
 import numpy as np
 X = np.unpackbits(np.frombuffer(open('/tmp/tables-1', 'rb').read(), dtype=np.uint8)).reshape(-1, 12*64+8)
@@ -74,26 +68,27 @@ T = X[:,:-8].reshape(-1, 12, 8, 8)
 
 from tqdm import tqdm
 
-def load_shard(n, prefix='data'):
-  path = os.path.join('/tmp/', f'{prefix}-{str(n).rjust(5, "0")}')
-  score_path = os.path.join('/tmp/', f'{prefix}-scores-{str(n).rjust(5, "0")}')
-  raw_features = np.frombuffer(open(path, 'rb').read(), dtype=np.uint8)
+def load_shard(idx, prefix='pos'):
+  score_path = os.path.join('/tmp/', f'{prefix}-eval-{str(idx).rjust(5, "0")}')
   labels = np.frombuffer(open(score_path, 'rb').read(), dtype=np.int16)
   n = labels.shape[0]
+
+  tablepath = os.path.join('/tmp/', f'{prefix}-tables-{str(idx).rjust(5, "0")}')
+  raw_features = np.frombuffer(open(tablepath, 'rb').read(), dtype=np.uint8)
   raw_features = raw_features.reshape((n, -1))
   tables = raw_features[:,:-1]
   misc_features = np.unpackbits(raw_features[:,-1], bitorder='little').reshape(n, 8)
   return tables, misc_features, labels
 
 print('loading')
-tables, misc_features, labels = [], [], []
-for i in tqdm(list(range(122))):  # 122
+tables, misc_features, labels, classic = [], [], [], []
+for i in tqdm(list(range(4, 122))):  # 122
   a, b, c = load_shard(i + 1)
   tables.append(a)
   misc_features.append(b)
   labels.append(c)
 
-for i in tqdm(list(range(77))):  # 77
+for i in tqdm(list(range(4, 77))):  # 77
   a, b, c = load_shard(i + 1, 'remote')
   tables.append(a)
   misc_features.append(b)
@@ -122,6 +117,7 @@ class Model(nn.Module):
     """
          512, 64: 0.04407808091491461
                   0.042864857465028765
+                  0.0382  // with classic eval
     """
     expansion = [
     ]
@@ -200,8 +196,9 @@ opt = optim.AdamW(model.parameters(), lr=3e-2, weight_decay=0.01)
 tables = torch.tensor(tables, dtype=torch.int8)
 misc_features = torch.tensor(misc_features, dtype=torch.int8)
 labels = torch.tensor(labels, dtype=torch.int16)
+classic = torch.tensor(classic, dtype=torch.int16)
 
-dataset = tdata.TensorDataset(tables, misc_features, labels)
+dataset = tdata.TensorDataset(tables, misc_features, labels, classic)
 
 loss_fn = nn.MSELoss(reduction='none')
 
@@ -224,6 +221,7 @@ for t, m, y in tqdm(dataloader):
   t = t.to(torch.float32)
   m = m.to(torch.float32)
   y = y.to(torch.float32)
+  c = c.to(torch.float32)
 
   for pg in opt.param_groups:
     pg['lr'] = scheduler(it)
