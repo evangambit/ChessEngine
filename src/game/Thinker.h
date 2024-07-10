@@ -96,7 +96,9 @@ struct Thinker {
   size_t numThreads;
 
   PieceMaps pieceMaps;
+  #ifndef NO_DNNUE_EVAL
   std::shared_ptr<NnueNetwork> nnue;
+  #endif
   uint64_t lastRootHash;
 
   std::vector<VariationHead<Color::WHITE>> variations;
@@ -106,7 +108,9 @@ struct Thinker {
   Thinker() : cache(10000), stopThinkingCondition(new NeverStopThinkingCondition()), lastRootHash(0) {
     this->clear_history_heuristic();
     this->nodeCounter = 0;
+    #ifndef NO_DNNUE_EVAL
     this->nnue = std::make_shared<NnueNetwork>();
+    #endif
     multiPV = 1;
     numThreads = 1;
   }
@@ -154,7 +158,9 @@ struct Thinker {
     this->evaluator.load_weights_from_file(myfile);
     this->pieceMaps.load_weights_from_file(myfile);
     myfile.close();
+    #ifndef NO_DNNUE_EVAL
     this->nnue->load("nnue.bin");
+    #endif
   }
 
   std::pair<Evaluation, std::vector<Move>> get_variation(Position *pos, Move move) const {

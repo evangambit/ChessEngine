@@ -986,7 +986,9 @@ static SearchResult<Color::WHITE> search(Thinker *thinker, const GoCommand& comm
   // It's important to call this at the beginning of a search, since if we're sharing Position (e.g. selfplay.cpp) we
   // need to recompute piece map scores using our own weights.
   copy.set_piece_maps(thinker->pieceMaps);
+  #ifndef NO_NNUE_EVAL
   copy.set_network(thinker->nnue);
+  #endif
 
   thinker->variations.clear();
 

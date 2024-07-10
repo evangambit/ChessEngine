@@ -87,7 +87,9 @@ class Position {
   Position() : turn_(Color::WHITE), pieceMaps_(&kZeroPieceMap) {
     this->turn_ = Color::WHITE;
     this->_empty_();
+    #ifndef NO_NNUE_EVAL
     this->network = std::make_shared<NnueNetworkInterface>();
+    #endif
   };
   Position(const std::string& fen);
 
@@ -106,7 +108,9 @@ class Position {
   std::vector<uint64_t> hashes_;
   PositionState currentState_;
 
+  #ifndef NO_NNUE_EVAL
   std::shared_ptr<NnueNetworkInterface> network;
+  #endif
 
   void set_piece_maps(const PieceMaps& pieceMaps) {
     pieceMaps_ = &pieceMaps;
@@ -119,6 +123,7 @@ class Position {
   }
   PieceMaps const * pieceMaps_;
 
+  #ifndef NO_NNUE_EVAL
   void set_network(std::shared_ptr<NnueNetworkInterface> network) {
     this->network = network;
 
@@ -137,6 +142,7 @@ class Position {
     network->set_index(NnueFeatures::NF_BLACK_KING_CASTLING, ((this->currentState_.castlingRights & kCastlingRights_BlackKing) > 0));
     network->set_index(NnueFeatures::NF_BLACK_QUEEN_CASTLING, ((this->currentState_.castlingRights & kCastlingRights_BlackQueen) > 0));
   }
+  #endif
 
 
   uint64_t hash_;
@@ -166,9 +172,11 @@ class Position {
       pieceMapScores[i] += w[i];
     }
 
+    #ifndef NO_NNUE_EVAL
     if (cp != ColoredPiece::NO_COLORED_PIECE) {
       this->network->set_piece(cp, sq, 1);
     }
+    #endif
   }
   inline void decrement_piece_map(ColoredPiece cp, Square sq) {
     int32_t const *w = pieceMaps_->weights(cp, sq);
@@ -176,9 +184,11 @@ class Position {
       pieceMapScores[i] -= w[i];
     }
 
+    #ifndef NO_NNUE_EVAL
     if (cp != ColoredPiece::NO_COLORED_PIECE) {
       this->network->set_piece(cp, sq, 0);
     }
+    #endif
   }
 
   void assert_valid_state() const;
@@ -336,6 +346,7 @@ void undo(Position *pos) {
     pos->increment_piece_map(opposingPawn, enpassantSq);
   }
 
+  #ifndef NO_NNUE_EVAL
   pos->network->set_index(NnueFeatures::NF_IS_WHITE_TURN, (MOVER_TURN == Color::WHITE));
 
   // TODO: only update if castling rights change.
@@ -343,6 +354,7 @@ void undo(Position *pos) {
   pos->network->set_index(NnueFeatures::NF_WHITE_QUEEN_CASTLING, ((pos->currentState_.castlingRights & kCastlingRights_WhiteQueen) > 0));
   pos->network->set_index(NnueFeatures::NF_BLACK_KING_CASTLING, ((pos->currentState_.castlingRights & kCastlingRights_BlackKing) > 0));
   pos->network->set_index(NnueFeatures::NF_BLACK_QUEEN_CASTLING, ((pos->currentState_.castlingRights & kCastlingRights_BlackQueen) > 0));
+  #endif
 
   pos->assert_valid_state();
 }
@@ -518,6 +530,7 @@ void make_move(Position *pos, Move move) {
 
   pos->update_hash_on_state_change(pos->states_.back(), pos->currentState_);
 
+  #ifndef NO_NNUE_EVAL
   pos->network->set_index(NnueFeatures::NF_IS_WHITE_TURN, (opposingColor == Color::WHITE));
 
   // TODO: only update if castling rights change.
@@ -525,6 +538,7 @@ void make_move(Position *pos, Move move) {
   pos->network->set_index(NnueFeatures::NF_WHITE_QUEEN_CASTLING, ((pos->currentState_.castlingRights & kCastlingRights_WhiteQueen) > 0));
   pos->network->set_index(NnueFeatures::NF_BLACK_KING_CASTLING, ((pos->currentState_.castlingRights & kCastlingRights_BlackKing) > 0));
   pos->network->set_index(NnueFeatures::NF_BLACK_QUEEN_CASTLING, ((pos->currentState_.castlingRights & kCastlingRights_BlackQueen) > 0));
+  #endif
 
   bar<TURN>(pos);
 
