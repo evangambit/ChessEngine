@@ -38,6 +38,7 @@ int main(int argc, char *argv[]) {
   }
 
   std::string line;
+  int8_t features[EF::NUM_EVAL_FEATURES];
   size_t count = 0;
   while (std::getline(infile, line)) {
     // fen, wins, draws, losses
@@ -55,8 +56,11 @@ int main(int argc, char *argv[]) {
     } else {
       gEvaluator.score<Color::BLACK>(pos);
     }
+    for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
+      features[i] = gEvaluator.features[i];
+    }
     // write out int array of features
-    featuresFile.write(reinterpret_cast<const char*>(gEvaluator.features), sizeof(gEvaluator.features));
+    featuresFile.write(reinterpret_cast<const char*>(features), sizeof(features));
 
     int16_t eval = std::stoi(parts[1]) + std::stoi(parts[2]) / 2;
 

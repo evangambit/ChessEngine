@@ -242,10 +242,10 @@ def logit(x):
 
 cat = np.concatenate
 
-# ./compute_eval_features /tmp/pos.txt /tmp/classic.x.bin /tmp/classic.y.bin
+# ./compute_eval_features /tmp/pos.txt ./classic.x.bin .classic.y.bin
 
-Y = np.frombuffer(open('/tmp/classic.y.bin', 'rb').read(), dtype=np.int16).reshape(-1)
-X = np.frombuffer(open('/tmp/classic.x.bin', 'rb').read(), dtype=np.int16).reshape(Y.shape[0], -1)
+Y = np.frombuffer(open('./classic.y.bin', 'rb').read(), dtype=np.int16).reshape(-1)
+X = np.frombuffer(open('./classic.x.bin', 'rb').read(), dtype=np.int8).reshape(Y.shape[0], -1)
 
 Y = (Y.astype(np.float32) + 1) / 1002.0
 Y = logit(Y)
