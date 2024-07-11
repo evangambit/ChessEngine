@@ -236,23 +236,27 @@ def lpad(t, n, c=' '):
   return max(n - len(t), 0) * c + t
 
 def logit(x):
+  if isinstance(x, np.ndarray):
+    return np.log(x / (1.0 - x))
   return torch.log(x / (1.0 - x))
 
 cat = np.concatenate
 
-Y = np.frombuffer(open('/tmp/y.bin', 'rb').read(), dtype=np.int16).reshape(-1, 3)
-X = np.frombuffer(open('/tmp/x.bin', 'rb').read(), dtype=np.int8).reshape(Y.shape[0], -1)
-Y = (Y[:,0] + Y[:,1] * 0.5 + 1.5) / (Y.sum(1) + 3)
-logit = lambda x: np.log(x / (1 - x))
+# ./compute_eval_features /tmp/pos.txt /tmp/classic.x.bin /tmp/classic.y.bin
+
+Y = np.frombuffer(open('/tmp/classic.y.bin', 'rb').read(), dtype=np.int16).reshape(-1)
+X = np.frombuffer(open('/tmp/classic.x.bin', 'rb').read(), dtype=np.int16).reshape(Y.shape[0], -1)
+
+Y = (Y.astype(np.float32) + 1) / 1002.0
 Y = logit(Y)
 
-T = X[:,varnames.index('TIME')].copy() / 18.0
+T = X[:,varnames.index('TIME')].copy()
 
-print('Computing PCA...')
-pca = PCA(X[:1_000_000].astype(np.float32), 0.001, scale=True)
+# print('Computing PCA...')
+# pca = PCA(X[:1_000_000].astype(np.float32), 0.001, scale=True)
 
-print('Applying PCA...')
-X = pca.points_forward(X)
+# print('Applying PCA...')
+# X = pca.points_forward(X)
 
 def soft_clip(x, k = 4.0):
   x = nn.functional.leaky_relu(x + k) - k
@@ -312,9 +316,9 @@ with torch.no_grad():
 #     model.w[k].weight += torch.tensor(pca.slope_forward(weights.vecs[k] / 100.0))
 
 print('Creating Pytorch tensors...')
-Xth = torch.tensor(X, dtype=torch.float32)
+Xth = torch.tensor(X, dtype=torch.int16)
 Yth = torch.tensor(Y, dtype=torch.float32)
-Tth = torch.tensor(T, dtype=torch.float32)
+Tth = torch.tensor(T, dtype=torch.int16)
 
 bs = 25_000
 maxlr = 0.03
@@ -326,7 +330,7 @@ loss_fn = LossFn()
 
 L = []
 
-windowSize = 500
+windowSize = 2000
 
 print('Training...')
 for bs in 2**(np.linspace(4, 14, 11)):
@@ -335,6 +339,9 @@ for bs in 2**(np.linspace(4, 14, 11)):
   dataloader = tdata.DataLoader(dataset, batch_size=bs, shuffle=True, drop_last=True)
   l = []
   for x, t, y in forever(dataloader):
+    x = x.to(torch.float32)
+    t = t.to(torch.float32) / 18.0
+
     yhat = model(x, t)
     loss = loss_fn(yhat, y)
     opt.zero_grad()
@@ -354,7 +361,7 @@ Residuals = (Yth / 100 - model(Xth, Tth)).detach().numpy()
 
 for k in model.w:
   w = model.w[k].weight.detach().numpy()
-  w = pca.slope_backward(w)
+  # w = pca.slope_backward(w)
   with torch.no_grad():
     model.w[k] = nn.Linear(w.shape[1], w.shape[0])
     model.w[k].weight *= 0
