@@ -998,7 +998,7 @@ struct Evaluator {
 
     return eval;
 
-#else  // #ifndef SquareControl
+    #else  // #ifndef SquareControl
 
     int32_t pieceMap = (pos.pieceMapScores[PieceMapType::PieceMapTypeEarly] * (18 - time) + pos.pieceMapScores[PieceMapType::PieceMapTypeLate] * time) / 18;
     if (US == Color::BLACK) {
@@ -1180,7 +1180,7 @@ struct Evaluator {
     }
 
     return base + pieceMap + early + late + special;
-#endif  // #ifndef SquareControl
+    #endif  // SquareControl
   }
 
   template<Color US>
@@ -1328,6 +1328,25 @@ struct Evaluator {
 
   Evaluation features[NUM_EVAL_FEATURES];
 };
+
+#ifndef NO_NNUE_EVAL
+template<Color US>
+Evaluation nnue_evaluate(const Position& pos) {
+  float score = pos.network->fastforward();
+  if (US == Color::BLACK) {
+    score *= -1.0;
+  }
+  return Evaluation(
+    std::min(
+      -float(kQLongestForcedMate),
+      std::max(
+        float(kQLongestForcedMate),
+        std::round(score * 500)
+      )
+    )
+  );
+}
+#endif
 
 }  // namespace ChessEngine
 

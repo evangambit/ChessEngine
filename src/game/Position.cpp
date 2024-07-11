@@ -120,14 +120,13 @@ void Position::_empty_() {
 }
 
 Position::Position(const std::string& fen) : pieceMaps_(&kZeroPieceMap) {
+  #ifndef NO_NNUE_EVAL
+  this->network = std::make_shared<NnueNetworkInterface>();
+  #endif
+  
   std::vector<std::string> parts = split(fen, ' ');
   if (parts.size() != 6) {
     throw std::runtime_error("Position::Position error 1");
-  }
-
-  std::vector<std::string> rows = split(parts[0], '/');
-  if (rows.size() != 8) {
-    throw std::runtime_error("Position::Position error 2");
   }
 
   this->_empty_();

@@ -2,6 +2,7 @@
 #include "game/Position.h"
 #include "game/movegen.h"
 #include "game/utils.h"
+#include "game/Thinker.h"
 #include "game/string_utils.h"
 
 #include <condition_variable>
@@ -240,6 +241,9 @@ class EvalTask : public Task {
     }
     Evaluator& evaluator = state->thinker.evaluator;
     state->pos.set_piece_maps(state->thinker.pieceMaps);
+    #ifndef NO_NNUE_EVAL
+    state->pos.set_network(state->thinker.nnue);
+    #endif
     if (state->pos.turn_ == Color::WHITE) {
       std::cout << evaluator.score<Color::WHITE>(state->pos) << std::endl;
     } else {
@@ -402,6 +406,21 @@ class LoadWeightsTask : public Task {
   }
   std::deque<std::string> command;
 };
+
+#ifndef NO_NNUE_EVAL
+class LoadNnueTask : public Task {
+ public:
+  LoadNnueTask(std::deque<std::string> command) : command(command) {}
+  void start(UciEngineState *state) {
+    assert(command.at(0) == "loadnnue");
+    if (command.size() != 2) {
+      invalid(join(command, " "));
+    }
+    state->thinker.nnue->load(command.at(1));
+  }
+  std::deque<std::string> command;
+};
+#endif
 
 class NewGameTask : public Task {
  public:
@@ -749,6 +768,10 @@ struct UciEngine {
       task.start(state);
     } else if (parts[0] == "loadweights") {  // Custom commands below this line.
       state->taskQueue.push_back(std::make_shared<LoadWeightsTask>(parts));
+#ifndef NO_NNUE_EVAL
+    } else if (parts[0] == "loadnnue") {  // Custom commands below this line.
+      state->taskQueue.push_back(std::make_shared<LoadNnueTask>(parts));
+#endif
     } else if (parts[0] == "play") {
       state->taskQueue.push_back(std::make_shared<PlayTask>(parts));
     } else if (parts[0] == "printoptions") {

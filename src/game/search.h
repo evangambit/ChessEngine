@@ -207,7 +207,11 @@ static SearchResult<TURN> qsearch(Thinker *thinker, Thread *thread, int32_t dept
 
   // If we can stand pat for a beta cutoff, or if we have no moves, return.
   Threats<TURN> threats(thread->pos);
+  #ifndef NO_NNUE_EVAL
+  SearchResult<TURN> r(nnue_evaluate<TURN>(thread->pos), kNullMove);
+  #else
   SearchResult<TURN> r(thread->evaluator.score<TURN>(thread->pos, threats), kNullMove);
+  #endif
   {
     // Add a penalty to standing pat if we have hanging pieces.
     // k=50 is actually worse than k=0 (0.0254 ± 0.0079)
@@ -417,7 +421,12 @@ static SearchResult<TURN> search(
   if (depthRemaining <= 0) {
     #if SIMPLE_SEARCH
     {
-      SearchResult<TURN> r = qsearch<TURN>(thinker, thread, 0, plyFromRoot, alpha, beta);
+      // SearchResult<TURN> r = qsearch<TURN>(thinker, thread, 0, plyFromRoot, alpha, beta);
+      #ifndef NO_NNUE_EVAL
+      SearchResult<TURN> r(nnue_evaluate<TURN>(thread->pos), kNullMove);
+      #else
+      SearchResult<TURN> r(thread->evaluator.score<TURN>(thread->pos), kNullMove);
+      #endif
       NodeType nodeType = NodeTypePV;
       if (r.score >= beta) {
         nodeType = NodeTypeCut_LowerBound;
@@ -985,6 +994,9 @@ static SearchResult<Color::WHITE> search(Thinker *thinker, const GoCommand& comm
   // It's important to call this at the beginning of a search, since if we're sharing Position (e.g. selfplay.cpp) we
   // need to recompute piece map scores using our own weights.
   copy.set_piece_maps(thinker->pieceMaps);
+  #ifndef NO_NNUE_EVAL
+  copy.set_network(thinker->nnue);
+  #endif
 
   thinker->variations.clear();
 
