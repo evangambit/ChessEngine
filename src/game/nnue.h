@@ -40,6 +40,36 @@ struct NnueNetworkInterface {
   virtual void set_index(size_t index, float newValue) {}
 };
 
+struct DummyNetwork : public NnueNetworkInterface {
+  int16_t x[NnueFeatures::NF_NUM_FEATURES];
+
+  DummyNetwork() {}
+
+  void empty() {
+    std::fill_n(x, NnueFeatures::NF_NUM_FEATURES, 0);
+  }
+
+  float slowforward() {
+    return 0.0;
+  }
+  float fastforward() {
+    return 0.0;
+  }
+
+  void load(std::string filename) {}
+
+  void set_piece(ColoredPiece piece, Square square, float newValue) {
+    int y = square / 8;
+    int x = square % 8;
+    size_t index = (piece - 1) * 64 + y * 8 + x;
+    this->set_index(index, newValue);
+  }
+
+  void set_index(size_t index, float newValue) {
+    x[index] = newValue;
+  }
+};
+
 struct NnueNetwork : public NnueNetworkInterface {
   static constexpr int kInputDim = 12 * 8 * 8 + 8;
   static constexpr int kWidth1 = 512;
