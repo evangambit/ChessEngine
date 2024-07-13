@@ -9,7 +9,7 @@ Source: https://github.com/evangambit/sharded-matrix
 
 import multiprocessing
 import os
-import time
+from functools import lru_cache
 
 import numpy as np
 
@@ -161,13 +161,9 @@ class LoaderInterface:
   def load_slice(self, start, end) -> np.ndarray:
     raise NotImplementedError()
 
-  def iterator(self, skip, offset):
-    raise NotImplementedError()
-
 class ShardedLoader(LoaderInterface):
   def __init__(self, path: str):
     self._path = path
-    self._last_loaded = (None, None)
     self.num_shards = 0
 
     self.num_rows = 0
@@ -187,12 +183,9 @@ class ShardedLoader(LoaderInterface):
     self.shape = tuple(shape[1:])
     self.rows_per_shard = shape[0]
   
+  @lru_cache(maxsize=1)
   def load_shard(self, shard_index):
-    if self._last_loaded[0] == shard_index:
-      return self._last_loaded[1]
-    tensor = load_shard(path2shardname(self._path, shard_index))
-    self._last_loaded = (shard_index, tensor)
-    return tensor
+    return load_shard(path2shardname(self._path, shard_index))
   
   def shard_to_slice_indices(self, shard_index):
     start = self.cumsum_rows[shard_index - 1] if shard_index > 0 else 0
@@ -222,14 +215,6 @@ class ShardedLoader(LoaderInterface):
     
     return np.concatenate(R, 0)
   
-  def iterator(self, offset=0, skip=1):
-    for shard_index in range(0, self.num_shards, skip):
-      path = path2shardname(self._path, shard_index)
-      if not os.path.exists(path):
-        raise FileExistsError(path)
-      matrix = load_shard(path)
-      yield matrix
-
 class MappingLoader(LoaderInterface):
   def __init__(self, loader: LoaderInterface, *mappings, width=None):
     super().__init__()
@@ -242,6 +227,7 @@ class MappingLoader(LoaderInterface):
     self.num_shards = loader.num_shards
     self.num_rows = loader.num_rows    
   
+  @lru_cache(maxsize=1)
   def load_shard(self, shard_index):
     return self._apply(self._loader.load_shard(shard_index))
 
@@ -249,28 +235,50 @@ class MappingLoader(LoaderInterface):
     return self._loader.shard_to_slice_indices(shard_index)
 
   def load_slice(self, start, end):
-    return self._apply(self._apply(self._loader.load_slice(start, end)))
+    return self._apply(self._loader.load_slice(start, end))
   
   def _apply(self, x):
     for f in self._mappings:
       x = f(x)
     return x
-    
   
-  def iterator(self, offset=0, skip=1):
-    for x in self._loader.iterator(offset=offset, skip=skip):
-      for f in self._mappings:
-        x = f(x)
-      yield x
+class RowMapper(LoaderInterface):
+  def __init__(self, f, *loaders):
+    super().__init__()
+    self._loaders = loaders
+    self._f = f
+
+    result = self._f(*[loader.load_slice(0, 1) for loader in self._loaders])
+
+    self.dtype = result.dtype
+    self.shape = tuple(result.shape[1:])
+    self.num_shards = loaders[0].num_shards
+    self.num_rows = loaders[0].num_rows
+    for loader in loaders[1:]:
+      assert loader.num_rows == self.num_rows, 'All loaders must have the same number of rows'
+  
+  def load_shard(self, shard_index):
+    indices = self._loaders[0].shard_to_slice_indices(shard_index)
+    A = [
+      self._loaders[0].load_shard(shard_index)
+    ]
+    for loader in self._loaders[1:]:
+      A.append(loader.load_slice(*indices))
+    return self._f(*A)
+  
+  def shard_to_slice_indices(self, shard_index):
+    return self._loaders[0].shard_to_slice_indices(shard_index)
+  
+  def load_slice(self, start, end):
+    A = [l.load_slice(start, end) for l in self._loaders]
+    return self._f(*A)
 
 def _compute_innerproduct(loader1, loader2, offset):
-  print('_compute_innerproduct', offset)
   shard = loader1.load_shard(offset).astype(np.float32)
   slice = loader2.load_slice(*loader1.shard_to_slice_indices(offset)).astype(np.float32)
   return shard.T @ slice
 
 def _compute_weighted_innerproduct(loader1, loader2, weights_loader, offset):
-  print('_compute_weighted_innerproduct', offset)
   shard = loader1.load_shard(offset).astype(np.float32)
   indices = loader1.shard_to_slice_indices(offset)
   slice = loader2.load_slice(*indices).astype(np.float32)
@@ -281,18 +289,16 @@ def _compute_weighted_innerproduct(loader1, loader2, weights_loader, offset):
   return shard.T @ slice
 
 def _compute_self_innerproduct(loader1, offset):
-  print('_compute_self_innerproduct', offset)
   A = loader1.load_shard(offset).astype(np.float32)
   return A.T @ A
 
 def _compute_weighted_self_innerproduct(loader1, weights_loader, offset):
-  print('_compute_weighted_self_innerproduct', offset)
   A = loader1.load_shard(offset).astype(np.float32)
   weights = weights_loader.load_slice(*loader1.shard_to_slice_indices(offset)).astype(np.float32)
   A = A * weights
   return A.T @ A
 
-def compute_inner_product(loader1: LoaderInterface, loader2: LoaderInterface, weights_loader=None):
+def compute_inner_product(loader1: LoaderInterface, loader2: LoaderInterface, weights_loader=None, num_workers: int = 4):
   assert loader1.num_rows == loader2.num_rows, 'Both loaders must have the same number of shards'
 
   # Make loader1 the bigger loader. We'll be loading loader1 chunk-by-chunk and loader2 by slicing.
@@ -302,7 +308,7 @@ def compute_inner_product(loader1: LoaderInterface, loader2: LoaderInterface, we
 
   shards = list(range(0, loader1.num_shards))
   result = None
-  with multiprocessing.Pool(4) as pool:
+  with multiprocessing.Pool(num_workers) as pool:
     if loader1 is loader2:
       if weights_loader is None:
         inner_products = pool.starmap(_compute_self_innerproduct, [(loader1, offset) for offset in shards])
@@ -319,21 +325,191 @@ def compute_inner_product(loader1: LoaderInterface, loader2: LoaderInterface, we
       result = result.T
     return result
 
-def linear_regression(X: LoaderInterface, Y: LoaderInterface, weights=None, regularization: float = 0.0):
+def linear_regression(X: LoaderInterface, Y: LoaderInterface, weights=None, regularization: float = 0.0, num_workers: int = 4):
   assert len(X.shape) == 1
   assert len(Y.shape) == 1
   assert X.num_rows == Y.num_rows
-  cov = compute_inner_product(X, X)
+  assert num_workers > 0
+  cov = compute_inner_product(X, X, num_workers=num_workers)
   if regularization > 0.0:
     cov += np.eye(cov.shape[0]) * regularization
-  dot_product = compute_inner_product(X, Y, weights_loader=weights)
+  dot_product = compute_inner_product(X, Y, weights_loader=weights, num_workers=num_workers)
   return np.linalg.solve(cov, dot_product)
 
-def foo(x):
-  return x[:,:-8].reshape((x.shape[0], 12, 8, 8)).sum((2, 3))
+varnames = [
+  "OUR_PAWNS",
+  "OUR_KNIGHTS",
+  "OUR_BISHOPS",
+  "OUR_ROOKS",
+  "OUR_QUEENS",
+  "THEIR_PAWNS",
+  "THEIR_KNIGHTS",
+  "THEIR_BISHOPS",
+  "THEIR_ROOKS",
+  "THEIR_QUEENS",
+  "IN_CHECK",
+  "KING_ON_BACK_RANK",
+  "KING_ON_CENTER_FILE",
+  "KING_ACTIVE",
+  "THREATS_NEAR_KING_2",
+  "THREATS_NEAR_KING_3",
+  "PASSED_PAWNS",
+  "ISOLATED_PAWNS",
+  "DOUBLED_PAWNS",
+  "DOUBLE_ISOLATED_PAWNS",
+  "PAWNS_CENTER_16",
+  "PAWNS_CENTER_4",
+  "ADVANCED_PASSED_PAWNS_2",
+  "ADVANCED_PASSED_PAWNS_3",
+  "ADVANCED_PASSED_PAWNS_4",
+  "PAWN_MINOR_CAPTURES",
+  "PAWN_MAJOR_CAPTURES",
+  "PROTECTED_PAWNS",
+  "PROTECTED_PASSED_PAWNS",
+  "BISHOPS_DEVELOPED",
+  "BISHOP_PAIR",
+  "BLOCKADED_BISHOPS",
+  "SCARY_BISHOPS",
+  "SCARIER_BISHOPS",
+  "BLOCKADED_ROOKS",
+  "SCARY_ROOKS",
+  "INFILTRATING_ROOKS",
+  "KNIGHTS_DEVELOPED",
+  "KNIGHT_MAJOR_CAPTURES",
+  "KNIGHTS_CENTER_16",
+  "KNIGHTS_CENTER_4",
+  "KNIGHT_ON_ENEMY_SIDE",
+  "OUR_HANGING_PAWNS",
+  "OUR_HANGING_KNIGHTS",
+  "OUR_HANGING_BISHOPS",
+  "OUR_HANGING_ROOKS",
+  "OUR_HANGING_QUEENS",
+  "THEIR_HANGING_PAWNS",
+  "THEIR_HANGING_KNIGHTS",
+  "THEIR_HANGING_BISHOPS",
+  "THEIR_HANGING_ROOKS",
+  "THEIR_HANGING_QUEENS",
+  "LONELY_KING_IN_CENTER",
+  "LONELY_KING_AWAY_FROM_ENEMY_KING",
+  "TIME",
+  "KPVK_OPPOSITION",
+  "SQUARE_RULE",
+  "ADVANCED_PAWNS_1",
+  "ADVANCED_PAWNS_2",
+  "OPEN_ROOKS",
+  "ROOKS_ON_THEIR_SIDE",
+  "KING_IN_FRONT_OF_PASSED_PAWN",
+  "KING_IN_FRONT_OF_PASSED_PAWN2",
+  "OUR_MATERIAL_THREATS",
+  "THEIR_MATERIAL_THREATS",
+  "LONELY_KING_ON_EDGE",
+  "OUTPOSTED_KNIGHTS",
+  "OUTPOSTED_BISHOPS",
+  "PAWN_MOVES",
+  "KNIGHT_MOVES",
+  "BISHOP_MOVES",
+  "ROOK_MOVES",
+  "QUEEN_MOVES",
+  "PAWN_MOVES_ON_THEIR_SIDE",
+  "KNIGHT_MOVES_ON_THEIR_SIDE",
+  "BISHOP_MOVES_ON_THEIR_SIDE",
+  "ROOK_MOVES_ON_THEIR_SIDE",
+  "QUEEN_MOVES_ON_THEIR_SIDE",
+  "KING_HOME_QUALITY",
+  "BISHOPS_BLOCKING_KNIGHTS",
+  "OUR_HANGING_PAWNS_2",
+  "OUR_HANGING_KNIGHTS_2",
+  "OUR_HANGING_BISHOPS_2",
+  "OUR_HANGING_ROOKS_2",
+  "OUR_HANGING_QUEENS_2",
+  "THEIR_HANGING_PAWNS_2",
+  "THEIR_HANGING_KNIGHTS_2",
+  "THEIR_HANGING_BISHOPS_2",
+  "THEIR_HANGING_ROOKS_2",
+  "THEIR_HANGING_QUEENS_2",
+  "QUEEN_THREATS_NEAR_KING",
+  "MISSING_FIANCHETTO_BISHOP",
+  "NUM_BAD_SQUARES_FOR_PAWNS",
+  "NUM_BAD_SQUARES_FOR_MINORS",
+  "NUM_BAD_SQUARES_FOR_ROOKS",
+  "NUM_BAD_SQUARES_FOR_QUEENS",
+  "IN_TRIVIAL_CHECK",
+  "IN_DOUBLE_CHECK",
+  "THREATS_NEAR_OUR_KING",
+  "THREATS_NEAR_THEIR_KING",
+  "NUM_PIECES_HARRASSABLE_BY_PAWNS",
+  "PAWN_CHECKS",
+  "KNIGHT_CHECKS",
+  "BISHOP_CHECKS",
+  "ROOK_CHECKS",
+  "QUEEN_CHECKS",
+  "BACK_RANK_MATE_THREAT_AGAINST_US",
+  "BACK_RANK_MATE_THREAT_AGAINST_THEM",
+  "OUR_KING_HAS_0_ESCAPE_SQUARES",
+  "THEIR_KING_HAS_0_ESCAPE_SQUARES",
+  "OUR_KING_HAS_1_ESCAPE_SQUARES",
+  "THEIR_KING_HAS_1_ESCAPE_SQUARES",
+  "OUR_KING_HAS_2_ESCAPE_SQUARES",
+  "THEIR_KING_HAS_2_ESCAPE_SQUARES",
+  "OPPOSITE_SIDE_KINGS_PAWN_STORM",
+  "IN_CHECK_AND_OUR_HANING_QUEENS",
+  "PROMOTABLE_PAWN",
+  "PINNED_PIECES",
+]
+
+def compute_piece_counts(x):
+  x = x[:,:-8].reshape((x.shape[0], 12, 8, 8)).sum((2, 3))
+  return x
+
+def piece_counts_to_features(x):
+  x = x.astype(np.float32)
+  return np.concatenate([
+    x[:,:5] - x[:,6:11],
+    (x[:,1:2] >= 2.0).astype(np.float32) - (x[:,7:8] >= 2.0).astype(np.float32),  # Knight pair
+    (x[:,2:3] >= 2.0).astype(np.float32) - (x[:,8:9] >= 2.0).astype(np.float32),  # Bishop pair
+    (x[:,3:4] >= 2.0).astype(np.float32) - (x[:,9:10] >= 2.0).astype(np.float32),  # Rook pair
+    (x[:,4:5] >= 2.0).astype(np.float32) - (x[:,10:11] >= 2.0).astype(np.float32),  # Queen pair
+    np.ones((x.shape[0], 1)),
+  ], 1)
+
+def compute_earliness(x):
+  return (x[:,1:2] + x[:,2:3] + x[:,3:4] + x[:,4:5] * 3 + x[:,7:8] + x[:,8:9] + x[:,9:10] + x[:,10:11] * 3).clip(0, 18) / 18
+
+def compute_lateness(earliness):
+  return 1 - earliness
+
+def add_bias(x):
+  return np.concatenate([x, np.ones((x.shape[0], 1), dtype=x.dtype)], 1)
+
+def get_turn(x):
+  return x[:, -8:-7] * 2 - 1
+
+def logit(x):
+  x = x.astype(np.float32)
+  x += 1.0
+  x /= 1002.0
+  return np.log(x / (1.0 - x))
+
+def times(a, b):
+  return a * b
 
 if __name__ == '__main__':
   X = ShardedLoader('data/a-table')
   Y = ShardedLoader('data/a-eval')
-  A = MappingLoader(X, foo)
-  w = linear_regression(A, Y, regularization=1.0)
+
+  # X = ShardedLoader('data/positions-de4-md1-table')
+  # Y = ShardedLoader('data/positions-de4-md1-eval')
+
+  Y = MappingLoader(Y, logit)
+
+  PC = MappingLoader(X, compute_piece_counts)
+  earliness = MappingLoader(PC, compute_earliness)
+  lateness = MappingLoader(PC, compute_earliness, compute_lateness)
+
+  wEarly = linear_regression(X, Y, weights=earliness, regularization=10.0).squeeze()
+  early = wEarly[:-8].reshape((12, 8, 8))
+  # np.save('early.npy', early)
+
+  wLate = linear_regression(X, Y, weights=lateness, regularization=10.0).squeeze()
+  late = wLate[:-8].reshape((12, 8, 8))
+  # np.save('late.npy', late)
