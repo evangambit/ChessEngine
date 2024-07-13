@@ -16,7 +16,7 @@ void write_feature(uint8_t *pieceMaps, NnueFeatures feature, bool value) {
   pieceMaps[feature / 8] |= (value ? 1 : 0) << (feature % 8);
 }
 
-void process(const std::vector<std::string>& line, ShardedWriter<bool>& tableWriter, ShardedWriter<int16_t>& evalWriter) {
+void process(const std::vector<std::string>& line, ShardedWriter<bool>& tableWriter, ShardedWriter<int8_t>& featureWriter, ShardedWriter<int16_t>& evalWriter) {
   Position pos(line[0]);
   std::shared_ptr<DummyNetwork> network = std::make_shared<DummyNetwork>();
   pos.set_network(network);
@@ -27,6 +27,17 @@ void process(const std::vector<std::string>& line, ShardedWriter<bool>& tableWri
     pieceMaps[i] = network->x[i] > 0;
   }
   tableWriter.write_row(pieceMaps);
+
+  if (pos.turn_ == Color::WHITE) {
+    gThinker.evaluator.score<Color::WHITE>(pos);
+  } else {
+    gThinker.evaluator.score<Color::BLACK>(pos);
+  }
+  int8_t features[EF::NUM_EVAL_FEATURES];
+  for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
+    features[i] = gThinker.evaluator.features[i];
+  }
+  featureWriter.write_row(features);
 
   int16_t a = std::stoi(line[1]) + std::stoi(line[2]) / 2;
   evalWriter.write_row(&a);
@@ -54,6 +65,7 @@ int main(int argc, char *argv[]) {
 
   std::ifstream infile(inpath);
   ShardedWriter<bool> tableWriter(outpath + "-table", { NnueFeatures::NF_NUM_FEATURES });
+  ShardedWriter<int8_t> featureWriter(outpath + "-features", { NnueFeatures::NF_NUM_FEATURES });
   ShardedWriter<int16_t> evalWriter(outpath + "-eval", { 1 });
 
   std::chrono::time_point<std::chrono::system_clock> startTime = std::chrono::system_clock::now();
@@ -73,7 +85,7 @@ int main(int argc, char *argv[]) {
       continue;
     }
 
-    process(parts, tableWriter, evalWriter);
+    process(parts, tableWriter, featureWriter, evalWriter);
 
     if ((++counter) % 100'000 == 0) {
       double ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - startTime).count();
