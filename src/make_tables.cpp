@@ -8,6 +8,8 @@
 #include "game/nnue.h"
 #include "sharded_matrix.h"
 
+#include <thread>
+
 using namespace ChessEngine;
 using WriterF32 = ShardedMatrix::Writer<float>;
 using WriterB = ShardedMatrix::Writer<bool>;
@@ -20,7 +22,7 @@ void write_feature(uint8_t *pieceMaps, NnueFeatures feature, bool value) {
   pieceMaps[feature / 8] |= (value ? 1 : 0) << (feature % 8);
 }
 
-void process(const std::vector<std::string>& line, WriterB& tableWriter, WriterI8& featureWriter, WriterI16& evalWriter) {
+void process(const std::vector<std::string>& line, WriterB& tableWriter, WriterI8& featureWriter, WriterI16& evalWriter, WriterI8& turnWriter) {
   Position pos(line[0]);
   std::shared_ptr<DummyNetwork> network = std::make_shared<DummyNetwork>();
   pos.set_network(network);
@@ -45,6 +47,9 @@ void process(const std::vector<std::string>& line, WriterB& tableWriter, WriterI
 
   int16_t a = std::stoi(line[1]) + std::stoi(line[2]) / 2;
   evalWriter.write_row(&a);
+
+  int8_t turn = pos.turn_ == Color::WHITE ? 1 : -1;
+  turnWriter.write_row(&turn);
 }
 
 std::string get_shard_name(size_t n) {
@@ -71,6 +76,7 @@ int main(int argc, char *argv[]) {
   WriterB tableWriter(outpath + "-table", { NnueFeatures::NF_NUM_FEATURES });
   WriterI8 featureWriter(outpath + "-features", { EF::NUM_EVAL_FEATURES });
   WriterI16 evalWriter(outpath + "-eval", { 1 });
+  WriterI8 turnWriter(outpath + "-turn", { 1 });
 
   std::chrono::time_point<std::chrono::system_clock> startTime = std::chrono::system_clock::now();
 
@@ -89,7 +95,7 @@ int main(int argc, char *argv[]) {
       continue;
     }
 
-    process(parts, tableWriter, featureWriter, evalWriter);
+    process(parts, tableWriter, featureWriter, evalWriter, turnWriter);
 
     if ((++counter) % 100'000 == 0) {
       double ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - startTime).count();
