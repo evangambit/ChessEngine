@@ -67,38 +67,76 @@ T = X[:,:-8].reshape(-1, 12, 8, 8)
 """
 
 from tqdm import tqdm
+from sharded_matrix import ShardedLoader
 
-def load_shard(idx, prefix='pos'):
-  score_path = os.path.join('/tmp/', f'{prefix}-eval-{str(idx).rjust(5, "0")}')
-  labels = np.frombuffer(open(score_path, 'rb').read(), dtype=np.int16)
-  n = labels.shape[0]
+a = "de5-md2"
+X = ShardedLoader(f'data/{a}/data-table')
+Y = ShardedLoader(f'data/{a}/data-eval')
 
-  tablepath = os.path.join('/tmp/', f'{prefix}-tables-{str(idx).rjust(5, "0")}')
-  raw_features = np.frombuffer(open(tablepath, 'rb').read(), dtype=np.uint8)
-  raw_features = raw_features.reshape((n, -1))
-  tables = raw_features[:,:-1]
-  misc_features = np.unpackbits(raw_features[:,-1], bitorder='little').reshape(n, 8)
-  return tables, misc_features, labels
+print(f'%.3f million positions loaded' % (X.num_rows / 1_000_000))
 
-print('loading')
-tables, misc_features, labels, classic = [], [], [], []
-for i in tqdm(list(range(4, 122))):  # 122
-  a, b, c = load_shard(i + 1)
-  tables.append(a)
-  misc_features.append(b)
-  labels.append(c)
+import random
+class ShardedMatrixDataset(tdata.IterableDataset):
+  def __init__(self, X, Y):
+    self.X = X
+    assert Y.num_shards == 1, "Multiple Y shards not supported yet"
+    Y = Y.load_shard(0)
 
-for i in tqdm(list(range(4, 77))):  # 77
-  a, b, c = load_shard(i + 1, 'remote')
-  tables.append(a)
-  misc_features.append(b)
-  labels.append(c)
+    rows_per_shard = np.concatenate([[X.cumsum_rows[0]], np.diff(X.cumsum_rows)])
+    self.Y = []
+    i = 0
+    for n in rows_per_shard:
+      self.Y.append(Y[i:i+n])
+      i += n
 
-tables = np.concatenate(tables)
-misc_features = np.concatenate(misc_features)
-labels = np.concatenate(labels)
+  def __iter__(self):
+    """
+    We don't want to load the entire training set into memory, but we still want to mix
+    between shards. The compromise is that we load K shards into memory and randomly
+    sample from them. When we've exhausted a shard, we delete it from memory and load
+    a new one, randomly selected from the remaining shards.
+    """
+    kNumShardsAtOnce = 8
+    rows_per_shard = np.concatenate([[X.cumsum_rows[0]], np.diff(X.cumsum_rows)])
+    I = []
+    for i, n in enumerate(rows_per_shard):
+      I.append(np.arange(n))
+      np.random.shuffle(I[-1])
+    
+    waiting_shards = list(range(X.num_shards))  # Shards we have yet to sample from.
+    active_shards = []  # Shards we're actively sampling from.
 
-print(f'%.3f million positions loaded' % (tables.shape[0] / 1_000_000))
+    shard2tensor = {}
+    shard2idx = {}
+
+    while True:
+      while len(active_shards) < kNumShardsAtOnce and len(waiting_shards) > 0:
+        shard = waiting_shards.pop()
+        active_shards.append(shard)
+        shard2idx[shard] = 0
+        shard2tensor[shard] = X.load_shard(shard)
+        assert shard2tensor[shard].shape[0] == I[shard].shape[0], f'{shard}  {shard2tensor[shard].shape}  {I[shard].shape}'
+      
+      if len(active_shards) == 0:
+        break
+
+      shard = random.choice(active_shards)
+      idx = shard2idx[shard]
+      idx = I[shard][idx]
+ 
+      yield torch.from_numpy(shard2tensor[shard][idx]), float(self.Y[shard][idx]) / 1000.0
+
+      shard2idx[shard] += 1
+      if shard2idx[shard] >= I[shard].shape[0]:
+        active_shards.remove(shard)
+        del shard2idx[shard]
+        del shard2tensor[shard]
+
+  def __len__(self):
+    return self.X.num_rows
+
+dataset = ShardedMatrixDataset(X, Y)
+it = iter(dataset)
 
 def soft_clip(x, k = 4.0):
   x = nn.functional.leaky_relu(x + k) - k
@@ -193,18 +231,11 @@ class PiecewiseFunction:
 model = Model()
 opt = optim.AdamW(model.parameters(), lr=3e-2, weight_decay=0.01)
 
-tables = torch.tensor(tables, dtype=torch.int8)
-misc_features = torch.tensor(misc_features, dtype=torch.int8)
-labels = torch.tensor(labels, dtype=torch.int16)
-classic = torch.tensor(classic, dtype=torch.int16)
-
-dataset = tdata.TensorDataset(tables, misc_features, labels, classic)
-
 loss_fn = nn.MSELoss(reduction='none')
 
 L = []
 
-dataloader = tdata.DataLoader(dataset, batch_size=2048, shuffle=True, drop_last=True)
+dataloader = tdata.DataLoader(dataset, batch_size=2048, drop_last=True)
 scheduler = PiecewiseFunction(
   [0, 50, len(dataloader) // 2, len(dataloader)],
   [0.0, 3e-3, 3e-4, 3e-5],
@@ -212,19 +243,16 @@ scheduler = PiecewiseFunction(
 
 
 it = 0
-for t, m, y in tqdm(dataloader):
-  # Unpacking bits into bytes.
-  t = t.detach().numpy().astype(np.uint8)
-  t = np.unpackbits(t, bitorder='little').reshape((t.shape[0], 12, 8, 8))
-  t = torch.from_numpy(t)
-
-  t = t.to(torch.float32)
-  m = m.to(torch.float32)
-  y = y.to(torch.float32)
-  c = c.to(torch.float32)
-
+for x, y in tqdm(dataloader):
   for pg in opt.param_groups:
     pg['lr'] = scheduler(it)
+
+  # Unpacking bits into bytes.
+  x = x.to(torch.float32)
+  y = y.to(torch.float32)
+
+  t = x[:,:768].reshape(-1, 12, 8, 8)
+  m = x[:,768:]
 
   flipped_tables = torch.cat([
     torch.flip(t[:,:6:,:,:], (2,)),
@@ -239,11 +267,11 @@ for t, m, y in tqdm(dataloader):
 
   t = torch.cat([t, flipped_tables], 0)
   m = torch.cat([m, flipped_misc], 0)
-  y = torch.cat([y, 1000 - y], 0)
+  y = torch.cat([y, 1.0 - y], 0)
 
 
   yhat = model(t, m)
-  loss = loss_fn(yhat.squeeze(), y / 1000)
+  loss = loss_fn(yhat.squeeze(), y)
 
   opt.zero_grad()
   loss.mean().backward()
