@@ -421,11 +421,11 @@ static SearchResult<TURN> search(
   if (depthRemaining <= 0) {
     #if SIMPLE_SEARCH
     {
-      // SearchResult<TURN> r = qsearch<TURN>(thinker, thread, 0, plyFromRoot, alpha, beta);
       #ifndef NO_NNUE_EVAL
       SearchResult<TURN> r(nnue_evaluate<TURN>(thread->pos), kNullMove);
       #else
-      SearchResult<TURN> r(thread->evaluator.score<TURN>(thread->pos), kNullMove);
+      SearchResult<TURN> r = qsearch<TURN>(thinker, thread, 0, plyFromRoot, alpha, beta);
+      // SearchResult<TURN> r(thread->evaluator.score<TURN>(thread->pos), kNullMove);
       #endif
       NodeType nodeType = NodeTypePV;
       if (r.score >= beta) {
@@ -665,7 +665,11 @@ static SearchResult<TURN> search(
       ++numValidMoves;
 
       // (+0.0210 ± 0.0124) Extend checks.
+      #if SIMPLE_SEARCH
       const Depth childDepth = depthRemaining - !inCheck;
+      #else
+      const Depth childDepth = depthRemaining - 1;
+      #endif
 
       // Null-window search.
       // (+0.0269 ± 0.0072) after 1024 games at 50,000 nodes/move
