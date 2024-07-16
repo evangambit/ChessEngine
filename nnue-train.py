@@ -15,7 +15,7 @@ import torch.utils.data as tdata
 
 from collections import defaultdict
 
-from utils import ExpandedLinear, ShardedMatrixDataset, ShardedMatrixDataset
+from utils import ExpandedLinear, ShardedMatrixDataset
 
 """
 

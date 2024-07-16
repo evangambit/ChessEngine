@@ -40,17 +40,9 @@ class ExpandedLinear(nn.Linear):
 
 import random
 class ShardedMatrixDataset(tdata.IterableDataset):
-  def __init__(self, X, Y):
+  def __init__(self, X, *Y):
     self.X = X
-    assert Y.num_shards == 1, "Multiple Y shards not supported yet"
-    Y = Y.load_shard(0)
-
-    rows_per_shard = np.concatenate([[X.cumsum_rows[0]], np.diff(X.cumsum_rows)])
-    self.Y = []
-    i = 0
-    for n in rows_per_shard:
-      self.Y.append(Y[i:i+n])
-      i += n
+    self.Y = Y
 
   def __iter__(self):
     """
@@ -69,7 +61,7 @@ class ShardedMatrixDataset(tdata.IterableDataset):
     waiting_shards = list(range(self.X.num_shards))  # Shards we have yet to sample from.
     active_shards = []  # Shards we're actively sampling from.
 
-    shard2tensor = {}
+    shard2tensors = {}
     shard2idx = {}
 
     while True:
@@ -77,8 +69,9 @@ class ShardedMatrixDataset(tdata.IterableDataset):
         shard = waiting_shards.pop()
         active_shards.append(shard)
         shard2idx[shard] = 0
-        shard2tensor[shard] = self.X.load_shard(shard)
-        assert shard2tensor[shard].shape[0] == I[shard].shape[0], f'{shard}  {shard2tensor[shard].shape}  {I[shard].shape}'
+        x = self.X.load_shard(shard)
+        indices = self.X.shard_to_slice_indices(shard)
+        shard2tensors[shard] = (x,) + tuple([y.load_slice(*indices) for y in self.Y])
       
       if len(active_shards) == 0:
         break
@@ -87,13 +80,14 @@ class ShardedMatrixDataset(tdata.IterableDataset):
       idx = shard2idx[shard]
       idx = I[shard][idx]
  
-      yield torch.from_numpy(shard2tensor[shard][idx]), float(self.Y[shard][idx]) / 1000.0
+      s = shard2tensors[shard]
+      yield tuple([torch.from_numpy(y[idx]) for y in s])
 
       shard2idx[shard] += 1
       if shard2idx[shard] >= I[shard].shape[0]:
         active_shards.remove(shard)
         del shard2idx[shard]
-        del shard2tensor[shard]
+        del shard2tensors[shard]
 
   def __len__(self):
     return self.X.num_rows

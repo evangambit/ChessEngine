@@ -1,5 +1,6 @@
 import os
 import re
+from collections import defaultdict
 
 import chess
 from chess import pgn
@@ -11,7 +12,23 @@ import torch
 from torch import nn, optim
 import torch.utils.data as tdata
 
-from collections import defaultdict
+from scipy.ndimage import uniform_filter1d as uf
+from tqdm import tqdm
+
+from sharded_matrix import ShardedLoader, ShardedWriter, linear_regression, MappingLoader
+from utils import ExpandedLinear, ShardedMatrixDataset
+
+"""
+a="de4-md1"
+a="de5-md2"
+
+python3 generate.py --depth 4 --database positions-de4-md1.db --min_depth=1
+
+sqlite3 "data/${a}/db.sqlite3" "select fen, wins, draws, losses from positions" > "data/${a}/positions.txt"
+
+bin/make_tables "data/${a}/positions.txt" "data/${a}/data"
+
+"""
 
 varnames = [
   "OUR_PAWNS",
@@ -131,6 +148,7 @@ varnames = [
   "OPPOSITE_SIDE_KINGS_PAWN_STORM",
   "IN_CHECK_AND_OUR_HANING_QUEENS",
   "PROMOTABLE_PAWN",
+  "PINNED_PIECES",
 ]
 
 class Weights:
@@ -183,54 +201,6 @@ class Weights:
       elif line["type"] == "comment":
         f.write("//%s\n" % line["comment"])
 
-class PCA:
-  def __init__(self, X, reg = 0.0, scale = True):
-    X = X.reshape(-1, X.shape[-1])
-    cov = (X.T @ X) / X.shape[0] + np.eye(X.shape[1]) * reg
-    D, V = np.linalg.eigh(cov)
-    assert D.min() > 1e-5, D.min()
-    I = np.argsort(-D)
-    self.scale = scale
-    self.D = D[I].copy()
-    self.V = V[:,I].copy()
-
-  def points_forward(self, x):
-    s = x.shape
-    x = x.reshape(-1, s[-1])
-    x = x @ self.V
-    if self.scale:
-      x /= np.sqrt(self.D)
-    return x.reshape(s)
-
-  def points_backward(self, x):
-    s = x.shape
-    x = x.reshape(-1, s[-1])
-    if self.scale:
-      x = x * np.sqrt(self.D)
-    x = x @ self.V.T
-    return x.reshape(s)
-
-  def slope_backward(self, w):
-    D, V = np.sqrt(self.D), self.V
-    if isinstance(w, nn.Parameter):
-      D = torch.sqrt(torch.tensor(D, dtype=torch.float32))
-      V = torch.tensor(V, dtype=torch.float32)
-    s = w.shape
-    w = w.reshape(1, -1)
-    if self.scale:
-      w = w / D
-    w = w @ V.T
-    return w.reshape(s)
-
-  def slope_forward(self, w):
-    D, V = np.sqrt(self.D), self.V
-    s = w.shape
-    w = w.reshape(1, -1)
-    w = w @ V
-    if self.scale:
-      w = w * D
-    return w.reshape(s)
-
 def lpad(t, n, c=' '):
   t = str(t)
   return max(n - len(t), 0) * c + t
@@ -241,22 +211,6 @@ def logit(x):
   return torch.log(x / (1.0 - x))
 
 cat = np.concatenate
-
-# ./compute_eval_features /tmp/pos.txt ./classic.x.bin .classic.y.bin
-
-Y = np.frombuffer(open('./classic.y.bin', 'rb').read(), dtype=np.int16).reshape(-1)
-X = np.frombuffer(open('./classic.x.bin', 'rb').read(), dtype=np.int8).reshape(Y.shape[0], -1)
-
-Y = (Y.astype(np.float32) + 1) / 1002.0
-Y = logit(Y)
-
-T = X[:,varnames.index('TIME')].copy()
-
-# print('Computing PCA...')
-# pca = PCA(X[:1_000_000].astype(np.float32), 0.001, scale=True)
-
-# print('Applying PCA...')
-# X = pca.points_forward(X)
 
 def soft_clip(x, k = 4.0):
   x = nn.functional.leaky_relu(x + k) - k
@@ -270,12 +224,12 @@ class LossFn(nn.Module):
     return (r**2).mean()
 
 class Model(nn.Module):
-  def __init__(self):
+  def __init__(self, d):
     super().__init__()
     self.w = nn.ModuleDict()
-    self.w["early"] = nn.Linear(X.shape[1], 1)
-    self.w["late"] = nn.Linear(X.shape[1], 1)
-    self.w["clipped"] = nn.Linear(X.shape[1], 1)
+    self.w["early"] = nn.Linear(d, 1)
+    self.w["late"] = nn.Linear(d, 1)
+    self.w["clipped"] = nn.Linear(d, 1)
     for k in self.w:
       nn.init.zeros_(self.w[k].weight)
       nn.init.zeros_(self.w[k].bias)
@@ -291,115 +245,91 @@ def forever(loader):
     for batch in loader:
       yield batch
 
-print('Setting up model...')
-model = Model()
-opt = optim.AdamW(model.parameters(), lr=3e-3)
+def compute_piece_counts(x):
+  x = x[:,:-8].reshape((x.shape[0], 12, 8, 8)).sum((2, 3))
+  return x
 
-# Sensible initialization
-n = 500_000
-bearly = (Y[:n] * (1 - T[:n])).mean()
-wearly = np.linalg.lstsq(X[:n].astype(np.float32) * (1 - T[:n]).astype(np.float32).reshape(-1, 1), Y[:n] * (1 - T[:n]) - bearly, rcond=0.001)[0]
-blate = (Y[:n] * T[:n]).mean()
-wlate = np.linalg.lstsq(X[:n].astype(np.float32) * T[:n].astype(np.float32).reshape(-1, 1), Y[:n] * T[:n], rcond=0.001)[0]
+def compute_earliness(x):
+  return (x[:,1:2] + x[:,2:3] + x[:,3:4] + x[:,4:5] * 3 + x[:,7:8] + x[:,8:9] + x[:,9:10] + x[:,10:11] * 3).clip(0, 18) / 18
 
-with torch.no_grad():
-  model.w['early'].weight += torch.tensor(wearly, dtype=torch.float32)
-  model.w['early'].bias += torch.tensor(bearly, dtype=torch.float32)
-  model.w['late'].weight += torch.tensor(wlate, dtype=torch.float32)
-  model.w['late'].bias += torch.tensor(blate, dtype=torch.float32)
+def compute_lateness(earliness):
+  return 1 - earliness
 
-# with open('w2.txt', 'r') as f:
-#   weights = Weights(f)
+if __name__ == '__main__':
+  a = "de5-md2"
+  A = ShardedLoader(f'data/{a}/data-table')
+  X = ShardedLoader(f'data/{a}/data-features')
+  Y = ShardedLoader(f'data/{a}/data-eval')
+  T = ShardedLoader(f'data/{a}/data-turn')
+  PC = MappingLoader(A, compute_piece_counts)
+  earliness = MappingLoader(PC, compute_earliness)
+  lateness = MappingLoader(PC, compute_earliness, compute_lateness)
 
-# with torch.no_grad():
-#   for k in model.w:
-#     model.w[k].weight += torch.tensor(pca.slope_forward(weights.vecs[k] / 100.0))
+  dataset = ShardedMatrixDataset(X, Y, T)
 
-print('Creating Pytorch tensors...')
-Xth = torch.tensor(X, dtype=torch.int16)
-Yth = torch.tensor(Y, dtype=torch.float32)
-Tth = torch.tensor(T, dtype=torch.int16)
+  print('Setting up model...')
+  model = Model(X.shape[0])
+  opt = optim.AdamW(model.parameters(), lr=3e-3)
 
-bs = 25_000
-maxlr = 0.03
-duration = 60
+  with open('w2.txt', 'r') as f:
+    weights = Weights(f)
 
-dataset = tdata.TensorDataset(Xth, Tth, Yth)
-
-loss_fn = LossFn()
-
-L = []
-
-windowSize = 2000
-
-print('Training...')
-for bs in 2**(np.linspace(4, 14, 11)):
-# for bs in 2**(np.linspace(4, 5, 2)):
-  bs = int(bs)
-  dataloader = tdata.DataLoader(dataset, batch_size=bs, shuffle=True, drop_last=True)
-  l = []
-  for x, t, y in forever(dataloader):
-    x = x.to(torch.float32)
-    t = t.to(torch.float32) / 18.0
-
-    yhat = model(x, t)
-    loss = loss_fn(yhat, y)
-    opt.zero_grad()
-    loss.backward()
-    opt.step()
-    l.append(float(loss))
-    L.append(float(loss))
-    if len(l) == windowSize:
-      firstHalf = np.array(l[:windowSize//2]).mean()
-      secondHalf = np.array(l[windowSize//2:]).mean()
-      l = []
-      print('%i %.4f %.4f' % (bs, firstHalf, secondHalf))
-      if firstHalf < secondHalf:
-        break
-
-Residuals = (Yth / 100 - model(Xth, Tth)).detach().numpy()
-
-for k in model.w:
-  w = model.w[k].weight.detach().numpy()
-  # w = pca.slope_backward(w)
   with torch.no_grad():
-    model.w[k] = nn.Linear(w.shape[1], w.shape[0])
-    model.w[k].weight *= 0
-    model.w[k].weight += torch.tensor(w)
+    for k in model.w:
+      model.w[k].weight *= 0.0
+      model.w[k].weight += torch.tensor(weights.vecs[k] / 100, dtype=torch.float32)
 
-print(sum(L[-100:]) / 100)
+  loss_fn = LossFn()
 
-def naive_linear_regression(X, Y, reg = 1e-5):
-  assert X.shape[0] == Y.shape[0]
-  assert X.ndim == 2
-  assert Y.ndim == 1
-  # slope = cov(x, y) * std(y) / std(x)
-  xstd = X.std(0).reshape((1, -1)) + reg
-  ystd = Y.std()
-  cov = (X.T @ Y) / X.shape[0] / xstd  # (d, 1)
-  return (cov * ystd / xstd).squeeze()
+  print('Computing residuals')
+  with ShardedWriter('/tmp/res', dtype=np.float32, shape=(1,)) as w:
+    for shard in tqdm(np.arange(A.num_shards)):
+      i = A.shard_to_slice_indices(shard)
+      a = torch.tensor(A.load_shard(shard), dtype=torch.float32)
+      x = torch.tensor(X.load_slice(*i), dtype=torch.float32)
+      y = torch.tensor(Y.load_slice(*i), dtype=torch.float32)
+      t = torch.tensor(T.load_slice(*i), dtype=torch.float32).squeeze()
+      res = logit((y + 1.0) / 1002.0).squeeze() - model(x, x[:, varnames.index('TIME')]) * t
+      res = res.detach().numpy()
+      w.write_many(res.reshape(-1, 1))
+  
+  Res = ShardedLoader('/tmp/res')
+  
+  print('Performing regression for piece squares')
+  wEarly = linear_regression(A, Y, weights=earliness, regularization=10.0, num_workers=4).squeeze()
+  wEarly = wEarly[:-8].reshape((12, 8, 8))
 
-tables = np.load('tables.npy')
+  wLate = linear_regression(A, Y, weights=lateness, regularization=10.0, num_workers=4).squeeze()
+  wLate = wLate[:-8].reshape((12, 8, 8))
 
-n = 200_000
-wEarly = naive_linear_regression(tables[:n] * (1 - T[:n]).reshape(-1, 1), Residuals[:n] * (1 - T[:n]), reg=0.01).reshape(7, 8, 8)
-wLate = naive_linear_regression(tables[:n] * T[:n].reshape(-1, 1), Residuals[:n] * T[:n], reg=0.01).reshape(7, 8, 8)
+  wEarly = (wEarly[0:6] - np.flip(wEarly, 1)[6:12]) / 2
+  wLate = (wLate[0:6] - np.flip(wLate, 1)[6:12]) / 2
 
-text = ""
-for k in ['early', 'late', 'clipped']:
-  text += ('%i' % round(float(model.w[k].bias) * 100)).rjust(7) + f'  // {k} bias\n'
-  for i, varname in enumerate(varnames):
-    text += ('%i' % round(float(model.w[k].weight[0,i]) * 100)).rjust(7) + f'  // {k} {varname}\n'
+  text = ""
+  for k in ['early', 'late', 'clipped']:
+    text += ('%i' % round(float(model.w[k].bias) * 100)).rjust(7) + f'  // {k} bias\n'
+    for i, varname in enumerate(varnames):
+      text += ('%i' % round(float(model.w[k].weight[0,i]) * 100)).rjust(7) + f'  // {k} {varname}\n'
 
-for w in [wEarly, wLate]:
-  for i, p in enumerate('?PNBRQK'):
-    text += "// %s\n" % p
-    for r in range(8):
-      for f in range(8):
-        text += ('%i' % round(w[i,r,f] * 100)).rjust(6)
-      text += '\n'
+  for w in [wEarly, wLate]:
+    text += """// ?
+     0     0     0     0     0     0     0     0
+     0     0     0     0     0     0     0     0
+     0     0     0     0     0     0     0     0
+     0     0     0     0     0     0     0     0
+     0     0     0     0     0     0     0     0
+     0     0     0     0     0     0     0     0
+     0     0     0     0     0     0     0     0
+     0     0     0     0     0     0     0     0
+"""
+    for i, p in enumerate('PNBRQK'):
+      text += "// %s\n" % p
+      for r in range(8):
+        for f in range(8):
+          text += ('%i' % round(w[i,r,f])).rjust(6)
+        text += '\n'
 
-with open('w2.txt', 'w+') as f:
-  f.write(text)
+  with open('w2.txt', 'w+') as f:
+    f.write(text)
 
-print(text)
+  print(text)
