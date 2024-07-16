@@ -224,6 +224,7 @@ static SearchResult<TURN> qsearch(Thinker *thinker, Thread *thread, int32_t dept
     // r.score -= value_or_zero((enemyThreats.badForTheir[Piece::QUEEN] & thread->pos.pieceBitboards_[coloredPiece<TURN>(Piece::QUEEN)]) > 0, k);
   }
   if (moves == end || r.score >= beta) {
+    r.score = std::min(std::max(r.score, alpha), beta);
     return r;
   }
 
@@ -291,7 +292,6 @@ constexpr int kThreadingDepth = 2;
 bool gPrintDebug = false;
 #define IS_PRINT_NODE gPrintDebug
 #else
-#define IS_PRINT_NODE 0
 // #define IS_PRINT_NODE 0
 // #define IS_PRINT_NODE history_is(thread->pos, "h8f8 c7c8 f8c8 c1c8 a8b7")
 // #define IS_PRINT_NODE (thread->pos.hash_ == 17112545643981194285LLU)
@@ -317,7 +317,11 @@ static SearchResult<TURN> search(
   uint16_t distFromPV) {
 
   if (IS_PRINT_NODE) {
-    std::cout << pad(plyFromRoot) << "start " << thread->pos.hash_ << " (depth:" << int(depthRemaining) << " alpha:" << eval2str(alpha) << " beta:" << eval2str(beta) << ") " << thread->pos.history_ << std::endl;
+    if (TURN == Color::WHITE) {
+      std::cout << pad(plyFromRoot) << "start " << thread->pos.hash_ << " (depth:" << int(depthRemaining) << " alpha:" << eval2str(alpha) << " beta:" << eval2str(beta) << ") " << thread->pos.history_ << std::endl;
+    } else {
+      std::cout << pad(plyFromRoot) << "start " << thread->pos.hash_ << " (depth:" << int(depthRemaining) << " alpha:" << eval2str(-beta) << " beta:" << eval2str(-alpha) << ") " << thread->pos.history_ << std::endl;
+    }
   }
 
 
@@ -461,7 +465,7 @@ static SearchResult<TURN> search(
       // }
 
       if (IS_PRINT_NODE) {
-        std::cout << pad(plyFromRoot) << "end g " << thread->pos.hash_ << " qsearch " << r << std::endl;
+        std::cout << pad(plyFromRoot) << "end g " << thread->pos.hash_ << " qsearch " << to_white(r) << std::endl;
       }
 
       NodeType nodeType = NodeTypePV;
@@ -637,7 +641,11 @@ static SearchResult<TURN> search(
       const Evaluation child_beta = parent_eval_to_child_eval(beta);
 
       if (IS_PRINT_NODE) {
-        std::cout << pad(plyFromRoot) << "> move " << extMove->move << " (h = " << thread->pos.hash_ << "; alpha = " << eval2str(child_alpha) << "; beta = " << eval2str(child_beta) << ")" << std::endl;
+        if (TURN == Color::WHITE) {
+          std::cout << pad(plyFromRoot) << "> move " << extMove->move << " (h = " << thread->pos.hash_ << "; alpha = " << alpha << "; beta = " << beta << ")" << std::endl;
+        } else {
+          std::cout << pad(plyFromRoot) << "> move " << extMove->move << " (h = " << thread->pos.hash_ << "; alpha = " << -beta << "; beta = " << -alpha << ")" << std::endl;
+        }
       }
 
       make_move<TURN>(&thread->pos, extMove->move);
@@ -689,7 +697,7 @@ static SearchResult<TURN> search(
       #endif
 
       if (IS_PRINT_NODE) {
-        std::cout << pad(plyFromRoot) << ": a " << extMove->move << " " << a << std::endl;
+        std::cout << pad(plyFromRoot) << ": a " << extMove->move << " " << to_white(a) << std::endl;
       }
 
       if (IS_PARALLEL) {
@@ -698,7 +706,7 @@ static SearchResult<TURN> search(
       undo<TURN>(&thread->pos);
 
       if (IS_PRINT_NODE) {
-        std::cout << pad(plyFromRoot) << "< move " << extMove->move << " -> " << a << std::endl;
+        std::cout << pad(plyFromRoot) << "< move " << extMove->move << " -> " << to_white(a) << std::endl;
       }
 
       // We don't bother to break here, since all of our children will automatically return a low-cost,
@@ -804,7 +812,7 @@ static SearchResult<TURN> search(
   }
 
   if (IS_PRINT_NODE) {
-    std::cout << pad(plyFromRoot) << "end l " << thread->pos.hash_ << " return " << r << std::endl;
+    std::cout << pad(plyFromRoot) << "end l " << thread->pos.hash_ << " return " << to_white(r) << std::endl;
   }
 
   return r;
