@@ -28,9 +28,9 @@ constexpr Evaluation kMissingKing = kMinEval + 1;  // -32766
 constexpr Evaluation kCheckmate = kMissingKing + 1;  // -32765
 constexpr Evaluation kLongestForcedMate = kCheckmate + 100;    // -32665
 
-constexpr Evaluation kQMissingKing = kLongestForcedMate + 1;
-constexpr Evaluation kQCheckmate = kQMissingKing + 1;
-constexpr Evaluation kQLongestForcedMate = kQCheckmate + 100;
+constexpr Evaluation kQMissingKing = kLongestForcedMate + 1;  // -32664
+constexpr Evaluation kQCheckmate = kQMissingKing + 1;  // -32663
+constexpr Evaluation kQLongestForcedMate = kQCheckmate + 100;  // -32563
 
 Evaluation child_eval_to_parent_eval(Evaluation eval);
 Evaluation parent_eval_to_child_eval(Evaluation eval);

@@ -116,7 +116,14 @@
       0  // early OPPOSITE_SIDE_KINGS_PAWN_STORM
    -577  // early IN_CHECK_AND_OUR_HANING_QUEENS
    -151  // early PROMOTABLE_PAWN
-      0  // early ABSOLUTE_PINNED_PIECES
+      0  // early PINNED_PIECES
+      0  // early KNOWN_KPVK_DRAW,
+      0  // early KNOWN_KPVK_WIN,
+      0  // early LONELY_KING_ON_EDGE_AND_NOT_DRAW,
+      0  // early LONELY_KING_IN_CORNER_AND_NOT_DRAW,
+      0  // early LONELY_KING_OPPOSITION_AND_NOT_DRAW,
+      0  // early LONELY_KING_ACHIEVABLE_OPPOSITION_AND_NOT_DRAW,
+      0  // early LONELY_KING_NEXT_TO_ENEMY_KING,
      -4  // late bias
     117  // late OUR_PAWNS
     272  // late OUR_KNIGHTS
@@ -235,7 +242,14 @@
      -1  // late OPPOSITE_SIDE_KINGS_PAWN_STORM
    -981  // late IN_CHECK_AND_OUR_HANING_QUEENS
      45  // late PROMOTABLE_PAWN
-      0  // late ABSOLUTE_PINNED_PIECES
+      0  // late PINNED_PIECES
+      0  // late KNOWN_KPVK_DRAW,
+   1000  // late KNOWN_KPVK_WIN,
+     50  // late LONELY_KING_ON_EDGE_AND_NOT_DRAW,
+     50  // late LONELY_KING_IN_CORNER_AND_NOT_DRAW,
+     75  // late LONELY_KING_OPPOSITION_AND_NOT_DRAW,
+     50  // late LONELY_KING_ACHIEVABLE_OPPOSITION_AND_NOT_DRAW,
+     25  // late LONELY_KING_NEXT_TO_ENEMY_KING,
      -2  // clipped bias
      19  // clipped OUR_PAWNS
     196  // clipped OUR_KNIGHTS
@@ -354,7 +368,14 @@
       0  // clipped OPPOSITE_SIDE_KINGS_PAWN_STORM
    -813  // clipped IN_CHECK_AND_OUR_HANING_QUEENS
     869  // clipped PROMOTABLE_PAWN
-      0  // clipped ABSOLUTE_PINNED_PIECES
+      0  // clipped PINNED_PIECES
+      0  // clipped KNOWN_KPVK_DRAW,
+      0  // clipped KNOWN_KPVK_WIN,
+      0  // clipped LONELY_KING_ON_EDGE_AND_NOT_DRAW,
+      0  // clipped LONELY_KING_IN_CORNER_AND_NOT_DRAW,
+      0  // clipped LONELY_KING_OPPOSITION_AND_NOT_DRAW,
+      0  // clipped LONELY_KING_ACHIEVABLE_OPPOSITION_AND_NOT_DRAW,
+      0  // clipped LONELY_KING_NEXT_TO_ENEMY_KING,
 // ?
      0     0     0     0     0     0     0     0
      0     0     0     0     0     0     0     0

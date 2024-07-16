@@ -172,6 +172,15 @@ enum EF {
   PROMOTABLE_PAWN,
   PINNED_PIECES,
 
+  // Endgame bonuses
+  KNOWN_KPVK_DRAW,
+  KNOWN_KPVK_WIN,
+  LONELY_KING_ON_EDGE_AND_NOT_DRAW,
+  LONELY_KING_IN_CORNER_AND_NOT_DRAW,
+  LONELY_KING_OPPOSITION_AND_NOT_DRAW,
+  LONELY_KING_ACHIEVABLE_OPPOSITION_AND_NOT_DRAW,
+  LONELY_KING_NEXT_TO_ENEMY_KING,
+
   NUM_EVAL_FEATURES,
 };
 
@@ -299,6 +308,13 @@ std::string EFSTR[] = {
   "IN_CHECK_AND_OUR_HANING_QUEENS",
   "PROMOTABLE_PAWN",
   "PINNED_PIECES",
+  "KNOWN_KPVK_DRAW",
+  "KNOWN_KPVK_WIN",
+  "LONELY_KING_ON_EDGE_AND_NOT_DRAW",
+  "LONELY_KING_IN_CORNER_AND_NOT_DRAW",
+  "LONELY_KING_OPPOSITION_AND_NOT_DRAW",
+  "LONELY_KING_ACHIEVABLE_OPPOSITION_AND_NOT_DRAW",
+  "LONELY_KING_NEXT_TO_ENEMY_KING",
 };
 
 // captures = difference in values divided by 2
@@ -882,6 +898,66 @@ struct Evaluator {
 
     features[EF::TIME] = time;
 
+    const int wx = ourKingSq % 8;
+    const int wy = ourKingSq / 8;
+    const int bx = theirKingSq % 8;
+    const int by = theirKingSq / 8;
+
+    {
+      const bool isOurKPPVK = isKingPawnEndgame && (std::popcount(ourPawns) >= 1) && (theirPawns == 0);
+      const bool isTheirKPPVK = isKingPawnEndgame && (std::popcount(theirPawns) >= 1) && (ourPawns == 0);
+      // KPVK games are winning if square rule is true.
+      if (isOurKPPVK && std::popcount(ourPawns) >= 1) {
+        int result;
+        if (US == Color::WHITE) {
+          result = known_kpvk_result(ourKingSq, theirKingSq, lsb(ourPawns), true);
+        } else {
+          result = known_kpvk_result(Square(63 - ourKingSq), Square(63 - theirKingSq), Square(63 - lsb(ourPawns)), true);
+        }
+        features[EF::KNOWN_KPVK_DRAW] = (result == 0);
+        features[EF::KNOWN_KPVK_WIN] = (result == 2);
+      }
+      if (isTheirKPPVK && std::popcount(theirPawns) <= 1) {
+        int result;
+        if (US == Color::BLACK) {
+          result = known_kpvk_result(theirKingSq, ourKingSq, lsb(theirPawns), false);
+        } else {
+          result = known_kpvk_result(Square(63 - theirKingSq), Square(63 - ourKingSq), Square(63 - lsb(theirPawns)), false);
+        }
+        features[EF::KNOWN_KPVK_DRAW] = (result == 0);
+        features[EF::KNOWN_KPVK_WIN] = -(result == 2);
+      }
+    }
+    {  // KRvK, KQvK, KBBvK, KBNvK
+      const bool theyHaveLonelyKing = (theirMen == theirKings) && (std::popcount(ourKnights) > 2 || std::popcount(ourBishops) > 1 || std::popcount(ourRooks) > 0 || std::popcount(ourQueens) > 0);
+      const bool weHaveLonelyKing = (ourMen == ourKings) && (std::popcount(theirKnights) > 2 || std::popcount(theirBishops) > 1 || std::popcount(theirRooks) > 0 || std::popcount(theirQueens) > 0);
+
+      features[EF::LONELY_KING_ON_EDGE_AND_NOT_DRAW] = value_or_zero(theyHaveLonelyKing, (3 - kDistToEdge[theirKingSq]))
+                                                     - value_or_zero(  weHaveLonelyKing, (3 - kDistToEdge[ourKingSq]));
+      features[EF::LONELY_KING_IN_CORNER_AND_NOT_DRAW] = value_or_zero(theyHaveLonelyKing, (3 - kDistToCorner[theirKingSq]))
+                                                       - value_or_zero(  weHaveLonelyKing, (3 - kDistToCorner[ourKingSq]));
+
+      int dx = std::abs(wx - bx);
+      int dy = std::abs(wy - by);
+      const bool opposition = (dx == 2 && dy == 0) || (dx == 0 && dy == 2);
+      features[EF::LONELY_KING_OPPOSITION_AND_NOT_DRAW] = weHaveLonelyKing && opposition;
+      features[EF::LONELY_KING_ACHIEVABLE_OPPOSITION_AND_NOT_DRAW] = theyHaveLonelyKing && (
+        (dx == 3 && dy <= 1)
+        || (dy == 3 && dx <= 1)
+      );
+
+      features[EF::LONELY_KING_NEXT_TO_ENEMY_KING] = value_or_zero(theyHaveLonelyKing, (8 - std::max(dx, dy)) * 2)
+      - value_or_zero(  weHaveLonelyKing, (8 - std::max(dx, dy)) * 2)
+      + value_or_zero(theyHaveLonelyKing, (8 - std::min(dx, dy)) * 1)
+      - value_or_zero(  weHaveLonelyKing, (8 - std::min(dx, dy)) * 1);
+    }
+
+    if (features[EF::KNOWN_KPVK_DRAW]) {
+      return 0;
+    }
+
+    // TODO: bonus for controlling squares ahead of your own pawns
+
     // Use larger integer to make arithmetic safe.
     const int32_t early = this->early<US>(pos);
     const int32_t late = this->late<US>(pos);
@@ -900,85 +976,6 @@ struct Evaluator {
     }
 
     int32_t eval = (early * (18 - time) + late * time) / 18 + clipped + pieceMap;
-
-    // Special end-game boosts.
-
-    Evaluation bonus = 0;
-
-    const int wx = ourKingSq % 8;
-    const int wy = ourKingSq / 8;
-    const int bx = theirKingSq % 8;
-    const int by = theirKingSq / 8;
-
-    {
-      // KPVK games are winning if square rule is true.
-      const bool isOurKPPVK = isKingPawnEndgame && (std::popcount(ourPawns) >= 1) && (theirPawns == 0);
-      const bool isTheirKPPVK = isKingPawnEndgame && (std::popcount(theirPawns) >= 1) && (ourPawns == 0);
-      bonus -= value_or_zero(isOurKPPVK && features[EF::SQUARE_RULE] < 0, 500);
-      bonus += value_or_zero(isTheirKPPVK && features[EF::SQUARE_RULE] > 0, 500);
-
-      if (isOurKPPVK && std::popcount(ourPawns) >= 1) {
-        int result;
-        if (US == Color::WHITE) {
-          result = known_kpvk_result(ourKingSq, theirKingSq, lsb(ourPawns), true);
-        } else {
-          result = known_kpvk_result(Square(63 - ourKingSq), Square(63 - theirKingSq), Square(63 - lsb(ourPawns)), true);
-        }
-        if (result == 0) {
-          return 0;
-        }
-        if (result == 2) {
-          bonus += 1000;
-        }
-      }
-      if (isTheirKPPVK && std::popcount(theirPawns) <= 1) {
-        int result;
-        if (US == Color::BLACK) {
-          result = known_kpvk_result(theirKingSq, ourKingSq, lsb(theirPawns), false);
-        } else {
-          result = known_kpvk_result(Square(63 - theirKingSq), Square(63 - ourKingSq), Square(63 - lsb(theirPawns)), false);
-        }
-        if (result == 0) {
-          return 0;
-        }
-        if (result == 2) {
-          bonus -= 1000;
-        }
-      }
-    }
-    {  // KRvK, KQvK, KBBvK, KBNvK
-      const bool theyHaveLonelyKing = (theirMen == theirKings) && (std::popcount(ourKnights) > 2 || std::popcount(ourBishops) > 1 || std::popcount(ourRooks) > 0 || std::popcount(ourQueens) > 0);
-      const bool weHaveLonelyKing = (ourMen == ourKings) && (std::popcount(theirKnights) > 2 || std::popcount(theirBishops) > 1 || std::popcount(theirRooks) > 0 || std::popcount(theirQueens) > 0);
-
-      bonus += value_or_zero(theyHaveLonelyKing, (3 - kDistToEdge[theirKingSq]) * 50);
-      bonus -= value_or_zero(  weHaveLonelyKing, (3 - kDistToEdge[ourKingSq]) * 50);
-      bonus += value_or_zero(theyHaveLonelyKing, (3 - kDistToCorner[theirKingSq]) * 50);
-      bonus -= value_or_zero(  weHaveLonelyKing, (3 - kDistToCorner[ourKingSq]) * 50);
-
-      int dx = std::abs(wx - bx);
-      int dy = std::abs(wy - by);
-      const bool opposition = (dx == 2 && dy == 0) || (dx == 0 && dy == 2);
-
-      // We don't want it to be our turn!
-      bonus -= value_or_zero(weHaveLonelyKing && opposition, 75);
-      // We can achieve opposition from here.
-      bonus += value_or_zero(theyHaveLonelyKing && (
-        (dx == 3 && dy <= 1)
-        || (dy == 3 && dx <= 1)
-      ), 50);
-
-      // And put our king next to the enemy king.
-      bonus += value_or_zero(theyHaveLonelyKing, (8 - std::max(dx, dy)) * 50);
-      bonus -= value_or_zero(  weHaveLonelyKing, (8 - std::max(dx, dy)) * 50);
-      bonus += value_or_zero(theyHaveLonelyKing, (8 - std::min(dx, dy)) * 25);
-      bonus -= value_or_zero(  weHaveLonelyKing, (8 - std::min(dx, dy)) * 25);
-    }
-
-    // TODO: decompose "bonus" into separate features.
-
-    // TODO: bonus for controlling squares ahead of your own pawns
-
-    eval += bonus;
 
     eval = std::min(int32_t(-kQLongestForcedMate), std::max(int32_t(kQLongestForcedMate), eval));
 
@@ -1114,9 +1111,6 @@ struct Evaluator {
     for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
       r += features[i] * lateW[i];
     }
-
-    r += features[EF::SQUARE_RULE] * 2000;
-
     return r;
   }
 
