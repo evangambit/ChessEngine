@@ -914,7 +914,7 @@ struct Evaluator {
         } else {
           result = known_kpvk_result(Square(63 - ourKingSq), Square(63 - theirKingSq), Square(63 - lsb(ourPawns)), true);
         }
-        features[EF::KNOWN_KPVK_DRAW] = (result == 0);
+        features[EF::KNOWN_KPVK_DRAW] = (result == 0) && (std::popcount(ourPawns) == 1);
         features[EF::KNOWN_KPVK_WIN] = (result == 2);
       }
       if (isTheirKPPVK && std::popcount(theirPawns) <= 1) {
@@ -924,7 +924,7 @@ struct Evaluator {
         } else {
           result = known_kpvk_result(Square(63 - theirKingSq), Square(63 - ourKingSq), Square(63 - lsb(theirPawns)), false);
         }
-        features[EF::KNOWN_KPVK_DRAW] = (result == 0);
+        features[EF::KNOWN_KPVK_DRAW] = (result == 0) && (std::popcount(theirPawns) == 1);
         features[EF::KNOWN_KPVK_WIN] = -(result == 2);
       }
     }

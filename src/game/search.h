@@ -28,6 +28,24 @@
 #define SIMPLE_SEARCH 0
 #endif
 
+#ifdef PRINT_DEBUG
+bool gPrintDebug = false;
+#define IS_PRINT_NODE gPrintDebug
+#else
+#define IS_PRINT_NODE 0
+// #define IS_PRINT_NODE history_is(thread->pos, "h8f8 c7c8 f8c8 c1c8 a8b7")
+// #define IS_PRINT_NODE (thread->pos.hash_ == 17112545643981194285LLU)
+// #define IS_PRINT_NODE (thread->pos.hash_  % 425984 == 958)
+#endif
+
+std::string pad(int n) {
+  std::string r = "";
+  for (int i = 0; i < n; ++i) {
+    r += "  ";
+  }
+  return r;
+}
+
 namespace ChessEngine {
 
 bool history_is(const Position& pos, std::string movesString) {
@@ -183,6 +201,9 @@ static SearchResult<TURN> qsearch(Thinker *thinker, Thread *thread, int32_t dept
   ++thread->nodeCounter;
 
   if (std::popcount(thread->pos.pieceBitboards_[coloredPiece<TURN, Piece::KING>()]) == 0) {
+    #if IS_PRINT_NODE
+    std::cout << pad(plyFromRoot) << "Q end a" << std::endl;
+    #endif
     return SearchResult<TURN>(kMissingKing, kNullMove);
   }
 
@@ -224,7 +245,9 @@ static SearchResult<TURN> qsearch(Thinker *thinker, Thread *thread, int32_t dept
     // r.score -= value_or_zero((enemyThreats.badForTheir[Piece::QUEEN] & thread->pos.pieceBitboards_[coloredPiece<TURN>(Piece::QUEEN)]) > 0, k);
   }
   if (moves == end || r.score >= beta) {
-    r.score = std::min(std::max(r.score, alpha), beta);
+    #if IS_PRINT_NODE
+    std::cout << pad(plyFromRoot) << "Q end b " << r << std::endl;
+    #endif
     return r;
   }
 
@@ -283,28 +306,14 @@ static SearchResult<TURN> qsearch(Thinker *thinker, Thread *thread, int32_t dept
     alpha = std::max(alpha, child.score);
   }
 
+  #if IS_PRINT_NODE
+    std::cout << pad(plyFromRoot) << "Q end c " << r << std::endl;
+    #endif
+
   return r;
 }
 
 constexpr int kThreadingDepth = 2;
-
-#ifdef PRINT_DEBUG
-bool gPrintDebug = false;
-#define IS_PRINT_NODE gPrintDebug
-#else
-// #define IS_PRINT_NODE 0
-// #define IS_PRINT_NODE history_is(thread->pos, "h8f8 c7c8 f8c8 c1c8 a8b7")
-// #define IS_PRINT_NODE (thread->pos.hash_ == 17112545643981194285LLU)
-// #define IS_PRINT_NODE (thread->pos.hash_  % 425984 == 958)
-#endif
-
-std::string pad(int n) {
-  std::string r = "";
-  for (int i = 0; i < n; ++i) {
-    r += "  ";
-  }
-  return r;
-}
 
 template<Color TURN, SearchType SEARCH_TYPE, bool IS_PARALLEL>
 static SearchResult<TURN> search(
