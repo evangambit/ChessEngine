@@ -28,7 +28,7 @@ def analyzer(resultQueue, args):
 def helper(engine, resultQueue, args):
   board = chess.Board()
   t = ''
-  while not board.is_game_over() and not board.is_repetition() and board.ply() < 100:
+  while not board.is_game_over() and not board.is_repetition() and board.ply() < 200:
     lines = engine.analyse(board, chess_engine.Limit(depth=args.depth), multipv=args.multipv)
 
     if len(lines) < 3:
@@ -72,6 +72,19 @@ def helper(engine, resultQueue, args):
       line = random.choice(L)
     board.push(line['pv'][0])
 
+from functools import lru_cache
+class MyLru:
+  def foo(self, x):
+    self.answer = False
+
+  def __init__(self, n):
+    self.f = lru_cache(maxsize=n)(self.foo)
+
+  def __call__(self, x):
+    self.answer = True
+    self.f(x)
+    return self.answer
+
 def sql_inserter(resultQueue, args, database):
   conn = sqlite3.connect(database)
   c = conn.cursor()
@@ -83,8 +96,12 @@ def sql_inserter(resultQueue, args, database):
 
   t = time.time()
 
+  cache = MyLru(50_000)
+
   while True:
     fen, wins, draws, losses = resultQueue.get()
+    if cache(fen):
+      continue
     c.execute('INSERT OR IGNORE INTO positions VALUES (?, ?, ?, ?)', (fen, wins, draws, losses))
     n += 1
     if n % 500 == 499:
