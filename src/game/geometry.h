@@ -180,6 +180,7 @@ constexpr Location bb(unsigned sq) {
 constexpr Bitboard kRookFiles = kFiles[0] | kFiles[7];
 
 extern Bitboard kKingDist[8][64];
+extern Bitboard kManhattanDist[15][64];
 extern Bitboard kNearby[7][64];
 
 // Used to figure out which squares can be moved to to stop a check.

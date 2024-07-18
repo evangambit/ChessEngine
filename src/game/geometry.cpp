@@ -42,6 +42,7 @@ int8_t king_dist(Square sq1, Square sq2) {
 }
 
 Bitboard kKingDist[8][64];
+Bitboard kManhattanDist[15][64];
 Bitboard kNearby[7][64];
 Bitboard kKingHome[64];
 Bitboard kSquaresBetween[64][64];
@@ -60,6 +61,20 @@ void initialize_geometry() {
         }
       }
       kKingDist[dist][i] = r;
+    }
+  }
+
+  for (int dist = 0; dist < 15; ++dist) {
+    for (int i = 0; i < 64; ++i) {
+      Bitboard r = 0;
+      for (int j = 0; j < 64; ++j) {
+        int dx = abs(i % 8 - j % 8);
+        int dy = abs(i / 8 - j / 8);
+        if (dx + dy <= dist) {
+          r |= bb(j);
+        }
+      }
+      kManhattanDist[dist][i] = r;
     }
   }
 
