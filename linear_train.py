@@ -263,13 +263,13 @@ if __name__ == '__main__':
   Y = ShardedLoader(f'data/{a}/data-eval')
   T = ShardedLoader(f'data/{a}/data-turn')
 
-  print(X.num_shards)
+  print(X.num_shards, X.num_rows)
 
-  n = 5_000
-  X = Slice(X, 0, n)
-  F = Slice(F, 0, n)
-  Y = Slice(Y, 0, n)
-  T = Slice(T, 0, n)
+  # n = 5_000_000
+  # X = Slice(X, 0, n)
+  # F = Slice(F, 0, n)
+  # Y = Slice(Y, 0, n)
+  # T = Slice(T, 0, n)
 
   if not os.path.exists(f'data/{a}/derived/'):
     os.mkdir(f'data/{a}/derived/')
@@ -331,8 +331,8 @@ if __name__ == '__main__':
   
 
   UnsignedResiduals = RowMapper(times, Residuals, T)
-  early = linear_regression(MonoTable, UnsignedResiduals, weights=earliness, regularization=50.0).reshape((6, 8, 8))
-  late = linear_regression(MonoTable, UnsignedResiduals, weights=lateness, regularization=50.0).reshape((6, 8, 8))
+  early = linear_regression(MonoTable, UnsignedResiduals, weights=earliness, regularization=1.0).reshape((6, 8, 8))
+  late = linear_regression(MonoTable, UnsignedResiduals, weights=lateness, regularization=1.0).reshape((6, 8, 8))
   
   
   text = ""
