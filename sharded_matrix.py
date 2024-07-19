@@ -49,7 +49,7 @@ def path2shardname(path, i):
   return f'{path}-{str(i).rjust(5, "0")}.sm'
 
 def product(x):
-  return np.prod(x)
+  return int(np.prod(x))
 
 def tensor2bytes(A):
   if A.dtype == bool:
@@ -66,7 +66,7 @@ def bytes2tensor(A, dtype, shape):
 class ShardedWriter:
   def __init__(self, path: str, dtype: type, shape: tuple[int], shard_size_bytes: int = 25_000_000) -> None:
     assert dtype in kSupportedTypes
-    assert len(shape) > 0, 'At least one dimension must be provided'
+    # assert len(shape) > 0, 'At least one dimension must be provided'
     for d in shape:
       assert d > 0, 'All dimensions must be greater than 0'
     if dtype == bool:
@@ -132,8 +132,11 @@ def _load_shard_header(f):
   assert dtype in kByteEncodingToType, f'Unsupported type {dtype}'
   dtype = kByteEncodingToType[dtype]
   ndim = np.frombuffer(f.read(4), dtype=np.int32)[0]
-  assert ndim > 0, f'Invalid number of dimensions {ndim}'
-  shape = np.frombuffer(f.read(4 * ndim), dtype=np.int32)
+  assert ndim >= 0, f'Invalid number of dimensions {ndim}'
+  if ndim > 0:
+    shape = np.frombuffer(f.read(4 * ndim), dtype=np.int32)
+  else:
+    shape = ()
   return dtype, shape
 
 def load_shard(path):
@@ -144,6 +147,9 @@ def load_shard(path):
     else:
       data = np.unpackbits(np.frombuffer(f.read(), dtype=np.uint8), bitorder='little')
     return data.reshape(shape)
+
+def reshape(a, shape):
+  return a.reshape(shape)
 
 class LoaderInterface:
   def __init__(self) -> None:
@@ -161,23 +167,49 @@ class LoaderInterface:
   def load_slice(self, start, end) -> np.ndarray:
     raise NotImplementedError()
 
+  def reshape(self, shape):
+    assert product(shape) == product(self.shape)
+    return RowMapper(curry(reshape, (-1,) + shape), self)
+  
+  def num_rows_in_shards(self):
+    result = []
+    for shard in range(self.num_shards):
+      start, end = self.shard_to_slice_indices(shard)
+      result.append(end - start)
+    return tuple(result)
+  
+  def save(self, path, force=None, dtype=None):
+    if dtype == None:
+      dtype = self.dtype
+    if not force:
+      assert not os.path.exists(path2shardname(path, 0))
+    else:
+      i = 0
+      while os.path.exists(path2shardname(path, i)):
+        os.remove(path2shardname(path, i))
+        i += 1
+    
+    with ShardedWriter(path, shape=self.shape, dtype=dtype) as w:
+      for shard in range(self.num_shards):
+        w.write_many(self.load_shard(shard))
+    
+
 class ShardedLoader(LoaderInterface):
   def __init__(self, path: str):
     self._path = path
     self.num_shards = 0
 
     self.num_rows = 0
-    self.num_rows_in_shards = []
+    num_rows_in_shards = []
     while os.path.exists(path2shardname(self._path, self.num_shards)):
       with open(path2shardname(self._path, self.num_shards), 'rb') as f:
         dtype, shape = _load_shard_header(f)
-        self.num_rows_in_shards.append(shape[0])
+        num_rows_in_shards.append(shape[0])
         self.num_rows += shape[0]
       self.num_shards += 1
     assert self.num_shards > 0
 
-    self.num_rows_in_shards = np.array(self.num_rows_in_shards, dtype=np.int64)
-    self.cumsum_rows = np.cumsum(self.num_rows_in_shards)
+    self._cumsum_rows = np.cumsum(num_rows_in_shards)
 
     self.dtype = dtype
     self.shape = tuple(shape[1:])
@@ -188,15 +220,15 @@ class ShardedLoader(LoaderInterface):
     return load_shard(path2shardname(self._path, shard_index))
   
   def shard_to_slice_indices(self, shard_index):
-    start = self.cumsum_rows[shard_index - 1] if shard_index > 0 else 0
-    end = self.cumsum_rows[shard_index]
+    start = self._cumsum_rows[shard_index - 1] if shard_index > 0 else 0
+    end = self._cumsum_rows[shard_index]
     return start, end
   
   def load_slice(self, start, end):
     assert end > start, 'End index must be greater than start index'
-    assert start < self.cumsum_rows[-1], 'Start index is out of bounds'
-    i = (start < self.cumsum_rows).argmax()
-    j = (end <= self.cumsum_rows).argmax()
+    assert start < self._cumsum_rows[-1], 'Start index is out of bounds'
+    i = (start < self._cumsum_rows).argmax()
+    j = (end <= self._cumsum_rows).argmax()
     R = []
     for shard_index in range(i, j + 1):
       shard = self.load_shard(shard_index)
@@ -205,8 +237,8 @@ class ShardedLoader(LoaderInterface):
         start_offset = start
         end_offset = end
       else:
-        start_offset = start - self.cumsum_rows[shard_index - 1]
-        end_offset = end - self.cumsum_rows[shard_index - 1]
+        start_offset = start - self._cumsum_rows[shard_index - 1]
+        end_offset = end - self._cumsum_rows[shard_index - 1]
       
       start_offset = max(0, start_offset)
       end_offset = min(shard.shape[0], end_offset)
@@ -236,7 +268,7 @@ class MappingLoader(LoaderInterface):
     self.dtype = loader.dtype
     self.shape = tuple(self._apply(np.ones((1,) + loader.shape) * 0.5).shape[1:])
     self.num_shards = loader.num_shards
-    self.num_rows = loader.num_rows    
+    self.num_rows = loader.num_rows
   
   @lru_cache(maxsize=1)
   def load_shard(self, shard_index):
@@ -252,7 +284,50 @@ class MappingLoader(LoaderInterface):
     for f in self._mappings:
       x = f(x)
     return x
+
+class Slice(LoaderInterface):
+  def __init__(self, tensor: LoaderInterface, start: int, end: int):
+    self._tensor = tensor
+    self._start = start
+    self._end = end
+
+    assert start >= 0, 'Start index must be non-negative'
+    assert end > start, 'End index must be greater than start index'
+    assert end <= tensor.num_rows, 'End index is out of bounds'
+
+    self._shard_start = 0
+    while tensor.shard_to_slice_indices(self._shard_start)[0] < start:
+      self._shard_start += 1
+
+    self._shard_end = 0
+    while tensor.shard_to_slice_indices(self._shard_end)[1] < end:
+      self._shard_end += 1
+    self._shard_end += 1
+    
+    self.dtype = tensor.dtype
+    self.shape = tensor.shape
+    self.num_shards = self._shard_end - self._shard_start
+    self.num_rows = end - start
   
+  def load_shard(self, shard_index):
+    assert shard_index >= 0
+    assert shard_index < self.num_shards
+    return self._tensor.load_slice(*self.shard_to_slice_indices(shard_index))
+
+  def shard_to_slice_indices(self, shard_index):
+    i, j = self._tensor.shard_to_slice_indices(shard_index - self._shard_start)
+    if i < self._start:
+      i = self._start
+    if j > self._end:
+      j = self._end
+    return i - self._start, j - self._start
+
+  def load_slice(self, start, end):
+    assert start >= 0, 'Start index must be non-negative'
+    assert end > start, 'End index must be greater than start index'
+    assert end <= self.num_rows, f'End index is out of bounds ({end} <= {self.num_rows})'
+    return self._tensor.load_slice(start + self._start, end + self._start)
+
 class RowMapper(LoaderInterface):
   def __init__(self, f, *loaders):
     super().__init__()
@@ -287,7 +362,8 @@ class RowMapper(LoaderInterface):
 def _compute_innerproduct(loader1, loader2, offset):
   print('_compute_innerproduct', offset)
   shard = loader1.load_shard(offset).astype(np.float32)
-  slice = loader2.load_slice(*loader1.shard_to_slice_indices(offset)).astype(np.float32)
+  i = loader1.shard_to_slice_indices(offset)
+  slice = loader2.load_slice(*i).astype(np.float32)
   return shard.T @ slice
 
 def _compute_weighted_innerproduct(loader1, loader2, weights_loader, offset):
@@ -312,6 +388,31 @@ def _compute_weighted_self_innerproduct(loader1, weights_loader, offset):
   weights = weights_loader.load_slice(*loader1.shard_to_slice_indices(offset)).astype(np.float32)
   A = A * weights
   return A.T @ A
+
+class curry:
+  def __init__(self, f, *args, **kwargs):
+    self._f = f
+    self._args = args
+    self._kwargs = kwargs
+  def __call__(self, *args, **kwargs):
+    return self._f(*(self._args + args), **(self._kwargs | kwargs))
+  
+class compose:
+  def __init__(self, *funcs):
+    self._funcs = funcs
+  def __call__(self, x):
+    for f in self._funcs:
+      x = f(x)
+    return x
+    
+
+def _matmul(a, b):
+  return a @ b
+
+def matmul(loader: LoaderInterface, matrix: np.ndarray, num_workers: int = 4):
+  _ = loader.load_slice(0, 1) @ matrix  # Test the operation is valid
+  shards = list(range(0, loader.num_shards))
+  return MappingLoader(loader, curry(_matmul, b=matrix))
 
 def compute_inner_product(loader1: LoaderInterface, loader2: LoaderInterface, weights_loader=None, num_workers: int = 4):
   assert loader1.num_rows == loader2.num_rows, 'Both loaders must have the same number of shards'
@@ -470,7 +571,14 @@ varnames = [
   "IN_CHECK_AND_OUR_HANING_QUEENS",
   "PROMOTABLE_PAWN",
   "PINNED_PIECES",
-  "KING_PAWN_TROPISM",
+  "KNOWN_KPVK_DRAW",
+  "KNOWN_KPVK_WIN",
+  "LONELY_KING_ON_EDGE_AND_NOT_DRAW",
+  "LONELY_KING_IN_CORNER_AND_NOT_DRAW",
+  "LONELY_KING_OPPOSITION_AND_NOT_DRAW",
+  "LONELY_KING_ACHIEVABLE_OPPOSITION_AND_NOT_DRAW",
+  "LONELY_KING_NEXT_TO_ENEMY_KING",
+  "KING_TROPISM",
 ]
 
 def compute_piece_counts(x):
@@ -502,8 +610,8 @@ def get_turn(x):
 
 def logit(x):
   x = x.astype(np.float32)
-  x += 1.0
-  x /= 1002.0
+  x += 4.0
+  x /= 1008.0
   return np.log(x / (1.0 - x))
 
 def table2monocolor(table):
@@ -563,6 +671,82 @@ def table2fen(A, white_to_move):
 def to_signed_y(y, s):
   return logit(y) * s
 
+def minus(a, b):
+  return a - b
+
+def early_late(x, time):
+  return np.concatenate([x * (1.0 - time), x * time], 1)
+
+def clip(x, low, high):
+  return x.clip(low, high)
+
+def clip_grad(x, grad, low, high):
+  return (low < x) * (x < high) * grad
+
+def times(a, b):
+  return a * b
+
+import random
+import torch
+import torch.utils.data as tdata
+class ShardedMatrixDataset(tdata.IterableDataset):
+  def __init__(self, X, *Y):
+    self.X = X
+    self.Y = Y
+
+  def __iter__(self):
+    """
+    We don't want to load the entire training set into memory, but we still want to mix
+    between shards. The compromise is that we load K shards into memory and randomly
+    sample from them. When we've exhausted a shard, we delete it from memory and load
+    a new one, randomly selected from the remaining shards.
+    """
+    kNumShardsAtOnce = 8
+
+    cumsum_rows = np.cumsum(self.X.num_rows_in_shards())
+    rows_per_shard = np.concatenate([[cumsum_rows[0]], np.diff(cumsum_rows)])
+    I = []
+    for i, n in enumerate(rows_per_shard):
+      I.append(np.arange(n))
+      np.random.shuffle(I[-1])
+    
+    waiting_shards = list(range(self.X.num_shards))  # Shards we have yet to sample from.
+    active_shards = []  # Shards we're actively sampling from.
+
+    shard2tensors = {}
+    shard2idx = {}
+
+    while True:
+      while len(active_shards) < kNumShardsAtOnce and len(waiting_shards) > 0:
+        shard = waiting_shards.pop()
+        active_shards.append(shard)
+        shard2idx[shard] = 0
+        x = self.X.load_shard(shard)
+        indices = self.X.shard_to_slice_indices(shard)
+        shard2tensors[shard] = (x,) + tuple([y.load_slice(*indices) for y in self.Y])
+        for y in shard2tensors[shard][1:]:
+          assert x.shape[0] == y.shape[0]
+      
+      if len(active_shards) == 0:
+        break
+
+      shard = random.choice(active_shards)
+      idx = shard2idx[shard]
+      idx = I[shard][idx]
+ 
+      s = shard2tensors[shard]
+      yield tuple([torch.from_numpy(y[idx]) for y in s])
+
+      shard2idx[shard] += 1
+      if shard2idx[shard] >= I[shard].shape[0]:
+        active_shards.remove(shard)
+        del shard2idx[shard]
+        del shard2tensors[shard]
+
+  def __len__(self):
+    return self.X.num_rows
+
+
 if __name__ == '__main__':
   a = 'de5-md2'
   X = ShardedLoader(f'data/{a}/data-table')
@@ -572,52 +756,92 @@ if __name__ == '__main__':
 
   print(X.num_shards)
 
-  PC = None
-  if not os.path.exists(f'data/{a}/data-piece-counts-00000.sm') or ShardedLoader(f'data/{a}/data-piece-counts').num_rows != X.num_rows:
-    PC = MappingLoader(X, compute_piece_counts)
-    with ShardedWriter(f'data/{a}/data-piece-counts', shape=(12,), dtype=np.int8) as w:
-      for shard in range(PC.num_shards):
-        w.write_many(PC.load_shard(shard))
-  PC = ShardedLoader(f'data/{a}/data-piece-counts')
+  n = 5_000_000
+  X = Slice(X, 0, n)
+  F = Slice(F, 0, n)
+  Y = Slice(Y, 0, n)
+  T = Slice(T, 0, n)
+
+  if not os.path.exists(f'data/{a}/derived/'):
+    os.mkdir(f'data/{a}/derived/')
+  os.system(f'rm -f data/{a}/derived/*')
+
+  print('Computing piece counts...')
+  PC = MappingLoader(X, compute_piece_counts)
+  with ShardedWriter(f'data/{a}/derived/data-piece-counts', shape=(12,), dtype=np.int8) as w:
+    for shard in range(PC.num_shards):
+      w.write_many(PC.load_shard(shard))
+  PC = ShardedLoader(f'data/{a}/derived/data-piece-counts')
+
+  print('Computing mono table')
+  MonoTable = MappingLoader(X, table2monocolor)
+  MonoTable.save(f'data/{a}/derived/data-mono-table', force=True)
+  MonoTable = ShardedLoader(f'data/{a}/derived/data-mono-table')
 
   # Derived tables.
-  MonoTable = MappingLoader(X, table2monocolor)
   earliness = MappingLoader(PC, compute_earliness)
   lateness = MappingLoader(PC, compute_earliness, compute_lateness)
   SignedY = RowMapper(to_signed_y, Y, T)
+  features = RowMapper(early_late, F, lateness)  # cat([F * early, F * late], 1)
 
-  # for i, x in X.iter(offset=15_000_000):
-  #   x = x[:768].reshape(12, 8, 8)
-  #   pc = x.sum((1, 2))
-  #   if pc.sum() != pc[0] + pc[5] + pc[6] + pc[11]:
-  #     continue
-  #   is_white_to_move = (T.load_slice(i, i+1).squeeze() > 0)
-  #   score = int(Y.load_slice(i, i+1).squeeze())
-  #   print(str(score).rjust(8), table2fen(x, is_white_to_move))
 
-  features = F
-  Y = SignedY
-  # Y = MappingLoader(Y, logit)
+  w = linear_regression(features, SignedY, regularization=50.0)
+  wEarly, wLate = w.reshape(2, -1)
 
-  wEarly = linear_regression(features, Y, weights=earliness, regularization=10.0).squeeze()
-  # early = wEarly.reshape((6, 8, 8))
-  # np.save('early.npy', early)
+  Yhat = matmul(features, w)
+  Yhat.save('/tmp/yhat', dtype=np.float32, force=True)
+  Yhat = ShardedLoader('/tmp/yhat')
 
-  wLate = linear_regression(features, Y, weights=lateness, regularization=10.0, num_workers=2).squeeze()
-  # late = wLate.reshape((6, 8, 8))
-  # np.save('late.npy', late)
+  Residuals = RowMapper(minus, SignedY, Yhat)
 
+  if False:
+    dataset = ShardedMatrixDataset(F, Residuals)
+
+    from torch import nn, optim
+    w2 = nn.Linear(F.shape[0], 1)
+    nn.init.zeros_(w2.weight)
+    opt = optim.SGD(w2.parameters(), lr=0.01, momentum=0.95)
+
+    L = []
+    for _ in range(int(5_000_000 // len(dataset)) + 1):
+      for x, y in tdata.DataLoader(dataset, batch_size=1024):
+        x = torch.tensor(x, dtype=torch.float32)
+        y = torch.tensor(y, dtype=torch.float32)
+        yhat = w2(x).clip(-1.0, 1.0)
+        loss = ((yhat - y)**2).mean()
+        opt.zero_grad()
+        loss.backward()
+        opt.step()
+        L.append(float(loss))
+      print('%.3f' % np.array(L[-10:]).mean())
+    
+    wClipped = w2.weight.detach().numpy().squeeze()
+    # TODO: adjust residuals base don wClipped
+  else:
+    wClipped = np.zeros(wEarly.shape)
+  
+
+  UnsignedResiduals = RowMapper(times, Residuals, T)
+  early = linear_regression(MonoTable, UnsignedResiduals, weights=earliness, regularization=50.0).reshape((6, 8, 8))
+  late = linear_regression(MonoTable, UnsignedResiduals, weights=lateness, regularization=50.0).reshape((6, 8, 8))
+  
+  
   text = ""
-  for k, w in zip(['early', 'late'], [wEarly, wLate]):
+  for k, w in zip(['early', 'late', 'clipped'], [wEarly, wLate, wClipped]):
     text += ('%i' % round(0.0)).rjust(7) + f'  // {k} bias\n'
     for i, varname in enumerate(varnames):
       text += ('%i' % round(float(w[i]) * 100 / wEarly[0])).rjust(7) + f'  // {k} {varname}\n'
 
-  # text = ''
-  # for w in [early, late]:
-  #   for i, p in enumerate('PNBRQK'):
-  #     text += "// %s\n" % p
-  #     for r in range(8):
-  #       for f in range(8):
-  #         text += ('%i' % round(w[i,r,f] * 100)).rjust(6)
-  #       text += '\n'
+  for w in [early, late]:
+    text += "// ?\n"
+    for _ in range(8):
+      text += '0'.rjust(6) * 8 + '\n'
+    for i, p in enumerate('PNBRQK'):
+      text += "// %s\n" % p
+      for r in range(8):
+        for f in range(8):
+          text += ('%i' % round(w[i,r,f] * 100 / wEarly[0])).rjust(6)
+        text += '\n'
+
+  with open('w2.txt', 'w') as f:
+    f.write(text)
