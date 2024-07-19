@@ -319,7 +319,29 @@ std::string EFSTR[] = {
   "KING_TROPISM",
 };
 
-// captures = difference in values divided by 2
+template<size_t N>
+struct Flood {
+  Bitboard result[N];
+};
+inline Bitboard _king_fill(Bitboard b) {
+  return = shift<Direction::EAST>(b)
+        |  shift<Direction::WEST>(b)
+        |  shift<Direction::NORTH>(b)
+        |  shift<Direction::SOUTH>(b)
+        |  shift<Direction::NORTH_EAST>(b)
+        |  shift<Direction::NORTH_WEST>(b)
+        |  shift<Direction::SOUTH_EAST>(b)
+        |  shift<Direction::SOUTH_WEST>(b);
+}
+template<size_t N>
+Flood<N> king_flood(Square kingSq, Bitboard danger) {
+  Flood<N> result;
+  result[0] = bb(kingSq);
+  for (int i = 1; i < N; ++i) {
+    result[i] = _king_fill(result[i - 1]) & ~danger;
+  }
+  return result;
+}
 
 struct Evaluator {
   Evaluator() {
