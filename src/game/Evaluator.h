@@ -180,6 +180,7 @@ enum EF {
   LONELY_KING_OPPOSITION_AND_NOT_DRAW,
   LONELY_KING_ACHIEVABLE_OPPOSITION_AND_NOT_DRAW,
   LONELY_KING_NEXT_TO_ENEMY_KING,
+  KING_TROPISM,
 
   NUM_EVAL_FEATURES,
 };
@@ -315,6 +316,7 @@ std::string EFSTR[] = {
   "LONELY_KING_OPPOSITION_AND_NOT_DRAW",
   "LONELY_KING_ACHIEVABLE_OPPOSITION_AND_NOT_DRAW",
   "LONELY_KING_NEXT_TO_ENEMY_KING",
+  "KING_TROPISM",
 };
 
 // captures = difference in values divided by 2
@@ -482,7 +484,9 @@ struct Evaluator {
     constexpr Bitboard kOurSide = (US == Color::WHITE ? kWhiteSide : kBlackSide);
     constexpr Bitboard kTheirSide = (US == Color::WHITE ? kBlackSide : kWhiteSide);
     constexpr Direction kForward = (US == Color::WHITE ? Direction::NORTH : Direction::SOUTH);
+    constexpr Direction kForward2 = (US == Color::WHITE ? Direction::NORTHx2 : Direction::SOUTHx2);
     constexpr Direction kBackward = opposite_dir<kForward>();
+    constexpr Direction kBackward2 = opposite_dir<kForward2>();
     constexpr Bitboard kOurBackRanks = (US == Color::WHITE ? kRanks[6] | kRanks[7] : kRanks[1] | kRanks[0]);
     constexpr Bitboard kTheirBackRanks = (US == Color::WHITE ? kRanks[1] | kRanks[0] : kRanks[6] | kRanks[7]);
     constexpr Bitboard kHappyKingSquares = bb(62) | bb(58) | bb(57) | bb(6) | bb(1) | bb(2);
@@ -950,6 +954,27 @@ struct Evaluator {
       - value_or_zero(  weHaveLonelyKing, (8 - std::max(dx, dy)) * 2)
       + value_or_zero(theyHaveLonelyKing, (8 - std::min(dx, dy)) * 1)
       - value_or_zero(  weHaveLonelyKing, (8 - std::min(dx, dy)) * 1);
+    }
+
+    {
+      // https://www.chessprogramming.org/King_Pawn_Tropism
+      // Penalize king for being far away from pawns. Positive score is *good* for the mover.
+      // Note: passed pawns are implicility prioritized, since we consider distance to the passed
+      //       pawn, and the two squares ahead of it (so they're weighted 3x).
+      const Bitboard passedPawns = pawnAnalysis.ourPassedPawns | pawnAnalysis.theirPassedPawns;
+      const Bitboard otherPawns = (ourPawns | theirPawns) & ~passedPawns;
+      const Bitboard aheadOfPassedPawns = passedPawns | shift<kForward>(pawnAnalysis.ourPassedPawns) | shift<kBackward>(pawnAnalysis.theirPassedPawns)
+      | shift<kForward2>(pawnAnalysis.ourPassedPawns) | shift<kBackward2>(pawnAnalysis.theirPassedPawns);
+      features[EF::KING_TROPISM] = 1;  // Small bonus for your turn.
+      for (int i = 0; i < 15; ++i) {
+        features[EF::KING_TROPISM] += std::popcount(aheadOfPassedPawns & kManhattanDist[i][ourKingSq]);
+        features[EF::KING_TROPISM] += std::popcount(otherPawns & kManhattanDist[i][ourKingSq]);
+
+        features[EF::KING_TROPISM] -= std::popcount(kManhattanDist[i][theirKingSq] & aheadOfPassedPawns);
+        features[EF::KING_TROPISM] -= std::popcount(kManhattanDist[i][theirKingSq] & otherPawns);
+      }
+      features[EF::KING_TROPISM] *= std::max(time - 12, 0);
+      features[EF::KING_TROPISM] /= 2;
     }
 
     if (features[EF::KNOWN_KPVK_DRAW]) {

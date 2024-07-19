@@ -26,7 +26,11 @@ python3 generate.py --depth 4 --database positions-de4-md1.db --min_depth=1
 
 sqlite3 "data/${a}/db.sqlite3" "select fen, wins, draws, losses from positions" > "data/${a}/positions.txt"
 
-bin/make_tables "data/${a}/positions.txt" "data/${a}/data"
+# Probably important, considering sequential positions come from the same game...
+# May need to use "shuf" instead of "sort -r"
+sort -r "data/${a}/positions.txt" > "data/${a}/positions.shuffled.txt"
+
+bin/make_tables "data/${a}/positions.shuffled.txt" "data/${a}/data"
 
 """
 
@@ -149,6 +153,14 @@ varnames = [
   "IN_CHECK_AND_OUR_HANING_QUEENS",
   "PROMOTABLE_PAWN",
   "PINNED_PIECES",
+  "KNOWN_KPVK_DRAW",
+  "KNOWN_KPVK_WIN",
+  "LONELY_KING_ON_EDGE_AND_NOT_DRAW",
+  "LONELY_KING_IN_CORNER_AND_NOT_DRAW",
+  "LONELY_KING_OPPOSITION_AND_NOT_DRAW",
+  "LONELY_KING_ACHIEVABLE_OPPOSITION_AND_NOT_DRAW",
+  "LONELY_KING_NEXT_TO_ENEMY_KING",
+  "KING_PAWN_TROPISM",
 ]
 
 class Weights:
@@ -269,9 +281,9 @@ if __name__ == '__main__':
 
   print('Setting up model...')
   model = Model(X.shape[0])
-  opt = optim.AdamW(model.parameters(), lr=3e-3)
+  opt = optim.AdamW(model.parameters(), lr=0.0)
 
-  with open('w2.txt', 'r') as f:
+  with open('weights.txt', 'r') as f:
     weights = Weights(f)
 
   with torch.no_grad():
@@ -280,6 +292,28 @@ if __name__ == '__main__':
       model.w[k].weight += torch.tensor(weights.vecs[k] / 100, dtype=torch.float32)
 
   loss_fn = LossFn()
+
+  L = []
+  for bs in (np.linspace(8, 12, 3)**2).astype(np.int64).tolist():
+    for pg in opt.param_groups:
+      pg['lr'] = 0.0
+    it = 0
+    for x, y, turn in tqdm(tdata.DataLoader(dataset, batch_size=bs)):
+      it += 1
+      if it == 20:
+        for pg in opt.param_groups:
+          pg['lr'] = 3e-4
+      x = x.float()
+      time = x[:, varnames.index('TIME')].clip(0.0, 18.0) / 18.0
+      y = logit((y.float().squeeze() + 1.0) / 1002.0) * turn.float().squeeze()
+      yhat = model(x, time).squeeze()
+      loss = loss_fn(yhat, y)
+      opt.zero_grad()
+      loss.backward()
+      opt.step()
+      L.append(float(loss))
+      if len(L) % 10000 == 0:
+        print((f'Loss: %.4f' % np.array(L[-10000:]).mean()).ljust(12), len(L))
 
   print('Computing residuals')
   with ShardedWriter('/tmp/res', dtype=np.float32, shape=(1,)) as w:

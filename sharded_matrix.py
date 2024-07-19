@@ -214,6 +214,17 @@ class ShardedLoader(LoaderInterface):
       R.append(shard[start_offset:end_offset])
     
     return np.concatenate(R, 0)
+
+  def iter(self, offset=0):
+    for shard in range(self.num_shards):
+      a, b = self.shard_to_slice_indices(shard)
+      if offset >= a and offset < b:
+        break
+    while shard < self.num_shards:
+      for row in self.load_shard(shard):
+        yield offset, row
+        offset += 1
+      shard += 1
   
 class MappingLoader(LoaderInterface):
   def __init__(self, loader: LoaderInterface, *mappings, width=None):
@@ -274,11 +285,13 @@ class RowMapper(LoaderInterface):
     return self._f(*A)
 
 def _compute_innerproduct(loader1, loader2, offset):
+  print('_compute_innerproduct', offset)
   shard = loader1.load_shard(offset).astype(np.float32)
   slice = loader2.load_slice(*loader1.shard_to_slice_indices(offset)).astype(np.float32)
   return shard.T @ slice
 
 def _compute_weighted_innerproduct(loader1, loader2, weights_loader, offset):
+  print('_compute_weighted_innerproduct', offset)
   shard = loader1.load_shard(offset).astype(np.float32)
   indices = loader1.shard_to_slice_indices(offset)
   slice = loader2.load_slice(*indices).astype(np.float32)
@@ -289,10 +302,12 @@ def _compute_weighted_innerproduct(loader1, loader2, weights_loader, offset):
   return shard.T @ slice
 
 def _compute_self_innerproduct(loader1, offset):
+  print('_compute_self_innerproduct', offset)
   A = loader1.load_shard(offset).astype(np.float32)
   return A.T @ A
 
 def _compute_weighted_self_innerproduct(loader1, weights_loader, offset):
+  print('_compute_weighted_self_innerproduct', offset)
   A = loader1.load_shard(offset).astype(np.float32)
   weights = weights_loader.load_slice(*loader1.shard_to_slice_indices(offset)).astype(np.float32)
   A = A * weights
@@ -455,6 +470,7 @@ varnames = [
   "IN_CHECK_AND_OUR_HANING_QUEENS",
   "PROMOTABLE_PAWN",
   "PINNED_PIECES",
+  "KING_PAWN_TROPISM",
 ]
 
 def compute_piece_counts(x):
@@ -490,26 +506,118 @@ def logit(x):
   x /= 1002.0
   return np.log(x / (1.0 - x))
 
+def table2monocolor(table):
+  """
+  Convert a table of shape (N, 12, 8, 8) to a table of shape (N, 6, 8, 8) by
+  flipping the black pieces and subtracting them from the white pieces.
+  """
+  table = table.astype(np.int8)
+  n = table.shape[0]
+  table = table[:,:768].reshape((n, 2, 6, 8, 8))
+  return (table[:,0] - np.flip(table[:,1], 2)).reshape((n, -1))
+
+def quadratic_expansion(x):
+  X = []
+  X.append(np.ones(x.shape[0]))
+  X.append(x[:,0] - x[:,6])
+  X.append(x[:,1] - x[:,7])
+  X.append(x[:,2] - x[:,8])
+  X.append(x[:,3] - x[:,9])
+  X.append(x[:,4] - x[:,10])
+
+  # # Pawn interaction terms
+  # X.append(x[:,0] * x[:,1] - x[:,6] * x[:,7])
+  # X.append(x[:,0] * x[:,2] - x[:,6] * x[:,8])
+  # X.append(x[:,0] * x[:,3] - x[:,6] * x[:,9])
+  # X.append(x[:,0] * x[:,4] - x[:,6] * x[:,10])
+
+  # # Queen interaction terms
+  # X.append(x[:,4] * x[:,1] - x[:,10] * x[:,7])
+  # X.append(x[:,4] * x[:,2] - x[:,10] * x[:,8])
+  # X.append(x[:,4] * x[:,3] - x[:,10] * x[:,9])
+
+  return np.stack(X, 1)
+
 def times(a, b):
   return a * b
 
+def table2fen(A, white_to_move):
+  lines = []
+  occ = A.sum(0)
+  P = 'PNBRQKpnbrqk'
+  for y in range(8):
+    lines.append('')
+    count = 0
+    for x in range(8):
+      if occ[y,x] == 0:
+        count += 1
+      else:
+        if count != 0:
+          lines[-1] += str(count)
+          count = 0
+        lines[-1] += P[A[:,y,x].argmax()]
+    if count != 0:
+      lines[-1] += str(count)
+  return '/'.join(lines) + (' w ' if white_to_move else ' b ') + '- - 1 1'
+
+def to_signed_y(y, s):
+  return logit(y) * s
+
 if __name__ == '__main__':
-  X = ShardedLoader('data/a-table')
-  Y = ShardedLoader('data/a-eval')
+  a = 'de5-md2'
+  X = ShardedLoader(f'data/{a}/data-table')
+  F = ShardedLoader(f'data/{a}/data-features')
+  Y = ShardedLoader(f'data/{a}/data-eval')
+  T = ShardedLoader(f'data/{a}/data-turn')
 
-  # X = ShardedLoader('data/positions-de4-md1-table')
-  # Y = ShardedLoader('data/positions-de4-md1-eval')
+  print(X.num_shards)
 
-  Y = MappingLoader(Y, logit)
+  PC = None
+  if not os.path.exists(f'data/{a}/data-piece-counts-00000.sm') or ShardedLoader(f'data/{a}/data-piece-counts').num_rows != X.num_rows:
+    PC = MappingLoader(X, compute_piece_counts)
+    with ShardedWriter(f'data/{a}/data-piece-counts', shape=(12,), dtype=np.int8) as w:
+      for shard in range(PC.num_shards):
+        w.write_many(PC.load_shard(shard))
+  PC = ShardedLoader(f'data/{a}/data-piece-counts')
 
-  PC = MappingLoader(X, compute_piece_counts)
+  # Derived tables.
+  MonoTable = MappingLoader(X, table2monocolor)
   earliness = MappingLoader(PC, compute_earliness)
   lateness = MappingLoader(PC, compute_earliness, compute_lateness)
+  SignedY = RowMapper(to_signed_y, Y, T)
 
-  wEarly = linear_regression(X, Y, weights=earliness, regularization=10.0).squeeze()
-  early = wEarly[:-8].reshape((12, 8, 8))
+  # for i, x in X.iter(offset=15_000_000):
+  #   x = x[:768].reshape(12, 8, 8)
+  #   pc = x.sum((1, 2))
+  #   if pc.sum() != pc[0] + pc[5] + pc[6] + pc[11]:
+  #     continue
+  #   is_white_to_move = (T.load_slice(i, i+1).squeeze() > 0)
+  #   score = int(Y.load_slice(i, i+1).squeeze())
+  #   print(str(score).rjust(8), table2fen(x, is_white_to_move))
+
+  features = F
+  Y = SignedY
+  # Y = MappingLoader(Y, logit)
+
+  wEarly = linear_regression(features, Y, weights=earliness, regularization=10.0).squeeze()
+  # early = wEarly.reshape((6, 8, 8))
   # np.save('early.npy', early)
 
-  wLate = linear_regression(X, Y, weights=lateness, regularization=10.0).squeeze()
-  late = wLate[:-8].reshape((12, 8, 8))
+  wLate = linear_regression(features, Y, weights=lateness, regularization=10.0, num_workers=2).squeeze()
+  # late = wLate.reshape((6, 8, 8))
   # np.save('late.npy', late)
+
+  text = ""
+  for k, w in zip(['early', 'late'], [wEarly, wLate]):
+    text += ('%i' % round(0.0)).rjust(7) + f'  // {k} bias\n'
+    for i, varname in enumerate(varnames):
+      text += ('%i' % round(float(w[i]) * 100 / wEarly[0])).rjust(7) + f'  // {k} {varname}\n'
+
+  # text = ''
+  # for w in [early, late]:
+  #   for i, p in enumerate('PNBRQK'):
+  #     text += "// %s\n" % p
+  #     for r in range(8):
+  #       for f in range(8):
+  #         text += ('%i' % round(w[i,r,f] * 100)).rjust(6)
+  #       text += '\n'

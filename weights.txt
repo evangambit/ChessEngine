@@ -123,7 +123,8 @@
       0  // early LONELY_KING_IN_CORNER_AND_NOT_DRAW,
       0  // early LONELY_KING_OPPOSITION_AND_NOT_DRAW,
       0  // early LONELY_KING_ACHIEVABLE_OPPOSITION_AND_NOT_DRAW,
-      0  // early LONELY_KING_NEXT_TO_ENEMY_KING,
+      0  // early LONELY_KING_NEXT_TO_ENEMY_KING
+      0  // early KING_PAWN_TROPISM
      -4  // late bias
     117  // late OUR_PAWNS
     272  // late OUR_KNIGHTS
@@ -250,6 +251,7 @@
      75  // late LONELY_KING_OPPOSITION_AND_NOT_DRAW,
      50  // late LONELY_KING_ACHIEVABLE_OPPOSITION_AND_NOT_DRAW,
      25  // late LONELY_KING_NEXT_TO_ENEMY_KING,
+      0  // late KING_PAWN_TROPISM
      -2  // clipped bias
      19  // clipped OUR_PAWNS
     196  // clipped OUR_KNIGHTS
@@ -376,6 +378,7 @@
       0  // clipped LONELY_KING_OPPOSITION_AND_NOT_DRAW,
       0  // clipped LONELY_KING_ACHIEVABLE_OPPOSITION_AND_NOT_DRAW,
       0  // clipped LONELY_KING_NEXT_TO_ENEMY_KING,
+      0  // clipped KING_PAWN_TROPISM
 // ?
      0     0     0     0     0     0     0     0
      0     0     0     0     0     0     0     0
