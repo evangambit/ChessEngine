@@ -39,6 +39,8 @@ class ExpandedLinear(nn.Linear):
     return linear
 
 import random
+import torch
+import torch.utils.data as tdata
 class ShardedMatrixDataset(tdata.IterableDataset):
   def __init__(self, X, *Y):
     self.X = X
@@ -52,7 +54,9 @@ class ShardedMatrixDataset(tdata.IterableDataset):
     a new one, randomly selected from the remaining shards.
     """
     kNumShardsAtOnce = 8
-    rows_per_shard = np.concatenate([[self.X.cumsum_rows[0]], np.diff(self.X.cumsum_rows)])
+
+    cumsum_rows = np.cumsum(self.X.num_rows_in_shards())
+    rows_per_shard = np.concatenate([[cumsum_rows[0]], np.diff(cumsum_rows)])
     I = []
     for i, n in enumerate(rows_per_shard):
       I.append(np.arange(n))
@@ -72,6 +76,8 @@ class ShardedMatrixDataset(tdata.IterableDataset):
         x = self.X.load_shard(shard)
         indices = self.X.shard_to_slice_indices(shard)
         shard2tensors[shard] = (x,) + tuple([y.load_slice(*indices) for y in self.Y])
+        for y in shard2tensors[shard][1:]:
+          assert x.shape[0] == y.shape[0]
       
       if len(active_shards) == 0:
         break
