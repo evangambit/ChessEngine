@@ -324,14 +324,14 @@ struct Flood {
   Bitboard result[N];
 };
 inline Bitboard _king_fill(Bitboard b) {
-  return = shift<Direction::EAST>(b)
-        |  shift<Direction::WEST>(b)
-        |  shift<Direction::NORTH>(b)
-        |  shift<Direction::SOUTH>(b)
-        |  shift<Direction::NORTH_EAST>(b)
-        |  shift<Direction::NORTH_WEST>(b)
-        |  shift<Direction::SOUTH_EAST>(b)
-        |  shift<Direction::SOUTH_WEST>(b);
+  return shift<Direction::EAST>(b)
+      |  shift<Direction::WEST>(b)
+      |  shift<Direction::NORTH>(b)
+      |  shift<Direction::SOUTH>(b)
+      |  shift<Direction::NORTH_EAST>(b)
+      |  shift<Direction::NORTH_WEST>(b)
+      |  shift<Direction::SOUTH_EAST>(b)
+      |  shift<Direction::SOUTH_WEST>(b);
 }
 template<size_t N>
 Flood<N> king_flood(Square kingSq, Bitboard danger) {
