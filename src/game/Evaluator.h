@@ -930,6 +930,8 @@ struct Evaluator {
     const int by = theirKingSq / 8;
 
     {
+      features[EF::KNOWN_KPVK_DRAW] = 0;
+      features[EF::KNOWN_KPVK_WIN] = 0;
       const bool isOurKPPVK = isKingPawnEndgame && (std::popcount(ourPawns) >= 1) && (theirPawns == 0);
       const bool isTheirKPPVK = isKingPawnEndgame && (std::popcount(theirPawns) >= 1) && (ourPawns == 0);
       // KPVK games are winning if square rule is true.
