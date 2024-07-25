@@ -218,25 +218,6 @@ def quadratic_expansion(x):
 def times(a, b):
   return a * b
 
-def table2fen(A, white_to_move):
-  lines = []
-  occ = A.sum(0)
-  P = 'PNBRQKpnbrqk'
-  for y in range(8):
-    lines.append('')
-    count = 0
-    for x in range(8):
-      if occ[y,x] == 0:
-        count += 1
-      else:
-        if count != 0:
-          lines[-1] += str(count)
-          count = 0
-        lines[-1] += P[A[:,y,x].argmax()]
-    if count != 0:
-      lines[-1] += str(count)
-  return '/'.join(lines) + (' w ' if white_to_move else ' b ') + '- - 1 1'
-
 def to_signed_y(y, s):
   return logit(y) * s
 
@@ -263,7 +244,7 @@ if __name__ == '__main__':
   Y = ShardedLoader(f'data/{a}/data-eval')
   T = ShardedLoader(f'data/{a}/data-turn')
 
-  print(X.num_shards, X.num_rows)
+  print(X.num_shards, X.num_rows / 1_000_000)
 
   # n = 5_000_000
   # X = Slice(X, 0, n)
@@ -287,6 +268,8 @@ if __name__ == '__main__':
   MonoTable.save(f'data/{a}/derived/data-mono-table', force=True)
   MonoTable = ShardedLoader(f'data/{a}/derived/data-mono-table')
 
+  print('Done')
+
   # Derived tables.
   earliness = MappingLoader(PC, compute_earliness)
   lateness = MappingLoader(PC, compute_earliness, compute_lateness)
@@ -294,7 +277,10 @@ if __name__ == '__main__':
   features = RowMapper(early_late, F, lateness)  # cat([F * early, F * late], 1)
 
 
-  w = linear_regression(features, SignedY, regularization=50.0)
+  if True:
+    w = linear_regression(features, SignedY, regularization=1.0)
+  else:
+    w = np.zeros((features.shape[0], 1), dtype=np.float32)
   wEarly, wLate = w.reshape(2, -1)
 
   Yhat = matmul(features, w)
@@ -331,10 +317,13 @@ if __name__ == '__main__':
   
 
   UnsignedResiduals = RowMapper(times, Residuals, T)
-  early = linear_regression(MonoTable, UnsignedResiduals, weights=earliness, regularization=1.0).reshape((6, 8, 8))
-  late = linear_regression(MonoTable, UnsignedResiduals, weights=lateness, regularization=1.0).reshape((6, 8, 8))
-  
-  
+  early = linear_regression(MonoTable, UnsignedResiduals, weights=earliness, regularization=0.01).reshape((6, 8, 8))
+  late = linear_regression(MonoTable, UnsignedResiduals, weights=lateness, regularization=0.01).reshape((6, 8, 8))
+
+  # If we never learned wEarly, use piece maps to determine centipawn value.
+  if wEarly[0] == 0.0:
+    wEarly[0] = early[0,2:-1].mean()
+
   text = ""
   for k, w in zip(['early', 'late', 'clipped'], [wEarly, wLate, wClipped]):
     text += ('%i' % round(0.0)).rjust(7) + f'  // {k} bias\n'

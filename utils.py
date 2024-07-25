@@ -97,3 +97,23 @@ class ShardedMatrixDataset(tdata.IterableDataset):
 
   def __len__(self):
     return self.X.num_rows
+
+def table2fen(A, white_to_move):
+  assert A.shape == (12, 8, 8)
+  lines = []
+  occ = A.sum(0)
+  P = 'PNBRQKpnbrqk'
+  for y in range(8):
+    lines.append('')
+    count = 0
+    for x in range(8):
+      if occ[y,x] == 0:
+        count += 1
+      else:
+        if count != 0:
+          lines[-1] += str(count)
+          count = 0
+        lines[-1] += P[A[:,y,x].argmax()]
+    if count != 0:
+      lines[-1] += str(count)
+  return '/'.join(lines) + (' w ' if white_to_move else ' b ') + '- - 1 1'

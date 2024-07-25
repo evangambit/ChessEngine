@@ -65,7 +65,9 @@ def bytes2tensor(A, dtype, shape):
 
 class ShardedWriter:
   def __init__(self, path: str, dtype: type, shape: tuple[int], shard_size_bytes: int = 25_000_000) -> None:
-    assert dtype in kSupportedTypes
+    if dtype not in kSupportedTypes and hasattr(dtype, 'type'):
+      dtype = dtype.type
+    assert dtype in kSupportedTypes, f'Unsupported type {dtype}'
     # assert len(shape) > 0, 'At least one dimension must be provided'
     for d in shape:
       assert d > 0, 'All dimensions must be greater than 0'
@@ -265,8 +267,9 @@ class MappingLoader(LoaderInterface):
     self._loader = loader
     self._mappings = mappings
 
-    self.dtype = loader.dtype
-    self.shape = tuple(self._apply(np.ones((1,) + loader.shape) * 0.5).shape[1:])
+    result = self._apply(loader.load_slice(0, 1))
+    self.dtype = result.dtype
+    self.shape = tuple(result.shape[1:])
     self.num_shards = loader.num_shards
     self.num_rows = loader.num_rows
   
