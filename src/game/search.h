@@ -28,6 +28,14 @@
 #define SIMPLE_SEARCH 0
 #endif
 
+#ifndef PRINT_PV_CHANGES
+#define PRINT_PV_CHANGES 0
+#endif
+
+#ifndef DEBUG_TT
+#define DEBUG_TT 0
+#endif
+
 #ifdef PRINT_DEBUG
 bool gPrintDebug = false;
 #define IS_PRINT_NODE gPrintDebug
@@ -204,7 +212,7 @@ static SearchResult<TURN> qsearch(Thinker *thinker, Thread *thread, int32_t dept
     #if IS_PRINT_NODE
     std::cout << pad(plyFromRoot) << "Q end a" << std::endl;
     #endif
-    return SearchResult<TURN>(kMissingKing, kNullMove);
+    return SearchResult<TURN>(std::max(alpha, std::min(beta, kMissingKing)), kNullMove);
   }
 
   // +0.0402 ± 0.0124 after 512 games at 50,000 nodes/move
@@ -223,7 +231,7 @@ static SearchResult<TURN> qsearch(Thinker *thinker, Thread *thread, int32_t dept
   }
 
   if (moves == end && inCheck) {
-    return SearchResult<TURN>(depth <= 1 ? kCheckmate : kQCheckmate, kNullMove);
+    return SearchResult<TURN>(std::max(alpha, std::min(beta, depth <= 1 ? kCheckmate : kQCheckmate)), kNullMove);
   }
 
   // If we can stand pat for a beta cutoff, or if we have no moves, return.
@@ -248,6 +256,7 @@ static SearchResult<TURN> qsearch(Thinker *thinker, Thread *thread, int32_t dept
     #if IS_PRINT_NODE
     std::cout << pad(plyFromRoot) << "Q end b " << r << std::endl;
     #endif
+    r.score = std::max(alpha, std::min(beta, r.score));
     return r;
   }
 
@@ -310,6 +319,7 @@ static SearchResult<TURN> qsearch(Thinker *thinker, Thread *thread, int32_t dept
     std::cout << pad(plyFromRoot) << "Q end c " << r << std::endl;
     #endif
 
+  r.score = std::max(alpha, std::min(beta, r.score));
   return r;
 }
 
@@ -361,7 +371,7 @@ static SearchResult<TURN> search(
       if (IS_PRINT_NODE) {
         std::cout << pad(plyFromRoot) << "end a " << thread->pos.hash_ << " interrupted" << std::endl;
       }
-      return SearchResult<TURN>(0, kNullMove, false);
+      return SearchResult<TURN>(std::max(originalAlpha, std::min(originalBeta, Evaluation(0))), kNullMove, false);
     }
   }
 
@@ -369,24 +379,27 @@ static SearchResult<TURN> search(
     if (IS_PRINT_NODE) {
       std::cout << pad(plyFromRoot) << "end b " << thread->pos.hash_ << " no king" << std::endl;
     }
-    return SearchResult<TURN>(kMissingKing, kNullMove);
+    return SearchResult<TURN>(std::max(originalAlpha, std::min(originalBeta, kMissingKing)), kNullMove, false);
   }
 
   if (thread->pos.is_3fold_repetition(plyFromRoot)) {
     if (IS_PRINT_NODE) {
       std::cout << pad(plyFromRoot) << "end c " << thread->pos.hash_ << " 3fold draw" << std::endl;
     }
-    return SearchResult<TURN>(Evaluation(0), kNullMove);
+    return SearchResult<TURN>(std::max(originalAlpha, std::min(originalBeta, Evaluation(0))), kNullMove, false);
   }
 
   if (SEARCH_TYPE != SearchTypeRoot && thread->evaluator.is_material_draw(thread->pos)) {
     if (IS_PRINT_NODE) {
       std::cout << pad(plyFromRoot) << "end d " << thread->pos.hash_ << " material draw" << std::endl;
     }
-    return SearchResult<TURN>(Evaluation(0), kNullMove);
+    return SearchResult<TURN>(std::max(originalAlpha, std::min(originalBeta, Evaluation(0))), kNullMove, false);
   }
 
   CacheResult cr = thinker->cache.find<IS_PARALLEL>(thread->pos.hash_);
+  #if DEBUG_TT
+  std::cout << "GET " << thread->pos.history_ << "    " << cr << std::endl;
+  #endif
   // Short-circuiting due to a cached result.
   // 0.0729 ± 0.0109 after 512 games at 50,000 nodes/move
   if (!(SEARCH_TYPE == SearchTypeRoot && thread->id == 0)) {
@@ -413,13 +426,13 @@ static SearchResult<TURN> search(
           if (IS_PRINT_NODE) {
             std::cout << pad(plyFromRoot) << "end e " << thread->pos.hash_ << " cached but draw " << cr << std::endl;
           }
-          return SearchResult<TURN>(Evaluation(0), kNullMove);
+          return SearchResult<TURN>(std::max(originalAlpha, std::min(originalBeta, Evaluation(0))), kNullMove, false);
         }
 
         if (IS_PRINT_NODE) {
           std::cout << pad(plyFromRoot) << "end e " << thread->pos.hash_ << " cached " << cr << std::endl;
         }
-        return SearchResult<TURN>(std::max(alpha, std::min(beta, cr.eval)), cr.bestMove);
+        return SearchResult<TURN>(std::max(originalAlpha, std::min(originalBeta, cr.eval)), cr.bestMove);
       }
 
       // Adjust alpha/beta based on cached value. This helps us achieve more cuts and avoid returning
@@ -494,6 +507,9 @@ static SearchResult<TURN> search(
       if (IS_PRINT_NODE) {
         std::cout << pad(plyFromRoot) << "  insert " << cr << std::endl;
       }
+      #if DEBUG_TT
+      std::cout << "PUT A " << thread->pos.history_ << "    " << cr << std::endl;
+      #endif
       thinker->cache.insert<IS_PARALLEL>(cr);
       return r;
     }
@@ -545,6 +561,9 @@ static SearchResult<TURN> search(
         NodeTypePV,
         distFromPV
       );
+      #if DEBUG_TT
+      std::cout << "PUT B " << thread->pos.history_ << "    " << cr << std::endl;
+      #endif
       thinker->cache.insert<IS_PARALLEL>(cr);
       return SearchResult<TURN>(kCheckmate, kNullMove);
     } else {
@@ -559,8 +578,11 @@ static SearchResult<TURN> search(
         NodeTypePV,
         distFromPV
       );
+      #if DEBUG_TT
+      std::cout << "PUT C " << thread->pos.history_ << "    " << cr << std::endl;
+      #endif
       thinker->cache.insert<IS_PARALLEL>(cr);
-      return SearchResult<TURN>(Evaluation(0), kNullMove);
+      return SearchResult<TURN>(std::max(originalAlpha, std::min(originalBeta, Evaluation(0))), kNullMove);
     }
   }
 
@@ -569,7 +591,7 @@ static SearchResult<TURN> search(
     if (IS_PRINT_NODE) {
       std::cout << pad(plyFromRoot) << "end k " << thread->pos.hash_ << " 50 move draw" << std::endl;
     }
-    return SearchResult<TURN>(Evaluation(0), kNullMove);
+    return SearchResult<TURN>(std::max(originalAlpha, std::min(originalBeta, Evaluation(0))), kNullMove);
   }
 
   // const ExtMove lastMove = thread->pos.history_.size() > 0 ? thread->pos.history_.back() : kNullExtMove;
@@ -633,6 +655,9 @@ static SearchResult<TURN> search(
   // }
 
   // Should be optimized away if SEARCH_TYPE != SearchTypeRoot.
+  #if PRINT_PV_CHANGES
+  Move response;
+  #endif
   std::vector<VariationHead<TURN>> children;
   size_t numValidMoves = 0;
   for (int isDeferred = 0; isDeferred <= 1; ++isDeferred) {
@@ -726,6 +751,9 @@ static SearchResult<TURN> search(
       if (SEARCH_TYPE == SearchTypeRoot) {
         if (children.size() < thinker->multiPV || children.back().score < a.score) {
           children.push_back(VariationHead<TURN>(a.score, extMove->move, a.move));
+          #if PRINT_PV_CHANGES
+          response = a.move;
+          #endif
           a.move = extMove->move;
           std::stable_sort(
             children.begin(),
@@ -747,6 +775,9 @@ static SearchResult<TURN> search(
         }
       } else {
         if (a.score > r.score) {
+          #if PRINT_PV_CHANGES
+          response = a.move;
+          #endif
           r.score = a.score;
           r.move = extMove->move;
           recommendationsForChildren.add(a.move);
@@ -765,6 +796,12 @@ static SearchResult<TURN> search(
       break;
     }
   }
+
+  #if PRINT_PV_CHANGES
+  if (r.score > originalAlpha && r.score < originalBeta) {
+    std::cout << to_white(r) << " " << response << "    " << thread->pos.history_ << std::endl;
+  }
+  #endif
 
   if (SEARCH_TYPE == SearchTypeRoot && thread->id == 0) {
     // We rely on the stability of std::sort to guarantee that children that
