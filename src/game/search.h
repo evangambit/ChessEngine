@@ -231,6 +231,9 @@ static SearchResult<TURN> qsearch(Thinker *thinker, Thread *thread, int32_t dept
   }
 
   if (moves == end && inCheck) {
+    #if IS_PRINT_NODE
+    std::cout << pad(plyFromRoot) << "Q end checkmate" << std::endl;
+    #endif
     return SearchResult<TURN>(std::max(alpha, std::min(beta, depth <= 1 ? kCheckmate : kQCheckmate)), kNullMove);
   }
 
@@ -254,7 +257,7 @@ static SearchResult<TURN> qsearch(Thinker *thinker, Thread *thread, int32_t dept
   }
   if (moves == end || r.score >= beta) {
     #if IS_PRINT_NODE
-    std::cout << pad(plyFromRoot) << "Q end b " << r << std::endl;
+    std::cout << pad(plyFromRoot) << "Q end pat " << r << "  " << thread->pos.history_ << "  " << alpha << "  " << beta << std::endl;
     #endif
     r.score = std::max(alpha, std::min(beta, r.score));
     return r;
@@ -298,7 +301,7 @@ static SearchResult<TURN> qsearch(Thinker *thinker, Thread *thread, int32_t dept
 
     make_move<TURN>(&thread->pos, move->move);
 
-    SearchResult<TURN> child = child2parent(qsearch<opposingColor>(thinker, thread, depth + 1, plyFromRoot + 1, child_alpha, child_beta));
+    SearchResult<TURN> child = child2parent(qsearch<opposingColor>(thinker, thread, depth + 1, plyFromRoot + 1, child_beta, child_alpha));
     child.score -= (child.score > -kQLongestForcedMate);
     child.score += (child.score <  kQLongestForcedMate);
 
@@ -316,8 +319,8 @@ static SearchResult<TURN> qsearch(Thinker *thinker, Thread *thread, int32_t dept
   }
 
   #if IS_PRINT_NODE
-    std::cout << pad(plyFromRoot) << "Q end c " << r << std::endl;
-    #endif
+  std::cout << pad(plyFromRoot) << "Q end c " << r << std::endl;
+  #endif
 
   r.score = std::max(alpha, std::min(beta, r.score));
   return r;
