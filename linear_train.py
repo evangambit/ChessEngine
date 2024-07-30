@@ -2,7 +2,7 @@ import os
 
 import numpy as np
 
-from sharded_matrix import ShardedLoader, ShardedWriter, linear_regression, MappingLoader, Slice, RowMapper, matmul
+from sharded_matrix import ShardedLoader, ShardedWriter, linear_regression, MappingLoader, Slice, RowMapper, matmul, curry
 from utils import ExpandedLinear, ShardedMatrixDataset
 
 """
@@ -236,6 +236,8 @@ def clip_grad(x, grad, low, high):
 def times(a, b):
   return a * b
 
+def slice(X, start, end):
+  return X[:, start:end]
 
 if __name__ == '__main__':
   a = 'de5-md2'
@@ -246,11 +248,11 @@ if __name__ == '__main__':
 
   print(X.num_shards, X.num_rows / 1_000_000)
 
-  # n = 5_000_000
-  # X = Slice(X, 0, n)
-  # F = Slice(F, 0, n)
-  # Y = Slice(Y, 0, n)
-  # T = Slice(T, 0, n)
+  n = 4_000_000
+  X = Slice(X, 0, n)
+  F = Slice(F, 0, n)
+  Y = Slice(Y, 0, n)
+  T = Slice(T, 0, n)
 
   if not os.path.exists(f'data/{a}/derived/'):
     os.mkdir(f'data/{a}/derived/')
@@ -274,11 +276,11 @@ if __name__ == '__main__':
   earliness = MappingLoader(PC, compute_earliness)
   lateness = MappingLoader(PC, compute_earliness, compute_lateness)
   SignedY = RowMapper(to_signed_y, Y, T)
-  features = RowMapper(early_late, F, lateness)  # cat([F * early, F * late], 1)
+  features = RowMapper(early_late, MappingLoader(F, add_bias), lateness)  # cat([F * early, F * late], 1)
 
 
   if True:
-    w = linear_regression(features, SignedY, regularization=1.0)
+    w = linear_regression(features, SignedY, regularization=50.0)
   else:
     w = np.zeros((features.shape[0], 1), dtype=np.float32)
   wEarly, wLate = w.reshape(2, -1)
@@ -316,9 +318,13 @@ if __name__ == '__main__':
     wClipped = np.zeros(wEarly.shape)
   
 
-  UnsignedResiduals = RowMapper(times, Residuals, T)
-  early = linear_regression(MonoTable, UnsignedResiduals, weights=earliness, regularization=0.01).reshape((6, 8, 8))
-  late = linear_regression(MonoTable, UnsignedResiduals, weights=lateness, regularization=0.01).reshape((6, 8, 8))
+  if True:
+    UnsignedResiduals = RowMapper(times, Residuals, T)
+    early = linear_regression(MonoTable, UnsignedResiduals, weights=earliness, regularization=0.01).reshape((6, 8, 8))
+    late = linear_regression(MonoTable, UnsignedResiduals, weights=lateness, regularization=0.01).reshape((6, 8, 8))
+  else:
+    early = np.zeros((6, 8, 8))
+    late = np.zeros((6, 8, 8))
 
   # If we never learned wEarly, use piece maps to determine centipawn value.
   if wEarly[0] == 0.0:
@@ -326,7 +332,7 @@ if __name__ == '__main__':
 
   text = ""
   for k, w in zip(['early', 'late', 'clipped'], [wEarly, wLate, wClipped]):
-    text += ('%i' % round(0.0)).rjust(7) + f'  // {k} bias\n'
+    text += ('%i' % round(w[len(varnames)] * 100 / wEarly[0])).rjust(7) + f'  // {k} bias\n'
     for i, varname in enumerate(varnames):
       text += ('%i' % round(float(w[i]) * 100 / wEarly[0])).rjust(7) + f'  // {k} {varname}\n'
 
