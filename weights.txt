@@ -9,7 +9,7 @@
    -242  // early THEIR_BISHOPS
    -290  // early THEIR_ROOKS
    -747  // early THEIR_QUEENS
-     82  // early IN_CHECK
+      0  // early IN_CHECK
     -10  // early KING_ON_BACK_RANK
     -27  // early KING_ON_CENTER_FILE
      27  // early KING_ACTIVE
@@ -21,10 +21,10 @@
     -18  // early DOUBLE_ISOLATED_PAWNS
     -15  // early PAWNS_CENTER_16
       5  // early PAWNS_CENTER_4
-    -86  // early ADVANCED_PASSED_PAWNS_2
+      0  // early ADVANCED_PASSED_PAWNS_2
      27  // early ADVANCED_PASSED_PAWNS_3
      20  // early ADVANCED_PASSED_PAWNS_4
-     -2  // early PAWN_MINOR_CAPTURES
+      0  // early PAWN_MINOR_CAPTURES
       9  // early PAWN_MAJOR_CAPTURES
       3  // early PROTECTED_PAWNS
      17  // early PROTECTED_PASSED_PAWNS
@@ -41,7 +41,7 @@
       2  // early KNIGHTS_CENTER_16
      23  // early KNIGHTS_CENTER_4
      22  // early KNIGHT_ON_ENEMY_SIDE
-      6  // early OUR_HANGING_PAWNS
+      0  // early OUR_HANGING_PAWNS
     -51  // early OUR_HANGING_KNIGHTS
     -62  // early OUR_HANGING_BISHOPS
     -72  // early OUR_HANGING_ROOKS
@@ -49,13 +49,13 @@
       0  // early THEIR_HANGING_PAWNS
      60  // early THEIR_HANGING_KNIGHTS
      35  // early THEIR_HANGING_BISHOPS
-    -31  // early THEIR_HANGING_ROOKS
-   -105  // early THEIR_HANGING_QUEENS
+      0  // early THEIR_HANGING_ROOKS
+      0  // early THEIR_HANGING_QUEENS
   -1457  // early LONELY_KING_IN_CENTER
    -333  // early LONELY_KING_AWAY_FROM_ENEMY_KING
       1  // early TIME
-   -354  // early KPVK_OPPOSITION
-   -164  // early SQUARE_RULE
+      0  // early KPVK_OPPOSITION
+      0  // early SQUARE_RULE
     196  // early ADVANCED_PAWNS_1
      67  // early ADVANCED_PAWNS_2
      12  // early OPEN_ROOKS
@@ -74,7 +74,7 @@
       5  // early QUEEN_MOVES
       8  // early PAWN_MOVES_ON_THEIR_SIDE
       4  // early KNIGHT_MOVES_ON_THEIR_SIDE
-     -1  // early BISHOP_MOVES_ON_THEIR_SIDE
+      0  // early BISHOP_MOVES_ON_THEIR_SIDE
       3  // early ROOK_MOVES_ON_THEIR_SIDE
       7  // early QUEEN_MOVES_ON_THEIR_SIDE
      29  // early KING_HOME_QUALITY
@@ -87,8 +87,8 @@
      10  // early THEIR_HANGING_PAWNS_2
      66  // early THEIR_HANGING_KNIGHTS_2
     105  // early THEIR_HANGING_BISHOPS_2
-    -44  // early THEIR_HANGING_ROOKS_2
-   -119  // early THEIR_HANGING_QUEENS_2
+      0  // early THEIR_HANGING_ROOKS_2
+      0  // early THEIR_HANGING_QUEENS_2
     -11  // early QUEEN_THREATS_NEAR_KING
      -6  // early MISSING_FIANCHETTO_BISHOP
      -1  // early NUM_BAD_SQUARES_FOR_PAWNS
@@ -136,7 +136,7 @@
    -284  // late THEIR_BISHOPS
    -519  // late THEIR_ROOKS
   -1011  // late THEIR_QUEENS
-    121  // late IN_CHECK
+      0  // late IN_CHECK
     -22  // late KING_ON_BACK_RANK
       0  // late KING_ON_CENTER_FILE
      16  // late KING_ACTIVE
@@ -164,7 +164,7 @@
     -17  // late SCARY_ROOKS
       4  // late INFILTRATING_ROOKS
      36  // late KNIGHTS_DEVELOPED
-    -19  // late KNIGHT_MAJOR_CAPTURES
+      0  // late KNIGHT_MAJOR_CAPTURES
      15  // late KNIGHTS_CENTER_16
      18  // late KNIGHTS_CENTER_4
       6  // late KNIGHT_ON_ENEMY_SIDE
@@ -214,7 +214,7 @@
      44  // late THEIR_HANGING_PAWNS_2
      79  // late THEIR_HANGING_KNIGHTS_2
      85  // late THEIR_HANGING_BISHOPS_2
-    -20  // late THEIR_HANGING_ROOKS_2
+      0  // late THEIR_HANGING_ROOKS_2
     135  // late THEIR_HANGING_QUEENS_2
     -52  // late QUEEN_THREATS_NEAR_KING
     -20  // late MISSING_FIANCHETTO_BISHOP
@@ -223,12 +223,12 @@
      -3  // late NUM_BAD_SQUARES_FOR_ROOKS
       0  // late NUM_BAD_SQUARES_FOR_QUEENS
      20  // late IN_TRIVIAL_CHECK
-      8  // late IN_DOUBLE_CHECK
+      0  // late IN_DOUBLE_CHECK
       3  // late THREATS_NEAR_OUR_KING
     -12  // late THREATS_NEAR_THEIR_KING
      25  // late NUM_PIECES_HARRASSABLE_BY_PAWNS
       6  // late PAWN_CHECKS
-     -3  // late KNIGHT_CHECKS
+      0  // late KNIGHT_CHECKS
      44  // late BISHOP_CHECKS
      17  // late ROOK_CHECKS
      26  // late QUEEN_CHECKS
@@ -243,7 +243,7 @@
      -1  // late OPPOSITE_SIDE_KINGS_PAWN_STORM
    -981  // late IN_CHECK_AND_OUR_HANING_QUEENS
      45  // late PROMOTABLE_PAWN
-      0  // late PINNED_PIECES
+    -80  // late PINNED_PIECES
       0  // late KNOWN_KPVK_DRAW,
    1000  // late KNOWN_KPVK_WIN,
      50  // late LONELY_KING_ON_EDGE_AND_NOT_DRAW,

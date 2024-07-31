@@ -48,15 +48,17 @@ std::pair<Evaluation, Move> simple_qsearch(
     return std::make_pair(alpha, kNullMove);
   }
 
-  const bool lookAtChecksToo = depth < 2;
-
+  const bool lookAtAllMoves = (depth == 0);
+  const bool lookAtChecks = (depth <= 2) && !lookAtAllMoves;
   constexpr Color opposingColor = opposite_color<TURN>();
   constexpr ColoredPiece moverKing = coloredPiece<TURN, Piece::KING>();
   const bool inCheck = can_enemy_attack<TURN>(*position, lsb(position->pieceBitboards_[moverKing]));
 
   ExtMove moves[kMaxNumMoves];
   ExtMove *end;
-  if (lookAtChecksToo) {
+  if (lookAtAllMoves) {
+    end = compute_moves<TURN, MoveGenType::ALL_MOVES>(*position, moves);
+  } else if (lookAtChecks) {
     end = compute_moves<TURN, MoveGenType::CHECKS_AND_CAPTURES>(*position, moves);
   } else {
     end = compute_moves<TURN, MoveGenType::CAPTURES>(*position, moves);
@@ -75,15 +77,12 @@ std::pair<Evaluation, Move> simple_qsearch(
     return a.score > b.score;
   });
 
-  Evaluation e = evaluator->score<TURN>(*position);
-  if (inCheck) {
-    e = kQCheckmate;
+  if (!lookAtAllMoves) {
+    alpha = std::max(alpha, evaluator->score<TURN>(*position));
+    if (alpha >= beta) {
+      return std::make_pair(beta, Move{Square::A1, Square::A2});
+    }
   }
-
-  if (e >= beta) {
-    return std::make_pair(beta, Move{Square::A1, Square::A2});
-  }
-  alpha = std::max(alpha, e);
 
   Move bestmove = kNullMove;
   for (ExtMove *move = moves; move < end; ++move) {
@@ -91,9 +90,6 @@ std::pair<Evaluation, Move> simple_qsearch(
     std::pair<Evaluation, Move> a = simple_qsearch<opposingColor>(position, evaluator, depth + 1, -beta, -alpha);
     Evaluation child = -a.first;
     undo<TURN>(position);
-
-    child -= (child > -kQLongestForcedMate);
-    child += (child <  kQLongestForcedMate);
 
     if (child > alpha) {
       alpha = std::min(beta, child);
@@ -198,16 +194,8 @@ std::pair<double, double> process_datapoints(int threadId, const Datapoint *star
       }
     }
 
-    double delta = std::min(datapoint->evals[0] - score, 200.0);
-    if (delta < 0.0) {
-      throw std::runtime_error("lalala");
-    }
-    if (delta > 190.0) {
-      std::cout << datapoint->fen << std::endl;
-      std::cout << datapoint->ucis << std::endl;
-      std::cout << datapoint->evals << std::endl;
-      std::cout << result.pvs[0] << std::endl << std::endl;
-    }
+    // double delta = std::min(datapoint->evals[0] - score, 200.0);
+    double delta = std::abs(datapoint->evals[0] - score);
 
     loss += delta;
     loss2 += delta * delta;
@@ -272,9 +260,10 @@ int main(int argc, char *argv[]) {
     Datapoint& datapoint = datapoints.back();
     datapoint.fen = parts[0];
 
-    for (size_t i = 1; i < parts.size(); i += 3) {
+    for (size_t i = 1; i < parts.size(); i += 2) {
       datapoint.ucis.push_back(parts[i + 0]);
-      datapoint.evals.push_back(std::stoi(parts[i + 1]));
+      // string to float
+      datapoint.evals.push_back(std::stof(parts[i + 1]) * 1000);
       // parts[i + 2] is "isCapture"
     }
 

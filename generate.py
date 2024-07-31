@@ -13,6 +13,13 @@ from multiprocessing import Process, Queue
 import chess
 from chess import engine as chess_engine
 
+"""
+a=de8-md3-tuning
+sqlite3 data/${a}/db.sqlite3 "select * from positions" > data/${a}/positions.txt
+sort -R data/${a}/positions.txt > data/${a}/positions.shuf.txt
+./opt 
+"""
+
 def wdl2score(wdl):
   return (wdl.wins + wdl.draws * 0.5) / (wdl.wins + wdl.draws + wdl.losses)
 
@@ -35,25 +42,28 @@ def helper(engine, resultQueue, args):
       board.push(lines[0]['pv'][0])
       continue
 
-    for line in lines:
-      wdl = line['score'].white().wdl()
-      moves = line['pv']
-      if len(moves) < 3:
-        continue
-      b = chess.Board(board.fen())
-      b.push(moves[0])
-      is_quiet = False
-      for i in range(1, len(moves) - args.min_depth):
-        if b.piece_at(moves[i].to_square) is not None:
-          is_quiet = True
-          break
-      if is_quiet:
-        resultQueue.put((b.fen(), wdl.wins, wdl.draws, wdl.losses))
-      b = None
-
-    # wdl = lines[0]['score'].white().wdl()
-    # if wdl.wins > 995 or wdl.losses > 995:
-    #   break
+    if args.for_tuning:
+      row = [board.fen()]
+      for line in lines[:3]:
+        row.append(line['pv'][0].uci())
+        row.append(wdl2score(line['score'].white().wdl()))
+      resultQueue.put(row)
+    else:
+      for line in lines:
+        wdl = line['score'].white().wdl()
+        moves = line['pv']
+        if len(moves) < 3:
+          continue
+        b = chess.Board(board.fen())
+        b.push(moves[0])
+        is_quiet = False
+        for i in range(1, len(moves) - args.min_depth):
+          if b.piece_at(moves[i].to_square) is not None:
+            is_quiet = True
+            break
+        if is_quiet:
+          resultQueue.put((b.fen(), wdl.wins, wdl.draws, wdl.losses))
+        b = None
 
     # Drop blunders
     lines = [l for l in lines if abs(score2float(l['score']) - score2float(lines[0]['score'])) < 0.1]
@@ -88,7 +98,10 @@ class MyLru:
 def sql_inserter(resultQueue, args, database):
   conn = sqlite3.connect(database)
   c = conn.cursor()
-  c.execute('CREATE TABLE IF NOT EXISTS positions (fen TEXT PRIMARY KEY, wins INTEGER, draws INTEGER, losses INTEGER)')
+  if args.for_tuning:
+    c.execute('CREATE TABLE IF NOT EXISTS positions (fen TEXT PRIMARY KEY, move1 TEXT, score1 REAL, move2 TEXT, score2 REAL, move3 TEXT, score3 REAL)')
+  else:
+    c.execute('CREATE TABLE IF NOT EXISTS positions (fen TEXT PRIMARY KEY, wins INTEGER, draws INTEGER, losses INTEGER)')
   conn.commit()
 
   c.execute('SELECT COUNT(1) FROM positions')
@@ -99,10 +112,11 @@ def sql_inserter(resultQueue, args, database):
   cache = MyLru(50_000)
 
   while True:
-    fen, wins, draws, losses = resultQueue.get()
+    row = resultQueue.get()
+    fen = row[0]
     if cache(fen):
       continue
-    c.execute('INSERT OR IGNORE INTO positions VALUES (?, ?, ?, ?)', (fen, wins, draws, losses))
+    c.execute('INSERT OR IGNORE INTO positions VALUES (' + ', '.join('?' * len(row)) + ')', row)
     n += 1
     if n % 500 == 499:
       print(f'Inserted {("%.4f" % ((n + 1) / 1_000_000)).rjust(7)}M positions ({str(int(500 / (time.time() - t))).rjust(4)} / sec)')
@@ -116,9 +130,15 @@ if __name__ == '__main__':
   parser.add_argument('--multipv', type=int, default=5)
   parser.add_argument('--num_workers', type=int, default=4)
   parser.add_argument('--min_depth', type=int, default=3)
+  parser.add_argument('--for_tuning', type=int, default=0)
   args = parser.parse_args()
 
-  database = os.path.join('data', f'de{args.depth}-md{args.min_depth}', f'db.sqlite3')
+  assert args.for_tuning in [0, 1]
+
+  database = f'de{args.depth}-md{args.min_depth}'
+  if args.for_tuning:
+    database += '-tuning'
+  database = os.path.join('data', database, f'db.sqlite3')
   if not os.path.exists(os.path.dirname(database)):
     os.makedirs(os.path.dirname(database))
 
