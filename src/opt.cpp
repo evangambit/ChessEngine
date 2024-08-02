@@ -48,6 +48,10 @@ std::pair<Evaluation, Move> simple_qsearch(
     return std::make_pair(alpha, kNullMove);
   }
 
+  if (depth > 5) {
+    return std::make_pair(std::min(beta, std::max(alpha, evaluator->score<TURN>(*position))), kNullMove);
+  }
+
   const bool lookAtAllMoves = (depth == 0);
   const bool lookAtChecks = (depth <= 2) && !lookAtAllMoves;
   constexpr Color opposingColor = opposite_color<TURN>();

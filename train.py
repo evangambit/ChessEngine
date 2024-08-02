@@ -163,56 +163,6 @@ varnames = [
   "KING_PAWN_TROPISM",
 ]
 
-class Weights:
-  def __init__(self, f):
-    lines = f.read().split('\n')
-    if lines[-1] == '':
-      lines.pop()
-    self.lines = []
-    for line in lines:
-      M = re.findall(r"^ +(-?\d+) +//(.+)$", line)
-      if M:
-        self.lines.append({
-          "value": int(M[0][0]),
-          "comment": M[0][1],
-          "type": "float",
-        })
-        continue
-      M = re.findall(r" +(-?\d+) +(-?\d+) +(-?\d+) +(-?\d+) +(-?\d+) +(-?\d+) +(-?\d+) +(-?\d+)", line)
-      if M:
-        self.lines.append({
-          "value": list(map(int, M[0])),
-          "type": "array",
-        })
-        continue
-      assert line.startswith('//'), repr(line)
-      self.lines.append({
-        "comment": line[2:],
-        "type": "comment",
-      })
-
-    self.biases = {}
-    self.vecs = defaultdict(list)
-    for line in self.lines:
-       if line['type'] == 'float':
-        name = line['comment'].strip().split(' ')[0]
-        if ' bias' in line['comment']:
-          self.biases[name] = line['value']
-        else:
-          self.vecs[name].append(line['value'])
-    for k in self.vecs:
-      self.vecs[k] = np.array(self.vecs[k],  dtype=np.float32)
-
-  def write(self, f):
-    for line in self.lines:
-      if line["type"] == "float":
-        f.write((" %d" % line["value"]).rjust(6) + "  //" + line["comment"] + "\n")
-      elif line["type"] == "array":
-        A = [str(a).rjust(4) for a in line["value"]]
-        f.write(" ".join(A) + "\n")
-      elif line["type"] == "comment":
-        f.write("//%s\n" % line["comment"])
-
 def lpad(t, n, c=' '):
   t = str(t)
   return max(n - len(t), 0) * c + t

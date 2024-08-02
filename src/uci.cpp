@@ -178,7 +178,24 @@ class ProbeTask : public Task {
     }
 
     CacheResult cr = state->thinker.cache.find<false>(query.hash_);
-    std::cout << cr << std::endl;
+    if (query.turn_ == Color::BLACK) {
+      cr = cr.flip();
+    }
+    std::cout << cr;
+
+    if (cr.bestMove != kNullMove)  {
+      if (query.turn_ == Color::WHITE) {
+        make_move<Color::WHITE>(&query, cr.bestMove);
+      } else {
+        make_move<Color::BLACK>(&query, cr.bestMove);
+      }
+      cr = state->thinker.cache.find<false>(query.hash_);
+      if (!isNullCacheResult(cr)) {
+        std::cout << "(response " << cr.bestMove << ")";
+      }
+    }
+
+    std::cout << std::endl;
   }
  private:
   std::deque<std::string> command;

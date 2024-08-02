@@ -47,6 +47,27 @@ struct CacheResult {  // 16 bytes
   inline Evaluation upperbound() const {
     return (nodeType == NodeTypeCut_LowerBound) ? kMaxEval : eval;
   }
+  static NodeType flip(NodeType nodeType) {
+    switch (nodeType) {
+      case NodeTypeAll_UpperBound:
+        return NodeTypeCut_LowerBound;
+      case NodeTypeCut_LowerBound:
+        return NodeTypeAll_UpperBound;
+      default:
+        return NodeTypePV;
+    }
+  }
+  CacheResult flip() const {
+    return CacheResult{
+      positionHash,
+      depthRemaining,
+      Evaluation(-eval),
+      bestMove,
+      flip(nodeType),
+      priority,
+      rootCounter,
+    };
+  }
 };
 
 struct SpinLock {
