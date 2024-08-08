@@ -1,384 +1,384 @@
-      0  // early bias
-     53  // early OUR_PAWNS
-    217  // early OUR_KNIGHTS
-    249  // early OUR_BISHOPS
-    292  // early OUR_ROOKS
-    772  // early OUR_QUEENS
-    -56  // early THEIR_PAWNS
-   -215  // early THEIR_KNIGHTS
-   -242  // early THEIR_BISHOPS
-   -290  // early THEIR_ROOKS
-   -747  // early THEIR_QUEENS
-      0  // early IN_CHECK
-    -10  // early KING_ON_BACK_RANK
-    -27  // early KING_ON_CENTER_FILE
-     27  // early KING_ACTIVE
-    -30  // early THREATS_NEAR_KING_2
-     -5  // early THREATS_NEAR_KING_3
-    -33  // early PASSED_PAWNS
-      3  // early ISOLATED_PAWNS
-    -30  // early DOUBLED_PAWNS
-    -18  // early DOUBLE_ISOLATED_PAWNS
-    -15  // early PAWNS_CENTER_16
-      5  // early PAWNS_CENTER_4
-      0  // early ADVANCED_PASSED_PAWNS_2
-     27  // early ADVANCED_PASSED_PAWNS_3
-     20  // early ADVANCED_PASSED_PAWNS_4
-      0  // early PAWN_MINOR_CAPTURES
-      9  // early PAWN_MAJOR_CAPTURES
-      3  // early PROTECTED_PAWNS
-     17  // early PROTECTED_PASSED_PAWNS
-     26  // early BISHOPS_DEVELOPED
-     25  // early BISHOP_PAIR
-    -12  // early BLOCKADED_BISHOPS
-     19  // early SCARY_BISHOPS
-      8  // early SCARIER_BISHOPS
-     25  // early BLOCKADED_ROOKS
-   -129  // early SCARY_ROOKS
-      8  // early INFILTRATING_ROOKS
-     21  // early KNIGHTS_DEVELOPED
-     47  // early KNIGHT_MAJOR_CAPTURES
-      2  // early KNIGHTS_CENTER_16
-     23  // early KNIGHTS_CENTER_4
-     22  // early KNIGHT_ON_ENEMY_SIDE
-      0  // early OUR_HANGING_PAWNS
-    -51  // early OUR_HANGING_KNIGHTS
-    -62  // early OUR_HANGING_BISHOPS
-    -72  // early OUR_HANGING_ROOKS
-      0  // early OUR_HANGING_QUEENS
-      0  // early THEIR_HANGING_PAWNS
-     60  // early THEIR_HANGING_KNIGHTS
-     35  // early THEIR_HANGING_BISHOPS
-      0  // early THEIR_HANGING_ROOKS
-      0  // early THEIR_HANGING_QUEENS
-  -1457  // early LONELY_KING_IN_CENTER
-   -333  // early LONELY_KING_AWAY_FROM_ENEMY_KING
-      1  // early TIME
+     80  // early bias
+    301  // early OUR_PAWNS
+    800  // early OUR_KNIGHTS
+    999  // early OUR_BISHOPS
+    973  // early OUR_ROOKS
+   2571  // early OUR_QUEENS
+   -343  // early THEIR_PAWNS
+   -823  // early THEIR_KNIGHTS
+   -946  // early THEIR_BISHOPS
+   -777  // early THEIR_ROOKS
+  -2369  // early THEIR_QUEENS
+  -1020  // early IN_CHECK
+    -41  // early KING_ON_BACK_RANK
+   -273  // early KING_ON_CENTER_FILE
+    -13  // early KING_ACTIVE
+   -116  // early THREATS_NEAR_KING_2
+    -16  // early THREATS_NEAR_KING_3
+   -211  // early PASSED_PAWNS
+    -36  // early ISOLATED_PAWNS
+     34  // early DOUBLED_PAWNS
+    -51  // early DOUBLE_ISOLATED_PAWNS
+      0  // early PAWNS_CENTER_16
+     56  // early PAWNS_CENTER_4
+   -175  // early ADVANCED_PASSED_PAWNS_2
+     46  // early ADVANCED_PASSED_PAWNS_3
+     85  // early ADVANCED_PASSED_PAWNS_4
+     12  // early PAWN_MINOR_CAPTURES
+    314  // early PAWN_MAJOR_CAPTURES
+     21  // early PROTECTED_PAWNS
+     62  // early PROTECTED_PASSED_PAWNS
+    132  // early BISHOPS_DEVELOPED
+    179  // early BISHOP_PAIR
+    -65  // early BLOCKADED_BISHOPS
+     80  // early SCARY_BISHOPS
+     -1  // early SCARIER_BISHOPS
+    164  // early BLOCKADED_ROOKS
+    719  // early SCARY_ROOKS
+    173  // early INFILTRATING_ROOKS
+    119  // early KNIGHTS_DEVELOPED
+    125  // early KNIGHT_MAJOR_CAPTURES
+      4  // early KNIGHTS_CENTER_16
+    120  // early KNIGHTS_CENTER_4
+    185  // early KNIGHT_ON_ENEMY_SIDE
+    100  // early OUR_HANGING_PAWNS
+    -37  // early OUR_HANGING_KNIGHTS
+    -35  // early OUR_HANGING_BISHOPS
+   -211  // early OUR_HANGING_ROOKS
+   -147  // early OUR_HANGING_QUEENS
+    146  // early THEIR_HANGING_PAWNS
+    837  // early THEIR_HANGING_KNIGHTS
+    729  // early THEIR_HANGING_BISHOPS
+    625  // early THEIR_HANGING_ROOKS
+    987  // early THEIR_HANGING_QUEENS
+   -172  // early LONELY_KING_IN_CENTER
+   -339  // early LONELY_KING_AWAY_FROM_ENEMY_KING
+     63  // early TIME
       0  // early KPVK_OPPOSITION
       0  // early SQUARE_RULE
-    196  // early ADVANCED_PAWNS_1
-     67  // early ADVANCED_PAWNS_2
-     12  // early OPEN_ROOKS
-     35  // early ROOKS_ON_THEIR_SIDE
-   -129  // early KING_IN_FRONT_OF_PASSED_PAWN
-    -63  // early KING_IN_FRONT_OF_PASSED_PAWN2
-    119  // early OUR_MATERIAL_THREATS
-    -94  // early THEIR_MATERIAL_THREATS
-    537  // early LONELY_KING_ON_EDGE
-     25  // early OUTPOSTED_KNIGHTS
-      4  // early OUTPOSTED_BISHOPS
-      4  // early PAWN_MOVES
-      5  // early KNIGHT_MOVES
-      4  // early BISHOP_MOVES
-      8  // early ROOK_MOVES
-      5  // early QUEEN_MOVES
-      8  // early PAWN_MOVES_ON_THEIR_SIDE
-      4  // early KNIGHT_MOVES_ON_THEIR_SIDE
-      0  // early BISHOP_MOVES_ON_THEIR_SIDE
-      3  // early ROOK_MOVES_ON_THEIR_SIDE
-      7  // early QUEEN_MOVES_ON_THEIR_SIDE
-     29  // early KING_HOME_QUALITY
-    -13  // early BISHOPS_BLOCKING_KNIGHTS
-     -9  // early OUR_HANGING_PAWNS_2
-    -78  // early OUR_HANGING_KNIGHTS_2
-   -111  // early OUR_HANGING_BISHOPS_2
-    -78  // early OUR_HANGING_ROOKS_2
-    -38  // early OUR_HANGING_QUEENS_2
-     10  // early THEIR_HANGING_PAWNS_2
-     66  // early THEIR_HANGING_KNIGHTS_2
-    105  // early THEIR_HANGING_BISHOPS_2
-      0  // early THEIR_HANGING_ROOKS_2
-      0  // early THEIR_HANGING_QUEENS_2
-    -11  // early QUEEN_THREATS_NEAR_KING
-     -6  // early MISSING_FIANCHETTO_BISHOP
-     -1  // early NUM_BAD_SQUARES_FOR_PAWNS
-     -4  // early NUM_BAD_SQUARES_FOR_MINORS
-     -9  // early NUM_BAD_SQUARES_FOR_ROOKS
-      6  // early NUM_BAD_SQUARES_FOR_QUEENS
-    -26  // early IN_TRIVIAL_CHECK
-   -190  // early IN_DOUBLE_CHECK
-    -80  // early THREATS_NEAR_OUR_KING
-     22  // early THREATS_NEAR_THEIR_KING
-     13  // early NUM_PIECES_HARRASSABLE_BY_PAWNS
-     78  // early PAWN_CHECKS
-     57  // early KNIGHT_CHECKS
-     16  // early BISHOP_CHECKS
-     60  // early ROOK_CHECKS
-     35  // early QUEEN_CHECKS
-     16  // early BACK_RANK_MATE_THREAT_AGAINST_US
-    -15  // early BACK_RANK_MATE_THREAT_AGAINST_THEM
-    -17  // early OUR_KING_HAS_0_ESCAPE_SQUARES
-     49  // early THEIR_KING_HAS_0_ESCAPE_SQUARES
-      7  // early OUR_KING_HAS_1_ESCAPE_SQUARES
-      4  // early THEIR_KING_HAS_1_ESCAPE_SQUARES
-      4  // early OUR_KING_HAS_2_ESCAPE_SQUARES
-      5  // early THEIR_KING_HAS_2_ESCAPE_SQUARES
-      0  // early OPPOSITE_SIDE_KINGS_PAWN_STORM
-   -577  // early IN_CHECK_AND_OUR_HANING_QUEENS
-   -151  // early PROMOTABLE_PAWN
-      0  // early PINNED_PIECES
-      0  // early KNOWN_KPVK_DRAW,
-      0  // early KNOWN_KPVK_WIN,
-      0  // early LONELY_KING_ON_EDGE_AND_NOT_DRAW,
-      0  // early LONELY_KING_IN_CORNER_AND_NOT_DRAW,
-      0  // early LONELY_KING_OPPOSITION_AND_NOT_DRAW,
-      0  // early LONELY_KING_ACHIEVABLE_OPPOSITION_AND_NOT_DRAW,
-      0  // early LONELY_KING_NEXT_TO_ENEMY_KING
-      0  // early KING_PAWN_TROPISM
-     -4  // late bias
-    117  // late OUR_PAWNS
-    272  // late OUR_KNIGHTS
-    288  // late OUR_BISHOPS
-    523  // late OUR_ROOKS
-    997  // late OUR_QUEENS
-   -110  // late THEIR_PAWNS
-   -266  // late THEIR_KNIGHTS
-   -284  // late THEIR_BISHOPS
-   -519  // late THEIR_ROOKS
-  -1011  // late THEIR_QUEENS
-      0  // late IN_CHECK
-    -22  // late KING_ON_BACK_RANK
-      0  // late KING_ON_CENTER_FILE
-     16  // late KING_ACTIVE
-      7  // late THREATS_NEAR_KING_2
-      1  // late THREATS_NEAR_KING_3
-     27  // late PASSED_PAWNS
-      1  // late ISOLATED_PAWNS
-    -27  // late DOUBLED_PAWNS
-    -30  // late DOUBLE_ISOLATED_PAWNS
-    -12  // late PAWNS_CENTER_16
-    -12  // late PAWNS_CENTER_4
-   -112  // late ADVANCED_PASSED_PAWNS_2
-     35  // late ADVANCED_PASSED_PAWNS_3
-     33  // late ADVANCED_PASSED_PAWNS_4
-    -36  // late PAWN_MINOR_CAPTURES
-    -15  // late PAWN_MAJOR_CAPTURES
-      3  // late PROTECTED_PAWNS
-      0  // late PROTECTED_PASSED_PAWNS
-     17  // late BISHOPS_DEVELOPED
-     84  // late BISHOP_PAIR
-    -11  // late BLOCKADED_BISHOPS
-      9  // late SCARY_BISHOPS
-     40  // late SCARIER_BISHOPS
-     38  // late BLOCKADED_ROOKS
-    -17  // late SCARY_ROOKS
-      4  // late INFILTRATING_ROOKS
-     36  // late KNIGHTS_DEVELOPED
-      0  // late KNIGHT_MAJOR_CAPTURES
-     15  // late KNIGHTS_CENTER_16
-     18  // late KNIGHTS_CENTER_4
-      6  // late KNIGHT_ON_ENEMY_SIDE
-    -56  // late OUR_HANGING_PAWNS
-   -111  // late OUR_HANGING_KNIGHTS
-    -91  // late OUR_HANGING_BISHOPS
-    -53  // late OUR_HANGING_ROOKS
-     24  // late OUR_HANGING_QUEENS
-     52  // late THEIR_HANGING_PAWNS
-     96  // late THEIR_HANGING_KNIGHTS
-     59  // late THEIR_HANGING_BISHOPS
-    -28  // late THEIR_HANGING_ROOKS
-   -180  // late THEIR_HANGING_QUEENS
-    -59  // late LONELY_KING_IN_CENTER
-    -40  // late LONELY_KING_AWAY_FROM_ENEMY_KING
-     -2  // late TIME
-     88  // late KPVK_OPPOSITION
-    413  // late SQUARE_RULE
-    241  // late ADVANCED_PAWNS_1
-     59  // late ADVANCED_PAWNS_2
-    -20  // late OPEN_ROOKS
-     37  // late ROOKS_ON_THEIR_SIDE
-    104  // late KING_IN_FRONT_OF_PASSED_PAWN
-     59  // late KING_IN_FRONT_OF_PASSED_PAWN2
-    140  // late OUR_MATERIAL_THREATS
-    -90  // late THEIR_MATERIAL_THREATS
-     74  // late LONELY_KING_ON_EDGE
-    -15  // late OUTPOSTED_KNIGHTS
-     -5  // late OUTPOSTED_BISHOPS
-      6  // late PAWN_MOVES
-      7  // late KNIGHT_MOVES
-      5  // late BISHOP_MOVES
-      6  // late ROOK_MOVES
-     -1  // late QUEEN_MOVES
+    612  // early ADVANCED_PAWNS_1
+    293  // early ADVANCED_PAWNS_2
+    143  // early OPEN_ROOKS
+    117  // early ROOKS_ON_THEIR_SIDE
+   -324  // early KING_IN_FRONT_OF_PASSED_PAWN
+   -173  // early KING_IN_FRONT_OF_PASSED_PAWN2
+    910  // early OUR_MATERIAL_THREATS
+   -173  // early THEIR_MATERIAL_THREATS
+  -1002  // early LONELY_KING_ON_EDGE
+     72  // early OUTPOSTED_KNIGHTS
+     43  // early OUTPOSTED_BISHOPS
+     23  // early PAWN_MOVES
+     43  // early KNIGHT_MOVES
+     19  // early BISHOP_MOVES
+     23  // early ROOK_MOVES
+     31  // early QUEEN_MOVES
+     28  // early PAWN_MOVES_ON_THEIR_SIDE
+     35  // early KNIGHT_MOVES_ON_THEIR_SIDE
+      2  // early BISHOP_MOVES_ON_THEIR_SIDE
+      0  // early ROOK_MOVES_ON_THEIR_SIDE
+     52  // early QUEEN_MOVES_ON_THEIR_SIDE
+    156  // early KING_HOME_QUALITY
+    -47  // early BISHOPS_BLOCKING_KNIGHTS
+     16  // early OUR_HANGING_PAWNS_2
+   -151  // early OUR_HANGING_KNIGHTS_2
+    -79  // early OUR_HANGING_BISHOPS_2
+   -114  // early OUR_HANGING_ROOKS_2
+    257  // early OUR_HANGING_QUEENS_2
+    189  // early THEIR_HANGING_PAWNS_2
+    473  // early THEIR_HANGING_KNIGHTS_2
+    448  // early THEIR_HANGING_BISHOPS_2
+    346  // early THEIR_HANGING_ROOKS_2
+    457  // early THEIR_HANGING_QUEENS_2
+   -427  // early QUEEN_THREATS_NEAR_KING
+    -25  // early MISSING_FIANCHETTO_BISHOP
+      0  // early NUM_BAD_SQUARES_FOR_PAWNS
+    -12  // early NUM_BAD_SQUARES_FOR_MINORS
+    -20  // early NUM_BAD_SQUARES_FOR_ROOKS
+     -9  // early NUM_BAD_SQUARES_FOR_QUEENS
+   1058  // early IN_TRIVIAL_CHECK
+   -151  // early IN_DOUBLE_CHECK
+   -137  // early THREATS_NEAR_OUR_KING
+    120  // early THREATS_NEAR_THEIR_KING
+     58  // early NUM_PIECES_HARRASSABLE_BY_PAWNS
+    471  // early PAWN_CHECKS
+    449  // early KNIGHT_CHECKS
+    119  // early BISHOP_CHECKS
+    288  // early ROOK_CHECKS
+    166  // early QUEEN_CHECKS
+     57  // early BACK_RANK_MATE_THREAT_AGAINST_US
+    -47  // early BACK_RANK_MATE_THREAT_AGAINST_THEM
+    -15  // early OUR_KING_HAS_0_ESCAPE_SQUARES
+     19  // early THEIR_KING_HAS_0_ESCAPE_SQUARES
+     32  // early OUR_KING_HAS_1_ESCAPE_SQUARES
+    -38  // early THEIR_KING_HAS_1_ESCAPE_SQUARES
+     28  // early OUR_KING_HAS_2_ESCAPE_SQUARES
+    -22  // early THEIR_KING_HAS_2_ESCAPE_SQUARES
+    -17  // early OPPOSITE_SIDE_KINGS_PAWN_STORM
+     32  // early IN_CHECK_AND_OUR_HANING_QUEENS
+     65  // early PROMOTABLE_PAWN
+   -270  // early PINNED_PIECES
+      1  // early KNOWN_KPVK_DRAW
+     -2  // early KNOWN_KPVK_WIN
+   -332  // early LONELY_KING_ON_EDGE_AND_NOT_DRAW
+    342  // early LONELY_KING_IN_CORNER_AND_NOT_DRAW
+   -115  // early LONELY_KING_OPPOSITION_AND_NOT_DRAW
+     62  // early LONELY_KING_ACHIEVABLE_OPPOSITION_AND_NOT_DRAW
+   -481  // early LONELY_KING_NEXT_TO_ENEMY_KING
+     10  // early KING_TROPISM
+    -57  // late bias
+    506  // late OUR_PAWNS
+    629  // late OUR_KNIGHTS
+    679  // late OUR_BISHOPS
+   1393  // late OUR_ROOKS
+   3277  // late OUR_QUEENS
+   -402  // late THEIR_PAWNS
+   -626  // late THEIR_KNIGHTS
+   -778  // late THEIR_BISHOPS
+  -1588  // late THEIR_ROOKS
+  -3554  // late THEIR_QUEENS
+    119  // late IN_CHECK
+    -14  // late KING_ON_BACK_RANK
+     61  // late KING_ON_CENTER_FILE
+     24  // late KING_ACTIVE
+     23  // late THREATS_NEAR_KING_2
+     -4  // late THREATS_NEAR_KING_3
+     76  // late PASSED_PAWNS
+     22  // late ISOLATED_PAWNS
+    -49  // late DOUBLED_PAWNS
+   -160  // late DOUBLE_ISOLATED_PAWNS
+    -25  // late PAWNS_CENTER_16
+    -53  // late PAWNS_CENTER_4
+    182  // late ADVANCED_PASSED_PAWNS_2
+    162  // late ADVANCED_PASSED_PAWNS_3
+    117  // late ADVANCED_PASSED_PAWNS_4
+   -234  // late PAWN_MINOR_CAPTURES
+    195  // late PAWN_MAJOR_CAPTURES
+     45  // late PROTECTED_PAWNS
+     41  // late PROTECTED_PASSED_PAWNS
+    -28  // late BISHOPS_DEVELOPED
+    233  // late BISHOP_PAIR
+     -9  // late BLOCKADED_BISHOPS
+    -20  // late SCARY_BISHOPS
+    306  // late SCARIER_BISHOPS
+    -11  // late BLOCKADED_ROOKS
+    -70  // late SCARY_ROOKS
+     -9  // late INFILTRATING_ROOKS
+     91  // late KNIGHTS_DEVELOPED
+    -14  // late KNIGHT_MAJOR_CAPTURES
+     22  // late KNIGHTS_CENTER_16
+     19  // late KNIGHTS_CENTER_4
+    -77  // late KNIGHT_ON_ENEMY_SIDE
+   -332  // late OUR_HANGING_PAWNS
+   -319  // late OUR_HANGING_KNIGHTS
+   -295  // late OUR_HANGING_BISHOPS
+     14  // late OUR_HANGING_ROOKS
+    230  // late OUR_HANGING_QUEENS
+    358  // late THEIR_HANGING_PAWNS
+    949  // late THEIR_HANGING_KNIGHTS
+   1131  // late THEIR_HANGING_BISHOPS
+   1606  // late THEIR_HANGING_ROOKS
+   2285  // late THEIR_HANGING_QUEENS
+   -110  // late LONELY_KING_IN_CENTER
+     28  // late LONELY_KING_AWAY_FROM_ENEMY_KING
+     12  // late TIME
+    -81  // late KPVK_OPPOSITION
+   1379  // late SQUARE_RULE
+     32  // late ADVANCED_PAWNS_1
+    123  // late ADVANCED_PAWNS_2
+    -39  // late OPEN_ROOKS
+    140  // late ROOKS_ON_THEIR_SIDE
+    283  // late KING_IN_FRONT_OF_PASSED_PAWN
+    226  // late KING_IN_FRONT_OF_PASSED_PAWN2
+    486  // late OUR_MATERIAL_THREATS
+   -299  // late THEIR_MATERIAL_THREATS
+     44  // late LONELY_KING_ON_EDGE
+      6  // late OUTPOSTED_KNIGHTS
+     20  // late OUTPOSTED_BISHOPS
+      7  // late PAWN_MOVES
+     18  // late KNIGHT_MOVES
+      7  // late BISHOP_MOVES
+     19  // late ROOK_MOVES
+    -36  // late QUEEN_MOVES
       5  // late PAWN_MOVES_ON_THEIR_SIDE
-      0  // late KNIGHT_MOVES_ON_THEIR_SIDE
-      2  // late BISHOP_MOVES_ON_THEIR_SIDE
-     -5  // late ROOK_MOVES_ON_THEIR_SIDE
-      8  // late QUEEN_MOVES_ON_THEIR_SIDE
-     13  // late KING_HOME_QUALITY
-    -10  // late BISHOPS_BLOCKING_KNIGHTS
-    -63  // late OUR_HANGING_PAWNS_2
-   -113  // late OUR_HANGING_KNIGHTS_2
-   -128  // late OUR_HANGING_BISHOPS_2
-    -95  // late OUR_HANGING_ROOKS_2
-     24  // late OUR_HANGING_QUEENS_2
-     44  // late THEIR_HANGING_PAWNS_2
-     79  // late THEIR_HANGING_KNIGHTS_2
-     85  // late THEIR_HANGING_BISHOPS_2
-      0  // late THEIR_HANGING_ROOKS_2
-    135  // late THEIR_HANGING_QUEENS_2
-    -52  // late QUEEN_THREATS_NEAR_KING
-    -20  // late MISSING_FIANCHETTO_BISHOP
-     -7  // late NUM_BAD_SQUARES_FOR_PAWNS
-      9  // late NUM_BAD_SQUARES_FOR_MINORS
+    -10  // late KNIGHT_MOVES_ON_THEIR_SIDE
+     11  // late BISHOP_MOVES_ON_THEIR_SIDE
+    -27  // late ROOK_MOVES_ON_THEIR_SIDE
+    -23  // late QUEEN_MOVES_ON_THEIR_SIDE
+    -30  // late KING_HOME_QUALITY
+     39  // late BISHOPS_BLOCKING_KNIGHTS
+   -256  // late OUR_HANGING_PAWNS_2
+   -202  // late OUR_HANGING_KNIGHTS_2
+   -313  // late OUR_HANGING_BISHOPS_2
+    102  // late OUR_HANGING_ROOKS_2
+   -529  // late OUR_HANGING_QUEENS_2
+    208  // late THEIR_HANGING_PAWNS_2
+    348  // late THEIR_HANGING_KNIGHTS_2
+    543  // late THEIR_HANGING_BISHOPS_2
+    393  // late THEIR_HANGING_ROOKS_2
+    268  // late THEIR_HANGING_QUEENS_2
+    349  // late QUEEN_THREATS_NEAR_KING
+    -44  // late MISSING_FIANCHETTO_BISHOP
+     -2  // late NUM_BAD_SQUARES_FOR_PAWNS
+      8  // late NUM_BAD_SQUARES_FOR_MINORS
      -3  // late NUM_BAD_SQUARES_FOR_ROOKS
-      0  // late NUM_BAD_SQUARES_FOR_QUEENS
-     20  // late IN_TRIVIAL_CHECK
-      0  // late IN_DOUBLE_CHECK
-      3  // late THREATS_NEAR_OUR_KING
-    -12  // late THREATS_NEAR_THEIR_KING
-     25  // late NUM_PIECES_HARRASSABLE_BY_PAWNS
-      6  // late PAWN_CHECKS
-      0  // late KNIGHT_CHECKS
-     44  // late BISHOP_CHECKS
-     17  // late ROOK_CHECKS
-     26  // late QUEEN_CHECKS
-    -38  // late BACK_RANK_MATE_THREAT_AGAINST_US
-     28  // late BACK_RANK_MATE_THREAT_AGAINST_THEM
-    -47  // late OUR_KING_HAS_0_ESCAPE_SQUARES
-     56  // late THEIR_KING_HAS_0_ESCAPE_SQUARES
-     -6  // late OUR_KING_HAS_1_ESCAPE_SQUARES
-     16  // late THEIR_KING_HAS_1_ESCAPE_SQUARES
-     -1  // late OUR_KING_HAS_2_ESCAPE_SQUARES
-      4  // late THEIR_KING_HAS_2_ESCAPE_SQUARES
-     -1  // late OPPOSITE_SIDE_KINGS_PAWN_STORM
-   -981  // late IN_CHECK_AND_OUR_HANING_QUEENS
-     45  // late PROMOTABLE_PAWN
-    -80  // late PINNED_PIECES
-      0  // late KNOWN_KPVK_DRAW,
-   1000  // late KNOWN_KPVK_WIN,
-     50  // late LONELY_KING_ON_EDGE_AND_NOT_DRAW,
-     50  // late LONELY_KING_IN_CORNER_AND_NOT_DRAW,
-     75  // late LONELY_KING_OPPOSITION_AND_NOT_DRAW,
-     50  // late LONELY_KING_ACHIEVABLE_OPPOSITION_AND_NOT_DRAW,
-     25  // late LONELY_KING_NEXT_TO_ENEMY_KING,
-      0  // late KING_PAWN_TROPISM
-     -2  // clipped bias
-     19  // clipped OUR_PAWNS
-    196  // clipped OUR_KNIGHTS
-    192  // clipped OUR_BISHOPS
-    274  // clipped OUR_ROOKS
-    542  // clipped OUR_QUEENS
-    -22  // clipped THEIR_PAWNS
-   -196  // clipped THEIR_KNIGHTS
-   -193  // clipped THEIR_BISHOPS
-   -271  // clipped THEIR_ROOKS
-   -538  // clipped THEIR_QUEENS
-   -483  // clipped IN_CHECK
-      5  // clipped KING_ON_BACK_RANK
-      4  // clipped KING_ON_CENTER_FILE
-      1  // clipped KING_ACTIVE
-     -1  // clipped THREATS_NEAR_KING_2
-      1  // clipped THREATS_NEAR_KING_3
-      4  // clipped PASSED_PAWNS
-    -12  // clipped ISOLATED_PAWNS
-     12  // clipped DOUBLED_PAWNS
-      9  // clipped DOUBLE_ISOLATED_PAWNS
-      7  // clipped PAWNS_CENTER_16
-      0  // clipped PAWNS_CENTER_4
-    130  // clipped ADVANCED_PASSED_PAWNS_2
-     -2  // clipped ADVANCED_PASSED_PAWNS_3
-     -6  // clipped ADVANCED_PASSED_PAWNS_4
-     11  // clipped PAWN_MINOR_CAPTURES
-      4  // clipped PAWN_MAJOR_CAPTURES
-      0  // clipped PROTECTED_PAWNS
-     19  // clipped PROTECTED_PASSED_PAWNS
-    -11  // clipped BISHOPS_DEVELOPED
-     -6  // clipped BISHOP_PAIR
-      4  // clipped BLOCKADED_BISHOPS
-    -10  // clipped SCARY_BISHOPS
-     -9  // clipped SCARIER_BISHOPS
-    -17  // clipped BLOCKADED_ROOKS
-    428  // clipped SCARY_ROOKS
-      7  // clipped INFILTRATING_ROOKS
-    -14  // clipped KNIGHTS_DEVELOPED
-    -23  // clipped KNIGHT_MAJOR_CAPTURES
-     -4  // clipped KNIGHTS_CENTER_16
-     -9  // clipped KNIGHTS_CENTER_4
-     -9  // clipped KNIGHT_ON_ENEMY_SIDE
-     -2  // clipped OUR_HANGING_PAWNS
-     38  // clipped OUR_HANGING_KNIGHTS
-     50  // clipped OUR_HANGING_BISHOPS
-     43  // clipped OUR_HANGING_ROOKS
-      1  // clipped OUR_HANGING_QUEENS
-      4  // clipped THEIR_HANGING_PAWNS
-    -60  // clipped THEIR_HANGING_KNIGHTS
-    -37  // clipped THEIR_HANGING_BISHOPS
-     25  // clipped THEIR_HANGING_ROOKS
-     67  // clipped THEIR_HANGING_QUEENS
-     29  // clipped LONELY_KING_IN_CENTER
-    196  // clipped LONELY_KING_AWAY_FROM_ENEMY_KING
-      1  // clipped TIME
-    -64  // clipped KPVK_OPPOSITION
-   -486  // clipped SQUARE_RULE
-   -202  // clipped ADVANCED_PAWNS_1
-    -35  // clipped ADVANCED_PAWNS_2
-      5  // clipped OPEN_ROOKS
-    -12  // clipped ROOKS_ON_THEIR_SIDE
-    -34  // clipped KING_IN_FRONT_OF_PASSED_PAWN
-     13  // clipped KING_IN_FRONT_OF_PASSED_PAWN2
-    -93  // clipped OUR_MATERIAL_THREATS
-     54  // clipped THEIR_MATERIAL_THREATS
-   -486  // clipped LONELY_KING_ON_EDGE
-     12  // clipped OUTPOSTED_KNIGHTS
-     10  // clipped OUTPOSTED_BISHOPS
-     -4  // clipped PAWN_MOVES
-     -3  // clipped KNIGHT_MOVES
-     -4  // clipped BISHOP_MOVES
-     -4  // clipped ROOK_MOVES
-     -3  // clipped QUEEN_MOVES
-      0  // clipped PAWN_MOVES_ON_THEIR_SIDE
-      5  // clipped KNIGHT_MOVES_ON_THEIR_SIDE
-      4  // clipped BISHOP_MOVES_ON_THEIR_SIDE
-      2  // clipped ROOK_MOVES_ON_THEIR_SIDE
-     -3  // clipped QUEEN_MOVES_ON_THEIR_SIDE
-    -13  // clipped KING_HOME_QUALITY
-     11  // clipped BISHOPS_BLOCKING_KNIGHTS
-      8  // clipped OUR_HANGING_PAWNS_2
-     59  // clipped OUR_HANGING_KNIGHTS_2
-     63  // clipped OUR_HANGING_BISHOPS_2
-     82  // clipped OUR_HANGING_ROOKS_2
-     23  // clipped OUR_HANGING_QUEENS_2
-     -9  // clipped THEIR_HANGING_PAWNS_2
-    -50  // clipped THEIR_HANGING_KNIGHTS_2
-   -102  // clipped THEIR_HANGING_BISHOPS_2
-     55  // clipped THEIR_HANGING_ROOKS_2
-   -782  // clipped THEIR_HANGING_QUEENS_2
-     34  // clipped QUEEN_THREATS_NEAR_KING
-      8  // clipped MISSING_FIANCHETTO_BISHOP
-      1  // clipped NUM_BAD_SQUARES_FOR_PAWNS
-     -1  // clipped NUM_BAD_SQUARES_FOR_MINORS
-      3  // clipped NUM_BAD_SQUARES_FOR_ROOKS
-     -5  // clipped NUM_BAD_SQUARES_FOR_QUEENS
-   -123  // clipped IN_TRIVIAL_CHECK
-    413  // clipped IN_DOUBLE_CHECK
-      8  // clipped THREATS_NEAR_OUR_KING
-      3  // clipped THREATS_NEAR_THEIR_KING
-     -3  // clipped NUM_PIECES_HARRASSABLE_BY_PAWNS
-      2  // clipped PAWN_CHECKS
-     -3  // clipped KNIGHT_CHECKS
-     -7  // clipped BISHOP_CHECKS
-    -13  // clipped ROOK_CHECKS
-    -20  // clipped QUEEN_CHECKS
-      4  // clipped BACK_RANK_MATE_THREAT_AGAINST_US
-    -11  // clipped BACK_RANK_MATE_THREAT_AGAINST_THEM
-     15  // clipped OUR_KING_HAS_0_ESCAPE_SQUARES
-    -23  // clipped THEIR_KING_HAS_0_ESCAPE_SQUARES
-     -4  // clipped OUR_KING_HAS_1_ESCAPE_SQUARES
-     -3  // clipped THEIR_KING_HAS_1_ESCAPE_SQUARES
-     -2  // clipped OUR_KING_HAS_2_ESCAPE_SQUARES
-     -4  // clipped THEIR_KING_HAS_2_ESCAPE_SQUARES
-      0  // clipped OPPOSITE_SIDE_KINGS_PAWN_STORM
-   -813  // clipped IN_CHECK_AND_OUR_HANING_QUEENS
-    869  // clipped PROMOTABLE_PAWN
-      0  // clipped PINNED_PIECES
-      0  // clipped KNOWN_KPVK_DRAW,
-      0  // clipped KNOWN_KPVK_WIN,
-      0  // clipped LONELY_KING_ON_EDGE_AND_NOT_DRAW,
-      0  // clipped LONELY_KING_IN_CORNER_AND_NOT_DRAW,
-      0  // clipped LONELY_KING_OPPOSITION_AND_NOT_DRAW,
-      0  // clipped LONELY_KING_ACHIEVABLE_OPPOSITION_AND_NOT_DRAW,
-      0  // clipped LONELY_KING_NEXT_TO_ENEMY_KING,
-      0  // clipped KING_PAWN_TROPISM
+     -5  // late NUM_BAD_SQUARES_FOR_QUEENS
+    290  // late IN_TRIVIAL_CHECK
+     68  // late IN_DOUBLE_CHECK
+     -7  // late THREATS_NEAR_OUR_KING
+     20  // late THREATS_NEAR_THEIR_KING
+    101  // late NUM_PIECES_HARRASSABLE_BY_PAWNS
+    -13  // late PAWN_CHECKS
+     -1  // late KNIGHT_CHECKS
+    117  // late BISHOP_CHECKS
+     73  // late ROOK_CHECKS
+     77  // late QUEEN_CHECKS
+   -195  // late BACK_RANK_MATE_THREAT_AGAINST_US
+    140  // late BACK_RANK_MATE_THREAT_AGAINST_THEM
+   -123  // late OUR_KING_HAS_0_ESCAPE_SQUARES
+    162  // late THEIR_KING_HAS_0_ESCAPE_SQUARES
+    -32  // late OUR_KING_HAS_1_ESCAPE_SQUARES
+    127  // late THEIR_KING_HAS_1_ESCAPE_SQUARES
+      1  // late OUR_KING_HAS_2_ESCAPE_SQUARES
+     12  // late THEIR_KING_HAS_2_ESCAPE_SQUARES
+      4  // late OPPOSITE_SIDE_KINGS_PAWN_STORM
+   -676  // late IN_CHECK_AND_OUR_HANING_QUEENS
+    552  // late PROMOTABLE_PAWN
+   -470  // late PINNED_PIECES
+     -3  // late KNOWN_KPVK_DRAW
+     -1  // late KNOWN_KPVK_WIN
+    -45  // late LONELY_KING_ON_EDGE_AND_NOT_DRAW
+    177  // late LONELY_KING_IN_CORNER_AND_NOT_DRAW
+    -21  // late LONELY_KING_OPPOSITION_AND_NOT_DRAW
+     24  // late LONELY_KING_ACHIEVABLE_OPPOSITION_AND_NOT_DRAW
+     46  // late LONELY_KING_NEXT_TO_ENEMY_KING
+      4  // late KING_TROPISM
+   6217  // ineq bias
+     12  // ineq OUR_PAWNS
+   -462  // ineq OUR_KNIGHTS
+   -465  // ineq OUR_BISHOPS
+   -518  // ineq OUR_ROOKS
+  -1559  // ineq OUR_QUEENS
+     94  // ineq THEIR_PAWNS
+   -242  // ineq THEIR_KNIGHTS
+   -161  // ineq THEIR_BISHOPS
+   -114  // ineq THEIR_ROOKS
+   -427  // ineq THEIR_QUEENS
+    -29  // ineq IN_CHECK
+     -4  // ineq KING_ON_BACK_RANK
+     13  // ineq KING_ON_CENTER_FILE
+     11  // ineq KING_ACTIVE
+     -4  // ineq THREATS_NEAR_KING_2
+     -4  // ineq THREATS_NEAR_KING_3
+     -2  // ineq PASSED_PAWNS
+      8  // ineq ISOLATED_PAWNS
+      9  // ineq DOUBLED_PAWNS
+     -2  // ineq DOUBLE_ISOLATED_PAWNS
+     -8  // ineq PAWNS_CENTER_16
+      1  // ineq PAWNS_CENTER_4
+   -111  // ineq ADVANCED_PASSED_PAWNS_2
+    -11  // ineq ADVANCED_PASSED_PAWNS_3
+     -7  // ineq ADVANCED_PASSED_PAWNS_4
+      3  // ineq PAWN_MINOR_CAPTURES
+   -153  // ineq PAWN_MAJOR_CAPTURES
+      3  // ineq PROTECTED_PAWNS
+     -5  // ineq PROTECTED_PASSED_PAWNS
+    -20  // ineq BISHOPS_DEVELOPED
+      3  // ineq BISHOP_PAIR
+     15  // ineq BLOCKADED_BISHOPS
+    -10  // ineq SCARY_BISHOPS
+    -56  // ineq SCARIER_BISHOPS
+    -36  // ineq BLOCKADED_ROOKS
+   -144  // ineq SCARY_ROOKS
+     -1  // ineq INFILTRATING_ROOKS
+    -46  // ineq KNIGHTS_DEVELOPED
+    -66  // ineq KNIGHT_MAJOR_CAPTURES
+     -1  // ineq KNIGHTS_CENTER_16
+     -2  // ineq KNIGHTS_CENTER_4
+    -19  // ineq KNIGHT_ON_ENEMY_SIDE
+     19  // ineq OUR_HANGING_PAWNS
+    -15  // ineq OUR_HANGING_KNIGHTS
+    -32  // ineq OUR_HANGING_BISHOPS
+   -113  // ineq OUR_HANGING_ROOKS
+   -259  // ineq OUR_HANGING_QUEENS
+     -9  // ineq THEIR_HANGING_PAWNS
+   -314  // ineq THEIR_HANGING_KNIGHTS
+   -421  // ineq THEIR_HANGING_BISHOPS
+   -693  // ineq THEIR_HANGING_ROOKS
+  -1159  // ineq THEIR_HANGING_QUEENS
+    109  // ineq LONELY_KING_IN_CENTER
+     37  // ineq LONELY_KING_AWAY_FROM_ENEMY_KING
+   -294  // ineq TIME
+      0  // ineq KPVK_OPPOSITION
+      0  // ineq SQUARE_RULE
+     83  // ineq ADVANCED_PAWNS_1
+    -52  // ineq ADVANCED_PAWNS_2
+     14  // ineq OPEN_ROOKS
+     -8  // ineq ROOKS_ON_THEIR_SIDE
+    -22  // ineq KING_IN_FRONT_OF_PASSED_PAWN
+    -50  // ineq KING_IN_FRONT_OF_PASSED_PAWN2
+   -202  // ineq OUR_MATERIAL_THREATS
+    -93  // ineq THEIR_MATERIAL_THREATS
+    -33  // ineq LONELY_KING_ON_EDGE
+     10  // ineq OUTPOSTED_KNIGHTS
+     -3  // ineq OUTPOSTED_BISHOPS
+     -4  // ineq PAWN_MOVES
+     -5  // ineq KNIGHT_MOVES
+      1  // ineq BISHOP_MOVES
+     -2  // ineq ROOK_MOVES
+      4  // ineq QUEEN_MOVES
+     -2  // ineq PAWN_MOVES_ON_THEIR_SIDE
+      3  // ineq KNIGHT_MOVES_ON_THEIR_SIDE
+     -2  // ineq BISHOP_MOVES_ON_THEIR_SIDE
+      1  // ineq ROOK_MOVES_ON_THEIR_SIDE
+      8  // ineq QUEEN_MOVES_ON_THEIR_SIDE
+    -19  // ineq KING_HOME_QUALITY
+   -100  // ineq BISHOPS_BLOCKING_KNIGHTS
+     11  // ineq OUR_HANGING_PAWNS_2
+      5  // ineq OUR_HANGING_KNIGHTS_2
+     28  // ineq OUR_HANGING_BISHOPS_2
+    -68  // ineq OUR_HANGING_ROOKS_2
+   -273  // ineq OUR_HANGING_QUEENS_2
+    -33  // ineq THEIR_HANGING_PAWNS_2
+   -129  // ineq THEIR_HANGING_KNIGHTS_2
+   -118  // ineq THEIR_HANGING_BISHOPS_2
+   -187  // ineq THEIR_HANGING_ROOKS_2
+   -143  // ineq THEIR_HANGING_QUEENS_2
+    -31  // ineq QUEEN_THREATS_NEAR_KING
+     -4  // ineq MISSING_FIANCHETTO_BISHOP
+      3  // ineq NUM_BAD_SQUARES_FOR_PAWNS
+     -5  // ineq NUM_BAD_SQUARES_FOR_MINORS
+      6  // ineq NUM_BAD_SQUARES_FOR_ROOKS
+     -3  // ineq NUM_BAD_SQUARES_FOR_QUEENS
+    -46  // ineq IN_TRIVIAL_CHECK
+   -114  // ineq IN_DOUBLE_CHECK
+    -24  // ineq THREATS_NEAR_OUR_KING
+    -34  // ineq THREATS_NEAR_THEIR_KING
+    -25  // ineq NUM_PIECES_HARRASSABLE_BY_PAWNS
+     29  // ineq PAWN_CHECKS
+    -94  // ineq KNIGHT_CHECKS
+    -93  // ineq BISHOP_CHECKS
+    -53  // ineq ROOK_CHECKS
+   -110  // ineq QUEEN_CHECKS
+     26  // ineq BACK_RANK_MATE_THREAT_AGAINST_US
+      2  // ineq BACK_RANK_MATE_THREAT_AGAINST_THEM
+    -37  // ineq OUR_KING_HAS_0_ESCAPE_SQUARES
+    -44  // ineq THEIR_KING_HAS_0_ESCAPE_SQUARES
+     -5  // ineq OUR_KING_HAS_1_ESCAPE_SQUARES
+    -11  // ineq THEIR_KING_HAS_1_ESCAPE_SQUARES
+     13  // ineq OUR_KING_HAS_2_ESCAPE_SQUARES
+     19  // ineq THEIR_KING_HAS_2_ESCAPE_SQUARES
+     -1  // ineq OPPOSITE_SIDE_KINGS_PAWN_STORM
+      8  // ineq IN_CHECK_AND_OUR_HANING_QUEENS
+   -140  // ineq PROMOTABLE_PAWN
+     41  // ineq PINNED_PIECES
+    -15  // ineq KNOWN_KPVK_DRAW
+     13  // ineq KNOWN_KPVK_WIN
+     85  // ineq LONELY_KING_ON_EDGE_AND_NOT_DRAW
+   -122  // ineq LONELY_KING_IN_CORNER_AND_NOT_DRAW
+    135  // ineq LONELY_KING_OPPOSITION_AND_NOT_DRAW
+     85  // ineq LONELY_KING_ACHIEVABLE_OPPOSITION_AND_NOT_DRAW
+    -14  // ineq LONELY_KING_NEXT_TO_ENEMY_KING
+     -1  // ineq KING_TROPISM
 // ?
      0     0     0     0     0     0     0     0
      0     0     0     0     0     0     0     0
@@ -390,58 +390,58 @@
      0     0     0     0     0     0     0     0
 // P
      0     0     0     0     0     0     0     0
-    11     1     4    -1    -1    -6   -20   -11
-    -8    -7     1    -3     1    11    -1    -6
-     6     1    -3     1     3    12     0     7
-     1    -5     1    -1    -4    -1    -6     1
-    -5     0     2    -2     1    -5     2    -2
-     4    -1    -5    -2     2     6     1     1
+   273   121    34    21   -35   -68  -214  -144
+    76   -45    83    42   101    87    10   -65
+    90    65    74   106    49   121    11    70
+    66   -20    18    -1   -10    26   -27    -8
+    19    -6    -7   -13    43   -14    -9   -26
+     8   -16   -33   -86    11    96    69    24
      0     0     0     0     0     0     0     0
 // N
-   -32    -2    -9    -6     0    -7    -7   -10
-    -8    -5   -12     1     4     1    -5    -4
-   -15   -10   -13    -4     6     9     8     2
-    -6    -7    -5     0    -5     7     8    10
-    -3     1     6    -1    -2    12    11     8
-    -6    -3    -2     2     5    -2     4    -5
-   -11    -4    -5     3     2    -1    -3    -4
-   -12     2    -7    -9    -4    -3     2   -15
+  -135    37   -19    94    -9    42   -15   -35
+   -15  -107  -231   -91    16  -221  -163   -80
+     3    -6   -23    18    36   172   218    17
+   103    26    68    71    24   195   136   238
+    79   110   104    49    60   183    73   134
+   -55    44    25   110   121    25   118   -39
+  -124    12    34    35   103    33   178    42
+  -235    26    14     0     0    50    50  -100
 // B
-   -11    -3    -3    -9    -2    -9    -2    -6
-    -6    -7    -3    -3    -3    -6    -5    -7
-    -2     0    -4     2     2    11     5    12
-    -2     2    -2     0     0     9     4     6
-     1    -6    -3     1     2    -2     1     5
-    -7     0     1     4    -1    -4     3    -3
-    -7    -4    10    -5    -2    -1     1    -1
-    -7     7     2    -4    -4     0    -2    -6
+   121  -126    14   -30    14   106    31  -169
+   -52   -78    24   -90  -135  -110  -180  -124
+    52    60   112    65    26   207   151   203
+    17    35    53     1    63   118    39   153
+   -66    69    57    66    22    43   -10   -94
+    40    86    77    87    85    46    85    34
+    61   101    98    18    46   119   148   106
+   119   109    66    45     3    59    63   111
 // R
-    -2     6     1     0     0    -2     9    -2
-    -6    -3    -2     1    -2     2     0     1
-    -8     4    -3     0     6    12     7     7
-    -4    -3    -5    -5    -4     1     2     6
-    -5     5    -2     0     0    -1     7     3
-    -1    -2    -8    -3    -3    -4     5     3
-    -7    -3    -4    -4    -5    -5     5    -5
-     1     2    -1    -2     2     0     1    -1
+   125   133     6   -13    18   -51    85    94
+    93    67    90   124    82    36    60    77
+   131    95    62   158   149   178    82    42
+    12    82    69    76   129    90    92    62
+    96    75    92    99    80    80   204   165
+    35    78    37    70    37   104   240    88
+     1   113    45    85   101    84    74   -59
+    64   110    99   148   168   114   142    24
 // Q
-   -12    -6    -7    -8    -6    -9    -6    -4
-    -1    -8    -4    -6    -3     0    23    16
-    -3    -2   -12    -5     6     9    19    20
-     0    -4    -3    -7    -6     5     7    16
-    -1    -4    -4    -8    -5    -4    12     6
-     1     0    -1    -6    -7    -1     7     3
-    -5     3     1    -2    -2    -5    -5     6
-    -4    -1    -6     2    -5   -11   -12    -5
+   -63    30    40    59   104    96   109   221
+    91    71   104    20   113   142   308   199
+    -7     2    -1   109    69   199   310   384
+    44   -17    66    28    90   151   189   319
+    45    37    32    22    47    93   202   130
+    82    91   125    86    79   181   160   132
+   127    80   134    95   118   167     1    63
+    48    67    77   108   153   -94    37   -50
 // K
-    -3     4    -1    -5     0     3     0    -3
-    -2     1     2     0     1     1     2    -3
-    -3     2     5     2     1     2    -2     3
-    -1     3    -1    -2    -1     1    -3     2
-    -2    -2     2    -3    -4    -3    -5   -12
-     4     7    -2     2    -1    -2     0    -6
-     6    -1     0    -3    -6   -10     3     6
-    -3     2    -7   -10     3   -12     2    -7
+    23    44    80    40   -11   -15    62    54
+     1   118   138   139    46    57   145    -3
+   197    25    79    31    36   123    -6   -37
+   -55    13     6    -7    19     7    -5   -77
+  -191   -91     4   -52   -64    15   -87  -163
+  -107   -79   -26     5    69   -89   -44  -112
+    43    22   -31   -35   -18   -43    38    51
+   -55    29  -109   -70    63  -105    24   -57
 // ?
      0     0     0     0     0     0     0     0
      0     0     0     0     0     0     0     0
@@ -453,55 +453,55 @@
      0     0     0     0     0     0     0     0
 // P
      0     0     0     0     0     0     0     0
-     8    -6    -1   -14     0    -4     7    -1
-     2     1    -7   -12   -12    -7    -7     1
-    11     2    -1    -4     0     1    -1     5
-     3    -2    -4    -3     1    -2    -4     0
-    -6    -5    -1    -1     0     2    -2    -6
-    -3    -5    -3    -9     1     1    -2    -1
+    70    35    25    -3   -49   -38   -26   -55
+    36    23    75   -12    -1   -29    -9   -14
+    65    20    45     0    23    11     3     5
+    30     3    35    -6    41     2   -12   -31
+   -15    14    35     2    -2    24   -11   -31
+    -4    -2    16   -34    55    38    30   -26
      0     0     0     0     0     0     0     0
 // N
-   -21    -3    -7    -7    -7   -14    -6   -12
-   -10    -3    -7    -1    -4   -14    -5   -16
-    -3    -2   -12    -8   -16    -3     1    -9
-    -3     0    -4   -10    -6     4    11     2
-     1    -1     3    -5    -4     5     9     5
-    -2     0    -4     0    -4    -2     2    -3
-    -9     3    -1     2     4    -2     2    -2
-    -2     4     0     0    -1    -3     3   -13
+  -312    10   -36    15    47    29    15  -300
+   -92    -1     2    34     5   -72   -46   -23
+    13   -48   -34     3   -31    -9   110    52
+    54    18    26    -3   -13    91    90    61
+    45   -52    37    -3    26    54    82    90
+    10    -5    26     6     6   -50    28    55
+  -216   -26   -58    10    73    10   142   -66
+    51    35    -2    32   -52   -13    96     9
 // B
-     5    -1    -2    -3     3    -3     1   -14
-    -2     0    -3     1    -9    -2    -9    -1
-     1    -3    -8    -6   -10    -3    -8     8
-     0     3    -5   -14   -13    -4     4    -1
-     4    -5    -4   -12   -14    -3    -2    -1
-    -2     0     0     1     2    -5    -4    -5
-   -10   -12    -2     1     2    -3    -5   -17
-    -6    -1     1    -2     1     2    -6   -14
+    21   -91   -29   -70   -46   -46    22   -54
+   -65    17    -4    57    15    46    14  -100
+    19    69    25   -24    35    44    24   -11
+   -85    64     4    -4   -11    39    63   -21
+   -14    13    -7     2     7     6    -2   -36
+   -14    49    40    33    44     3    13   -16
+     2    36    15    -2    20     1    48   -17
+   143    63    17    25    29    55   -15   120
 // R
-     5     7     0     2     0    -3     9     7
-    -3     2    -5    -3    -9    -9    -3    -3
-    -2    -1    -3    -4    -6   -12    -2    -7
-     1    -1    -7    -8   -15    -9    -5     2
-     8     8     0     3    -3     1     3     7
-     5     3    -2    -3    -9    -6     8    -1
-     0     5    -5    -4    -7    -9    -2    -7
-     3     4     0    -1    -3     3     1    -2
+    77    94    39    22    37   -11    56     7
+    35    11     4    24   -33   -47    24    -2
+    75    49    20    38     5     8    -8   -36
+    62    48    12    14     7     5    14   -18
+    79   102    74    62    57    38    50    28
+    20    72    51    35     7    26    69   -25
+    14    19    60    46    39   -12    15   -34
+    -3    19    20    46    19    11    17   -90
 // Q
-   -69   -41   -47   -35   -36   -46   -69   -65
-   -20   -19   -21   -24   -16   -32   -11    -8
-   -16   -25   -19   -17   -25   -12   -21    -1
-   -20   -16   -20   -24   -27   -15    -3     5
-    -7    -8    -8   -14   -16   -13     1   -10
-   -11    -3   -10    -5   -10    -7   -10    -2
-    -6    -5    -5    -6    -5   -11   -10    -9
-   -11    -9    -7    -1    -8   -14   -22   -19
+  -118     0   -30    38    59     0   -18   -74
+    74    21    89    67   135    77    44    49
+    28    15    45    33    63    55    64    59
+   -19    -2    76     9    41    32    44    73
+   -30    36    62    39    52    57    35    29
+    67    79    93    72    58    55    20    15
+    -8    21    57    45     0     1   -68  -119
+   -72    53   -18     6     1  -116   -73  -105
 // K
-   -23    -3    -2   -17    -2     4     9   -30
-    -7     3    14    15    13     0     6   -24
-   -16     7    15    -4     1     8    -3    -3
-    -2     6     4    -5    -6     0    -8    -6
-   -18    -2    -2    -5   -12    -5    -8   -18
-    -1     6     6     2     6     2     5     4
-     1     2     2     2     0     0     2    -2
-     6     1     1     5     4     5    -1    -8
+   -84    40     5   -50    11    11    59   -38
+   -49    89   125    67    57    89   168    78
+    13   118    81    20    18    76    50   -21
+   -43    15    32   -18   -34    12    -1   -47
+  -128   -51   -23   -54   -60   -14   -67   -97
+  -107   -27    11    -1     4   -17   -32   -70
+   -51     2    14     5     2   -24   -13   -36
+    66    15   -13    13   -38    -2   -10   -49
