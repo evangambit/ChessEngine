@@ -3,7 +3,7 @@ import os
 import numpy as np
 
 from sharded_matrix import ShardedLoader, ShardedWriter, linear_regression, MappingLoader, Slice, RowMapper, matmul, curry, compute_inner_product
-from utils import ExpandedLinear, ShardedMatrixDataset
+from utils import ExpandedLinear, ShardedMatrixDataset, Weights
 
 """
 a="de4-md1"
@@ -168,6 +168,13 @@ def piece_counts_to_features(x):
 def compute_earliness(x):
   return (x[:,1:2] + x[:,2:3] + x[:,3:4] + x[:,4:5] * 3 + x[:,6:7] + x[:,7:8] + x[:,8:9] + x[:,9:10] * 3).clip(0, 18) / 18
 
+def compute_material_inequality(x):
+  a =  (x[:, varnames.index('OUR_KNIGHTS')] - x[:, varnames.index('THEIR_KNIGHTS')]) * 3
+  a += (x[:, varnames.index('OUR_BISHOPS')] - x[:, varnames.index('THEIR_BISHOPS')]) * 3
+  a += (x[:, varnames.index('OUR_ROOKS')] - x[:, varnames.index('THEIR_ROOKS')]) * 5
+  a += (x[:, varnames.index('OUR_QUEENS')] - x[:, varnames.index('THEIR_QUEENS')]) * 9
+  return a.clip(-1, 1).reshape((-1, 1))
+
 def compute_lateness(earliness):
   return 1 - earliness
 
@@ -219,13 +226,13 @@ def times(a, b):
   return a * b
 
 def to_signed_y(y, s):
-  return logit(y) * s
+  return y * s
 
 def minus(a, b):
   return a - b
 
-def early_late(x, time):
-  return np.concatenate([x * (1.0 - time), x * time], 1)
+def row_merger(x, time, inequality):
+  return np.concatenate([x * (1.0 - time), x * time, x * inequality], 1)
 
 def clip(x, low, high):
   return x.clip(low, high)
@@ -243,15 +250,19 @@ def plus(a, b):
   return a + b
 
 if __name__ == '__main__':
-  a = 'de5-md2'
+  a = 'de8-md3'
   X = ShardedLoader(f'data/{a}/data-table')
   F = ShardedLoader(f'data/{a}/data-features')
   Y = ShardedLoader(f'data/{a}/data-eval')
   T = ShardedLoader(f'data/{a}/data-turn')
 
+  Y = MappingLoader(Y, logit)
+
   print(X.num_shards, X.num_rows / 1_000_000)
 
-  n = 1_000_000
+  weights = Weights(open('weights.txt', 'r'))
+
+  n = 5_000_000
   X = Slice(X, 0, n)
   F = Slice(F, 0, n)
   Y = Slice(Y, 0, n)
@@ -277,87 +288,54 @@ if __name__ == '__main__':
 
   # Derived tables.
   earliness = MappingLoader(PC, compute_earliness)
-  lateness = MappingLoader(PC, compute_earliness, compute_lateness)
+  lateness = MappingLoader(earliness, compute_lateness)
+  inequality_ness = MappingLoader(F, compute_material_inequality)
   SignedY = RowMapper(to_signed_y, Y, T)
-  features = RowMapper(early_late, MappingLoader(F, add_bias), lateness)  # cat([F * early, F * late], 1)
-
-  avg = features.load_shard(0).mean(0)
-
-  features = MappingLoader(features, curry(plus, -avg))
-
-  cov = compute_inner_product(features, features)
-  np.save(f'data/{a}/derived/cov.npy', cov / features.num_rows)
-  icov = np.linalg.inv(cov + 1.0 * np.eye(cov.shape[0]))
-  np.save(f'data/{a}/derived/icov.npy', icov * features.num_rows)
+  features = RowMapper(row_merger, MappingLoader(F, add_bias), lateness, inequality_ness)
 
 
-  # if True:
-  #   w = linear_regression(features, SignedY, regularization=50.0)
-  # else:
-  #   w = np.zeros((features.shape[0], 1), dtype=np.float32)
-  # wEarly, wLate = w.reshape(2, -1)
+  if True:
+    w = linear_regression(features, SignedY, regularization=200.0)
+  else:
+    w = np.zeros((features.shape[0], 1), dtype=np.float32)
+  wEarly, wLate, inEq = w.reshape(3, -1)
 
-  # Yhat = matmul(features, w)
-  # Yhat.save('/tmp/yhat', dtype=np.float32, force=True)
-  # Yhat = ShardedLoader('/tmp/yhat')
+  Yhat = matmul(features, w)
+  Yhat.save('/tmp/yhat', dtype=np.float32, force=True)
+  Yhat = ShardedLoader('/tmp/yhat')
 
-  # Residuals = RowMapper(minus, SignedY, Yhat)
+  Residuals = RowMapper(minus, SignedY, Yhat)
 
-  # if False:
-  #   dataset = ShardedMatrixDataset(F, Residuals)
+  if True:
+    UnsignedResiduals = RowMapper(times, Residuals, T)
+    early = linear_regression(MonoTable, UnsignedResiduals, weights=earliness, regularization=100.0).reshape((6, 8, 8))
+    late = linear_regression(MonoTable, UnsignedResiduals, weights=lateness, regularization=100.0).reshape((6, 8, 8))
+  else:
+    early = np.zeros((6, 8, 8))
+    late = np.zeros((6, 8, 8))
 
-  #   from torch import nn, optim
-  #   w2 = nn.Linear(F.shape[0], 1)
-  #   nn.init.zeros_(w2.weight)
-  #   opt = optim.SGD(w2.parameters(), lr=0.01, momentum=0.95)
+  # If we never learned wEarly, use piece maps to determine centipawn value.
+  if wEarly[:3].sum() == 0.0:
+    scale = early[0,2:-1].mean()
+  else:
+    scale = 700 / wEarly[:3].mean()
 
-  #   L = []
-  #   for _ in range(int(5_000_000 // len(dataset)) + 1):
-  #     for x, y in tdata.DataLoader(dataset, batch_size=1024):
-  #       x = torch.tensor(x, dtype=torch.float32)
-  #       y = torch.tensor(y, dtype=torch.float32)
-  #       yhat = w2(x).clip(-1.0, 1.0)
-  #       loss = ((yhat - y)**2).mean()
-  #       opt.zero_grad()
-  #       loss.backward()
-  #       opt.step()
-  #       L.append(float(loss))
-  #     print('%.3f' % np.array(L[-10:]).mean())
-    
-  #   wClipped = w2.weight.detach().numpy().squeeze()
-  #   # TODO: adjust residuals base don wClipped
-  # else:
-  #   wClipped = np.zeros(wEarly.shape)
-  
+  text = ""
+  for k, w in zip(['early', 'late', 'ineq'], [wEarly, wLate, inEq]):
+    text += ('%i' % round(w[len(varnames)] * scale)).rjust(7) + f'  // {k} bias\n'
+    for i, varname in enumerate(varnames):
+      text += ('%i' % round(float(w[i]) * scale)).rjust(7) + f'  // {k} {varname}\n'
 
-  # if True:
-  #   UnsignedResiduals = RowMapper(times, Residuals, T)
-  #   early = linear_regression(MonoTable, UnsignedResiduals, weights=earliness, regularization=0.01).reshape((6, 8, 8))
-  #   late = linear_regression(MonoTable, UnsignedResiduals, weights=lateness, regularization=0.01).reshape((6, 8, 8))
-  # else:
-  #   early = np.zeros((6, 8, 8))
-  #   late = np.zeros((6, 8, 8))
+  for w in [early, late]:
+    text += "// ?\n"
+    for _ in range(8):
+      text += '0'.rjust(6) * 8 + '\n'
+    for i, p in enumerate('PNBRQK'):
+      text += "// %s\n" % p
+      for r in range(8):
+        for f in range(8):
+          text += ('%i' % round(w[i,r,f] * scale)).rjust(6)
+        text += '\n'
 
-  # # If we never learned wEarly, use piece maps to determine centipawn value.
-  # if wEarly[0] == 0.0:
-  #   wEarly[0] = early[0,2:-1].mean()
-
-  # text = ""
-  # for k, w in zip(['early', 'late', 'clipped'], [wEarly, wLate, wClipped]):
-  #   text += ('%i' % round(w[len(varnames)] * 100 / wEarly[0])).rjust(7) + f'  // {k} bias\n'
-  #   for i, varname in enumerate(varnames):
-  #     text += ('%i' % round(float(w[i]) * 100 / wEarly[0])).rjust(7) + f'  // {k} {varname}\n'
-
-  # for w in [early, late]:
-  #   text += "// ?\n"
-  #   for _ in range(8):
-  #     text += '0'.rjust(6) * 8 + '\n'
-  #   for i, p in enumerate('PNBRQK'):
-  #     text += "// %s\n" % p
-  #     for r in range(8):
-  #       for f in range(8):
-  #         text += ('%i' % round(w[i,r,f] * 100 / wEarly[0])).rjust(6)
-  #       text += '\n'
-
-  # with open('w2.txt', 'w') as f:
-  #   f.write(text)
+  with open('w2.txt', 'w') as f:
+    f.write(text)

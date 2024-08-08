@@ -1169,7 +1169,14 @@ struct Evaluator {
     for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
       r += features[i] * clippedW[i];
     }
-    return std::max(-100, std::min(100, r));
+
+    int32_t inequality = (features[EF::OUR_KNIGHTS] - features[EF::THEIR_KNIGHTS]) * 3
+    + (features[EF::OUR_BISHOPS] - features[EF::THEIR_BISHOPS]) * 3
+    + (features[EF::OUR_ROOKS] - features[EF::THEIR_ROOKS]) * 5
+    + (features[EF::OUR_QUEENS] - features[EF::THEIR_QUEENS]) * 9;
+    inequality = std::min<int32_t>(1, std::max<int32_t>(-1, inequality));
+
+    return r * inequality;
   }
 
   void zero_() {
