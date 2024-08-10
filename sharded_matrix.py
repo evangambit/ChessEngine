@@ -444,13 +444,18 @@ def compute_inner_product(loader1: LoaderInterface, loader2: LoaderInterface, we
       result = result.T
     return result
 
-def linear_regression(X: LoaderInterface, Y: LoaderInterface, weights=None, regularization: float = 0.0, num_workers: int = 4):
+from typing import Union
+
+def linear_regression(X: LoaderInterface, Y: LoaderInterface, weights=None, regularization: Union[float|np.ndarray] = 0.0, num_workers: int = 4):
   assert len(X.shape) == 1
   assert len(Y.shape) == 1
+  if isinstance(regularization, np.ndarray):
+    assert len(regularization.shape) == 1
+    assert regularization.shape[0] == X.shape[0]
+  else:
+    regularization = np.ones(X.shape[0]) * regularization
   assert X.num_rows == Y.num_rows
   assert num_workers > 0
-  cov = compute_inner_product(X, X, num_workers=num_workers)
-  if regularization > 0.0:
-    cov += np.eye(cov.shape[0]) * regularization
+  cov = compute_inner_product(X, X, weights_loader=weights, num_workers=num_workers)
   dot_product = compute_inner_product(X, Y, weights_loader=weights, num_workers=num_workers)
-  return np.linalg.solve(cov, dot_product)
+  return np.linalg.solve(cov + np.diag(regularization), dot_product), cov, dot_product
