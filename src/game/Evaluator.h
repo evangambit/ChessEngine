@@ -349,16 +349,16 @@ struct Evaluator {
     std::fill_n(earlyW, EF::NUM_EVAL_FEATURES, 0);
     lateB = 0;
     std::fill_n(lateW, EF::NUM_EVAL_FEATURES, 0);
-    clippedB = 0;
-    std::fill_n(clippedW, EF::NUM_EVAL_FEATURES, 0);
+    ineqB = 0;
+    std::fill_n(ineqW, EF::NUM_EVAL_FEATURES, 0);
   }
 
   int32_t earlyB;
   int32_t earlyW[EF::NUM_EVAL_FEATURES];
   int32_t lateB;
   int32_t lateW[EF::NUM_EVAL_FEATURES];
-  int32_t clippedB;
-  int32_t clippedW[EF::NUM_EVAL_FEATURES];
+  int32_t ineqB;
+  int32_t ineqW[EF::NUM_EVAL_FEATURES];
 
   void save_weights_to_file(std::ofstream& myfile) {
     myfile << lpad(earlyB) << "  // early bias" << std::endl;
@@ -371,9 +371,9 @@ struct Evaluator {
       myfile << lpad(lateW[i]) << "  // late " << EFSTR[i] << std::endl;
     }
 
-    myfile << lpad(clippedB) << "  // clipped bias" << std::endl;
+    myfile << lpad(ineqB) << "  // ineq bias" << std::endl;
     for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
-      myfile << lpad(clippedW[i]) << "  // clipped " << EFSTR[i] << std::endl;
+      myfile << lpad(ineqW[i]) << "  // ineq " << EFSTR[i] << std::endl;
     }
   }
 
@@ -418,24 +418,24 @@ struct Evaluator {
 
     getline(myfile, line);
     try {
-      clippedB = stoi(process_with_file_line(line));
+      ineqB = stoi(process_with_file_line(line));
     } catch (std::invalid_argument& err) {
-      std::cout << "error loading clippedB" << std::endl;
+      std::cout << "error loading ineqB" << std::endl;
       throw err;
     }
     for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
       getline(myfile, line);
       try {
-        clippedW[i] = stoi(process_with_file_line(line));
+        ineqW[i] = stoi(process_with_file_line(line));
       } catch (std::invalid_argument& err) {
-        std::cout << "error loading clippedW[" << i << "]" << std::endl;
+        std::cout << "error loading ineqW[" << i << "]" << std::endl;
         throw err;
       }
     }
   }
 
   Evaluation pawnValue() const {
-    return this->earlyW[EF::OUR_PAWNS] + this->clippedW[EF::OUR_PAWNS];
+    return this->earlyW[EF::OUR_PAWNS] + this->ineqW[EF::OUR_PAWNS];
   }
 
   template<Color US>
@@ -1010,7 +1010,7 @@ struct Evaluator {
     // Use larger integer to make arithmetic safe.
     const int32_t early = this->early<US>(pos);
     const int32_t late = this->late<US>(pos);
-    const int32_t clipped = this->clipped<US>(pos);
+    const int32_t ineq = this->ineq<US>(pos);
 
     // 0.043 ± 0.019
     // TODO: we'd like to learn piece maps based on king positions (king-side vs queen-side) in addition to time.
@@ -1024,7 +1024,7 @@ struct Evaluator {
       pieceMap *= -1;
     }
 
-    int32_t eval = (early * (18 - time) + late * time) / 18 + clipped + pieceMap;
+    int32_t eval = (early * (18 - time) + late * time) / 18 + ineq + pieceMap;
 
     eval = std::min(int32_t(-kQLongestForcedMate), std::max(int32_t(kQLongestForcedMate), eval));
 
@@ -1164,10 +1164,10 @@ struct Evaluator {
   }
 
   template<Color US>
-  int32_t clipped(const Position& pos) const {
-    int32_t r = clippedB;
+  int32_t ineq(const Position& pos) const {
+    int32_t r = ineqB;
     for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
-      r += features[i] * clippedW[i];
+      r += features[i] * ineqW[i];
     }
 
     int32_t inequality = (features[EF::OUR_KNIGHTS] - features[EF::THEIR_KNIGHTS]) * 3
@@ -1183,11 +1183,11 @@ struct Evaluator {
     for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
       earlyW[i] = 0;
       lateW[i] = 0;
-      clippedW[i] = 0;
+      ineqW[i] = 0;
     }
     earlyB = 0;
     lateB = 0;
-    clippedB = 0;
+    ineqB = 0;
   }
 
   Evaluation features[NUM_EVAL_FEATURES];
