@@ -800,14 +800,14 @@ struct Evaluator {
     }
 
     {
-      const Bitboard ourGoodKnightTargets = threats.ourKnightTargets & ~threats.badForOur[Piece::KNIGHT];
-      const Bitboard theirGoodKnightTargets = threats.theirKnightTargets & ~threats.badForTheir[Piece::KNIGHT];
-      const Bitboard ourGoodBishopTargets = ourBishopTargetsIgnoringNonBlockades & ~threats.badForOur[Piece::BISHOP];
-      const Bitboard theirGoodBishopTargets = theirBishopTargetsIgnoringNonBlockades & ~threats.badForTheir[Piece::BISHOP];
-      const Bitboard ourGoodRookTargets = threats.ourRookTargets & ~threats.badForOur[Piece::ROOK];
-      const Bitboard theirGoodRookTargets = threats.theirRookTargets & ~threats.badForTheir[Piece::ROOK];
-      const Bitboard ourGoodQueenTargets = threats.ourQueenTargets & ~threats.badForOur[Piece::QUEEN];
-      const Bitboard theirGoodQueenTargets = threats.theirQueenTargets & ~threats.badForTheir[Piece::QUEEN];
+      const Bitboard ourGoodKnightTargets = threats.ourKnightTargets & ~threats.badForOur[Piece::KNIGHT] & ~ourMen;
+      const Bitboard theirGoodKnightTargets = threats.theirKnightTargets & ~threats.badForTheir[Piece::KNIGHT] & ~theirMen;
+      const Bitboard ourGoodBishopTargets = ourBishopTargetsIgnoringNonBlockades & ~threats.badForOur[Piece::BISHOP] & ~ourMen;
+      const Bitboard theirGoodBishopTargets = theirBishopTargetsIgnoringNonBlockades & ~threats.badForTheir[Piece::BISHOP] & ~theirMen;
+      const Bitboard ourGoodRookTargets = threats.ourRookTargets & ~threats.badForOur[Piece::ROOK] & ~ourMen;
+      const Bitboard theirGoodRookTargets = threats.theirRookTargets & ~threats.badForTheir[Piece::ROOK] & ~theirMen;
+      const Bitboard ourGoodQueenTargets = threats.ourQueenTargets & ~threats.badForOur[Piece::QUEEN] & ~ourMen;
+      const Bitboard theirGoodQueenTargets = threats.theirQueenTargets & ~threats.badForTheir[Piece::QUEEN] & ~theirMen;
       features[EF::PAWN_MOVES] = std::popcount(threats.ourPawnTargets) - std::popcount(threats.theirPawnTargets);
       features[EF::KNIGHT_MOVES] = std::popcount(ourGoodKnightTargets) - std::popcount(theirGoodKnightTargets);
       features[EF::BISHOP_MOVES] = std::popcount(ourGoodBishopTargets) - std::popcount(theirGoodBishopTargets);
