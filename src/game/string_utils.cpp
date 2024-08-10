@@ -22,6 +22,13 @@ std::string repr(const std::string& text) {
   return r;
 }
 
+std::string rjust(const std::string& text, size_t width) {
+  if (text.size() >= width) {
+    return text;
+  }
+  return std::string(width - text.size(), ' ') + text;
+}
+
 void ltrim(std::string *text) {
   text->erase(text->begin(), std::find_if(text->begin(), text->end(), [](unsigned char ch) {
       return !std::isspace(ch);

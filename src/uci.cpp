@@ -267,8 +267,17 @@ class EvalTask : public Task {
       std::cout << evaluator.score<Color::BLACK>(state->pos) << std::endl;
     }
     if (command.size() > 1 && command.at(1) == "vec") {
+      const int32_t time = evaluator.features[EF::TIME];
+      const int32_t ineq = std::min<int32_t>(1, std::max<int32_t>(-1, (evaluator.features[EF::OUR_KNIGHTS] - evaluator.features[EF::THEIR_KNIGHTS]) * 3
+        + (evaluator.features[EF::OUR_BISHOPS] - evaluator.features[EF::THEIR_BISHOPS]) * 3
+        + (evaluator.features[EF::OUR_ROOKS] - evaluator.features[EF::THEIR_ROOKS]) * 5
+        + (evaluator.features[EF::OUR_QUEENS] - evaluator.features[EF::THEIR_QUEENS]) * 9));
       for (int i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
-        std::cout << evaluator.features[i] << "  // " << EFSTR[i] << std::endl;
+        int x = evaluator.features[i];
+        int w = evaluator.earlyW[i] * (18 - time) / 18 + evaluator.lateW[i] * time / 18 + evaluator.ineqW[i] * ineq;
+        std::cout << rjust(std::to_string(x), 6)
+                  << rjust(std::to_string(w * x), 6)
+                  << "  // " << EFSTR[i] << std::endl;
       }
       for (int i = 0; i < PieceMapType::PieceMapTypeCount; ++i) {
         std::cout << state->pos.pieceMapScores[i] << "  // piece map" << std::endl;
