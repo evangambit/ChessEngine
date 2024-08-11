@@ -192,10 +192,10 @@ if __name__ == '__main__':
   Yhat = ShardedLoader('/tmp/yhat')
 
   Residuals = RowMapper(minus, SignedY, Yhat)
+  UnsignedResiduals = RowMapper(times, Residuals, T)
 
   foo = 0
   if foo == 0:
-    UnsignedResiduals = RowMapper(times, Residuals, T)
     early, e_cov, e_dot = linear_regression(MonoTable, UnsignedResiduals, weights=earliness, regularization=100.0)
     early = early.reshape((6, 8, 8))
     np.save(f'data/{a}/derived/e_cov.npy', e_cov)
@@ -206,10 +206,10 @@ if __name__ == '__main__':
     np.save(f'data/{a}/derived/l_dot.npy', l_dot)
   elif foo == 1:
     e_cov = np.load(f'data/{a}/derived/e_cov.npy')
-    e_dot = np.load(f'data/{a}/derived/e_dot.npy')
+    e_dot = compute_inner_product(MonoTable, UnsignedResiduals, weights_loader=earliness, num_workers=4)
     early = np.linalg.solve(e_cov + np.diag(np.ones(e_cov.shape[0]) * 1), e_dot).reshape((6, 8, 8))
     l_cov = np.load(f'data/{a}/derived/l_cov.npy')
-    l_dot = np.load(f'data/{a}/derived/l_dot.npy')
+    l_dot = compute_inner_product(MonoTable, UnsignedResiduals, weights_loader=lateness, num_workers=4)
     late = np.linalg.solve(l_cov + np.diag(np.ones(l_cov.shape[0]) * 1), l_dot).reshape((6, 8, 8))
   else:
     early = np.zeros((6, 8, 8))
