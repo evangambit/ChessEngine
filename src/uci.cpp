@@ -709,7 +709,7 @@ struct UciEngine {
   UciEngine() {
     this->state.stopThinkingSwitch = nullptr;
     this->state.pos = Position("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
-    this->state.thinker.load_weights_from_file("weights.txt");
+    this->state.thinker.load_weights_from_file("w2.txt");
   }
   void start(std::istream& cin, const std::vector<std::string>& commands) {
     UciEngineState *state = &this->state;

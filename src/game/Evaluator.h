@@ -182,6 +182,21 @@ enum EF {
   LONELY_KING_NEXT_TO_ENEMY_KING,
   KING_TROPISM,
 
+  PAWNS_X_QUEENS,
+  PAWNS_X_QUEENS_2,
+  PAWNS_X_KNIGHTS,
+  PAWNS_X_KNIGHTS_2,
+  PAWNS_X_BISHOPS,
+  PAWNS_X_BISHOPS_2,
+  PAWNS_X_ROOKS,
+  PAWNS_X_ROOKS_2,
+  KNIGHTS_X_QUEENS,
+  KNIGHTS_X_QUEENS_2,
+  BISHOPS_X_QUEENS,
+  BISHOPS_X_QUEENS_2,
+  ROOKS_X_QUEENS,
+  ROOKS_X_QUEENS_2,
+
   NUM_EVAL_FEATURES,
 };
 
@@ -317,6 +332,20 @@ std::string EFSTR[] = {
   "LONELY_KING_ACHIEVABLE_OPPOSITION_AND_NOT_DRAW",
   "LONELY_KING_NEXT_TO_ENEMY_KING",
   "KING_TROPISM",
+  "PAWNS_X_QUEENS",
+  "PAWNS_X_QUEENS_2",
+  "PAWNS_X_KNIGHTS",
+  "PAWNS_X_KNIGHTS_2",
+  "PAWNS_X_BISHOPS",
+  "PAWNS_X_BISHOPS_2",
+  "PAWNS_X_ROOKS",
+  "PAWNS_X_ROOKS_2",
+  "KNIGHTS_X_QUEENS",
+  "KNIGHTS_X_QUEENS_2",
+  "BISHOPS_X_QUEENS",
+  "BISHOPS_X_QUEENS_2",
+  "ROOKS_X_QUEENS",
+  "ROOKS_X_QUEENS_2",
 };
 
 template<size_t N>
@@ -523,6 +552,21 @@ struct Evaluator {
     features[EF::THEIR_BISHOPS] = std::popcount(theirBishops);
     features[EF::THEIR_ROOKS] = std::popcount(theirRooks);
     features[EF::THEIR_QUEENS] = std::popcount(theirQueens);
+
+    features[EF::PAWNS_X_QUEENS] = features[EF::OUR_PAWNS] * features[EF::OUR_QUEENS] - features[EF::THEIR_PAWNS] * features[EF::THEIR_QUEENS];
+    features[EF::PAWNS_X_QUEENS_2] = features[EF::OUR_PAWNS] * features[EF::THEIR_QUEENS] - features[EF::THEIR_PAWNS] * features[EF::OUR_QUEENS];
+    features[EF::PAWNS_X_KNIGHTS] = features[EF::OUR_PAWNS] * features[EF::OUR_KNIGHTS] - features[EF::THEIR_PAWNS] * features[EF::THEIR_KNIGHTS];
+    features[EF::PAWNS_X_KNIGHTS_2] = features[EF::OUR_PAWNS] * features[EF::THEIR_KNIGHTS] - features[EF::THEIR_PAWNS] * features[EF::OUR_KNIGHTS];
+    features[EF::PAWNS_X_BISHOPS] = features[EF::OUR_PAWNS] * features[EF::OUR_BISHOPS] - features[EF::THEIR_PAWNS] * features[EF::THEIR_BISHOPS];
+    features[EF::PAWNS_X_BISHOPS_2] = features[EF::OUR_PAWNS] * features[EF::THEIR_BISHOPS] - features[EF::THEIR_PAWNS] * features[EF::OUR_BISHOPS];
+    features[EF::PAWNS_X_ROOKS] = features[EF::OUR_PAWNS] * features[EF::OUR_ROOKS] - features[EF::THEIR_PAWNS] * features[EF::THEIR_ROOKS];
+    features[EF::PAWNS_X_ROOKS_2] = features[EF::OUR_PAWNS] * features[EF::THEIR_ROOKS] - features[EF::THEIR_PAWNS] * features[EF::OUR_ROOKS];
+    features[EF::KNIGHTS_X_QUEENS] = features[EF::OUR_KNIGHTS] * features[EF::OUR_QUEENS] - features[EF::THEIR_KNIGHTS] * features[EF::THEIR_QUEENS];
+    features[EF::KNIGHTS_X_QUEENS_2] = features[EF::OUR_KNIGHTS] * features[EF::THEIR_QUEENS] - features[EF::THEIR_KNIGHTS] * features[EF::OUR_QUEENS];
+    features[EF::BISHOPS_X_QUEENS] = features[EF::OUR_BISHOPS] * features[EF::OUR_QUEENS] - features[EF::THEIR_BISHOPS] * features[EF::THEIR_QUEENS];
+    features[EF::BISHOPS_X_QUEENS_2] = features[EF::OUR_BISHOPS] * features[EF::THEIR_QUEENS] - features[EF::THEIR_BISHOPS] * features[EF::OUR_QUEENS];
+    features[EF::ROOKS_X_QUEENS] = features[EF::OUR_ROOKS] * features[EF::OUR_QUEENS] - features[EF::THEIR_ROOKS] * features[EF::THEIR_QUEENS];
+    features[EF::ROOKS_X_QUEENS_2] = features[EF::OUR_ROOKS] * features[EF::THEIR_QUEENS] - features[EF::THEIR_ROOKS] * features[EF::OUR_QUEENS];
 
     const int16_t ourPiecesRemaining = std::popcount(pos.colorBitboards_[US] & ~ourPawns) + std::popcount(ourQueens) * 2 - 1;
     const int16_t theirPiecesRemaining = std::popcount(pos.colorBitboards_[THEM] & ~theirPawns) + std::popcount(theirQueens) * 2 - 1;
