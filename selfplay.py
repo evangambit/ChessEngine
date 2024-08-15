@@ -166,6 +166,11 @@ if __name__ == '__main__':
         stderr = r.std(ddof=1) / np.sqrt(r.shape[0])
         avg = r.mean()
         print('%.3f ± %.3f' % (avg, stderr))
+        print(
+          ('%d' % (r == 1).sum()).rjust(4),
+          ('%d' % (r == 0).sum()).rjust(4),
+          ('%d' % (r == -1).sum()).rjust(4),
+        )
       except mp.context.TimeoutError:
         print('timeout')
         pass
