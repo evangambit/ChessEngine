@@ -984,7 +984,7 @@ struct Evaluator {
         if (US == Color::WHITE) {
           result = known_kpvk_result(ourKingSq, theirKingSq, lsb(ourPawns), true);
         } else {
-          result = known_kpvk_result(Square(63 - ourKingSq), Square(63 - theirKingSq), Square(63 - lsb(ourPawns)), true);
+          result = known_kpvk_result(Square(63 - ourKingSq), Square(63 - theirKingSq), Square(63 - msb(ourPawns)), true);
         }
         features[EF::KNOWN_KPVK_DRAW] = (result == 0) && (std::popcount(ourPawns) == 1);
         features[EF::KNOWN_KPVK_WIN] = (result == 2);
@@ -994,7 +994,7 @@ struct Evaluator {
         if (US == Color::BLACK) {
           result = known_kpvk_result(theirKingSq, ourKingSq, lsb(theirPawns), false);
         } else {
-          result = known_kpvk_result(Square(63 - theirKingSq), Square(63 - ourKingSq), Square(63 - lsb(theirPawns)), false);
+          result = known_kpvk_result(Square(63 - theirKingSq), Square(63 - ourKingSq), Square(63 - msb(theirPawns)), false);
         }
         features[EF::KNOWN_KPVK_DRAW] = (result == 0) && (std::popcount(theirPawns) == 1);
         features[EF::KNOWN_KPVK_WIN] = -(result == 2);

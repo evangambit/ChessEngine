@@ -31,7 +31,7 @@ int known_kpvk_result(Square yourKing, Square theirKing, Square yourPawn, bool y
   isWinning |= (wy == py - 1 && std::abs(wx - px) <= 1 && py <= 3 && bdist + yourMove > 1);
 
   // Horizontally symmetric is a win for white.
-  isWinning |= (wx - px == px - bx && wy == by);
+  isWinning |= (std::abs(wx - px) <= std::abs(px - bx) && wy == by);
 
   if (isWinning) {
     return 2;
