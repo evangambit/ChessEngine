@@ -213,7 +213,7 @@ class Position {
   template<Color TURN>
   bool is_valid_move(Move move) const {
     // TODO: make more robust?
-    return tiles_[move.from] != ColoredPiece::NO_COLORED_PIECE;
+    return tiles_[move.from] != ColoredPiece::NO_COLORED_PIECE && cp2color(tiles_[move.to]) != TURN;
   }
 
  private:
@@ -410,6 +410,8 @@ void undo_nullmove(Position *pos) {
 template<Color TURN>
 void make_move(Position *pos, Move move) {
   foo<TURN>(pos);
+  assert(move.to != Square::NO_SQUARE);
+  assert(cp2color(pos->tiles_[move.to]) != TURN);
 
   pos->hashes_.push_back(pos->hash_);
 

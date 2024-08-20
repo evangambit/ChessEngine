@@ -9,6 +9,7 @@
 #include <iostream>
 
 #include "../game/Evaluator.h"
+#include "../game/movegen.h"
 #include "../game/Position.h"
 
 using namespace ChessEngine;
@@ -120,6 +121,27 @@ TEST(Eval, PINNED_PIECES) {
 TEST(Eval, QUEEN_MOVES) {
   // No pins.
   ASSERT_EQ(f("rnbqkbnr/ppp1pppp/8/3p4/3P4/2N5/PPP1PPPP/R1BQKBNR b KQkq - 1 2", EF::QUEEN_MOVES), 0);
+}
+
+TEST(Eval, KPVK) {
+  // When you have extra material, you should still get a bonus if you're winning the
+  // pawn endgame (so you don't prefer less material).
+  ASSERT_EQ(f("8/1k6/8/6P1/8/8/8/3KQ3 w - - 0 1", EF::KNOWN_KPVK_WIN), 1);
+
+  // However if your opponent has any material, you should not get a bonus.
+  ASSERT_EQ(f("8/pk6/8/6P1/8/8/8/3KQ3 w - - 0 1", EF::KNOWN_KPVK_WIN), 0);
+
+  // When there are two pawns, look at the pawn closer to the end.
+  ASSERT_EQ(f("8/1k6/8/6P1/1P6/8/8/3K4 w - - 0 1", EF::KNOWN_KPVK_WIN), 1);
+}
+
+TEST(Eval, Foo) {
+  Position pos("r2q2kr/1ppb1pbp/p1n1p2p/3pP3/3P1Q2/P1NB1N1P/1PP2PP1/R4RK1 b - - 2 15");
+  ExtMove moves[256];
+  ExtMove *end = compute_moves<Color::BLACK, MoveGenType::ALL_MOVES>(pos, moves);
+  for (ExtMove *move = moves; move != end; move++) {
+    std::cout << move->move << std::endl;
+  }
 }
 
 int main(int argc, char *argv[]) {

@@ -11,6 +11,10 @@ namespace ChessEngine {
 // Returns 1 if unknown
 int known_kpvk_result(Square yourKing, Square theirKing, Square yourPawn, bool yourMove);
 
+bool is_kpvk_win(Square yourKing, Square theirKing, Square yourPawn, bool yourMove);
+
+bool is_kpvk_draw(Square yourKing, Square theirKing, Square yourPawn, bool yourMove);
+
 }  // namespace ChessEngine
 
 #endif  // KPVK_H

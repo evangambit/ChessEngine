@@ -294,7 +294,7 @@ class PlayTask : public Task {
   void start(UciEngineState *state) override {
     assert(!isRunning);
     isRunning = true;
-    assert(command.at(0) == "go");
+    assert(command.at(0) == "play");
     command.pop_front();
     GoCommand goCommand = make_go_command(&command, &state->pos);
     this->thread = new std::thread(PlayTask::_threaded_think, state, goCommand, &this->isRunning);

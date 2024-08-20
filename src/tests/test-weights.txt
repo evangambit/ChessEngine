@@ -125,6 +125,20 @@
       0  // early LONELY_KING_ACHIEVABLE_OPPOSITION_AND_NOT_DRAW
       0  // early LONELY_KING_NEXT_TO_ENEMY_KING
       0  // early KING_TROPISM
+      0  // early PAWNS_X_QUEENS
+      0  // early PAWNS_X_QUEENS_2
+      0  // early PAWNS_X_KNIGHTS
+      0  // early PAWNS_X_KNIGHTS_2
+      0  // early PAWNS_X_BISHOPS
+      0  // early PAWNS_X_BISHOPS_2
+      0  // early PAWNS_X_ROOKS
+      0  // early PAWNS_X_ROOKS_2
+      0  // early KNIGHTS_X_QUEENS
+      0  // early KNIGHTS_X_QUEENS_2
+      0  // early BISHOPS_X_QUEENS
+      0  // early BISHOPS_X_QUEENS_2
+      0  // early ROOKS_X_QUEENS
+      0  // early ROOKS_X_QUEENS_2
       0  // late bias
       0  // late OUR_PAWNS
       0  // late OUR_KNIGHTS
@@ -252,6 +266,20 @@
       0  // late LONELY_KING_ACHIEVABLE_OPPOSITION_AND_NOT_DRAW
       0  // late LONELY_KING_NEXT_TO_ENEMY_KING
       0  // late KING_TROPISM
+      0  // late PAWNS_X_QUEENS
+      0  // late PAWNS_X_QUEENS_2
+      0  // late PAWNS_X_KNIGHTS
+      0  // late PAWNS_X_KNIGHTS_2
+      0  // late PAWNS_X_BISHOPS
+      0  // late PAWNS_X_BISHOPS_2
+      0  // late PAWNS_X_ROOKS
+      0  // late PAWNS_X_ROOKS_2
+      0  // late KNIGHTS_X_QUEENS
+      0  // late KNIGHTS_X_QUEENS_2
+      0  // late BISHOPS_X_QUEENS
+      0  // late BISHOPS_X_QUEENS_2
+      0  // late ROOKS_X_QUEENS
+      0  // late ROOKS_X_QUEENS_2
       0  // ineq bias
       0  // ineq OUR_PAWNS
       0  // ineq OUR_KNIGHTS
@@ -379,6 +407,20 @@
       0  // ineq LONELY_KING_ACHIEVABLE_OPPOSITION_AND_NOT_DRAW
       0  // ineq LONELY_KING_NEXT_TO_ENEMY_KING
       0  // ineq KING_TROPISM
+      0  // ineq PAWNS_X_QUEENS
+      0  // ineq PAWNS_X_QUEENS_2
+      0  // ineq PAWNS_X_KNIGHTS
+      0  // ineq PAWNS_X_KNIGHTS_2
+      0  // ineq PAWNS_X_BISHOPS
+      0  // ineq PAWNS_X_BISHOPS_2
+      0  // ineq PAWNS_X_ROOKS
+      0  // ineq PAWNS_X_ROOKS_2
+      0  // ineq KNIGHTS_X_QUEENS
+      0  // ineq KNIGHTS_X_QUEENS_2
+      0  // ineq BISHOPS_X_QUEENS
+      0  // ineq BISHOPS_X_QUEENS_2
+      0  // ineq ROOKS_X_QUEENS
+      0  // ineq ROOKS_X_QUEENS_2
 // ?
      0     0     0     0     0     0     0     0
      0     0     0     0     0     0     0     0

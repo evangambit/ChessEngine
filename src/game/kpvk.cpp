@@ -9,6 +9,16 @@ namespace ChessEngine {
 // Returns 0 if white draws
 // Returns 1 if unknown
 int known_kpvk_result(Square yourKing, Square theirKing, Square yourPawn, bool yourMove) {
+  if (is_kpvk_win(yourKing, theirKing, yourPawn, yourMove)) {
+    return 2;
+  } else if (is_kpvk_draw(yourKing, theirKing, yourPawn, yourMove)) {
+    return 0;
+  } else {
+    return 1;
+  }
+}
+
+bool is_kpvk_win(Square yourKing, Square theirKing, Square yourPawn, bool yourMove) {
   const int wx = yourKing % 8;
   const int wy = yourKing / 8;
   const int bx = theirKing % 8;
@@ -18,7 +28,6 @@ int known_kpvk_result(Square yourKing, Square theirKing, Square yourPawn, bool y
 
   const int wdist = std::max(std::abs(wx - px), std::abs(wy - py));
   const int bdist = std::max(std::abs(bx - px), std::abs(by - py));
-
 
   bool isWinning = false;
   {  // Square rule
@@ -33,9 +42,19 @@ int known_kpvk_result(Square yourKing, Square theirKing, Square yourPawn, bool y
   // Horizontally symmetric is a win for white.
   isWinning |= (std::abs(wx - px) <= std::abs(px - bx) && wy == by);
 
-  if (isWinning) {
-    return 2;
-  }
+  return isWinning;
+}
+
+bool is_kpvk_draw(Square yourKing, Square theirKing, Square yourPawn, bool yourMove) {
+  const int wx = yourKing % 8;
+  const int wy = yourKing / 8;
+  const int bx = theirKing % 8;
+  const int by = theirKing / 8;
+  const int px = yourPawn % 8;
+  const int py = yourPawn / 8;
+
+  const int wdist = std::max(std::abs(wx - px), std::abs(wy - py));
+  const int bdist = std::max(std::abs(bx - px), std::abs(by - py));
 
   // if (wx == bx && wy >= py - 1 && by == wy - 2 && by != 0 && yourMove) {
   //   return 0;
@@ -61,7 +80,7 @@ int known_kpvk_result(Square yourKing, Square theirKing, Square yourPawn, bool y
   // TODO: this is unreliable in positions like 4k3/8/8/8/8/8/4P3/4K3 w - - 0 1
   isDrawn |= (wy > py && py > by) && (std::abs(px - bx) - !yourMove <= wy - py);
 
-  return !isDrawn;
+  return isDrawn;
 }
 
 }  // namespace ChessEngine
