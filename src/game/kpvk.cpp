@@ -28,6 +28,7 @@ bool is_kpvk_win(Square yourKing, Square theirKing, Square yourPawn, bool yourMo
 
   const int wdist = std::max(std::abs(wx - px), std::abs(wy - py));
   const int bdist = std::max(std::abs(bx - px), std::abs(by - py));
+  const bool notRookPawn = (px != 0 && px != 7);
 
   bool isWinning = false;
   {  // Square rule
@@ -36,11 +37,11 @@ bool is_kpvk_win(Square yourKing, Square theirKing, Square yourPawn, bool yourMo
   }
 
   // Key squares
-  isWinning |= (wy == py - 2 && std::abs(wx - px) <= 1 && bdist + yourMove > 1);
-  isWinning |= (wy == py - 1 && std::abs(wx - px) <= 1 && py <= 3 && bdist + yourMove > 1);
+  isWinning |= (wy == py - 2 && std::abs(wx - px) <= 1 && bdist + yourMove > 1) && notRookPawn;
+  isWinning |= (wy == py - 1 && std::abs(wx - px) <= 1 && py <= 3 && bdist + yourMove > 1) && notRookPawn;
 
   // Horizontally symmetric is a win for white.
-  isWinning |= (std::abs(wx - px) <= std::abs(px - bx) && wy == by);
+  isWinning |= (std::abs(wx - px) <= std::abs(px - bx) && wy == by) && notRookPawn;
 
   return isWinning;
 }
