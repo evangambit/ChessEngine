@@ -167,9 +167,11 @@ if __name__ == '__main__':
         avg = r.mean()
         print('%.3f ± %.3f' % (avg, stderr))
         print(
-          ('%d' % (r == 1).sum()).rjust(4),
+          ('%d' % (r == 0.5).sum()).rjust(4),
+          ('%d' % (r == 0.25).sum()).rjust(4),
           ('%d' % (r == 0).sum()).rjust(4),
-          ('%d' % (r == -1).sum()).rjust(4),
+          ('%d' % (r == -0.25).sum()).rjust(4),
+          ('%d' % (r == -0.5).sum()).rjust(4),
         )
       except mp.context.TimeoutError:
         print('timeout')
