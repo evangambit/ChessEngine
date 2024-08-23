@@ -58,9 +58,10 @@ def helper(engine, resultQueue, args):
         b.push(moves[0])
         is_quiet = False
         for i in range(1, len(moves) - args.min_depth):
-          if b.piece_at(moves[i].to_square) is not None:
+          if 'x' not in b.san(moves[i]):
             is_quiet = True
             break
+          b.push(moves[i])
         if is_quiet:
           resultQueue.put((b.fen(), wdl.wins, wdl.draws, wdl.losses))
         b = None

@@ -3,7 +3,7 @@ import os
 import numpy as np
 
 from sharded_matrix import ShardedLoader, ShardedWriter, linear_regression, MappingLoader, Slice, RowMapper, matmul, curry, compute_inner_product
-from utils import ExpandedLinear, ShardedMatrixDataset, Weights, varnames
+from utils import ExpandedLinear, ShardedMatrixDataset, Weights, varnames, table2fen
 
 from functools import partial
 
@@ -126,7 +126,7 @@ def minus(a, b):
   return a - b
 
 if __name__ == '__main__':
-  a = 'de8-md3'
+  a = 'de6-md2'
   X = ShardedLoader(f'data/{a}/data-table')
   F = ShardedLoader(f'data/{a}/data-features')
   Y = ShardedLoader(f'data/{a}/data-eval')
