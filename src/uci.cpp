@@ -779,10 +779,13 @@ struct UciEngine {
   UciEngine() {
     this->state.stopThinkingSwitch = nullptr;
     this->state.pos = Position("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
-    // this->state.thinker.load_weights_from_file("weights.txt");
 
+    #if INCLUDE_WEIGHTS
     ReadEncodedWeights task;
     task.start(&this->state);
+    #else
+    this->state.thinker.load_weights_from_file("weights.txt");
+    #endif
   }
   void start(std::istream& cin, const std::vector<std::string>& commands) {
     UciEngineState *state = &this->state;
@@ -918,6 +921,8 @@ struct UciEngine {
       state->taskQueue.push_back(std::make_shared<QuitTask>());
     } else if (parts[0] == "printfen") {
       state->taskQueue.push_back(std::make_shared<PrintFenTask>());
+    } else if (parts[0] == "dumpweights") {
+      state->taskQueue.push_back(std::make_shared<DumpEncodedWeights>());
     } else if (parts[0] == "silence") {
       state->taskQueue.push_back(std::make_shared<SilenceTask>(parts));
     #ifdef PRINT_DEBUG
