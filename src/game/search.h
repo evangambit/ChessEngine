@@ -20,8 +20,8 @@
 #include "movegen/sliding.h"
 #include "Evaluator.h"
 
-#ifndef COMPLEX_SEARCH
-#define COMPLEX_SEARCH 0
+#ifndef FUTILITY_PRUNING
+#define FUTILITY_PRUNING 0
 #endif
 
 #ifndef SIMPLE_SEARCH
@@ -529,8 +529,8 @@ static SearchResult<TURN> search(
 
   const bool inCheck = can_enemy_attack<TURN>(thread->pos, lsb(thread->pos.pieceBitboards_[moverKing]));
 
-  #if COMPLEX_SEARCH
-  if (depthRemaining == 1) {
+  #if FUTILITY_PRUNING
+  if (depthRemaining == 2) {
     const int32_t futilityThreshold = 150;
     if (!isNullCacheResult(cr)) {
       // 0.3633 ± 0.0294 after 64 games at 100,000 nodes/move
@@ -547,7 +547,7 @@ static SearchResult<TURN> search(
       }
     }
   }
-  #endif  // COMPLEX_SEARCH
+  #endif  // FUTILITY_PRUNING
 
   Move lastFoundBestMove = (isNullCacheResult(cr) ? kNullMove : cr.bestMove);
 
@@ -649,21 +649,21 @@ static SearchResult<TURN> search(
     kNullMove
   );
 
-  // // (+0.0107 ± 0.0121) Null-move pruning.
-  // const bool scaredOfZugzwang = std::popcount(thread->pos.colorBitboards_[TURN] & ~thread->pos.pieceBitboards_[coloredPiece<TURN, Piece::PAWN>()]) <= 3;
-  // if (!inCheck && !scaredOfZugzwang && depthRemaining >= 2 && SEARCH_TYPE != SearchTypeExtended) {
-  //   const bool isExpectedCutNode = !isNullCacheResult(cr) && cr.nodeType == NodeTypeCut_LowerBound;
-  //   if (isExpectedCutNode && cr.lowerbound() >= originalBeta) {
-  //     make_nullmove<TURN>(&thread->pos);
-  //     SearchResult<TURN> a = flip(search<opposingColor, SearchTypeExtended, IS_PARALLEL>(thinker, thread, depthRemaining - 2, plyFromRoot + 1, -beta, -(beta - 1), recommendationsForChildren, distFromPV));
-  //     undo_nullmove<TURN>(&thread->pos);
-  //     if (a.score >= originalBeta) {
-  //       a.score = originalBeta;
-  //       a.move = kNullMove;
-  //       return a;
-  //     }
-  //   }
-  // }
+  // (+0.0348 ± 0.0127) Null-move pruning (100k nodes/move).
+  const bool scaredOfZugzwang = std::popcount(thread->pos.colorBitboards_[TURN] & ~thread->pos.pieceBitboards_[coloredPiece<TURN, Piece::PAWN>()]) <= 3;
+  if (!inCheck && !scaredOfZugzwang && depthRemaining >= 2 && SEARCH_TYPE != SearchTypeExtended) {
+    const bool isExpectedCutNode = !isNullCacheResult(cr) && cr.nodeType == NodeTypeCut_LowerBound;
+    if (isExpectedCutNode && cr.lowerbound() >= originalBeta) {
+      make_nullmove<TURN>(&thread->pos);
+      SearchResult<TURN> a = flip(search<opposingColor, SearchTypeExtended, IS_PARALLEL>(thinker, thread, depthRemaining - 2, plyFromRoot + 1, -beta, -(beta - 1), recommendationsForChildren, distFromPV));
+      undo_nullmove<TURN>(&thread->pos);
+      if (a.score >= originalBeta) {
+        a.score = originalBeta;
+        a.move = kNullMove;
+        return a;
+      }
+    }
+  }
 
   // Should be optimized away if SEARCH_TYPE != SearchTypeRoot.
   #if PRINT_PV_CHANGES
