@@ -152,6 +152,27 @@ std::string lpad(int32_t x) {
   return r;
 }
 
+std::string piece_to_string(Piece piece) {
+  switch (piece) {
+    case Piece::NO_PIECE:
+      return "NO_PIECE";
+    case Piece::PAWN:
+      return "PAWN";
+    case Piece::KNIGHT:
+      return "KNIGHT";
+    case Piece::BISHOP:
+      return "BISHOP";
+    case Piece::ROOK:
+      return "ROOK";
+    case Piece::QUEEN:
+      return "QUEEN";
+    case Piece::KING:
+      return "KING";
+    default:
+      return "????";
+  }
+}
+
 std::string colored_piece_to_string(ColoredPiece cp) {
   switch (cp) {
     case ColoredPiece::WHITE_PAWN:

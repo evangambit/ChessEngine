@@ -209,6 +209,8 @@ std::string process_with_file_line(const std::string& line);
 
 std::string lpad(int32_t x);
 
+std::string piece_to_string(Piece piece);
+
 std::string colored_piece_to_string(ColoredPiece cp);
 
 }  // namespace ChessEngine

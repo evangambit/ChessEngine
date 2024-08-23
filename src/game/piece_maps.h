@@ -29,8 +29,8 @@ struct PieceMaps {
 
   void save_weights_to_file(std::ostream& myfile) {
     for (size_t k = 0; k < PieceMapType::PieceMapTypeCount; ++k) {
-      for (size_t i = 0; i < ColoredPiece::NUM_COLORED_PIECES; ++i) {
-        myfile << "// " << colored_piece_to_string(ColoredPiece(i)) << std::endl;
+      for (size_t i = 0; i <= ColoredPiece::WHITE_KING; ++i) {
+        myfile << "// " << piece_to_string(Piece(i)) << std::endl;
         for (size_t j = 0; j < 64; ++j) {
           myfile << lpad(pieceMaps[i * 64 + j][k]);
           if (j % 8 == 7) {
