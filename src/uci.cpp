@@ -12,7 +12,7 @@
 #include <mutex>
 #include <unordered_set>
 
-// TODO: Add support for "ponderhit" command.
+// TODO: Add support for "ponder" and "ponderhit" command.
 // TODO: Add support for remaining options.
 
 using namespace ChessEngine;
