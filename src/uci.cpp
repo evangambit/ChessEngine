@@ -12,6 +12,9 @@
 #include <mutex>
 #include <unordered_set>
 
+// TODO: Add support for "ponderhit" command.
+// TODO: Add support for remaining options.
+
 using namespace ChessEngine;
 
 GoCommand make_go_command(std::deque<std::string> *command, Position *pos) {
@@ -456,6 +459,18 @@ class NewGameTask : public Task {
   }
 };
 
+bool does_pattern_match(const std::deque<std::string>& text, const std::vector<std::string>& pattern) {
+  if (text.size() != pattern.size()) {
+    return false;
+  }
+  for (size_t i = 0; i < text.size(); ++i) {
+    if (pattern[i] != "*" && text[i] != pattern[i]) {
+      return false;
+    }
+  }
+  return true;
+}
+
 class SetOptionTask : public Task {
  public:
   SetOptionTask(std::deque<std::string> command) : command(command) {}
@@ -476,6 +491,9 @@ class SetOptionTask : public Task {
       }
       std::cout << "Unrecognized option " << repr(name) << std::endl;
     } else {
+      if (does_pattern_match(command, {"setoption", "name", "Move", "Overhead", "value", "*"})) {
+        state->thinker.moveOverheadMs = stoi(command[5]);
+      }
       if (command[3] != "value") {
         invalid(join(command, " "));
         return;

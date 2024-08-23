@@ -95,6 +95,9 @@ struct Thinker {
   size_t multiPV;
   size_t numThreads;
 
+  // UCI options.
+  int64_t moveOverheadMs;
+
   PieceMaps pieceMaps;
   #ifndef NO_NNUE_EVAL
   std::shared_ptr<NnueNetwork> nnue;
@@ -105,7 +108,7 @@ struct Thinker {
 
   SpinLock stopThinkingLock;
 
-  Thinker() : cache(10000), stopThinkingCondition(new NeverStopThinkingCondition()), lastRootHash(0) {
+  Thinker() : cache(10000), stopThinkingCondition(new NeverStopThinkingCondition()), lastRootHash(0), moveOverheadMs(0) {
     this->clear_history_heuristic();
     this->nodeCounter = 0;
     #ifndef NO_NNUE_EVAL
