@@ -27,7 +27,7 @@ struct PieceMaps {
 
   int32_t const *weights(ColoredPiece cp, Square sq) const;
 
-  void save_weights_to_file(std::ofstream& myfile) {
+  void save_weights_to_file(std::ostream& myfile) {
     for (size_t k = 0; k < PieceMapType::PieceMapTypeCount; ++k) {
       for (size_t i = 0; i < ColoredPiece::NUM_COLORED_PIECES; ++i) {
         myfile << "// " << colored_piece_to_string(ColoredPiece(i)) << std::endl;
@@ -41,7 +41,7 @@ struct PieceMaps {
     }
   }
 
-  void load_weights_from_file(std::ifstream &myfile) {
+  void load_weights_from_file(std::istream &myfile) {
     std::string line;
     std::vector<std::string> params;
     for (size_t k = 0; k < PieceMapType::PieceMapTypeCount; ++k) {
@@ -70,8 +70,6 @@ struct PieceMaps {
         }
       }
     }
-
-    myfile.close();
   }
 
   void zero_() {

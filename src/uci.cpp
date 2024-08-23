@@ -4,6 +4,7 @@
 #include "game/utils.h"
 #include "game/Thinker.h"
 #include "game/string_utils.h"
+#include "weights.h"
 
 #include <condition_variable>
 #include <deque>
@@ -480,7 +481,10 @@ class SetOptionTask : public Task {
         return;
       }
       const std::string value = command[4];
-      if (name == "MultiPV") {
+      if (name == "Clear" && value == "Hash") {
+        state->thinker.clear_tt();
+        return;
+      } else if (name == "MultiPV") {
         int multiPV;
         try {
           multiPV = stoi(value);
@@ -527,12 +531,21 @@ class SetOptionTask : public Task {
         }
         state->thinker.set_cache_size(cacheSize);
         return;
+      } else if (name == "SyzygyPath" || name == "UCI_ShowWDL") {
+        return;
       }
       std::cout << "Unrecognized option " << repr(name) << std::endl;
     }
   }
  private:
   std::deque<std::string> command;
+};
+
+class IsReadyTask : public Task {
+ public:
+  void start(UciEngineState *state) {
+    std::cout << "readyok" << std::endl;
+  }
 };
 
 class PositionTask : public Task {
@@ -703,16 +716,85 @@ void wait_for_task(UciEngineState *state) {
   }
 }
 
+struct DumpEncodedWeights : public Task {
+ public:
+  void start(UciEngineState *state) {
+    // Save weights to string
+    std::string weights;
+    {
+      std::ostringstream stream;
+      state->thinker.save_weights(stream);
+      weights = stream.str();
+    }
+
+    std::ofstream myfile;
+    myfile.open("src/weights.h");
+    myfile << "const char *kDefaultWeights = \"";
+    for (size_t i = 0; i < weights.size(); ++i) {
+      uint8_t val = weights[i];
+      myfile << char(val % 16 + '0');
+      myfile << char(val / 16 + '0');
+    }
+    myfile << "\";\n";
+    myfile.close();
+  }
+};
+
+struct ReadEncodedWeights : public Task {
+  public:
+    void start(UciEngineState *state) {
+      // Decode
+      std::string weights;
+      const char *c = kDefaultWeights;
+      while (*c != '\0') {
+        weights += char((*c - '0') + (*(c + 1) - '0') * 16);
+        c += 2;
+      }
+      std::stringstream stream(weights);
+      state->thinker.load_weights(stream);
+    }
+};
+
 struct UciEngine {
   UciEngineState state;
 
   UciEngine() {
     this->state.stopThinkingSwitch = nullptr;
     this->state.pos = Position("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
-    this->state.thinker.load_weights_from_file("weights.txt");
+    // this->state.thinker.load_weights_from_file("weights.txt");
+
+    ReadEncodedWeights task;
+    task.start(&this->state);
   }
   void start(std::istream& cin, const std::vector<std::string>& commands) {
     UciEngineState *state = &this->state;
+
+    // std::cout << "option name Debug Log File type string default" << std::endl;
+    std::cout << "id name Pumpkin 1.0" << std::endl;
+    std::cout << "id author Morgan Redding" << std::endl << std::endl;
+
+    std::cout << "option name Threads type spin default 1 min 1 max 1024" << std::endl;
+    std::cout << "option name Hash type spin default 16 min 1 max 33554432" << std::endl;
+    std::cout << "option name Clear Hash type button" << std::endl;
+    std::cout << "option name Ponder type check default false" << std::endl;
+    std::cout << "option name MultiPV type spin default 1 min 1 max 500" << std::endl;
+    std::cout << "option name Skill Level type spin default 20 min 0 max 20" << std::endl;
+    std::cout << "option name Move Overhead type spin default 10 min 0 max 5000" << std::endl;
+    std::cout << "option name Slow Mover type spin default 100 min 10 max 1000" << std::endl;
+    std::cout << "option name nodestime type spin default 0 min 0 max 10000" << std::endl;
+    std::cout << "option name UCI_Chess960 type check default false" << std::endl;
+    std::cout << "option name UCI_AnalyseMode type check default false" << std::endl;
+    std::cout << "option name UCI_LimitStrength type check default false" << std::endl;
+    std::cout << "option name UCI_Elo type spin default 1320 min 1320 max 3190" << std::endl;
+    std::cout << "option name UCI_ShowWDL type check default false" << std::endl;
+    std::cout << "option name SyzygyPath type string default <empty>" << std::endl;
+    std::cout << "option name SyzygyProbeDepth type spin default 1 min 1 max 100" << std::endl;
+    std::cout << "option name Syzygy50MoveRule type check default true" << std::endl;
+    std::cout << "option name SyzygyProbeLimit type spin default 7 min 0 max 7" << std::endl;
+    // option name Use NNUE type check default true
+    // option name EvalFile type string default nn-5af11540bbfe.nnue
+
+    std::cout << "uciok" << std::endl;
 
     for (std::string command : commands) {
       if(command.find_first_not_of(' ') == std::string::npos) {
@@ -802,6 +884,8 @@ struct UciEngine {
       state->taskQueue.push_back(std::make_shared<PlayTask>(parts));
     } else if (parts[0] == "printoptions") {
       state->taskQueue.push_back(std::make_shared<PrintOptionsTask>());
+    } else if (parts[0] == "isready") {
+      state->taskQueue.push_back(std::make_shared<IsReadyTask>());
     } else if (parts[0] == "move") {
       state->taskQueue.push_back(std::make_shared<MoveTask>(parts));
     } else if (parts[0] == "undo") {

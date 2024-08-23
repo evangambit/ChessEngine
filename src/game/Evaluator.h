@@ -389,7 +389,7 @@ struct Evaluator {
   int32_t ineqB;
   int32_t ineqW[EF::NUM_EVAL_FEATURES];
 
-  void save_weights_to_file(std::ofstream& myfile) {
+  void save_weights_to_file(std::ostream& myfile) {
     myfile << lpad(earlyB) << "  // early bias" << std::endl;
     for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
       myfile << lpad(earlyW[i]) << "  // early " << EFSTR[i] << std::endl;
@@ -406,7 +406,7 @@ struct Evaluator {
     }
   }
 
-  void load_weights_from_file(std::ifstream &myfile) {
+  void load_weights_from_file(std::istream &myfile) {
     std::string line;
     std::vector<std::string> params;
 

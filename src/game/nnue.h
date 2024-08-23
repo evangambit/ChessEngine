@@ -1,8 +1,6 @@
 #ifndef CHESS_ENGINE_NNUE_H
 #define CHESS_ENGINE_NNUE_H
 
-#include <eigen3/Eigen/Dense>
-
 #include "utils.h"
 #include "geometry.h"
 

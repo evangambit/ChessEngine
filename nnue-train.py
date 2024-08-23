@@ -17,6 +17,8 @@ from collections import defaultdict
 
 from utils import ExpandedLinear, ShardedMatrixDataset
 
+import chess.engine
+
 """
 
 sqlite3 positions.db "SELECT fen, wins, draws, losses FROM positions ORDER BY fen ASC" > /tmp/pos.txt

@@ -11,7 +11,10 @@
 #include "geometry.h"
 #include "piece_maps.h"
 #include "utils.h"
+
+#ifndef NO_NNUE_EVAL
 #include "nnue.h"
+#endif
 
 namespace ChessEngine {
 

@@ -96,7 +96,7 @@ struct Thinker {
   size_t numThreads;
 
   PieceMaps pieceMaps;
-  #ifndef NO_DNNUE_EVAL
+  #ifndef NO_NNUE_EVAL
   std::shared_ptr<NnueNetwork> nnue;
   #endif
   uint64_t lastRootHash;
@@ -108,7 +108,7 @@ struct Thinker {
   Thinker() : cache(10000), stopThinkingCondition(new NeverStopThinkingCondition()), lastRootHash(0) {
     this->clear_history_heuristic();
     this->nodeCounter = 0;
-    #ifndef NO_DNNUE_EVAL
+    #ifndef NO_NNUE_EVAL
     this->nnue = std::make_shared<NnueNetwork>();
     #endif
     multiPV = 1;
@@ -147,6 +147,10 @@ struct Thinker {
     myfile.close();
   }
 
+  void save_weights(std::ostream& myfile) {
+    this->evaluator.save_weights_to_file(myfile);
+    this->pieceMaps.save_weights_to_file(myfile);
+  }
 
   void load_weights_from_file(const std::string& filename) {
     std::ifstream myfile;
@@ -155,10 +159,14 @@ struct Thinker {
       std::cout << "Error opening file \"" << filename << "\"" << std::endl;
       exit(0);
     }
+    this->load_weights(myfile);
+    myfile.close();
+  }
+  
+  void load_weights(std::istream& myfile) {
     this->evaluator.load_weights_from_file(myfile);
     this->pieceMaps.load_weights_from_file(myfile);
-    myfile.close();
-    #ifndef NO_DNNUE_EVAL
+    #ifndef NO_NNUE_EVAL
     this->nnue->load("nnue.bin");
     #endif
   }
