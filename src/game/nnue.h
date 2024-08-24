@@ -106,7 +106,7 @@ struct NnueNetwork : public NnueNetworkInterface {
     b1 = Matrix<float, 1, kWidth2>::Zero(1, kWidth2);
     b2 = Matrix<float, 1, kWidth3>::Zero(1, kWidth3);
 
-    this->load("nnue.bin");
+    this->load("nnue-776-512-64.bin");
   }
 
   void empty() {

@@ -77,8 +77,8 @@ class UciPlayer:
     return lines[-1].split(' ')[1]
 
 def play(fen0, player1, player2, nodes = 100_000):
-  player1.command("setoption name clear-tt")
-  player2.command("setoption name clear-tt")
+  player1.command("setoption name Clear Hash")
+  player2.command("setoption name Clear Hash")
   isPlayer1White = ' w ' in fen0
   board = chess.Board(fen0)
   moves = []

@@ -476,84 +476,74 @@ class SetOptionTask : public Task {
  public:
   SetOptionTask(std::deque<std::string> command) : command(command) {}
   void start(UciEngineState *state) {
-        if (command.size() != 5 && command.size() != 3) {
+    assert(command.size() > 0 && command[0] == "setoption");
+    command.pop_front();
+    if (command.size() == 0 || command[0] != "name") {
       invalid(join(command, " "));
       return;
     }
-    if (command[1] != "name") {
-      invalid(join(command, " "));
+    command.pop_front();
+
+    if(does_pattern_match(command, {"Move", "Overhead", "value", "*"})) {
+      state->thinker.moveOverheadMs = std::stoi(command[3]);
+    } else if (does_pattern_match(command, {"Clear", "Hash"})) {
+      state->thinker.clear_tt();
       return;
-    }
-    const std::string name = command[2];
-    if (command.size() == 3) {
-      if (name == "clear-tt") {
-        state->thinker.clear_tt();
+    } else if (does_pattern_match(command, {"MultiPV", "value", "*"})) {
+      int multiPV;
+      try {
+        multiPV = std::stoi(command[2]);
+        if (multiPV <= 0) {
+          throw std::invalid_argument("Value must be at least 1");
+        }
+      } catch (std::invalid_argument&) {
+        std::cout << "Value must be an integer" << std::endl;
         return;
       }
-      std::cout << "Unrecognized option " << repr(name) << std::endl;
+      if (multiPV < 1) {
+        std::cout << "Value must be positive" << std::endl;
+        return;
+      }
+      state->thinker.multiPV = multiPV;
+      return;
+    } else if (does_pattern_match(command, {"Threads", "value", "*"})) {
+      int numThreads;
+      try {
+        numThreads = std::stoi(command[2]);
+        if (numThreads <= 0) {
+          throw std::invalid_argument("Value must be at least 1");
+        }
+      } catch (std::invalid_argument&) {
+        std::cout << "Value must be an integer" << std::endl;
+        return;
+      }
+      if (numThreads < 1) {
+        std::cout << "Value must be positive" << std::endl;
+        return;
+      }
+      state->thinker.numThreads = numThreads;
+      return;
+    } else if (does_pattern_match(command, {"Hash", "value", "*"})) {
+      int cacheSize;
+      try {
+        cacheSize = std::stoi(command[2]);
+        if (cacheSize <= 0) {
+          throw std::invalid_argument("Value must be at least 1");
+        }
+      } catch (std::invalid_argument&) {
+        std::cout << "Value must be an integer" << std::endl;
+        return;
+      }
+      state->thinker.set_cache_size(cacheSize);
+      return;
+    } else if (does_pattern_match(command, {"SyzygyPath", "value", "*"})) {
+      // TODO
+      return;
+    } else if (does_pattern_match(command, {"UCI_ShowWDL", "value", "*"})) {
+      // TODO
+      return;
     } else {
-      if (does_pattern_match(command, {"setoption", "name", "Move", "Overhead", "value", "*"})) {
-        state->thinker.moveOverheadMs = stoi(command[5]);
-      }
-      if (command[3] != "value") {
-        invalid(join(command, " "));
-        return;
-      }
-      const std::string value = command[4];
-      if (name == "Clear" && value == "Hash") {
-        state->thinker.clear_tt();
-        return;
-      } else if (name == "MultiPV") {
-        int multiPV;
-        try {
-          multiPV = stoi(value);
-          if (multiPV <= 0) {
-            throw std::invalid_argument("Value must be at least 1");
-          }
-        } catch (std::invalid_argument&) {
-          std::cout << "Value must be an integer" << std::endl;
-          return;
-        }
-        if (multiPV < 1) {
-          std::cout << "Value must be positive" << std::endl;
-          return;
-        }
-        state->thinker.multiPV = multiPV;
-        return;
-      } else if (name == "Threads") {
-        int numThreads;
-        try {
-          numThreads = stoi(value);
-          if (numThreads <= 0) {
-            throw std::invalid_argument("Value must be at least 1");
-          }
-        } catch (std::invalid_argument&) {
-          std::cout << "Value must be an integer" << std::endl;
-          return;
-        }
-        if (numThreads < 1) {
-          std::cout << "Value must be positive" << std::endl;
-          return;
-        }
-        state->thinker.numThreads = numThreads;
-        return;
-      } else if (name == "Hash") {
-        int cacheSize;
-        try {
-          cacheSize = stoi(value);
-          if (cacheSize <= 0) {
-            throw std::invalid_argument("Value must be at least 1");
-          }
-        } catch (std::invalid_argument&) {
-          std::cout << "Value must be an integer" << std::endl;
-          return;
-        }
-        state->thinker.set_cache_size(cacheSize);
-        return;
-      } else if (name == "SyzygyPath" || name == "UCI_ShowWDL") {
-        return;
-      }
-      std::cout << "Unrecognized option " << repr(name) << std::endl;
+      std::cout << "Unrecognized option" << std::endl;
     }
   }
  private:

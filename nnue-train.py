@@ -39,7 +39,7 @@ T = X[:,:-8].reshape(-1, 12, 8, 8)
 from tqdm import tqdm
 from sharded_matrix import ShardedLoader
 
-a = "de5-md2"
+a = "de6-md2"
 X = ShardedLoader(f'data/{a}/data-table')
 Y = ShardedLoader(f'data/{a}/data-eval')
 
@@ -140,7 +140,7 @@ class PiecewiseFunction:
     return self.y[low] * (1 - t) + self.y[high] * t
 
 model = Model()
-opt = optim.AdamW(model.parameters(), lr=3e-2, weight_decay=0.01)
+opt = optim.AdamW(model.parameters(), lr=3e-1, weight_decay=0.01)
 
 loss_fn = nn.MSELoss(reduction='none')
 
@@ -149,7 +149,7 @@ L = []
 dataloader = tdata.DataLoader(dataset, batch_size=2048, drop_last=True)
 scheduler = PiecewiseFunction(
   [0, 50, len(dataloader) // 2, len(dataloader)],
-  [0.0, 3e-3, 3e-4, 3e-5],
+  [0.0, 3e-2, 3e-3, 3e-4],
 )
 
 
@@ -160,13 +160,13 @@ for x, y in tqdm(dataloader):
 
   # Unpacking bits into bytes.
   x = x.to(torch.float32)
-  y = y.to(torch.float32)
+  y = y.to(torch.float32) / 1000.0
 
   t = x[:,:768].reshape(-1, 12, 8, 8)
   m = x[:,768:]
 
   flipped_tables = torch.cat([
-    torch.flip(t[:,:6:,:,:], (2,)),
+    torch.flip(t[:,6::,:,:], (2,)),
     torch.flip(t[:,:6,:,:], (2,)),
   ], 1)
   flipped_misc = torch.zeros(m.shape)
@@ -182,7 +182,7 @@ for x, y in tqdm(dataloader):
 
 
   yhat = model(t, m)
-  loss = loss_fn(yhat.squeeze(), y)
+  loss = loss_fn(yhat.squeeze(), y.squeeze())
 
   opt.zero_grad()
   loss.mean().backward()
@@ -192,32 +192,6 @@ for x, y in tqdm(dataloader):
   if it % 100 == 0:
     mean, std = L[-1]
     print('%.4f ± %.4f' % (mean, std))
-
-test_raw = np.frombuffer(open('alice-00001', 'rb').read(), dtype=np.uint8)
-test_raw = np.unpackbits(test_raw, bitorder='little')
-test_raw = test_raw.reshape(5, -1)
-x = test_raw[:,:-8].reshape((5, 12, 8, 8))
-m = test_raw[:,-8:]
-x = torch.from_numpy(x)
-m = torch.from_numpy(m)
-x = torch.cat([x.reshape((5, -1)), m], 1).to(torch.float32)
-print(model.seq(x))
-
-"""
-rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
-rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1
-rnbqkbnr/pppppppp/8/8/3PP3/2N2N2/PPP2PPP/R1BQKB1R w KQkq - 5 5
-rnbqkb1r/ppp1pppp/5n2/3p4/5P2/8/PPPPP1PP/RNBQKBNR b KQkq - 3 3
-r1b1k2r/ppq1bppp/2n2n2/2ppp3/8/8/PPPPPPPP/RNBQKBNR b KQkq - 3 8
-
-Stockfish's depth=10 evaluations are
-
- +50
- -50
-+218
- -80
--323
-"""
 
 linears = [l for l in model.seq if isinstance(l, nn.Linear)]
 linears = [l.to_linear() if isinstance(l, ExpandedLinear) else l for l in linears]
