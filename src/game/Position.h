@@ -12,7 +12,7 @@
 #include "piece_maps.h"
 #include "utils.h"
 
-#ifndef NO_NNUE_EVAL
+#if NNUE_EVAL
 #include "nnue.h"
 #endif
 
@@ -90,7 +90,7 @@ class Position {
   Position() : turn_(Color::WHITE), pieceMaps_(&kZeroPieceMap) {
     this->turn_ = Color::WHITE;
     this->_empty_();
-    #ifndef NO_NNUE_EVAL
+    #if NNUE_EVAL
     this->network = std::make_shared<NnueNetworkInterface>();
     #endif
   };
@@ -111,7 +111,7 @@ class Position {
   std::vector<uint64_t> hashes_;
   PositionState currentState_;
 
-  #ifndef NO_NNUE_EVAL
+  #if NNUE_EVAL
   std::shared_ptr<NnueNetworkInterface> network;
   #endif
 
@@ -126,7 +126,7 @@ class Position {
   }
   PieceMaps const * pieceMaps_;
 
-  #ifndef NO_NNUE_EVAL
+  #if NNUE_EVAL
   void set_network(std::shared_ptr<NnueNetworkInterface> network) {
     this->network = network;
 
@@ -175,7 +175,7 @@ class Position {
       pieceMapScores[i] += w[i];
     }
 
-    #ifndef NO_NNUE_EVAL
+    #if NNUE_EVAL
     if (cp != ColoredPiece::NO_COLORED_PIECE) {
       this->network->set_piece(cp, sq, 1);
     }
@@ -187,7 +187,7 @@ class Position {
       pieceMapScores[i] -= w[i];
     }
 
-    #ifndef NO_NNUE_EVAL
+    #if NNUE_EVAL
     if (cp != ColoredPiece::NO_COLORED_PIECE) {
       this->network->set_piece(cp, sq, 0);
     }
@@ -349,7 +349,7 @@ void undo(Position *pos) {
     pos->increment_piece_map(opposingPawn, enpassantSq);
   }
 
-  #ifndef NO_NNUE_EVAL
+  #if NNUE_EVAL
   pos->network->set_index(NnueFeatures::NF_IS_WHITE_TURN, (MOVER_TURN == Color::WHITE));
 
   // TODO: only update if castling rights change.
@@ -535,7 +535,7 @@ void make_move(Position *pos, Move move) {
 
   pos->update_hash_on_state_change(pos->states_.back(), pos->currentState_);
 
-  #ifndef NO_NNUE_EVAL
+  #if NNUE_EVAL
   pos->network->set_index(NnueFeatures::NF_IS_WHITE_TURN, (opposingColor == Color::WHITE));
 
   // TODO: only update if castling rights change.

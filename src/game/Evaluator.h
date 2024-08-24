@@ -1237,7 +1237,7 @@ struct Evaluator {
   Evaluation features[NUM_EVAL_FEATURES];
 };
 
-#ifndef NO_NNUE_EVAL
+#if NNUE_EVAL
 template<Color US>
 Evaluation nnue_evaluate(const Position& pos) {
   float score = pos.network->fastforward();

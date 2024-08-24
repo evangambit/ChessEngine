@@ -1,7 +1,10 @@
 #include <iostream>
 #include <fstream>
 
+#if NNUE_EVAL
 #include "game/nnue.h"
+#endif
+
 #include "game/movegen.h"
 #include "game/Position.h"
 

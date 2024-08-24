@@ -262,7 +262,7 @@ class EvalTask : public Task {
     }
     Evaluator& evaluator = state->thinker.evaluator;
     state->pos.set_piece_maps(state->thinker.pieceMaps);
-    #ifndef NO_NNUE_EVAL
+    #if NNUE_EVAL
     state->pos.set_network(state->thinker.nnue);
     #endif
     if (state->pos.turn_ == Color::WHITE) {
@@ -437,7 +437,7 @@ class LoadWeightsTask : public Task {
   std::deque<std::string> command;
 };
 
-#ifndef NO_NNUE_EVAL
+#if NNUE_EVAL
 class LoadNnueTask : public Task {
  public:
   LoadNnueTask(std::deque<std::string> command) : command(command) {}
@@ -897,7 +897,7 @@ struct UciEngine {
       task.start(state);
     } else if (parts[0] == "loadweights") {  // Custom commands below this line.
       state->taskQueue.push_back(std::make_shared<LoadWeightsTask>(parts));
-#ifndef NO_NNUE_EVAL
+#if NNUE_EVAL
     } else if (parts[0] == "loadnnue") {  // Custom commands below this line.
       state->taskQueue.push_back(std::make_shared<LoadNnueTask>(parts));
 #endif

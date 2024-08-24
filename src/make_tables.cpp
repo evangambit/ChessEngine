@@ -5,8 +5,11 @@
 #include "game/movegen/sliding.h"
 #include "game/Evaluator.h"
 #include "game/Thinker.h"
-#include "game/nnue.h"
 #include "sharded_matrix.h"
+
+#if NNUE_EVAL
+#include "game/nnue.h"
+#endif
 
 #include <thread>
 

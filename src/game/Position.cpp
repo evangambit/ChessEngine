@@ -120,7 +120,7 @@ void Position::_empty_() {
 }
 
 Position::Position(const std::string& fen) : pieceMaps_(&kZeroPieceMap) {
-  #ifndef NO_NNUE_EVAL
+  #if NNUE_EVAL
   this->network = std::make_shared<NnueNetworkInterface>();
   #endif
   

@@ -99,7 +99,7 @@ struct Thinker {
   int64_t moveOverheadMs;
 
   PieceMaps pieceMaps;
-  #ifndef NO_NNUE_EVAL
+  #if NNUE_EVAL
   std::shared_ptr<NnueNetwork> nnue;
   #endif
   uint64_t lastRootHash;
@@ -111,7 +111,7 @@ struct Thinker {
   Thinker() : cache(10000), stopThinkingCondition(new NeverStopThinkingCondition()), lastRootHash(0), moveOverheadMs(0) {
     this->clear_history_heuristic();
     this->nodeCounter = 0;
-    #ifndef NO_NNUE_EVAL
+    #if NNUE_EVAL
     this->nnue = std::make_shared<NnueNetwork>();
     #endif
     multiPV = 1;
@@ -169,7 +169,7 @@ struct Thinker {
   void load_weights(std::istream& myfile) {
     this->evaluator.load_weights_from_file(myfile);
     this->pieceMaps.load_weights_from_file(myfile);
-    #ifndef NO_NNUE_EVAL
+    #if NNUE_EVAL
     this->nnue->load("nnue.bin");
     #endif
   }
