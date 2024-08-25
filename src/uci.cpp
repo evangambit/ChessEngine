@@ -4,7 +4,10 @@
 #include "game/utils.h"
 #include "game/Thinker.h"
 #include "game/string_utils.h"
+
+#if INCLUDE_WEIGHTS
 #include "weights.h"
+#endif
 
 #include <condition_variable>
 #include <deque>
@@ -749,6 +752,7 @@ struct DumpEncodedWeights : public Task {
   }
 };
 
+#if INCLUDE_WEIGHTS
 struct ReadEncodedWeights : public Task {
   public:
     void start(UciEngineState *state) {
@@ -763,6 +767,7 @@ struct ReadEncodedWeights : public Task {
       state->thinker.load_weights(stream);
     }
 };
+#endif
 
 struct UciEngine {
   UciEngineState state;
