@@ -363,11 +363,11 @@ inline Bitboard _king_fill(Bitboard b) {
       |  shift<Direction::SOUTH_WEST>(b);
 }
 template<size_t N>
-Flood<N> king_flood(Square kingSq, Bitboard danger) {
+Flood<N> king_flood(Square kingSq, Bitboard blocked) {
   Flood<N> result;
   result[0] = bb(kingSq);
   for (int i = 1; i < N; ++i) {
-    result[i] = _king_fill(result[i - 1]) & ~danger;
+    result[i] = _king_fill(result[i - 1]) & ~blocked;
   }
   return result;
 }
@@ -725,7 +725,8 @@ struct Evaluator {
       features[EF::KNIGHT_ON_ENEMY_SIDE] = std::popcount(ourKnights & kTheirSide) - std::popcount(theirKnights & kOurSide);
       features[EF::OUTPOSTED_KNIGHTS] = std::popcount(ourKnights & pawnAnalysis.possibleOutpostsForUs & kTheirSide) - std::popcount(theirKnights & pawnAnalysis.possibleOutpostsForThem & kOurSide);
 
-      features[EF::BISHOPS_BLOCKING_KNIGHTS] = std::popcount(shift<kForward>(shift<kForward>(shift<kForward>(theirKnights))) & ourBishops) - std::popcount(shift<kForward>(shift<kForward>(shift<kForward>(ourKnights))) & theirBishops);
+      // TODO: use kBackward for their knights.
+      features[EF::BISHOPS_BLOCKING_KNIGHTS] = std::popcount(shift<kBackward>(shift<kBackward>(shift<kBackward>(theirKnights))) & ourBishops) - std::popcount(shift<kForward>(shift<kForward>(shift<kForward>(ourKnights))) & theirBishops);
     }
 
     const bool isOurKingLonely = (ourMen == ourKings);
@@ -977,10 +978,9 @@ struct Evaluator {
       features[EF::KNOWN_KPVK_DRAW] = 0;
       features[EF::KNOWN_KPVK_WIN] = 0;
       const bool isOurKPPVK = (theirMen == theirKings) && (std::popcount(pawnAnalysis.ourPassedPawns) >= 1);
-      const bool isTheirKPPVK = (ourMen == ourKings) && (std::popcount(pawnAnalysis.ourPassedPawns) >= 1);
+      const bool isTheirKPPVK = (ourMen == ourKings) && (std::popcount(pawnAnalysis.theirPassedPawns) >= 1);
       // KPVK games are winning if square rule is true.
       if (isOurKPPVK && std::popcount(pawnAnalysis.ourPassedPawns) >= 1) {
-        int result;
         if (US == Color::WHITE) {
           features[EF::KNOWN_KPVK_WIN] = is_kpvk_win(ourKingSq, theirKingSq, lsb(pawnAnalysis.ourPassedPawns), true);
           features[EF::KNOWN_KPVK_DRAW] = (ourPieces == ourKings) && (std::popcount(ourPawns) == 1) && is_kpvk_draw(ourKingSq, theirKingSq, lsb(pawnAnalysis.ourPassedPawns), true);
@@ -990,7 +990,6 @@ struct Evaluator {
         }
       }
       if (isTheirKPPVK && std::popcount(pawnAnalysis.theirPassedPawns) >= 1) {
-        int result;
         if (US == Color::BLACK) {
           features[EF::KNOWN_KPVK_WIN] = is_kpvk_win(theirKingSq, ourKingSq, lsb(pawnAnalysis.theirPassedPawns), false);
           features[EF::KNOWN_KPVK_DRAW] = (theirPieces == theirKings) && (std::popcount(theirPawns) == 1) && is_kpvk_draw(theirKingSq, ourKingSq, lsb(pawnAnalysis.theirPassedPawns), false);

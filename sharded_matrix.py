@@ -438,7 +438,7 @@ def compute_inner_product(loader1: LoaderInterface, loader2: LoaderInterface, we
         inner_products = pool.starmap(_compute_innerproduct, [(loader1, loader2, offset) for offset in shards])
       else:
         inner_products = pool.starmap(_compute_weighted_innerproduct, [(loader1, loader2, weights_loader, offset) for offset in shards])
-    result = sum(inner_products)
+    result = sum([x.astype(np.float64) for x in inner_products])
 
     if should_transpose:
       result = result.T

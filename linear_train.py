@@ -187,11 +187,14 @@ if __name__ == '__main__':
     w = np.zeros((features.shape[0], 1), dtype=np.float32)
   wEarly, wLate, inEq = w.reshape(3, -1)
 
-  Yhat = matmul(features, w)
-  Yhat.save('/tmp/yhat', dtype=np.float32, force=True)
-  Yhat = ShardedLoader('/tmp/yhat')
+  if (w**2).sum() != 0.0:
+    Yhat = matmul(features, w)
+    Yhat.save('/tmp/yhat', dtype=np.float32, force=True)
+    Yhat = ShardedLoader('/tmp/yhat')
+    Residuals = RowMapper(minus, SignedY, Yhat)
+  else:
+    Residuals = SignedY
 
-  Residuals = RowMapper(minus, SignedY, Yhat)
   UnsignedResiduals = RowMapper(times, Residuals, T)
 
   foo = 0
@@ -217,7 +220,7 @@ if __name__ == '__main__':
 
   # If we never learned wEarly, use piece maps to determine centipawn value.
   if wEarly[:3].sum() == 0.0:
-    scale = early[0,2:-1].mean()
+    scale = 100 / early[0,2:-1].mean()
   else:
     scale = 700 / wEarly[:3].mean()
 

@@ -10,6 +10,7 @@
 #include <deque>
 #include <iostream>
 #include <mutex>
+#include <sstream>
 #include <unordered_set>
 
 // TODO: Add support for "ponder" and "ponderhit" command.
