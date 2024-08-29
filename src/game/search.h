@@ -1048,7 +1048,8 @@ static SearchResult<Color::WHITE> search(Thinker *thinker, const GoCommand& comm
   const int64_t increment = command.pos.turn_ == Color::WHITE ? command.wIncrementMs : command.bIncrementMs;
   const int64_t timeRemaining = (command.pos.turn_ == Color::WHITE ? command.wtimeMs : command.btimeMs) + increment;
   if (timeRemaining != 0) {
-    timeLimitMs = std::max<int64_t>(10, increment + timeRemaining / 20 - thinker->moveOverheadMs);
+    const int64_t numMovesRemaining = 30;
+    timeLimitMs = std::max<int64_t>(10, increment + timeRemaining / numMovesRemaining - thinker->moveOverheadMs);
   }
 
   thinker->stopThinkingCondition = std::make_unique<OrStopCondition>(
