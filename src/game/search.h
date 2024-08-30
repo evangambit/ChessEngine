@@ -390,6 +390,9 @@ static SearchResult<TURN> search(
     if (IS_PRINT_NODE) {
       std::cout << pad(plyFromRoot) << "end b " << thread->pos.hash_ << " no king" << std::endl;
     }
+    if (SEARCH_TYPE == SearchTypeRoot) {
+      throw std::runtime_error("root node has no king");
+    }
     return SearchResult<TURN>(std::max(originalAlpha, std::min(originalBeta, kMissingKing)), kNullMove, false);
   }
 
@@ -397,12 +400,18 @@ static SearchResult<TURN> search(
     if (IS_PRINT_NODE) {
       std::cout << pad(plyFromRoot) << "end c " << thread->pos.hash_ << " 3fold draw" << std::endl;
     }
+    if (SEARCH_TYPE == SearchTypeRoot) {
+      throw std::runtime_error("root node is 3fold draw");
+    }
     return SearchResult<TURN>(std::max(originalAlpha, std::min(originalBeta, Evaluation(0))), kNullMove, false);
   }
 
   if (SEARCH_TYPE != SearchTypeRoot && thread->evaluator.is_material_draw(thread->pos)) {
     if (IS_PRINT_NODE) {
       std::cout << pad(plyFromRoot) << "end d " << thread->pos.hash_ << " material draw" << std::endl;
+    }
+    if (SEARCH_TYPE == SearchTypeRoot) {
+      throw std::runtime_error("root node is material draw");
     }
     return SearchResult<TURN>(std::max(originalAlpha, std::min(originalBeta, Evaluation(0))), kNullMove, false);
   }
@@ -649,10 +658,11 @@ static SearchResult<TURN> search(
     kNullMove
   );
 
+  const bool isExpectedCutNode = (SEARCH_TYPE == SearchTypeNullWindow) && !isNullCacheResult(cr) && (cr.nodeType == NodeTypeCut_LowerBound);
+
   // (+0.0348 ± 0.0127) Null-move pruning (100k nodes/move).
   const bool scaredOfZugzwang = std::popcount(thread->pos.colorBitboards_[TURN] & ~thread->pos.pieceBitboards_[coloredPiece<TURN, Piece::PAWN>()]) <= 3;
-  if (!inCheck && !scaredOfZugzwang && depthRemaining >= 2 && SEARCH_TYPE != SearchTypeExtended) {
-    const bool isExpectedCutNode = !isNullCacheResult(cr) && cr.nodeType == NodeTypeCut_LowerBound;
+  if (!inCheck && !scaredOfZugzwang && depthRemaining >= 2) {
     if (isExpectedCutNode && cr.lowerbound() >= originalBeta) {
       make_nullmove<TURN>(&thread->pos);
       SearchResult<TURN> a = flip(search<opposingColor, SearchTypeExtended, IS_PARALLEL>(thinker, thread, depthRemaining - 2, plyFromRoot + 1, -beta, -(beta - 1), recommendationsForChildren, distFromPV));
@@ -877,30 +887,60 @@ static SearchResult<TURN> search(
 
 template<Color TURN>
 static void _search_with_aspiration_window(Thinker* thinker, std::vector<Thread> *threadObjs, Depth depth) {
-  // TODO: aspiration window
 
   CacheResult cr = thinker->cache.find<false>((*threadObjs)[0].pos.hash_);
+
+  Evaluation alpha = kMinEval;
+  Evaluation beta = kMaxEval;
+  // if (!isNullCacheResult(cr)) {
+  //   if (cr.eval > -1000 && cr.eval < 1000) {
+  //     alpha = std::max<int32_t>(kMinEval, int32_t(cr.lowerbound()) - 250);
+  //     beta = std::min<int32_t>(kMaxEval, int32_t(cr.upperbound()) + 250);
+  //   }
+  // }
 
   if (threadObjs->size() == 0) {
     throw std::runtime_error("");
   }
 
-  std::vector<std::thread> threads;
-  for (size_t i = 0; i < threadObjs->size(); ++i) {
-    threads.push_back(std::thread(
-      search<TURN, SearchTypeRoot, true>,
-      thinker,
-      &((*threadObjs)[i]),
-      depth,
-      0,
-      kMinEval,
-      kMaxEval,
-      RecommendedMoves(),
-      0
-    ));
-  }
-  for (size_t i = 0; i < threads.size(); ++i) {
-    threads[i].join();
+  for (size_t i = 0; i < 2; ++i) {
+    std::vector<std::thread> threads;
+    for (size_t i = 0; i < threadObjs->size(); ++i) {
+      threads.push_back(std::thread(
+        search<TURN, SearchTypeRoot, true>,
+        thinker,
+        &((*threadObjs)[i]),
+        depth,
+        0,
+        alpha,
+        beta,
+        RecommendedMoves(),
+        0
+      ));
+    }
+    for (size_t i = 0; i < threads.size(); ++i) {
+      threads[i].join();
+    }
+
+    if (thinker->variations.size() == 0) {
+      thinker->stopThinkingLock.lock();
+      const bool shouldStopThinking = thinker->stopThinkingCondition->should_stop_thinking(*thinker);
+      thinker->stopThinkingLock.unlock();
+      if (!shouldStopThinking) {
+        throw std::runtime_error("Null result from search");
+      }
+      return;
+    }
+
+    VariationHead<Color::WHITE> pv = thinker->variations[0];
+    if (alpha < pv.score && pv.score < beta) {
+      break;
+    }
+    if (pv.score >= beta) {
+      beta = kMaxEval;
+    } else {
+      alpha = kMinEval;
+    }
   }
 }
 
