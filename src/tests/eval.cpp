@@ -135,15 +135,6 @@ TEST(Eval, KPVK) {
   ASSERT_EQ(f("8/1k6/8/6P1/1P6/8/8/3K4 w - - 0 1", EF::KNOWN_KPVK_WIN), 1);
 }
 
-TEST(Eval, Foo) {
-  Position pos("r2q2kr/1ppb1pbp/p1n1p2p/3pP3/3P1Q2/P1NB1N1P/1PP2PP1/R4RK1 b - - 2 15");
-  ExtMove moves[256];
-  ExtMove *end = compute_moves<Color::BLACK, MoveGenType::ALL_MOVES>(pos, moves);
-  for (ExtMove *move = moves; move != end; move++) {
-    std::cout << move->move << std::endl;
-  }
-}
-
 int main(int argc, char *argv[]) {
   initialize_geometry();
   initialize_zorbrist();

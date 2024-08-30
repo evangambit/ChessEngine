@@ -18,20 +18,13 @@ namespace {
 TEST(Position, InitialPosition) {
   Position position = Position::init();
   Threats<Color::WHITE> threats(position);
-  const std::string gt = ".xxxxxx.\n"
-                         "xxxxxxxx\n"
-                         "xxxxxxxx\n"
-                         "........\n"
-                         "........\n"
-                         "........\n"
-                         "........\n"
-                         "........\n";
-  ASSERT_EQ(bstr(threats.badForOur[Piece::KING  ]), gt);
-  ASSERT_EQ(bstr(threats.badForOur[Piece::QUEEN ]), gt);
-  ASSERT_EQ(bstr(threats.badForOur[Piece::ROOK  ]), gt);
-  ASSERT_EQ(bstr(threats.badForOur[Piece::BISHOP]), gt);
-  ASSERT_EQ(bstr(threats.badForOur[Piece::KNIGHT]), gt);
-  ASSERT_EQ(bstr(threats.badForOur[Piece::PAWN  ]), gt);
+  Bitboard gt = (kRanks[0] | kRanks[1] | kRanks[2]) & ~(bb(Square::A8) | bb(Square::H8));
+  ASSERT_EQ(threats.badForOur[Piece::KING  ], gt);
+  ASSERT_EQ(threats.badForOur[Piece::QUEEN], gt & ~bb(Square::D8));
+  ASSERT_EQ(threats.badForOur[Piece::ROOK  ], gt & ~(bb(Square::E8) | bb(Square::D8) | bb(Square::A8) | bb(Square::H8)));
+  ASSERT_EQ(threats.badForOur[Piece::BISHOP], gt & ~kRanks[0]);
+  ASSERT_EQ(threats.badForOur[Piece::KNIGHT], gt & ~kRanks[0]);
+  ASSERT_EQ(threats.badForOur[Piece::PAWN  ], gt& ~(kRanks[0] | kRanks[1]));
 }
 
 TEST(Position, Knight) {

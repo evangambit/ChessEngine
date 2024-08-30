@@ -1,14 +1,14 @@
       0  // early bias
-      0  // early OUR_PAWNS
-      0  // early OUR_KNIGHTS
-      0  // early OUR_BISHOPS
-      0  // early OUR_ROOKS
-      0  // early OUR_QUEENS
-      0  // early THEIR_PAWNS
-      0  // early THEIR_KNIGHTS
-      0  // early THEIR_BISHOPS
-      0  // early THEIR_ROOKS
-      0  // early THEIR_QUEENS
+    100  // early OUR_PAWNS
+    300  // early OUR_KNIGHTS
+    300  // early OUR_BISHOPS
+    500  // early OUR_ROOKS
+    900  // early OUR_QUEENS
+   -100  // early THEIR_PAWNS
+   -300  // early THEIR_KNIGHTS
+   -300  // early THEIR_BISHOPS
+   -500  // early THEIR_ROOKS
+   -900  // early THEIR_QUEENS
       0  // early IN_CHECK
       0  // early KING_ON_BACK_RANK
       0  // early KING_ON_CENTER_FILE
@@ -140,16 +140,16 @@
       0  // early ROOKS_X_QUEENS
       0  // early ROOKS_X_QUEENS_2
       0  // late bias
-      0  // late OUR_PAWNS
-      0  // late OUR_KNIGHTS
-      0  // late OUR_BISHOPS
-      0  // late OUR_ROOKS
-      0  // late OUR_QUEENS
-      0  // late THEIR_PAWNS
-      0  // late THEIR_KNIGHTS
-      0  // late THEIR_BISHOPS
-      0  // late THEIR_ROOKS
-      0  // late THEIR_QUEENS
+    100  // late OUR_PAWNS
+    300  // late OUR_KNIGHTS
+    300  // late OUR_BISHOPS
+    500  // late OUR_ROOKS
+    900  // late OUR_QUEENS
+   -100  // late THEIR_PAWNS
+   -300  // late THEIR_KNIGHTS
+   -300  // late THEIR_BISHOPS
+   -500  // late THEIR_ROOKS
+   -900  // late THEIR_QUEENS
       0  // late IN_CHECK
       0  // late KING_ON_BACK_RANK
       0  // late KING_ON_CENTER_FILE
