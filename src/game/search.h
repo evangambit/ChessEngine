@@ -349,15 +349,6 @@ static SearchResult<TURN> search(
   const Evaluation originalAlpha = alpha;
   const Evaluation originalBeta = beta;
 
-  // Lowest score we can return is kCheckmate + plyFromRoot.
-  if (kCheckmate + plyFromRoot >= originalBeta) {
-    return SearchResult<TURN>(originalBeta, kNullMove);
-  }
-  // Highest score we can return is -kCheckmate - plyFromRoot.
-  if (-kCheckmate - plyFromRoot <= originalAlpha) {
-    return SearchResult<TURN>(originalAlpha, kNullMove);
-  }
-
   // alpha: a score we're guaranteed to get
   //  beta: a score our opponent is guaranteed to get
   //
