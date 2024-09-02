@@ -1,8 +1,9 @@
 import os
+from typing import Union
 
 import numpy as np
 
-from sharded_matrix import ShardedLoader, ShardedWriter, linear_regression, MappingLoader, Slice, RowMapper, matmul, curry, compute_inner_product
+from sharded_matrix import ShardedLoader, ShardedWriter, linear_regression, MappingLoader, Slice, RowMapper, matmul, curry, compute_inner_product, LoaderInterface
 from utils import ExpandedLinear, ShardedMatrixDataset, Weights, varnames, table2fen
 
 from functools import partial
@@ -125,6 +126,14 @@ def plus(a, b):
 def minus(a, b):
   return a - b
 
+import enum
+class JobType(enum.Enum):
+  ALL_FROM_SCRATCH = 0
+  LABELS_FROM_SCRATCH = 1
+  FEATURES_FROM_SCRATCH = 2
+  ALL_CACHED = 3
+  ZERO = 4
+
 if __name__ == '__main__':
   a = 'de6-md2'
   X = ShardedLoader(f'data/{a}/data-table')
@@ -145,7 +154,7 @@ if __name__ == '__main__':
   # T = Slice(T, 0, n)
 
 
-  if True:
+  if False:
     if not os.path.exists(f'data/{a}/derived/'):
       os.mkdir(f'data/{a}/derived/')
     os.system(f'rm -f data/{a}/derived/*')
@@ -174,20 +183,33 @@ if __name__ == '__main__':
   avg = SignedY.load_slice(0, SignedY.num_rows).mean()
   SignedY = RowMapper(partial(minus, b=avg), SignedY)
 
-  foo = 0
-  if foo == 0:
-    w, cov, dot = linear_regression(features, SignedY, regularization=200.0)
+  f_job: JobType = JobType.LABELS_FROM_SCRATCH
+  ps_job: JobType = JobType.ZERO
+
+  num_workers = 4
+  if f_job == JobType.ALL_FROM_SCRATCH or f_job == JobType.FEATURES_FROM_SCRATCH:
+    cov = compute_inner_product(features, features, num_workers=num_workers)
     np.save(f'data/{a}/derived/cov.npy', cov)
-    np.save(f'data/{a}/derived/dot.npy', dot)
-  elif foo == 1:
-    cov = np.load(f'data/{a}/derived/cov.npy')
-    dot = np.load(f'data/{a}/derived/dot.npy')
-    w = np.linalg.solve(cov + np.diag(np.ones(cov.shape[0]) * 1e3), dot)
+  elif f_job == JobType.ZERO:
+    cov = np.eye((features.shape[1]), dtype=np.float32)
   else:
-    w = np.zeros((features.shape[0], 1), dtype=np.float32)
+    cov = np.load(f'data/{a}/derived/cov.npy')
+
+  if f_job == JobType.ALL_FROM_SCRATCH or f_job == JobType.LABELS_FROM_SCRATCH:
+    dot = compute_inner_product(features, SignedY, num_workers=num_workers)
+    np.save(f'data/{a}/derived/dot.npy', dot)
+  elif f_job == JobType.ZERO:
+    dot = np.zeros(features.shape[1], dtype=np.float32)
+  else:
+    dot = np.load(f'data/{a}/derived/dot.npy')
+  
+  if f_job == JobType.ZERO:
+    w = np.zeros(np.prod(features.shape), dtype=np.float32)
+  else:
+    w = np.linalg.solve(cov + np.eye(cov.shape[0]) * 200, dot)
   wEarly, wLate, inEq = w.reshape(3, -1)
 
-  if (w**2).sum() != 0.0:
+  if (w**2).sum() > 1e-6:
     Yhat = matmul(features, w)
     Yhat.save('/tmp/yhat', dtype=np.float32, force=True)
     Yhat = ShardedLoader('/tmp/yhat')
@@ -197,26 +219,39 @@ if __name__ == '__main__':
 
   UnsignedResiduals = RowMapper(times, Residuals, T)
 
-  foo = 0
-  if foo == 0:
-    early, e_cov, e_dot = linear_regression(MonoTable, UnsignedResiduals, weights=earliness, regularization=100.0)
-    early = early.reshape((6, 8, 8))
+  if ps_job == JobType.ALL_FROM_SCRATCH or ps_job == JobType.FEATURES_FROM_SCRATCH:
+    e_cov = compute_inner_product(MonoTable, UnsignedResiduals, weights_loader=earliness, num_workers=num_workers)
     np.save(f'data/{a}/derived/e_cov.npy', e_cov)
-    np.save(f'data/{a}/derived/e_dot.npy', e_dot)
-    late, l_cov, l_dot = linear_regression(MonoTable, UnsignedResiduals, weights=lateness, regularization=100.0)
-    late = late.reshape((6, 8, 8))
+    l_cov = compute_inner_product(MonoTable, UnsignedResiduals, weights_loader=lateness, num_workers=num_workers)
     np.save(f'data/{a}/derived/l_cov.npy', l_cov)
-    np.save(f'data/{a}/derived/l_dot.npy', l_dot)
-  elif foo == 1:
-    e_cov = np.load(f'data/{a}/derived/e_cov.npy')
-    e_dot = compute_inner_product(MonoTable, UnsignedResiduals, weights_loader=earliness, num_workers=4)
-    early = np.linalg.solve(e_cov + np.diag(np.ones(e_cov.shape[0]) * 1), e_dot).reshape((6, 8, 8))
-    l_cov = np.load(f'data/{a}/derived/l_cov.npy')
-    l_dot = compute_inner_product(MonoTable, UnsignedResiduals, weights_loader=lateness, num_workers=4)
-    late = np.linalg.solve(l_cov + np.diag(np.ones(l_cov.shape[0]) * 1), l_dot).reshape((6, 8, 8))
+  elif ps_job == JobType.ZERO:
+    e_cov = np.eye(64, dtype=np.float32)
+    l_cov = np.eye(64, dtype=np.float32)
   else:
-    early = np.zeros((6, 8, 8))
-    late = np.zeros((6, 8, 8))
+    e_cov = np.load(f'data/{a}/derived/e_cov.npy')
+    l_cov = np.load(f'data/{a}/derived/l_cov.npy')
+  
+  if ps_job == JobType.ALL_FROM_SCRATCH or ps_job == JobType.LABELS_FROM_SCRATCH:
+    e_dot = compute_inner_product(MonoTable, UnsignedResiduals, weights_loader=earliness, num_workers=num_workers)
+    np.save(f'data/{a}/derived/e_dot.npy', e_dot)
+    l_dot = compute_inner_product(MonoTable, UnsignedResiduals, weights_loader=lateness, num_workers=num_workers)
+    np.save(f'data/{a}/derived/l_dot.npy', l_dot)
+  elif ps_job == JobType.ZERO:
+    e_dot = np.zeros(64, dtype=np.float32)
+    l_dot = np.zeros(64, dtype=np.float32)
+  else:
+    e_dot = np.load(f'data/{a}/derived/e_dot.npy')
+    l_dot = np.load(f'data/{a}/derived/l_dot.npy')
+  
+  if ps_job == JobType.ZERO:
+    early = np.zeros(6 * 8 * 8, dtype=np.float32)
+    late = np.zeros(6 * 8 * 8, dtype=np.float32)
+  else:
+    early = np.linalg.solve(e_cov + np.eye(e_cov.shape[0]) * 200, e_dot)
+    late = np.linalg.solve(l_cov + np.eye(l_cov.shape[0]) * 200, l_dot)
+  
+  early = early.reshape((6, 8, 8))
+  late = late.reshape((6, 8, 8))
 
   # If we never learned wEarly, use piece maps to determine centipawn value.
   if wEarly[:3].sum() == 0.0:
