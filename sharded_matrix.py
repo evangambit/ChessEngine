@@ -10,6 +10,7 @@ Source: https://github.com/evangambit/sharded-matrix
 import multiprocessing
 import os
 from functools import lru_cache
+from typing import Union
 
 import numpy as np
 
@@ -369,7 +370,7 @@ def _compute_innerproduct(loader1, loader2, offset):
   slice = loader2.load_slice(*i).astype(np.float32)
   return shard.T @ slice
 
-def _compute_weighted_innerproduct(loader1, loader2, weights_loader, offset):
+def _compute_weighted_innerproduct(loader1: LoaderInterface, loader2: LoaderInterface, weights_loader: LoaderInterface, offset: int):
   print('_compute_weighted_innerproduct', offset)
   shard = loader1.load_shard(offset).astype(np.float32)
   indices = loader1.shard_to_slice_indices(offset)
@@ -380,12 +381,12 @@ def _compute_weighted_innerproduct(loader1, loader2, weights_loader, offset):
   slice = slice * weights
   return shard.T @ slice
 
-def _compute_self_innerproduct(loader1, offset):
+def _compute_self_innerproduct(loader1: LoaderInterface, offset: int):
   print('_compute_self_innerproduct', offset)
   A = loader1.load_shard(offset).astype(np.float32)
   return A.T @ A
 
-def _compute_weighted_self_innerproduct(loader1, weights_loader, offset):
+def _compute_weighted_self_innerproduct(loader1: LoaderInterface, weights_loader: LoaderInterface, offset: int):
   print('_compute_weighted_self_innerproduct', offset)
   A = loader1.load_shard(offset).astype(np.float32)
   weights = weights_loader.load_slice(*loader1.shard_to_slice_indices(offset)).astype(np.float32)
@@ -444,9 +445,7 @@ def compute_inner_product(loader1: LoaderInterface, loader2: LoaderInterface, we
       result = result.T
     return result
 
-from typing import Union
-
-def linear_regression(X: LoaderInterface, Y: LoaderInterface, weights=None, regularization: Union[float|np.ndarray] = 0.0, num_workers: int = 4):
+def linear_regression(X: LoaderInterface, Y: LoaderInterface, weights: LoaderInterface = None, regularization: Union[float|np.ndarray] = 0.0, num_workers: int = 4):
   assert len(X.shape) == 1
   assert len(Y.shape) == 1
   if isinstance(regularization, np.ndarray):
