@@ -91,7 +91,7 @@ struct Thinker {
   size_t nodeCounter;
   Evaluator evaluator;
   TranspositionTable cache;
-  uint32_t historyHeuristicTable[Color::NUM_COLORS][64][64];
+  uint32_t historyHeuristicTable[Color::NUM_COLORS][Piece::NUM_PIECES][64][64];
   size_t multiPV;
   size_t numThreads;
 
@@ -220,8 +220,8 @@ struct Thinker {
   }
 
   void clear_history_heuristic() {
-    std::fill_n(historyHeuristicTable[Color::WHITE][0], 64 * 64, 0);
-    std::fill_n(historyHeuristicTable[Color::BLACK][0], 64 * 64, 0);
+    std::fill_n(historyHeuristicTable[Color::WHITE][0][0], Piece::NUM_PIECES * 64 * 64, 0);
+    std::fill_n(historyHeuristicTable[Color::BLACK][0][0], Piece::NUM_PIECES * 64 * 64, 0);
   }
 
   SearchManager _manager;

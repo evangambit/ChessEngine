@@ -626,7 +626,7 @@ static SearchResult<TURN> search(
 
       // History Heuristic
       // (+0.0310 ± 0.0073) after 1024 games at 50,000 nodes/move
-      const int32_t history = thinker->historyHeuristicTable[TURN][move->move.from][move->move.to];
+      const int32_t history = thinker->historyHeuristicTable[TURN][move->piece][move->move.from][move->move.to];
       move->score += value_or_zero(history > 0, 20);
       move->score += value_or_zero(history > 4, 20);
       move->score += value_or_zero(history > 16, 20);
@@ -795,7 +795,7 @@ static SearchResult<TURN> search(
           recommendationsForChildren.add(a.move);
           if (r.score >= beta) {
             // TODO: make thinker thread safe.
-            thinker->historyHeuristicTable[TURN][r.move.from][r.move.to] += value_or_zero(extMove->capture == ColoredPiece::NO_COLORED_PIECE, depthRemaining * depthRemaining);
+            thinker->historyHeuristicTable[TURN][extMove->piece][extMove->move.from][extMove->move.to] += value_or_zero(extMove->capture == ColoredPiece::NO_COLORED_PIECE, depthRemaining * depthRemaining);
             break;
           }
           if (r.score > alpha) {
