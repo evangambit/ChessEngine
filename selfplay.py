@@ -33,8 +33,7 @@ class UciPlayer:
   def __init__(self, path, weights):
     self.name = (path, weights)
     self._p = subprocess.Popen(path, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-    self.allin = []
-    self.allout = []
+    self.io = []
     self.command("uci")
     if weights.lower() != 'none':
       self.command(f"loadweights {weights}")
@@ -43,7 +42,7 @@ class UciPlayer:
     self._p.terminate()
 
   def command(self, text):
-    self.allin.append(text)
+    self.io.append(">> " + text)
     self._p.stdin.write((text + '\n').encode())
     self._p.stdin.flush()
 
@@ -60,14 +59,13 @@ class UciPlayer:
     lines = []
     while True:
       line = self._p.stdout.readline().decode()
-      self.allout.append(line)
+      self.io.append(line)
       if line == '':
         print('lines', repr(lines))
-        for l in self.allin:
-          print(l)
+        for l in self.io:
+          if l.startswith('>> '):
+            print(l)
         print('====' * 9)
-        for l in self.allout:
-          print(repr(l))
         raise RuntimeError('empty line')
       lines.append(line.strip())
       if line.startswith('bestmove '):
@@ -76,7 +74,7 @@ class UciPlayer:
     assert 'bestmove ' in lines[-1] # e.g. "bestmove h6h7 ponder a2a3"
     return lines[-1].split(' ')[1]
 
-def play(fen0, player1, player2, nodes = 100_000):
+def play(fen0, player1, player2, nodes = 200_000):
   player1.command("setoption name Clear Hash")
   player2.command("setoption name Clear Hash")
   isPlayer1White = ' w ' in fen0
@@ -151,7 +149,7 @@ def create_fen_batch(n):
 if __name__ == '__main__':
   mp.set_start_method('spawn')
   t0 = time.time()
-  numWorkers = 8
+  numWorkers = 4
   batches = []
   for i in range(0, 512, numWorkers):
     batches.append(create_fen_batch(numWorkers))
@@ -160,7 +158,7 @@ if __name__ == '__main__':
   with mp.Pool(numWorkers) as pool:
     for batch in tqdm(batches):
       try:
-        r = pool.map_async(thread_main, batch).get(timeout=60)
+        r = pool.map_async(thread_main, batch).get(timeout=120)
         R += r
         r = np.array(R, dtype=np.float64).reshape(-1)
         stderr = r.std(ddof=1) / np.sqrt(r.shape[0])
