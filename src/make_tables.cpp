@@ -65,8 +65,6 @@ int main(int argc, char *argv[]) {
   initialize_zorbrist();
   initialize_movegen();
 
-  gThinker.load_weights_from_file("weights.txt");
-
   if (argc != 3) {
     std::cerr << "Usage: " << argv[0] << " <input> <output>" << std::endl;
     return 1;

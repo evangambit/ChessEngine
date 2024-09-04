@@ -114,6 +114,7 @@ void ShardWriter<bool>::_write_row(const bool *const row) {
     A[i] = row[8 * i + 0] << 0 | row[8 * i + 1] << 1 | row[8 * i + 2] << 2 | row[8 * i + 3] << 3 | row[8 * i + 4] << 4 | row[8 * i + 5] << 5 | row[8 * i + 6] << 6 | row[8 * i + 7] << 7;
   }
   file_.write((const char*)A, this->bytesPerRow);
+  delete[] A;
 }
 
 
@@ -170,7 +171,7 @@ public:
 
   /** Public constructor that can be used in single-threaded contexts. */
   Writer(const std::string filename, const std::vector<uint32_t>& dims)
-  : dims_(dims) {
+  : dims_(dims), doesOwnDelegate_(true) {
     delegate_ = new WriterDelegate<T>(filename);
     internalWriter_ = std::make_unique<ShardWriter<T>>(delegate_->new_shard_path(), dims);
   }
@@ -182,14 +183,21 @@ public:
     }
   }
 
+  ~Writer() {
+    if (doesOwnDelegate_) {
+      delete delegate_;
+    }
+  }
+
 private:
   /** Private constructor used by WriterManager */
   Writer(const std::vector<uint32_t>& dims, WriterDelegate<T> *delegate)
-  : dims_(dims), internalWriter_(new ShardWriter<T>(delegate->new_shard_path(), dims)), delegate_(delegate) {}
+  : dims_(dims), internalWriter_(new ShardWriter<T>(delegate->new_shard_path(), dims)), delegate_(delegate), doesOwnDelegate_(false) {}
 
   std::vector<uint32_t> dims_;
   std::unique_ptr<ShardWriter<T>> internalWriter_;
   WriterDelegate<T> *delegate_;
+  bool doesOwnDelegate_;
 };
 
 /**
