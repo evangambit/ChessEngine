@@ -36,6 +36,8 @@ struct ThinkerInterface {
 #else
   virtual void load_weights(std::istream& myfile) = 0;
   virtual void save_weights(std::ostream& myfile) = 0;
+  virtual Evaluator& get_evaluator() = 0;
+  virtual PieceMaps& get_piece_maps() = 0;
 #endif
   virtual void clear_tt() = 0;
   virtual void clear_history_heuristic() = 0;
@@ -47,8 +49,6 @@ struct ThinkerInterface {
 
   virtual CacheResult probe_tt(uint64_t hash) = 0;
 
-  virtual Evaluator& get_evaluator() = 0;
-  virtual PieceMaps& get_piece_maps() = 0;
   virtual const std::vector<VariationHead<Color::WHITE>>& get_variations() = 0;
 
   virtual std::pair<Evaluation, std::vector<Move>> get_variation(Position *pos, Move move) = 0;

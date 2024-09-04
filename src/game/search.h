@@ -222,11 +222,19 @@ struct RecommendedMoves {
 constexpr int kSyncDepth = 2;
 
 struct Thread {
+  #if NNUE_EVAL
+  Thread(uint64_t id, const Position& pos, const std::unordered_set<std::string>& moves)
+  : id(id), pos(pos), nodeCounter(0), moves(moves) {}
+  #else
   Thread(uint64_t id, const Position& pos, const Evaluator& e, const std::unordered_set<std::string>& moves)
   : id(id), pos(pos), evaluator(e), nodeCounter(0), moves(moves) {}
+  #endif
   uint64_t id;
   Position pos;
+  #if NNUE_EVAL
+  #else
   Evaluator evaluator;
+  #endif
   uint64_t nodeCounter;
   const std::unordered_set<std::string>& moves;
 };
@@ -1014,11 +1022,12 @@ struct Search {
     std::chrono::time_point<std::chrono::steady_clock> tstart = std::chrono::steady_clock::now();
 
     Position copy(command.pos);
+    #if NNUE_EVAL
+    copy.set_network(thinker->nnue);
+    #else
     // It's important to call this at the beginning of a search, since if we're sharing Position (e.g. selfplay.cpp) we
     // need to recompute piece map scores using our own weights.
     copy.set_piece_maps(thinker->pieceMaps);
-    #if NNUE_EVAL
-    copy.set_network(thinker->nnue);
     #endif
 
     thinker->variations.clear();
@@ -1044,7 +1053,11 @@ struct Search {
 
     std::vector<Thread> threadObjs;
     for (size_t i = 0; i < std::max<size_t>(1, thinker->numThreads); ++i) {
+      #if NNUE_EVAL
+      threadObjs.push_back(Thread(i, copy, command.moves));
+      #else
       threadObjs.push_back(Thread(i, copy, thinker->evaluator, command.moves));
+      #endif
     }
 
     std::vector<VariationHead<Color::WHITE>> lastVar;

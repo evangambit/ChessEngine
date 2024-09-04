@@ -256,7 +256,11 @@ class EvalTask : public Task {
   EvalTask(std::deque<std::string> command) : command(command) {}
   void start(UciEngineState *state) {
     if (command.size() > 1 && command.at(1) == "quiet") {
+      #if NNUE_EVAL
+      Thread thread(0, state->pos, compute_legal_moves_set(&state->pos));
+      #else
       Thread thread(0, state->pos, state->thinkerInterface()->get_evaluator(), compute_legal_moves_set(&state->pos));
+      #endif
       if (state->pos.turn_ == Color::WHITE) {
         SearchResult<Color::WHITE> result = qsearch<Color::WHITE>(&state->thinker, &thread, 0, 0, kMinEval, kMaxEval);
         std::cout << result.score << std::endl;
@@ -266,33 +270,40 @@ class EvalTask : public Task {
       }
       return;
     }
-    Evaluator& evaluator = state->thinkerInterface()->get_evaluator();
-    state->pos.set_piece_maps(state->thinkerInterface()->get_piece_maps());
+
     #if NNUE_EVAL
-    state->pos.set_network(state->thinkerInterface()->get_nnue());
+      state->pos.set_network(state->thinkerInterface()->get_nnue());
+      if (state->pos.turn_ == Color::WHITE) {
+        std::cout << nnue_evaluate<Color::WHITE>(state->pos) << std::endl;
+      } else {
+        std::cout << nnue_evaluate<Color::BLACK>(state->pos) << std::endl;
+      }
+    #else
+      Evaluator& evaluator = state->thinkerInterface()->get_evaluator();
+      state->pos.set_piece_maps(state->thinkerInterface()->get_piece_maps());
+      if (state->pos.turn_ == Color::WHITE) {
+        std::cout << evaluator.score<Color::WHITE>(state->pos) << std::endl;
+      } else {
+        std::cout << evaluator.score<Color::BLACK>(state->pos) << std::endl;
+      }
+      if (command.size() > 1 && command.at(1) == "vec") {
+        const int32_t time = evaluator.features[EF::TIME];
+        const int32_t ineq = std::min<int32_t>(1, std::max<int32_t>(-1, (evaluator.features[EF::OUR_KNIGHTS] - evaluator.features[EF::THEIR_KNIGHTS]) * 3
+          + (evaluator.features[EF::OUR_BISHOPS] - evaluator.features[EF::THEIR_BISHOPS]) * 3
+          + (evaluator.features[EF::OUR_ROOKS] - evaluator.features[EF::THEIR_ROOKS]) * 5
+          + (evaluator.features[EF::OUR_QUEENS] - evaluator.features[EF::THEIR_QUEENS]) * 9));
+        for (int i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
+          int x = evaluator.features[i];
+          int w = evaluator.earlyW[i] * (18 - time) / 18 + evaluator.lateW[i] * time / 18 + evaluator.ineqW[i] * ineq;
+          std::cout << rjust(std::to_string(x), 6)
+                    << rjust(std::to_string(w * x), 6)
+                    << "  // " << EFSTR[i] << std::endl;
+        }
+        for (int i = 0; i < PieceMapType::PieceMapTypeCount; ++i) {
+          std::cout << state->pos.pieceMapScores[i] << "  // piece map" << std::endl;
+        }
+      }
     #endif
-    if (state->pos.turn_ == Color::WHITE) {
-      std::cout << evaluator.score<Color::WHITE>(state->pos) << std::endl;
-    } else {
-      std::cout << evaluator.score<Color::BLACK>(state->pos) << std::endl;
-    }
-    if (command.size() > 1 && command.at(1) == "vec") {
-      const int32_t time = evaluator.features[EF::TIME];
-      const int32_t ineq = std::min<int32_t>(1, std::max<int32_t>(-1, (evaluator.features[EF::OUR_KNIGHTS] - evaluator.features[EF::THEIR_KNIGHTS]) * 3
-        + (evaluator.features[EF::OUR_BISHOPS] - evaluator.features[EF::THEIR_BISHOPS]) * 3
-        + (evaluator.features[EF::OUR_ROOKS] - evaluator.features[EF::THEIR_ROOKS]) * 5
-        + (evaluator.features[EF::OUR_QUEENS] - evaluator.features[EF::THEIR_QUEENS]) * 9));
-      for (int i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
-        int x = evaluator.features[i];
-        int w = evaluator.earlyW[i] * (18 - time) / 18 + evaluator.lateW[i] * time / 18 + evaluator.ineqW[i] * ineq;
-        std::cout << rjust(std::to_string(x), 6)
-                  << rjust(std::to_string(w * x), 6)
-                  << "  // " << EFSTR[i] << std::endl;
-      }
-      for (int i = 0; i < PieceMapType::PieceMapTypeCount; ++i) {
-        std::cout << state->pos.pieceMapScores[i] << "  // piece map" << std::endl;
-      }
-    }
   }
  private:
   std::deque<std::string> command;

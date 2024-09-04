@@ -79,7 +79,6 @@ struct Thinker : public ThinkerInterface {
 private:
 
   size_t nodeCounter;
-  Evaluator evaluator;
   TranspositionTable cache;
   uint32_t historyHeuristicTable[Color::NUM_COLORS][Piece::NUM_PIECES][64][64];
   size_t multiPV;
@@ -88,10 +87,6 @@ private:
   // UCI options.
   int64_t moveOverheadMs;
 
-  PieceMaps pieceMaps;
-  #if NNUE_EVAL
-  std::shared_ptr<NnueNetwork> nnue;
-  #endif
   uint64_t lastRootHash;
 
   std::vector<VariationHead<Color::WHITE>> variations;
@@ -126,14 +121,6 @@ private:
   }
   size_t get_multi_pv() const override {
     return multiPV;
-  }
-
-  Evaluator& get_evaluator() override {
-    return evaluator;
-  }
-
-  PieceMaps& get_piece_maps() override {
-    return pieceMaps;
   }
 
   #if NNUE_EVAL
@@ -171,6 +158,13 @@ private:
   }
 
   #if NNUE_EVAL
+  std::shared_ptr<NnueNetwork> nnue;
+  #else
+  Evaluator evaluator;
+  PieceMaps pieceMaps;
+  #endif
+
+  #if NNUE_EVAL
   void load_nnue(const std::string& filename) {
     std::ifstream myfile;
     myfile.open(filename);
@@ -185,6 +179,13 @@ private:
     this->nnue->load(myfile);
   }
   #else
+  Evaluator& get_evaluator() override {
+    return evaluator;
+  }
+
+  PieceMaps& get_piece_maps() override {
+    return pieceMaps;
+  }
   void load_weights(std::istream& myfile) override {
     this->evaluator.load_weights_from_file(myfile);
     this->pieceMaps.load_weights_from_file(myfile);
