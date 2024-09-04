@@ -126,6 +126,9 @@ class Task {
 
 struct UciEngineState {
   Thinker thinker;
+  ThinkerInterface *thinkerInterface() {
+    return &thinker;
+  }
   Position pos;
   std::shared_ptr<StopThinkingSwitch> stopThinkingSwitch;
 
@@ -183,7 +186,8 @@ class ProbeTask : public Task {
       throw std::runtime_error("Unexpected token \"" + command[0] + "\" in probe command");
     }
 
-    CacheResult cr = state->thinker.cache.find<false>(query.hash_);
+    ThinkerInterface *thinker = state->thinkerInterface();
+    CacheResult cr = thinker->probe_tt(query.hash_);
     if (query.turn_ == Color::BLACK) {
       cr = cr.flip();
     }
@@ -195,7 +199,7 @@ class ProbeTask : public Task {
       } else {
         make_move<Color::BLACK>(&query, cr.bestMove);
       }
-      cr = state->thinker.cache.find<false>(query.hash_);
+      cr = thinker->probe_tt(query.hash_);
       if (!isNullCacheResult(cr)) {
         std::cout << "(response " << cr.bestMove << ")";
       }
@@ -252,7 +256,7 @@ class EvalTask : public Task {
   EvalTask(std::deque<std::string> command) : command(command) {}
   void start(UciEngineState *state) {
     if (command.size() > 1 && command.at(1) == "quiet") {
-      Thread thread(0, state->pos, state->thinker.evaluator, compute_legal_moves_set(&state->pos));
+      Thread thread(0, state->pos, state->thinkerInterface()->get_evaluator(), compute_legal_moves_set(&state->pos));
       if (state->pos.turn_ == Color::WHITE) {
         SearchResult<Color::WHITE> result = qsearch<Color::WHITE>(&state->thinker, &thread, 0, 0, kMinEval, kMaxEval);
         std::cout << result.score << std::endl;
@@ -262,10 +266,10 @@ class EvalTask : public Task {
       }
       return;
     }
-    Evaluator& evaluator = state->thinker.evaluator;
-    state->pos.set_piece_maps(state->thinker.pieceMaps);
+    Evaluator& evaluator = state->thinkerInterface()->get_evaluator();
+    state->pos.set_piece_maps(state->thinkerInterface()->get_piece_maps());
     #if NNUE_EVAL
-    state->pos.set_network(state->thinker.nnue);
+    state->pos.set_network(state->thinkerInterface()->get_nnue());
     #endif
     if (state->pos.turn_ == Color::WHITE) {
       std::cout << evaluator.score<Color::WHITE>(state->pos) << std::endl;
@@ -312,7 +316,7 @@ class PlayTask : public Task {
   static void _threaded_think(UciEngineState *state, GoCommand goCommand, bool *isRunning) {
     while (true) {
       goCommand.moves = compute_legal_moves_set(&goCommand.pos);
-      SearchResult<Color::WHITE> result = search(&state->thinker, goCommand, nullptr);
+      SearchResult<Color::WHITE> result = Search::search(&state->thinker, goCommand, nullptr);
       if (result.move == kNullMove) {
         break;
       }
@@ -403,9 +407,9 @@ class UndoTask : public Task {
 class PrintOptionsTask : public Task {
  public:
   void start(UciEngineState *state) {
-    std::cout << "MultiPV: " << state->thinker.multiPV << " variations" << std::endl;
-    std::cout << "Threads: " << state->thinker.numThreads << " threads" << std::endl;
-    std::cout << "Hash: " << state->thinker.cache.kb_size() << " kilobytes" << std::endl;
+    std::cout << "MultiPV: " << state->thinkerInterface()->get_multi_pv() << " variations" << std::endl;
+    std::cout << "Threads: " << state->thinkerInterface()->get_num_threads() << " threads" << std::endl;
+    std::cout << "Hash: " << state->thinkerInterface()->get_cache_size_kb() << " kilobytes" << std::endl;
   }
 };
 
@@ -442,7 +446,7 @@ class LoadNnueTask : public Task {
       std::cout << "Error opening file \"" << command.at(1) << "\"" << std::endl;
       exit(0);
     }
-    state->thinker.nnue->load(myfile);
+    state->thinkerInterface()->load_nnue(myfile);
     myfile.close();
   }
   std::deque<std::string> command;
@@ -456,7 +460,14 @@ class LoadWeightsTask : public Task {
     if (command.size() != 2) {
       invalid(join(command, " "));
     }
-    state->thinker.load_weights_from_file(command.at(1));
+    std::ifstream myfile;
+    myfile.open(command.at(1));
+    if (!myfile.is_open()) {
+      std::cout << "Error opening file \"" << command.at(1) << "\"" << std::endl;
+      exit(0);
+    }
+    state->thinker.load_weights(myfile);
+    myfile.close();
   }
   std::deque<std::string> command;
 };
@@ -494,7 +505,7 @@ struct ReadEncodedWeights : public Task {
         c += 2;
       }
       std::stringstream stream(weights);
-      state->thinker.load_weights(stream);
+      state->thinkerInterface()->load_weights(stream);
     }
 };
 #endif
@@ -502,7 +513,7 @@ struct ReadEncodedWeights : public Task {
 class NewGameTask : public Task {
  public:
   void start(UciEngineState *state) {
-    state->thinker.clear_tt();
+    state->thinkerInterface()->clear_tt();
   }
 };
 
@@ -531,9 +542,9 @@ class SetOptionTask : public Task {
     command.pop_front();
 
     if(does_pattern_match(command, {"Move", "Overhead", "value", "*"})) {
-      state->thinker.moveOverheadMs = std::stoi(command[3]);
+      state->thinkerInterface()->set_move_overhead_ms(std::stoi(command[3]));
     } else if (does_pattern_match(command, {"Clear", "Hash"})) {
-      state->thinker.clear_tt();
+      state->thinkerInterface()->clear_tt();
       return;
     } else if (does_pattern_match(command, {"MultiPV", "value", "*"})) {
       int multiPV;
@@ -550,7 +561,7 @@ class SetOptionTask : public Task {
         std::cout << "Value must be positive" << std::endl;
         return;
       }
-      state->thinker.multiPV = multiPV;
+      state->thinkerInterface()->set_multi_pv(multiPV);
       return;
     } else if (does_pattern_match(command, {"Threads", "value", "*"})) {
       int numThreads;
@@ -567,7 +578,7 @@ class SetOptionTask : public Task {
         std::cout << "Value must be positive" << std::endl;
         return;
       }
-      state->thinker.numThreads = numThreads;
+      state->thinkerInterface()->set_num_threads(numThreads);
       return;
     } else if (does_pattern_match(command, {"Hash", "value", "*"})) {
       int cacheSize;
@@ -580,7 +591,7 @@ class SetOptionTask : public Task {
         std::cout << "Value must be an integer" << std::endl;
         return;
       }
-      state->thinker.set_cache_size(cacheSize);
+      state->thinkerInterface()->set_cache_size(cacheSize);
       return;
     } else if (does_pattern_match(command, {"SyzygyPath", "value", "*"})) {
       // TODO
@@ -683,12 +694,12 @@ class GoTask : public Task {
   static void _threaded_think(UciEngineState *state, GoCommand goCommand, bool *isRunning) {
     state->stopThinkingSwitch = std::make_shared<StopThinkingSwitch>();
 
-    SearchResult<Color::WHITE> result = search(&state->thinker, goCommand, state->stopThinkingSwitch, [state](Position *position, VariationHead<Color::WHITE> results, size_t depth, double secs) {
+    SearchResult<Color::WHITE> result = Search::search(&state->thinker, goCommand, state->stopThinkingSwitch, [state](Position *position, VariationHead<Color::WHITE> results, size_t depth, double secs) {
       GoTask::_print_variations(state, depth, secs);
     });
 
-    if (state->thinker.variations.size() > 0) {
-      VariationHead<Color::WHITE> head = state->thinker.variations[0];
+    if (state->thinkerInterface()->get_variations().size() > 0) {
+      VariationHead<Color::WHITE> head = state->thinkerInterface()->get_variations()[0];
       std::cout << "bestmove " << head.move;
       if (head.response != kNullMove) {
         std::cout << " ponder " << head.response;
@@ -707,20 +718,19 @@ class GoTask : public Task {
   }
  private:
   static void _print_variations(UciEngineState* state, int depth, double secs) {
-    const size_t multiPV = state->thinker.multiPV;
+    const size_t multiPV = state->thinkerInterface()->get_multi_pv();
     const uint64_t timeMs = secs * 1000;
-    std::vector<VariationHead<Color::WHITE>> variations = state->thinker.variations;
+    std::vector<VariationHead<Color::WHITE>> variations = state->thinkerInterface()->get_variations();
     if (variations.size() == 0) {
-      if (isStalemate(&state->pos, state->thinker.evaluator)) {
+      if (isStalemate(&state->pos)) {
         std::cout << "info depth 0 score cp 0" << std::endl;
         return;
       } else {
         throw std::runtime_error("todo");
       }
     }
-    const int32_t pawnValue = state->thinker.evaluator.pawnValue();
     for (size_t i = 0; i < std::min(multiPV, variations.size()); ++i) {
-      std::pair<Evaluation, std::vector<Move>> variation = state->thinker.get_variation(&state->pos, variations[i].move);
+      std::pair<Evaluation, std::vector<Move>> variation = state->thinkerInterface()->get_variation(&state->pos, variations[i].move);
 
       Evaluation eval = variation.first;
       if (state->pos.turn_ == Color::BLACK) {
@@ -737,8 +747,8 @@ class GoTask : public Task {
       } else {
         std::cout << " score cp " << eval;
       }
-      std::cout << " nodes " << state->thinker.nodeCounter;
-      std::cout << " nps " << uint64_t(double(state->thinker.nodeCounter) / secs);
+      std::cout << " nodes " << state->thinkerInterface()->get_node_count();
+      std::cout << " nps " << uint64_t(double(state->thinkerInterface()->get_node_count()) / secs);
       std::cout << " time " << timeMs;
       std::cout << " pv";
       for (const auto& move : variation.second) {

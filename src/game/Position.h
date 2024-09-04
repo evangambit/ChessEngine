@@ -170,6 +170,17 @@ class Position {
 
   void remove_piece_(Square square);
 
+  bool is_material_draw() const {
+    const Bitboard everyone = this->colorBitboards_[Color::WHITE] | this->colorBitboards_[Color::BLACK];
+    const Bitboard everyoneButKings = everyone & ~(this->pieceBitboards_[ColoredPiece::WHITE_KING] | this->pieceBitboards_[ColoredPiece::BLACK_KING]);
+    const bool isThreeManEndgame = std::popcount(everyone) == 3;
+    bool isDraw = false;
+    isDraw |= (everyoneButKings == 0);
+    isDraw |= (everyoneButKings == (this->pieceBitboards_[ColoredPiece::WHITE_KNIGHT] | this->pieceBitboards_[ColoredPiece::BLACK_KNIGHT])) && isThreeManEndgame;
+    isDraw |= (everyoneButKings == (this->pieceBitboards_[ColoredPiece::WHITE_BISHOP] | this->pieceBitboards_[ColoredPiece::BLACK_BISHOP])) && isThreeManEndgame;
+    return isDraw;
+  }
+
   inline void increment_piece_map(ColoredPiece cp, Square sq) {
     int32_t const *w = pieceMaps_->weights(cp, sq);
     for (int i = 0; i < PieceMapType::PieceMapTypeCount; ++i) {

@@ -3,16 +3,16 @@
 
 namespace ChessEngine {
 
-struct Thinker;
+struct ThinkerInterface;
 struct StopThinkingCondition {
-  virtual void start_thinking(const Thinker& thinker) = 0;
-  virtual bool should_stop_thinking(const Thinker&) = 0;
+  virtual void start_thinking(const ThinkerInterface& thinker) = 0;
+  virtual bool should_stop_thinking(const ThinkerInterface&) = 0;
   virtual ~StopThinkingCondition() = default;
 };
 
 struct NeverStopThinkingCondition : public StopThinkingCondition {
-  void start_thinking(const Thinker& thinker) {}
-  bool should_stop_thinking(const Thinker&) {
+  void start_thinking(const ThinkerInterface& thinker) {}
+  bool should_stop_thinking(const ThinkerInterface&) {
     return false;
   }
 };

@@ -36,7 +36,10 @@ class UciPlayer:
     self.io = []
     self.command("uci")
     if weights.lower() != 'none':
-      self.command(f"loadweights {weights}")
+      if 'nnue' in path:
+        self.command(f"loadnnue {weights}")
+      else:
+        self.command(f"loadweights {weights}")
 
   def __del__(self):
     self._p.terminate()
@@ -52,7 +55,10 @@ class UciPlayer:
     else:
       self.command(f"position fen {fen} moves {' '.join(moves)}")
     if 'stockfish' not in self.name[0]:
-      self.command(f"go nodes {nodes}")
+      if 'nnue' in self.name[1]:
+        self.command(f"go nodes {int(nodes / 3.22 + 1)}")
+      else:
+        self.command(f"go nodes {nodes}")
       # self.command("go depth 3")
     else:
       self.command(f"go nodes {self.name[1]}")

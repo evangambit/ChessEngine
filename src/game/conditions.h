@@ -16,7 +16,7 @@ struct OrStopCondition : public StopThinkingCondition {
     const std::shared_ptr<StopThinkingCondition>& a,
     const std::shared_ptr<StopThinkingCondition>& b,
     const std::shared_ptr<StopThinkingCondition>& c) : a(a), b(b), c(c) {}
-  void start_thinking(const Thinker& thinker) {
+  void start_thinking(const ThinkerInterface& thinker) override {
     if (a != nullptr) {
       a->start_thinking(thinker);
     }
@@ -27,7 +27,7 @@ struct OrStopCondition : public StopThinkingCondition {
       c->start_thinking(thinker);
     }
   }
-  bool should_stop_thinking(const Thinker& thinker) {
+  bool should_stop_thinking(const ThinkerInterface& thinker) override {
     if (a != nullptr && a->should_stop_thinking(thinker)) {
       return true;
     }
@@ -46,12 +46,12 @@ struct OrStopCondition : public StopThinkingCondition {
 struct StopThinkingNodeCountCondition : public StopThinkingCondition {
   StopThinkingNodeCountCondition(size_t numNodes)
   : numNodes(numNodes) {}
-  void start_thinking(const Thinker& thinker) {
-    offset = thinker.nodeCounter;
+  void start_thinking(const ThinkerInterface& thinker) override {
+    offset = thinker.get_node_count();
   }
-  bool should_stop_thinking(const Thinker& thinker) {
+  bool should_stop_thinking(const ThinkerInterface& thinker) override {
     assert(thinker.nodeCounter >= offset);
-    return thinker.nodeCounter - offset > this->numNodes;
+    return thinker.get_node_count() - offset > this->numNodes;
   }
   size_t offset;
   size_t numNodes;
@@ -59,13 +59,13 @@ struct StopThinkingNodeCountCondition : public StopThinkingCondition {
 
 struct StopThinkingTimeCondition : public StopThinkingCondition {
   StopThinkingTimeCondition(uint64_t milliseconds) : milliseconds(milliseconds) {}
-  void start_thinking(const Thinker& thinker) {
+  void start_thinking(const ThinkerInterface& thinker) override {
     startTime = this->current_time();
   }
   std::chrono::time_point<std::chrono::system_clock> current_time() const {
     return std::chrono::system_clock::now();
   }
-  bool should_stop_thinking(const Thinker& thinker) {
+  bool should_stop_thinking(const ThinkerInterface& thinker) override {
     std::chrono::duration<double> delta = this->current_time() - startTime;
     return std::chrono::duration_cast<std::chrono::milliseconds>(delta).count() > milliseconds;
   }
@@ -76,12 +76,12 @@ struct StopThinkingTimeCondition : public StopThinkingCondition {
 
 struct StopThinkingSwitch : public StopThinkingCondition {
   StopThinkingSwitch() {}
-  void start_thinking(const Thinker& thinker) {
+  void start_thinking(const ThinkerInterface& thinker) override {
     this->lock.lock();
     this->shouldStop = false;
     this->lock.unlock();
   }
-  bool should_stop_thinking(const Thinker& thinker) {
+  bool should_stop_thinking(const ThinkerInterface& thinker) override {
     this->lock.lock();
     bool r = this->shouldStop;
     this->lock.unlock();

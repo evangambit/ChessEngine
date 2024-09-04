@@ -7,6 +7,7 @@
 #include "SearchResult.h"
 #include "Position.h"
 #include "StopThinkingCondition.h"
+#include "ThinkerInterface.h"
 
 namespace ChessEngine {
 
@@ -46,18 +47,6 @@ struct SearchManager {
 };
 
 template<Color PERSPECTIVE>
-struct VariationHead {
-  VariationHead(Evaluation score, Move move, Move response)
-  : score(score), move(move), response(response) {}
-  SearchResult<PERSPECTIVE> to_search_result() const {
-    return SearchResult<PERSPECTIVE>(score, move);
-  }
-  Evaluation score;
-  Move move;
-  Move response;
-};
-
-template<Color PERSPECTIVE>
 VariationHead<Color::WHITE> to_white(const VariationHead<PERSPECTIVE> vh) {
   return vh;
 }
@@ -73,7 +62,22 @@ std::ostream& operator<<(std::ostream& os, const VariationHead<COLOR>& vh) {
   return os;
 }
 
-struct Thinker {
+struct Search;
+struct Thinker : public ThinkerInterface {
+  friend Search;
+
+  Thinker() : cache(10000), stopThinkingCondition(new NeverStopThinkingCondition()), lastRootHash(0), moveOverheadMs(0) {
+    this->clear_history_heuristic();
+    this->nodeCounter = 0;
+    #if NNUE_EVAL
+    this->nnue = std::make_shared<NnueNetwork>();
+    #endif
+    multiPV = 1;
+    numThreads = 1;
+  }
+
+private:
+
   size_t nodeCounter;
   Evaluator evaluator;
   TranspositionTable cache;
@@ -94,14 +98,56 @@ struct Thinker {
 
   SpinLock stopThinkingLock;
 
-  Thinker() : cache(10000), stopThinkingCondition(new NeverStopThinkingCondition()), lastRootHash(0), moveOverheadMs(0) {
-    this->clear_history_heuristic();
-    this->nodeCounter = 0;
-    #if NNUE_EVAL
-    this->nnue = std::make_shared<NnueNetwork>();
-    #endif
-    multiPV = 1;
-    numThreads = 1;
+  void set_multi_pv(size_t multiPV) override {
+    this->multiPV = multiPV;
+  }
+
+  void set_num_threads(size_t numThreads) override {
+    this->numThreads = numThreads;
+  }
+
+  void set_move_overhead_ms(int64_t moveOverheadMs) override {
+    this->moveOverheadMs = moveOverheadMs;
+  }
+
+  void set_stop_thinking_condition(std::shared_ptr<StopThinkingCondition> condition) override {
+    stopThinkingLock.lock();
+    this->stopThinkingCondition = condition;
+    stopThinkingLock.unlock();
+  }
+
+
+  uint64_t get_node_count() const override {
+    return nodeCounter;
+  }
+
+  size_t get_num_threads() const override {
+    return numThreads;
+  }
+  size_t get_multi_pv() const override {
+    return multiPV;
+  }
+
+  Evaluator& get_evaluator() override {
+    return evaluator;
+  }
+
+  PieceMaps& get_piece_maps() override {
+    return pieceMaps;
+  }
+
+  #if NNUE_EVAL
+  std::shared_ptr<NnueNetwork> get_nnue() override {
+    return nnue;
+  }
+  #endif
+
+  size_t get_cache_size_kb() const override {
+    return cache.kb_size();
+  }
+
+  const std::vector<VariationHead<Color::WHITE>>& get_variations() override {
+    return variations;
   }
 
   void set_cache_size(size_t kilobytes) {
@@ -135,15 +181,15 @@ struct Thinker {
     this->load_nnue(myfile);
     myfile.close();
   }
-  void load_nnue(std::istream& myfile) {
+  void load_nnue(std::istream& myfile) override {
     this->nnue->load(myfile);
   }
   #else
-  void load_weights(std::istream& myfile) {
+  void load_weights(std::istream& myfile) override {
     this->evaluator.load_weights_from_file(myfile);
     this->pieceMaps.load_weights_from_file(myfile);
   }
-  void save_weights(std::ostream& myfile) {
+  void save_weights(std::ostream& myfile) override {
     this->evaluator.save_weights_to_file(myfile);
     this->pieceMaps.save_weights_to_file(myfile);
   }
@@ -171,7 +217,11 @@ struct Thinker {
   }
   #endif
 
-  std::pair<Evaluation, std::vector<Move>> get_variation(Position *pos, Move move) const {
+  CacheResult probe_tt(uint64_t hash) override {
+    return cache.find<false>(hash);
+  }
+
+  std::pair<Evaluation, std::vector<Move>> get_variation(Position *pos, Move move) override {
     VariationHead<Color::WHITE> const * vh = nullptr;
     for (const VariationHead<Color::WHITE>& v : this->variations) {
       if (v.move == move) {
@@ -210,7 +260,7 @@ struct Thinker {
     return std::make_pair(vh->score, moves);
   }
 
-  void clear_tt() {
+  void clear_tt() override {
     cache.clear();
     // If you're clearing the tranposition table you probably want to clear the history heuristi too.
     this->clear_history_heuristic();
@@ -222,7 +272,7 @@ struct Thinker {
   }
 
   SearchManager _manager;
-  std::unique_ptr<StopThinkingCondition> stopThinkingCondition;
+  std::shared_ptr<StopThinkingCondition> stopThinkingCondition;
 };
 
 }  // ChessEngine

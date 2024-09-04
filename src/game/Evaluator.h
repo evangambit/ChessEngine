@@ -475,17 +475,6 @@ struct Evaluator {
     return this->score<US>(pos, threats);
   }
 
-  bool is_material_draw(const Position& pos) const {
-    const Bitboard everyone = pos.colorBitboards_[Color::WHITE] | pos.colorBitboards_[Color::BLACK];
-    const Bitboard everyoneButKings = everyone & ~(pos.pieceBitboards_[ColoredPiece::WHITE_KING] | pos.pieceBitboards_[ColoredPiece::BLACK_KING]);
-    const bool isThreeManEndgame = std::popcount(everyone) == 3;
-    bool isDraw = false;
-    isDraw |= (everyoneButKings == 0);
-    isDraw |= (everyoneButKings == (pos.pieceBitboards_[ColoredPiece::WHITE_KNIGHT] | pos.pieceBitboards_[ColoredPiece::BLACK_KNIGHT])) && isThreeManEndgame;
-    isDraw |= (everyoneButKings == (pos.pieceBitboards_[ColoredPiece::WHITE_BISHOP] | pos.pieceBitboards_[ColoredPiece::BLACK_BISHOP])) && isThreeManEndgame;
-    return isDraw;
-  }
-
   template<Color US>
   Evaluation score(const Position& pos, const Threats<US>& threats) {
     constexpr Color THEM = opposite_color<US>();
@@ -493,7 +482,7 @@ struct Evaluator {
     assert(pos.pieceBitboards_[ColoredPiece::WHITE_KING] > 0);
     assert(pos.pieceBitboards_[ColoredPiece::BLACK_KING] > 0);
 
-    if (this->is_material_draw(pos)) {
+    if (pos.is_material_draw()) {
       return 0;
     }
 

@@ -37,17 +37,39 @@ T = X[:,:-8].reshape(-1, 12, 8, 8)
 """
 
 from tqdm import tqdm
-from sharded_matrix import ShardedLoader
+from sharded_matrix import ShardedLoader, ShardedLoader
+
+class SimpleIterablesDataset(tdata.IterableDataset):
+  def __init__(self, xpath, ypath):
+    self.X = ShardedLoader(xpath)
+    self.Y = ShardedLoader(ypath)
+
+  def __iter__(self):
+    xi, yi = 0, 0
+    xj, yj = 0, 0
+    x = self.X.load_shard(xi)
+    y = self.Y.load_shard(yi)
+    while True:
+      if xj == x.shape[0]:
+        xi += 1
+        if xi >= self.X.num_shards:
+          break
+        x = self.X.load_shard(xi)
+        xj = 0
+      if yj == y.shape[0]:
+        yi += 1
+        y = self.Y.load_shard(yi)
+        yj = 0
+      yield x[xj], y[yj]
+      xj += 1
+      yj += 1
+  
+  def __len__(self):
+    return self.X.num_rows
 
 a = "de6-md2"
-X = ShardedLoader(f'data/{a}/data-table')
-Y = ShardedLoader(f'data/{a}/data-eval')
-
-print(f'%.3f million positions loaded' % (X.num_rows / 1_000_000))
-
-
-dataset = ShardedMatrixDataset(X, Y)
-it = iter(dataset)
+dataset = SimpleIterablesDataset(f'data/{a}/data-table', f'data/{a}/data-eval')
+print(f'%.3f million positions loaded' % (len(dataset) / 1_000_000))
 
 def soft_clip(x, k = 4.0):
   x = nn.functional.leaky_relu(x + k) - k
@@ -148,8 +170,8 @@ L = []
 
 dataloader = tdata.DataLoader(dataset, batch_size=2048, drop_last=True)
 scheduler = PiecewiseFunction(
-  [0, 50, len(dataloader) // 2, len(dataloader)],
-  [0.0, 3e-2, 3e-3, 3e-4],
+  [0, 100, len(dataloader) // 2, len(dataloader)],
+  [0.0, 3e-3, 3e-4, 3e-5],
 )
 
 
