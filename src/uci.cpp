@@ -477,7 +477,7 @@ class LoadWeightsTask : public Task {
       std::cout << "Error opening file \"" << command.at(1) << "\"" << std::endl;
       exit(0);
     }
-    state->thinker.load_weights(myfile);
+    state->thinkerInterface()->load_weights(myfile);
     myfile.close();
   }
   std::deque<std::string> command;
@@ -489,7 +489,7 @@ struct DumpEncodedWeights : public Task {
     std::string weights;
     {
       std::ostringstream stream;
-      state->thinker.save_weights(stream);
+      state->thinkerInterface()->save_weights(stream);
       weights = stream.str();
     }
 
