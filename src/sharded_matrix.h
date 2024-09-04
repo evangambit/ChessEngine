@@ -1,6 +1,8 @@
-#include <iostream>
-#include <fstream>
 #include <cstdint>
+
+#include <fstream>
+#include <iostream>
+#include <memory>
 #include <vector>
 
 namespace ShardedMatrix {

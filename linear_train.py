@@ -183,7 +183,7 @@ if __name__ == '__main__':
   avg = SignedY.load_slice(0, SignedY.num_rows).mean()
   SignedY = RowMapper(partial(minus, b=avg), SignedY)
 
-  f_job: JobType = JobType.LABELS_FROM_SCRATCH
+  f_job: JobType = JobType.ALL_FROM_SCRATCH
   ps_job: JobType = JobType.ZERO
 
   num_workers = 4

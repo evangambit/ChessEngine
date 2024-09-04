@@ -138,6 +138,29 @@ struct Thinker {
     }
   }
 
+  #if NNUE_EVAL
+  void load_nnue(const std::string& filename) {
+    std::ifstream myfile;
+    myfile.open(filename);
+    if (!myfile.is_open()) {
+      std::cout << "Error opening file \"" << filename << "\"" << std::endl;
+      exit(0);
+    }
+    this->load_nnue(myfile);
+    myfile.close();
+  }
+  void load_nnue(std::istream& myfile) {
+    this->nnue->load(myfile);
+  }
+  #else
+  void load_weights(std::istream& myfile) {
+    this->evaluator.load_weights_from_file(myfile);
+    this->pieceMaps.load_weights_from_file(myfile);
+  }
+  void save_weights(std::ostream& myfile) {
+    this->evaluator.save_weights_to_file(myfile);
+    this->pieceMaps.save_weights_to_file(myfile);
+  }
   void save_weights_to_file(const std::string& filename) {
     std::ofstream myfile;
     myfile.open(filename);
@@ -150,11 +173,6 @@ struct Thinker {
     myfile.close();
   }
 
-  void save_weights(std::ostream& myfile) {
-    this->evaluator.save_weights_to_file(myfile);
-    this->pieceMaps.save_weights_to_file(myfile);
-  }
-
   void load_weights_from_file(const std::string& filename) {
     std::ifstream myfile;
     myfile.open(filename);
@@ -165,14 +183,7 @@ struct Thinker {
     this->load_weights(myfile);
     myfile.close();
   }
-  
-  void load_weights(std::istream& myfile) {
-    this->evaluator.load_weights_from_file(myfile);
-    this->pieceMaps.load_weights_from_file(myfile);
-    #if NNUE_EVAL
-    this->nnue->load("nnue.bin");
-    #endif
-  }
+  #endif
 
   std::pair<Evaluation, std::vector<Move>> get_variation(Position *pos, Move move) const {
     VariationHead<Color::WHITE> const * vh = nullptr;

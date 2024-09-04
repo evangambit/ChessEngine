@@ -106,7 +106,14 @@ struct NnueNetwork : public NnueNetworkInterface {
     b1 = Matrix<float, 1, kWidth2>::Zero(1, kWidth2);
     b2 = Matrix<float, 1, kWidth3>::Zero(1, kWidth3);
 
-    this->load("nnue-776-512-64.bin");
+    std::ifstream myfile;
+    myfile.open("nnue-776-512-64.bin", std::ios::in | std::ios::binary);
+    if (!myfile.is_open()) {
+      std::cout << "Error opening file \"nnue-776-512-64.bin\"" << std::endl;
+      exit(0);
+    }
+    this->load(myfile);
+    myfile.close();
   }
 
   void empty() {
@@ -135,14 +142,22 @@ struct NnueNetwork : public NnueNetworkInterface {
     return x3(0, 0);
   }
 
-  void load(std::string filename) {
-    FILE *f = fopen(filename.c_str(), "rb");
-    fread(w0.data(), sizeof(float), w0.size(), f);
-    fread(w1.data(), sizeof(float), w1.size(), f);
-    fread(w2.data(), sizeof(float), w2.size(), f);
-    fread(b0.data(), sizeof(float), b0.size(), f);
-    fread(b1.data(), sizeof(float), b1.size(), f);
-    fclose(f);
+  // void load(std::string filename) {
+  //   FILE *f = fopen(filename.c_str(), "rb");
+  //   fread(w0.data(), sizeof(float), w0.size(), f);
+  //   fread(w1.data(), sizeof(float), w1.size(), f);
+  //   fread(w2.data(), sizeof(float), w2.size(), f);
+  //   fread(b0.data(), sizeof(float), b0.size(), f);
+  //   fread(b1.data(), sizeof(float), b1.size(), f);
+  //   fclose(f);
+  // }
+
+  void load(std::istream& myfile) {
+    myfile.read(reinterpret_cast<char*>(w0.data()), w0.size() * sizeof(float));
+    myfile.read(reinterpret_cast<char*>(w1.data()), w1.size() * sizeof(float));
+    myfile.read(reinterpret_cast<char*>(w2.data()), w2.size() * sizeof(float));
+    myfile.read(reinterpret_cast<char*>(b0.data()), b0.size() * sizeof(float));
+    myfile.read(reinterpret_cast<char*>(b1.data()), b1.size() * sizeof(float));
   }
 
   void set_piece(ColoredPiece piece, Square square, float newValue) {

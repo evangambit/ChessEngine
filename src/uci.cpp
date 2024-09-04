@@ -5,9 +5,7 @@
 #include "game/Thinker.h"
 #include "game/string_utils.h"
 
-#if INCLUDE_WEIGHTS
 #include "weights.h"
-#endif
 
 #include <condition_variable>
 #include <deque>
@@ -428,6 +426,28 @@ class StopTask : public Task {
   }
 };
 
+#if NNUE_EVAL
+class LoadNnueTask : public Task {
+ public:
+  LoadNnueTask(std::deque<std::string> command) : command(command) {}
+  void start(UciEngineState *state) {
+    assert(command.at(0) == "loadnnue");
+    if (command.size() != 2) {
+      invalid(join(command, " "));
+    }
+
+    std::ifstream myfile;
+    myfile.open(command.at(1));
+    if (!myfile.is_open()) {
+      std::cout << "Error opening file \"" << command.at(1) << "\"" << std::endl;
+      exit(0);
+    }
+    state->thinker.nnue->load(myfile);
+    myfile.close();
+  }
+  std::deque<std::string> command;
+};
+#else
 class LoadWeightsTask : public Task {
  public:
   LoadWeightsTask(std::deque<std::string> command) : command(command) {}
@@ -440,19 +460,42 @@ class LoadWeightsTask : public Task {
   }
   std::deque<std::string> command;
 };
-
-#if NNUE_EVAL
-class LoadNnueTask : public Task {
+struct DumpEncodedWeights : public Task {
  public:
-  LoadNnueTask(std::deque<std::string> command) : command(command) {}
   void start(UciEngineState *state) {
-    assert(command.at(0) == "loadnnue");
-    if (command.size() != 2) {
-      invalid(join(command, " "));
+    // Save weights to string
+    std::string weights;
+    {
+      std::ostringstream stream;
+      state->thinker.save_weights(stream);
+      weights = stream.str();
     }
-    state->thinker.nnue->load(command.at(1));
+
+    std::ofstream myfile;
+    myfile.open("src/weights.h");
+    myfile << "const char *kDefaultWeights = \"";
+    for (size_t i = 0; i < weights.size(); ++i) {
+      uint8_t val = weights[i];
+      myfile << char(val % 16 + '0');
+      myfile << char(val / 16 + '0');
+    }
+    myfile << "\";\n";
+    myfile.close();
   }
-  std::deque<std::string> command;
+};
+struct ReadEncodedWeights : public Task {
+  public:
+    void start(UciEngineState *state) {
+      // Decode
+      std::string weights;
+      const char *c = kDefaultWeights;
+      while (*c != '\0') {
+        weights += char((*c - '0') + (*(c + 1) - '0') * 16);
+        c += 2;
+      }
+      std::stringstream stream(weights);
+      state->thinker.load_weights(stream);
+    }
 };
 #endif
 
@@ -728,47 +771,6 @@ void wait_for_task(UciEngineState *state) {
   }
 }
 
-struct DumpEncodedWeights : public Task {
- public:
-  void start(UciEngineState *state) {
-    // Save weights to string
-    std::string weights;
-    {
-      std::ostringstream stream;
-      state->thinker.save_weights(stream);
-      weights = stream.str();
-    }
-
-    std::ofstream myfile;
-    myfile.open("src/weights.h");
-    myfile << "const char *kDefaultWeights = \"";
-    for (size_t i = 0; i < weights.size(); ++i) {
-      uint8_t val = weights[i];
-      myfile << char(val % 16 + '0');
-      myfile << char(val / 16 + '0');
-    }
-    myfile << "\";\n";
-    myfile.close();
-  }
-};
-
-#if INCLUDE_WEIGHTS
-struct ReadEncodedWeights : public Task {
-  public:
-    void start(UciEngineState *state) {
-      // Decode
-      std::string weights;
-      const char *c = kDefaultWeights;
-      while (*c != '\0') {
-        weights += char((*c - '0') + (*(c + 1) - '0') * 16);
-        c += 2;
-      }
-      std::stringstream stream(weights);
-      state->thinker.load_weights(stream);
-    }
-};
-#endif
-
 struct UciEngine {
   UciEngineState state;
 
@@ -776,11 +778,11 @@ struct UciEngine {
     this->state.stopThinkingSwitch = nullptr;
     this->state.pos = Position("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
 
-    #if INCLUDE_WEIGHTS
+    #if NNUE_EVAL
+    LoadNnueTask task({"loadnnue", "nnue-776-512-64.bin"});
+    #else
     ReadEncodedWeights task;
     task.start(&this->state);
-    #else
-    this->state.thinker.load_weights_from_file("weights.txt");
     #endif
   }
   void start(std::istream& cin, const std::vector<std::string>& commands) {
@@ -891,11 +893,14 @@ struct UciEngine {
       // This runs immediately.
       StopTask task;
       task.start(state);
-    } else if (parts[0] == "loadweights") {  // Custom commands below this line.
-      state->taskQueue.push_back(std::make_shared<LoadWeightsTask>(parts));
 #if NNUE_EVAL
     } else if (parts[0] == "loadnnue") {  // Custom commands below this line.
       state->taskQueue.push_back(std::make_shared<LoadNnueTask>(parts));
+#else
+    } else if (parts[0] == "loadweights") {  // Custom commands below this line.
+      state->taskQueue.push_back(std::make_shared<LoadWeightsTask>(parts));
+    } else if (parts[0] == "dumpweights") {
+      state->taskQueue.push_back(std::make_shared<DumpEncodedWeights>());
 #endif
     } else if (parts[0] == "play") {
       state->taskQueue.push_back(std::make_shared<PlayTask>(parts));
@@ -917,8 +922,6 @@ struct UciEngine {
       state->taskQueue.push_back(std::make_shared<QuitTask>());
     } else if (parts[0] == "printfen") {
       state->taskQueue.push_back(std::make_shared<PrintFenTask>());
-    } else if (parts[0] == "dumpweights") {
-      state->taskQueue.push_back(std::make_shared<DumpEncodedWeights>());
     } else if (parts[0] == "silence") {
       state->taskQueue.push_back(std::make_shared<SilenceTask>(parts));
     #ifdef PRINT_DEBUG

@@ -127,10 +127,10 @@ def sql_inserter(resultQueue, args, database):
 if __name__ == '__main__':
   parser = argparse.ArgumentParser()
   parser.add_argument('--engine', default='/opt/homebrew/bin/stockfish')
-  parser.add_argument('--depth', type=int, default=8)
+  parser.add_argument('--depth', type=int, default=6)
   parser.add_argument('--multipv', type=int, default=5)
   parser.add_argument('--num_workers', type=int, default=4)
-  parser.add_argument('--min_depth', type=int, default=3)
+  parser.add_argument('--min_depth', type=int, default=2)
   parser.add_argument('--for_tuning', type=int, default=0)
   args = parser.parse_args()
 
