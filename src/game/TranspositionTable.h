@@ -3,6 +3,7 @@
 
 #include "utils.h"
 #include "Position.h"
+#include "SpinLock.h"
 
 namespace ChessEngine {
 
@@ -68,12 +69,6 @@ struct CacheResult {  // 16 bytes
       rootCounter,
     };
   }
-};
-
-struct SpinLock {
-  std::atomic<bool> lock_ = {false};
-  void lock() { while(lock_.exchange(true)); }
-  void unlock() { lock_.store(false); }
 };
 
 // Transposition table is guaranteed to be a multiple of this.

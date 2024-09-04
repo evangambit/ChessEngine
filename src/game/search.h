@@ -19,6 +19,7 @@
 #include "movegen.h"
 #include "movegen/sliding.h"
 #include "Evaluator.h"
+#include "conditions.h"
 
 #ifndef FUTILITY_PRUNING
 #define FUTILITY_PRUNING 0
@@ -126,6 +127,8 @@ void for_all_moves(Position *position, std::function<void(const Position&, ExtMo
   }
 }
 
+namespace {
+
 enum SearchType {
   SearchTypeRoot,
   SearchTypeNormal,
@@ -154,41 +157,6 @@ struct RecommendedMoves {
       moves[0] = move;
     }
   }
-};
-
-struct OrStopCondition : public StopThinkingCondition {
-  OrStopCondition(
-    const std::shared_ptr<StopThinkingCondition>& a,
-    const std::shared_ptr<StopThinkingCondition>& b) : a(a), b(b), c(nullptr) {}
-  OrStopCondition(
-    const std::shared_ptr<StopThinkingCondition>& a,
-    const std::shared_ptr<StopThinkingCondition>& b,
-    const std::shared_ptr<StopThinkingCondition>& c) : a(a), b(b), c(c) {}
-  void start_thinking(const Thinker& thinker) {
-    if (a != nullptr) {
-      a->start_thinking(thinker);
-    }
-    if (b != nullptr) {
-      b->start_thinking(thinker);
-    }
-    if (c != nullptr) {
-      c->start_thinking(thinker);
-    }
-  }
-  bool should_stop_thinking(const Thinker& thinker) {
-    if (a != nullptr && a->should_stop_thinking(thinker)) {
-      return true;
-    }
-    if (b != nullptr && b->should_stop_thinking(thinker)) {
-      return true;
-    }
-    if (c != nullptr && c->should_stop_thinking(thinker)) {
-      return true;
-    }
-    return false;
-  }
- private:
-  std::shared_ptr<StopThinkingCondition> a, b, c;
 };
 
 constexpr int kSyncDepth = 2;
@@ -947,14 +915,6 @@ bool _isCheckmate(Position *pos) {
   return inCheck;
 }
 
-bool isCheckmate(Position *pos) {
-  if (pos->turn_ == Color::WHITE) {
-    return _isCheckmate<Color::WHITE>(pos);
-  } else {
-    return _isCheckmate<Color::BLACK>(pos);
-  }
-}
-
 template<Color TURN>
 bool _isStalemate(Position* pos, const Evaluator& evaluator) {
   if (_isCheckmate<TURN>(pos)) {
@@ -983,14 +943,6 @@ bool _isStalemate(Position* pos, const Evaluator& evaluator) {
   return false;
 }
 
-bool isStalemate(Position *pos, const Evaluator& evaluator) {
-  if (pos->turn_ == Color::WHITE) {
-    return _isStalemate<Color::WHITE>(pos, evaluator);
-  } else {
-    return _isStalemate<Color::BLACK>(pos, evaluator);
-  }
-}
-
 template<Color TURN>
 static SearchResult<Color::WHITE> _search_fixed_depth(Thinker *thinker, const Position& pos, std::vector<Thread> *threadObjs, Depth depth) {
   if (_isCheckmate<TURN>(&((*threadObjs)[0].pos))) {
@@ -1011,59 +963,24 @@ static SearchResult<Color::WHITE> _search_fixed_depth(Thinker *thinker, const Po
   return to_white(SearchResult<TURN>(pv.score, pv.move));
 }
 
-struct StopThinkingNodeCountCondition : public StopThinkingCondition {
-  StopThinkingNodeCountCondition(size_t numNodes)
-  : numNodes(numNodes) {}
-  void start_thinking(const Thinker& thinker) {
-    offset = thinker.nodeCounter;
-  }
-  bool should_stop_thinking(const Thinker& thinker) {
-    assert(thinker.nodeCounter >= offset);
-    return thinker.nodeCounter - offset > this->numNodes;
-  }
-  size_t offset;
-  size_t numNodes;
-};
+}  // namespace
 
-struct StopThinkingTimeCondition : public StopThinkingCondition {
-  StopThinkingTimeCondition(uint64_t milliseconds) : milliseconds(milliseconds) {}
-  void start_thinking(const Thinker& thinker) {
-    startTime = this->current_time();
+bool isCheckmate(Position *pos) {
+  if (pos->turn_ == Color::WHITE) {
+    return _isCheckmate<Color::WHITE>(pos);
+  } else {
+    return _isCheckmate<Color::BLACK>(pos);
   }
-  std::chrono::time_point<std::chrono::system_clock> current_time() const {
-    return std::chrono::system_clock::now();
-  }
-  bool should_stop_thinking(const Thinker& thinker) {
-    std::chrono::duration<double> delta = this->current_time() - startTime;
-    return std::chrono::duration_cast<std::chrono::milliseconds>(delta).count() > milliseconds;
-  }
- private:
-  std::chrono::time_point<std::chrono::system_clock> startTime;
-  uint64_t milliseconds;
-};
+}
 
-struct StopThinkingSwitch : public StopThinkingCondition {
-  StopThinkingSwitch() {}
-  void start_thinking(const Thinker& thinker) {
-    this->lock.lock();
-    this->shouldStop = false;
-    this->lock.unlock();
+bool isStalemate(Position *pos, const Evaluator& evaluator) {
+  if (pos->turn_ == Color::WHITE) {
+    return _isStalemate<Color::WHITE>(pos, evaluator);
+  } else {
+    return _isStalemate<Color::BLACK>(pos, evaluator);
   }
-  bool should_stop_thinking(const Thinker& thinker) {
-    this->lock.lock();
-    bool r = this->shouldStop;
-    this->lock.unlock();
-    return r;
-  }
-  void stop() {
-    this->lock.lock();
-    this->shouldStop = true;
-    this->lock.unlock();
-  }
- private:
-  SpinLock lock;
-  bool shouldStop;
-};
+}
+
 
 // TODO: making threads work with multiPV seems really nontrivial.
 static SearchResult<Color::WHITE> search(Thinker *thinker, const GoCommand& command, std::shared_ptr<StopThinkingCondition> condition, std::function<void(Position *, VariationHead<Color::WHITE>, size_t, double)> callback) {

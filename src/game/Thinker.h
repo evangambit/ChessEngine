@@ -6,7 +6,7 @@
 #include "TranspositionTable.h"
 #include "SearchResult.h"
 #include "Position.h"
-// #include "nnue.h"
+#include "StopThinkingCondition.h"
 
 namespace ChessEngine {
 
@@ -42,20 +42,6 @@ struct SearchManager {
     lock.lock();
     counters[idx] -= 1;
     lock.unlock();
-  }
-};
-
-struct Thinker;
-struct StopThinkingCondition {
-  virtual void start_thinking(const Thinker& thinker) = 0;
-  virtual bool should_stop_thinking(const Thinker&) = 0;
-  virtual ~StopThinkingCondition() = default;
-};
-
-struct NeverStopThinkingCondition : public StopThinkingCondition {
-  void start_thinking(const Thinker& thinker) {}
-  bool should_stop_thinking(const Thinker&) {
-    return false;
   }
 };
 
