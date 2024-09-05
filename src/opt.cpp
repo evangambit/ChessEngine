@@ -271,6 +271,10 @@ int main(int argc, char *argv[]) {
       // parts[i + 2] is "isCapture"
     }
 
+    if (std::abs(datapoint.evals.front() - datapoint.evals.back()) < 2) {
+      datapoints.pop_back();
+    }
+
     if (datapoints.size() >= sampleSize) {
       break;
     }
