@@ -651,7 +651,7 @@ struct Search {
       if (staticEval >= beta && !inCheck && !scaredOfZugzwang && depthRemaining >= 2) {
         if (staticEval >= beta) {
           make_nullmove<TURN>(&thread->pos);
-          SearchResult<TURN> a = flip(search<opposingColor, SearchTypeExtended, IS_PARALLEL>(thinker, thread, depthRemaining - 2, plyFromRoot + 1, -beta, -(beta - 1), recommendationsForChildren, distFromPV));
+          SearchResult<TURN> a = flip(search<opposingColor, SearchTypeNullWindow, IS_PARALLEL>(thinker, thread, depthRemaining - 2, plyFromRoot + 1, -beta, -(beta - 1), recommendationsForChildren, distFromPV));
           undo_nullmove<TURN>(&thread->pos);
           if (a.score >= originalBeta) {
             a.score = originalBeta;
@@ -726,6 +726,18 @@ struct Search {
           a = child2parent(search<opposingColor, SearchTypeNullWindow, IS_PARALLEL>(thinker, thread, childDepth, plyFromRoot + 1, child_alpha_plus1, child_alpha, recommendationsForChildren, distFromPV + (extMove != moves)));
           if (a.score > alpha) {
             a = child2parent(search<opposingColor, kChildSearchType, IS_PARALLEL>(thinker, thread, childDepth, plyFromRoot + 1, child_beta, child_alpha_plus1, recommendationsForChildren, distFromPV + (extMove != moves)));
+          }
+        }
+
+        // Extended sequences of captures/checks (0.0269 ± 0.0115)
+        if (SEARCH_TYPE == SearchTypeNormal && a.score > alpha && a.score < beta) {
+          int interestingness = extMove->capture != ColoredPiece::NO_COLORED_PIECE;
+          undo<TURN>(&thread->pos);
+          interestingness += thread->pos.tiles_[a.move.to] != ColoredPiece::NO_COLORED_PIECE;
+          make_move<TURN>(&thread->pos, extMove->move);
+          interestingness += inCheck;
+          if (interestingness >= 2) {
+            a = child2parent(search<opposingColor, SearchTypeExtended, IS_PARALLEL>(thinker, thread, depthRemaining, plyFromRoot + 1, child_beta, child_alpha, recommendationsForChildren, distFromPV + (extMove != moves)));
           }
         }
 
