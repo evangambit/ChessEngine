@@ -607,6 +607,8 @@ struct Search {
       }
       return SearchResult<TURN>(std::max(originalAlpha, std::min(originalBeta, Evaluation(0))), kNullMove);
     }
+    
+    Threats<TURN> threats(thread->pos);
 
     // const ExtMove lastMove = thread->pos.history_.size() > 0 ? thread->pos.history_.back() : kNullExtMove;
     // TODO: use lastMove (above) to sort better.
@@ -650,19 +652,19 @@ struct Search {
       kNullMove
     );
 
-    const bool isExpectedCutNode = (SEARCH_TYPE == SearchTypeNullWindow) && !isNullCacheResult(cr) && (cr.nodeType == NodeTypeCut_LowerBound);
-
-    // (+0.0348 ± 0.0127) Null-move pruning (100k nodes/move).
-    const bool scaredOfZugzwang = std::popcount(thread->pos.colorBitboards_[TURN] & ~thread->pos.pieceBitboards_[coloredPiece<TURN, Piece::PAWN>()]) <= 3;
-    if (!inCheck && !scaredOfZugzwang && depthRemaining >= 2) {
-      if (isExpectedCutNode && cr.lowerbound() >= originalBeta) {
-        make_nullmove<TURN>(&thread->pos);
-        SearchResult<TURN> a = flip(search<opposingColor, SearchTypeExtended, IS_PARALLEL>(thinker, thread, depthRemaining - 2, plyFromRoot + 1, -beta, -(beta - 1), recommendationsForChildren, distFromPV));
-        undo_nullmove<TURN>(&thread->pos);
-        if (a.score >= originalBeta) {
-          a.score = originalBeta;
-          a.move = kNullMove;
-          return a;
+    if (SEARCH_TYPE == SearchTypeNullWindow) {
+      Evaluation staticEval = thread->evaluator.score<TURN>(thread->pos, threats);
+      const bool scaredOfZugzwang = std::popcount(thread->pos.colorBitboards_[TURN] & ~thread->pos.pieceBitboards_[coloredPiece<TURN, Piece::PAWN>()]) <= 3;
+      if (staticEval >= beta && !inCheck && !scaredOfZugzwang && depthRemaining >= 2) {
+        if (staticEval >= beta) {
+          make_nullmove<TURN>(&thread->pos);
+          SearchResult<TURN> a = flip(search<opposingColor, SearchTypeExtended, IS_PARALLEL>(thinker, thread, depthRemaining - 2, plyFromRoot + 1, -beta, -(beta - 1), recommendationsForChildren, distFromPV));
+          undo_nullmove<TURN>(&thread->pos);
+          if (a.score >= originalBeta) {
+            a.score = originalBeta;
+            a.move = kNullMove;
+            return a;
+          }
         }
       }
     }
