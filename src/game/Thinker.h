@@ -11,6 +11,19 @@
 
 namespace ChessEngine {
 
+struct RecommendedMoves {
+  Move moves[2];
+  RecommendedMoves() {
+    std::fill_n(moves, 2, kNullMove);
+  }
+  inline void add(Move move) {
+    if (move != moves[0]) {
+      moves[1] = moves[0];
+      moves[0] = move;
+    }
+  }
+};
+
 static constexpr unsigned kNumSearchManagerCounters = 32768;
 static constexpr unsigned kNumSearchManagerLocks = 256;
 struct SearchManager {
@@ -75,6 +88,8 @@ struct Thinker : public ThinkerInterface {
     multiPV = 1;
     numThreads = 1;
   }
+
+  RecommendedMoves killerMoves[127];
 
 private:
 

@@ -202,19 +202,6 @@ constexpr Evaluation kMoveOrderPieceValues[7] = {
   0, 100,  300,  300,  500, 900,  900
 };
 
-struct RecommendedMoves {
-  Move moves[2];
-  RecommendedMoves() {
-    std::fill_n(moves, 2, kNullMove);
-  }
-  inline void add(Move move) {
-    if (move != moves[0]) {
-      moves[1] = moves[0];
-      moves[0] = move;
-    }
-  }
-};
-
 constexpr int kSyncDepth = 2;
 
 struct Thread {
@@ -628,6 +615,10 @@ struct Search {
       move->score += value_or_zero(move->move == recommendedMoves.moves[0], 50);
       move->score += value_or_zero(move->move == recommendedMoves.moves[1], 50);
 
+      // Killer Moves (0.0142 ± 0.0105)
+      move->score += thinker->killerMoves[plyFromRoot].moves[0] == move->move ? 100 : 0;
+      move->score += thinker->killerMoves[plyFromRoot].moves[1] == move->move ? 100 : 0;
+
       // History Heuristic
       // (+0.0310 ± 0.0073) after 1024 games at 50,000 nodes/move
       const int32_t history = thinker->historyHeuristicTable[TURN][move->piece][move->move.from][move->move.to];
@@ -792,6 +783,7 @@ struct Search {
             if (r.score >= beta) {
               // TODO: make thinker thread safe.
               thinker->historyHeuristicTable[TURN][extMove->piece][extMove->move.from][extMove->move.to] += value_or_zero(extMove->capture == ColoredPiece::NO_COLORED_PIECE, depthRemaining * depthRemaining);
+              thinker->killerMoves[plyFromRoot].add(extMove->move);
               break;
             }
             if (r.score > alpha) {
