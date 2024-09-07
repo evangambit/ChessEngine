@@ -725,7 +725,7 @@ struct Search {
         } else {
           a = child2parent(search<opposingColor, SearchTypeNullWindow, IS_PARALLEL>(thinker, thread, childDepth, plyFromRoot + 1, child_alpha_plus1, child_alpha, recommendationsForChildren, distFromPV + (extMove != moves)));
           if (a.score > alpha) {
-            a = child2parent(search<opposingColor, kChildSearchType, IS_PARALLEL>(thinker, thread, childDepth, plyFromRoot + 1, child_beta, child_alpha_plus1, recommendationsForChildren, distFromPV + (extMove != moves)));
+            a = child2parent(search<opposingColor, kChildSearchType, IS_PARALLEL>(thinker, thread, childDepth, plyFromRoot + 1, child_beta, child_alpha_plus1, recommendationsForChildren, distFromPV));
           }
         }
 
@@ -737,7 +737,7 @@ struct Search {
           make_move<TURN>(&thread->pos, extMove->move);
           interestingness += inCheck;
           if (interestingness >= 2) {
-            a = child2parent(search<opposingColor, SearchTypeExtended, IS_PARALLEL>(thinker, thread, depthRemaining, plyFromRoot + 1, child_beta, child_alpha, recommendationsForChildren, distFromPV + (extMove != moves)));
+            a = child2parent(search<opposingColor, SearchTypeExtended, IS_PARALLEL>(thinker, thread, depthRemaining, plyFromRoot + 1, child_beta, child_alpha, recommendationsForChildren, distFromPV));
           }
         }
 
