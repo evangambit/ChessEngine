@@ -159,10 +159,10 @@ private:
 
   #if NNUE_EVAL
   std::shared_ptr<NnueNetwork> nnue;
-  #else
+  #endif
+
   Evaluator evaluator;
   PieceMaps pieceMaps;
-  #endif
 
   #if NNUE_EVAL
   void load_nnue(const std::string& filename) {
@@ -178,7 +178,8 @@ private:
   void load_nnue(std::istream& myfile) override {
     this->nnue->load(myfile);
   }
-  #else
+  #endif
+
   Evaluator& get_evaluator() override {
     return evaluator;
   }
@@ -216,7 +217,6 @@ private:
     this->load_weights(myfile);
     myfile.close();
   }
-  #endif
 
   CacheResult probe_tt(uint64_t hash) override {
     return cache.find<false>(hash);

@@ -30,6 +30,8 @@ void process(const std::vector<std::string>& line, WriterB& tableWriter, WriterI
   std::shared_ptr<DummyNetwork> network = std::make_shared<DummyNetwork>();
   pos.set_network(network);
 
+  Evaluator& evaluator = ((ThinkerInterface *)(&gThinker))->get_evaluator();
+
   bool pieceMaps[NnueFeatures::NF_NUM_FEATURES];
   std::fill_n(pieceMaps, 8 * 12 + 1, 0);
   for (size_t i = 0; i < NnueFeatures::NF_NUM_FEATURES; ++i) {
@@ -38,13 +40,13 @@ void process(const std::vector<std::string>& line, WriterB& tableWriter, WriterI
   tableWriter.write_row(pieceMaps);
 
   if (pos.turn_ == Color::WHITE) {
-    gThinker.evaluator.score<Color::WHITE>(pos);
+    evaluator.score<Color::WHITE>(pos);
   } else {
-    gThinker.evaluator.score<Color::BLACK>(pos);
+    evaluator.score<Color::BLACK>(pos);
   }
   int8_t features[EF::NUM_EVAL_FEATURES];
   for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
-    features[i] = gThinker.evaluator.features[i];
+    features[i] = evaluator.features[i];
   }
   featureWriter.write_row(features);
 

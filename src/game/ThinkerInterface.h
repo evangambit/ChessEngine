@@ -33,12 +33,12 @@ struct ThinkerInterface {
 #if NNUE_EVAL
   virtual void load_nnue(std::istream& myfile) = 0;
   virtual std::shared_ptr<NnueNetwork> get_nnue() = 0;
-#else
+#endif
+
   virtual void load_weights(std::istream& myfile) = 0;
   virtual void save_weights(std::ostream& myfile) = 0;
   virtual Evaluator& get_evaluator() = 0;
   virtual PieceMaps& get_piece_maps() = 0;
-#endif
   virtual void clear_tt() = 0;
   virtual void clear_history_heuristic() = 0;
 
