@@ -152,7 +152,7 @@ private:
     return variations;
   }
 
-  void set_cache_size(size_t kilobytes) {
+  void set_cache_size(size_t kilobytes) override {
     cache.set_cache_size(kilobytes);
   }
 
@@ -282,7 +282,7 @@ private:
     this->clear_history_heuristic();
   }
 
-  void clear_history_heuristic() {
+  void clear_history_heuristic() override {
     std::fill_n(historyHeuristicTable[Color::WHITE][0][0], Piece::NUM_PIECES * 64 * 64, 0);
     std::fill_n(historyHeuristicTable[Color::BLACK][0][0], Piece::NUM_PIECES * 64 * 64, 0);
   }
