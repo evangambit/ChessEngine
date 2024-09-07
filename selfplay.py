@@ -80,7 +80,7 @@ class UciPlayer:
     assert 'bestmove ' in lines[-1] # e.g. "bestmove h6h7 ponder a2a3"
     return lines[-1].split(' ')[1]
 
-def play(fen0, player1, player2, nodes = 200_000):
+def play(fen0, player1, player2, nodes = 50_000):
   player1.command("setoption name Clear Hash")
   player2.command("setoption name Clear Hash")
   isPlayer1White = ' w ' in fen0
