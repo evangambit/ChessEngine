@@ -657,7 +657,11 @@ struct Search {
     );
 
     if (SEARCH_TYPE == SearchTypeNullWindow) {
+      #if NNUE_EVAL
+      Evaluation staticEval = nnue_evaluate<TURN>(thread->pos);
+      #else
       Evaluation staticEval = thread->evaluator.score<TURN>(thread->pos, threats);
+      #endif
       const bool scaredOfZugzwang = std::popcount(thread->pos.colorBitboards_[TURN] & ~thread->pos.pieceBitboards_[coloredPiece<TURN, Piece::PAWN>()]) <= 3;
 
       // Null-move pruning.
