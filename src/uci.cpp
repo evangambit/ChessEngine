@@ -802,7 +802,11 @@ struct UciEngine {
     #if NNUE_EVAL
     LoadNnueTask task({"loadnnue", "nnue-776-512-64.bin"});
     #else
+    #if INCLUDE_WEIGHTS
     ReadEncodedWeights task;
+    #else
+    LoadWeightsTask task({"loadweights", "weights.txt"});
+    #endif
     task.start(&this->state);
     #endif
   }

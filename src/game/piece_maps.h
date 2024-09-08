@@ -55,6 +55,7 @@ struct PieceMaps {
           line = process_with_file_line(line);
           std::vector<std::string> parts = split(line, ' ');
           if (parts.size() != 8) {
+            std::cout << line << std::endl;
             throw std::runtime_error("Expected 8 weights in piece-map row but got " + std::to_string(parts.size()));
           }
           for (size_t x = 0; x < 8; ++x) {

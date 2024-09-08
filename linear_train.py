@@ -183,8 +183,8 @@ if __name__ == '__main__':
   avg = SignedY.load_slice(0, SignedY.num_rows).mean()
   SignedY = RowMapper(partial(minus, b=avg), SignedY)
 
-  f_job: JobType = JobType.ALL_FROM_SCRATCH
-  ps_job: JobType = JobType.ZERO
+  f_job: JobType = JobType.ALL_CACHED
+  ps_job: JobType = JobType.FEATURES_FROM_SCRATCH
 
   num_workers = 4
   if f_job == JobType.ALL_FROM_SCRATCH or f_job == JobType.FEATURES_FROM_SCRATCH:
@@ -220,9 +220,9 @@ if __name__ == '__main__':
   UnsignedResiduals = RowMapper(times, Residuals, T)
 
   if ps_job == JobType.ALL_FROM_SCRATCH or ps_job == JobType.FEATURES_FROM_SCRATCH:
-    e_cov = compute_inner_product(MonoTable, UnsignedResiduals, weights_loader=earliness, num_workers=num_workers)
+    e_cov = compute_inner_product(MonoTable, MonoTable, weights_loader=earliness, num_workers=num_workers)
     np.save(f'data/{a}/derived/e_cov.npy', e_cov)
-    l_cov = compute_inner_product(MonoTable, UnsignedResiduals, weights_loader=lateness, num_workers=num_workers)
+    l_cov = compute_inner_product(MonoTable, MonoTable, weights_loader=lateness, num_workers=num_workers)
     np.save(f'data/{a}/derived/l_cov.npy', l_cov)
   elif ps_job == JobType.ZERO:
     e_cov = np.eye(64, dtype=np.float32)
