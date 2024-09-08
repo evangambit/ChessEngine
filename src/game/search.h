@@ -38,8 +38,8 @@ bool gPrintDebug = false;
 #define IS_PRINT_NODE gPrintDebug
 #else
 #define IS_PRINT_NODE 0
-// #define IS_PRINT_NODE history_is(thread->pos, "h8f8 c7c8 f8c8 c1c8 a8b7")
-// #define IS_PRINT_NODE (thread->pos.hash_ == 17112545643981194285LLU)
+// #define IS_PRINT_NODE history_prefix(thread->pos, "g2g7 f7g7 h3c8 g8h7 c8f5 h7g8 f5d5")
+// #define IS_PRINT_NODE (thread->pos.hash_ == 11527174595561712555LLU)
 // #define IS_PRINT_NODE (thread->pos.hash_  % 425984 == 958)
 #endif
 
@@ -52,6 +52,19 @@ std::string pad(int n) {
 }
 
 namespace ChessEngine {
+
+bool history_prefix(const Position& pos, std::string movesString) {
+  std::vector<std::string> moves = split(movesString, ' ');
+  if (pos.history_.size() < moves.size()) {
+    return false;
+  }
+  for (size_t i = 0; i < moves.size(); ++i) {
+    if (pos.history_[i].uci() != moves[i]) {
+      return false;
+    }
+  }
+  return true;
+}
 
 bool history_is(const Position& pos, std::string movesString) {
   std::vector<std::string> moves = split(movesString, ' ');
@@ -228,9 +241,9 @@ static SearchResult<TURN> qsearch(Thinker *thinker, Thread *thread, int32_t dept
   ++thread->nodeCounter;
 
   if (std::popcount(thread->pos.pieceBitboards_[coloredPiece<TURN, Piece::KING>()]) == 0) {
-    #if IS_PRINT_NODE
-    std::cout << pad(plyFromRoot) << "Q end a" << std::endl;
-    #endif
+    if (IS_PRINT_NODE) {
+      std::cout << pad(plyFromRoot) << "Q end a" << std::endl;
+    }
     return SearchResult<TURN>(std::max(alpha, std::min(beta, kMissingKing)), kNullMove);
   }
 
@@ -250,9 +263,9 @@ static SearchResult<TURN> qsearch(Thinker *thinker, Thread *thread, int32_t dept
   }
 
   if (moves == end && inCheck) {
-    #if IS_PRINT_NODE
-    std::cout << pad(plyFromRoot) << "Q end checkmate" << std::endl;
-    #endif
+    if (IS_PRINT_NODE) {
+      std::cout << pad(plyFromRoot) << "Q end checkmate" << std::endl;
+    }
     return SearchResult<TURN>(std::max(alpha, std::min(beta, depth <= 1 ? kCheckmate : kQCheckmate)), kNullMove);
   }
 
@@ -275,9 +288,9 @@ static SearchResult<TURN> qsearch(Thinker *thinker, Thread *thread, int32_t dept
     // r.score -= value_or_zero((enemyThreats.badForTheir[Piece::QUEEN] & thread->pos.pieceBitboards_[coloredPiece<TURN>(Piece::QUEEN)]) > 0, k);
   }
   if (moves == end || r.score >= beta) {
-    #if IS_PRINT_NODE
-    std::cout << pad(plyFromRoot) << "Q end pat " << r << "  " << thread->pos.history_ << "  " << alpha << "  " << beta << std::endl;
-    #endif
+    if (IS_PRINT_NODE) {
+      std::cout << pad(plyFromRoot) << "Q end pat " << r << "  " << thread->pos.history_ << "  " << alpha << "  " << beta << std::endl;
+    }
     r.score = std::max(alpha, std::min(beta, r.score));
     return r;
   }
@@ -337,9 +350,9 @@ static SearchResult<TURN> qsearch(Thinker *thinker, Thread *thread, int32_t dept
     alpha = std::max(alpha, child.score);
   }
 
-  #if IS_PRINT_NODE
-  std::cout << pad(plyFromRoot) << "Q end c " << r << std::endl;
-  #endif
+  if (IS_PRINT_NODE) {
+    std::cout << pad(plyFromRoot) << "Q end c " << r << std::endl;
+  }
 
   r.score = std::max(alpha, std::min(beta, r.score));
   return r;
@@ -684,9 +697,9 @@ struct Search {
 
         if (IS_PRINT_NODE) {
           if (TURN == Color::WHITE) {
-            std::cout << pad(plyFromRoot) << "> move " << extMove->move << " (h = " << thread->pos.hash_ << "; alpha = " << alpha << "; beta = " << beta << ")" << std::endl;
+            std::cout << pad(plyFromRoot) << "> move " << extMove->move << " (h = " << thread->pos.hash_ << "; alpha = " << alpha << "; beta = " << beta << ") " << thread->pos.history_ << std::endl;
           } else {
-            std::cout << pad(plyFromRoot) << "> move " << extMove->move << " (h = " << thread->pos.hash_ << "; alpha = " << -beta << "; beta = " << -alpha << ")" << std::endl;
+            std::cout << pad(plyFromRoot) << "> move " << extMove->move << " (h = " << thread->pos.hash_ << "; alpha = " << -beta << "; beta = " << -alpha << ") " << thread->pos.history_ << std::endl;
           }
         }
 
@@ -725,7 +738,7 @@ struct Search {
         } else {
           a = child2parent(search<opposingColor, SearchTypeNullWindow, IS_PARALLEL>(thinker, thread, childDepth, plyFromRoot + 1, child_alpha_plus1, child_alpha, recommendationsForChildren, distFromPV + (extMove != moves)));
           if (a.score > alpha) {
-            a = child2parent(search<opposingColor, kChildSearchType, IS_PARALLEL>(thinker, thread, childDepth, plyFromRoot + 1, child_beta, child_alpha_plus1, recommendationsForChildren, distFromPV));
+            a = child2parent(search<opposingColor, kChildSearchType, IS_PARALLEL>(thinker, thread, childDepth, plyFromRoot + 1, child_beta, child_alpha, recommendationsForChildren, distFromPV));
           }
         }
 
