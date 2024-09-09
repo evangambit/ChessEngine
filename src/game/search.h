@@ -334,8 +334,6 @@ static SearchResult<TURN> qsearch(Thinker *thinker, Thread *thread, int32_t dept
     make_move<TURN>(&thread->pos, move->move);
 
     SearchResult<TURN> child = child2parent(qsearch<opposingColor>(thinker, thread, depth + 1, plyFromRoot + 1, child_beta, child_alpha));
-    child.score -= (child.score > -kQLongestForcedMate);
-    child.score += (child.score <  kQLongestForcedMate);
 
     undo<TURN>(&thread->pos);
 
