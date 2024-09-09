@@ -612,6 +612,11 @@ struct Search {
     // TODO: use lastMove (above) to sort better.
     for (ExtMove *move = moves; move < movesEnd; ++move) {
       move->score = 0;
+
+      // Bonus for moving threatened pieces and not moving into threats. ELO_STDERR(+7, +24)
+      move->score += threats.badForOur[move->piece] & bb(move->move.from) ? 50 : 0;
+      move->score -= threats.badForOur[move->piece] & bb(move->move.to) ? 50 : 0;
+
       // Bonus if it was the last-found best move. ELO_STDERR(+109, +126)
       move->score += value_or_zero((move->move == lastFoundBestMove) && (depthRemaining >= 1), 5000);
 
