@@ -813,32 +813,32 @@ struct UciEngine {
   void start(std::istream& cin, const std::vector<std::string>& commands) {
     UciEngineState *state = &this->state;
 
-    // std::cout << "option name Debug Log File type string default" << std::endl;
-    std::cout << "id name Pumpkin 1.0" << std::endl;
-    std::cout << "id author Morgan Redding" << std::endl << std::endl;
+    if (commands.size() == 0) {
+      std::cout << "id name Pumpkin 0.0" << std::endl;
+      std::cout << "id author Morgan Redding" << std::endl << std::endl;
 
-    std::cout << "option name Threads type spin default 1 min 1 max 1024" << std::endl;
-    std::cout << "option name Hash type spin default 16 min 1 max 33554432" << std::endl;
-    std::cout << "option name Clear Hash type button" << std::endl;
-    std::cout << "option name Ponder type check default false" << std::endl;
-    std::cout << "option name MultiPV type spin default 1 min 1 max 500" << std::endl;
-    std::cout << "option name Skill Level type spin default 20 min 0 max 20" << std::endl;
-    std::cout << "option name Move Overhead type spin default 10 min 0 max 5000" << std::endl;
-    std::cout << "option name Slow Mover type spin default 100 min 10 max 1000" << std::endl;
-    std::cout << "option name nodestime type spin default 0 min 0 max 10000" << std::endl;
-    std::cout << "option name UCI_Chess960 type check default false" << std::endl;
-    std::cout << "option name UCI_AnalyseMode type check default false" << std::endl;
-    std::cout << "option name UCI_LimitStrength type check default false" << std::endl;
-    std::cout << "option name UCI_Elo type spin default 1320 min 1320 max 3190" << std::endl;
-    std::cout << "option name UCI_ShowWDL type check default false" << std::endl;
-    std::cout << "option name SyzygyPath type string default <empty>" << std::endl;
-    std::cout << "option name SyzygyProbeDepth type spin default 1 min 1 max 100" << std::endl;
-    std::cout << "option name Syzygy50MoveRule type check default true" << std::endl;
-    std::cout << "option name SyzygyProbeLimit type spin default 7 min 0 max 7" << std::endl;
-    // option name Use NNUE type check default true
-    // option name EvalFile type string default nn-5af11540bbfe.nnue
+      // Garbage boiler plate to make the GUI happy.
+      std::cout << "option name Threads type spin default 1 min 1 max 1024" << std::endl;
+      std::cout << "option name Hash type spin default 16 min 1 max 33554432" << std::endl;
+      std::cout << "option name Clear Hash type button" << std::endl;
+      std::cout << "option name Ponder type check default false" << std::endl;
+      std::cout << "option name MultiPV type spin default 1 min 1 max 500" << std::endl;
+      std::cout << "option name Skill Level type spin default 20 min 0 max 20" << std::endl;
+      std::cout << "option name Move Overhead type spin default 10 min 0 max 5000" << std::endl;
+      std::cout << "option name Slow Mover type spin default 100 min 10 max 1000" << std::endl;
+      std::cout << "option name nodestime type spin default 0 min 0 max 10000" << std::endl;
+      std::cout << "option name UCI_Chess960 type check default false" << std::endl;
+      std::cout << "option name UCI_AnalyseMode type check default false" << std::endl;
+      std::cout << "option name UCI_LimitStrength type check default false" << std::endl;
+      std::cout << "option name UCI_Elo type spin default 1320 min 1320 max 3190" << std::endl;
+      std::cout << "option name UCI_ShowWDL type check default false" << std::endl;
+      std::cout << "option name SyzygyPath type string default <empty>" << std::endl;
+      std::cout << "option name SyzygyProbeDepth type spin default 1 min 1 max 100" << std::endl;
+      std::cout << "option name Syzygy50MoveRule type check default true" << std::endl;
+      std::cout << "option name SyzygyProbeLimit type spin default 7 min 0 max 7" << std::endl;
 
-    std::cout << "uciok" << std::endl;
+      std::cout << "uciok" << std::endl;
+    }
 
     for (std::string command : commands) {
       if(command.find_first_not_of(' ') == std::string::npos) {
@@ -964,7 +964,7 @@ struct UciEngine {
 };
 
 int main(int argc, char *argv[]) {
-  std::cout << "Chess Engine" << std::endl;
+  std::cout << "Pumpkin 0.0" << std::endl;
 
   std::vector<std::string> commands;
   for (int i = 1; i < argc; ++i) {
