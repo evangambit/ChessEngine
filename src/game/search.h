@@ -612,26 +612,18 @@ struct Search {
     // TODO: use lastMove (above) to sort better.
     for (ExtMove *move = moves; move < movesEnd; ++move) {
       move->score = 0;
-
-      // Bonus for capturing a piece.
-      // (+0.1042 ± 0.0146) after 256 games at 50,000 nodes/move
-      move->score += kMoveOrderPieceValues[cp2p(move->capture)];
-
-      // Bonus if it was the last-found best move.
-      // (+0.0703 ± 0.0148) after 256 games at 50,000 nodes/move
+      // Bonus if it was the last-found best move. ELO_STDERR(+109, +126)
       move->score += value_or_zero((move->move == lastFoundBestMove) && (depthRemaining >= 1), 5000);
 
-      // Bonus if siblings like a move.
-      // (+0.0343 ± 0.0117) after 512 games at 50,000 nodes/move
+      // Bonus if siblings like a move. ELO_STDERR(+0 to +15)
       move->score += value_or_zero(move->move == recommendedMoves.moves[0], 50);
       move->score += value_or_zero(move->move == recommendedMoves.moves[1], 50);
 
-      // Killer Moves (0.0142 ± 0.0105)
+      // Killer Moves. ELO_STDERR(+15 to +30)
       move->score += thinker->killerMoves[plyFromRoot].moves[0] == move->move ? 100 : 0;
       move->score += thinker->killerMoves[plyFromRoot].moves[1] == move->move ? 100 : 0;
 
-      // History Heuristic
-      // (+0.0310 ± 0.0073) after 1024 games at 50,000 nodes/move
+      // History Heuristic ELO_STDERR(+35 to +52)
       const int32_t history = thinker->historyHeuristicTable[TURN][move->piece][move->move.from][move->move.to];
       move->score += value_or_zero(history > 0, 20);
       move->score += value_or_zero(history > 4, 20);
@@ -731,8 +723,7 @@ struct Search {
 
         const Depth childDepth = depthRemaining - 1;
 
-        // Null-window search.
-        // (+0.0269 ± 0.0072) after 1024 games at 50,000 nodes/move
+        // Null-window search. ELO_STDERR(+23, +40)
         SearchResult<TURN> a(0, kNullMove);
         constexpr SearchType kChildSearchType = SEARCH_TYPE == SearchTypeRoot ? SearchTypeNormal : SEARCH_TYPE;
         if (extMove == moves || SEARCH_TYPE == SearchTypeNullWindow) {
@@ -744,7 +735,7 @@ struct Search {
           }
         }
 
-        // Extended sequences of captures/checks (0.0269 ± 0.0115)
+        // Extended sequences of captures/checks ELO_STDERR(+4, +21)
         if (SEARCH_TYPE == SearchTypeNormal && a.score > alpha && a.score < beta) {
           int interestingness = extMove->capture != ColoredPiece::NO_COLORED_PIECE;
           undo<TURN>(&thread->pos);

@@ -1,3 +1,4 @@
+import math
 import random
 import re
 import subprocess
@@ -141,8 +142,8 @@ def thread_main(fen):
   player1 = UciPlayer(sys.argv[1], sys.argv[2])
   player2 = UciPlayer(sys.argv[3], sys.argv[4])
   try:
-    a = play(fen, player1, player2)
-    b = play(fen, player2, player1)
+    a = play(fen, player1, player2)  # Returns {-0.5, 0, 0.5}
+    b = play(fen, player2, player1)  # Returns {-0.5, 0, 0.5}
   except Exception as e:
     print('!!!!    ERROR    !!!!')
     print(e)
@@ -152,10 +153,32 @@ def thread_main(fen):
 def create_fen_batch(n):
   return [play_random(chess.Board(), 4) for _ in range(n)]
 
+"""
+winrate = 1 / (1 + 10**(-x/400))
+
+1 / winrate = 1 + 10**(-x/400)
+1 / winrate - 1 = 10**(-x/400)
+log(1 / winrate - 1) / log(10) = x / -400
+
+x = log(1 / winrate - 1) / log(10) * -400
+
+>>> math.log(1 / (0.5 + (-0.0456 + 0.0124)) - 1.0) / math.log(10) * -400
+-23.103717347395612
+>>> math.log(1 / (0.5 + (-0.0456 - 0.0124)) - 1.0) / math.log(10) * -400
+-40.48477183539473
+
+"""
+
+def int2str(x):
+  x = str(x)
+  if x[0] != '-':
+    return '+' + x
+  return x
+
 if __name__ == '__main__':
   mp.set_start_method('spawn')
   t0 = time.time()
-  numWorkers = 4
+  numWorkers = 8
   batches = []
   for i in range(0, 512, numWorkers):
     batches.append(create_fen_batch(numWorkers))
@@ -169,7 +192,10 @@ if __name__ == '__main__':
         r = np.array(R, dtype=np.float64).reshape(-1)
         stderr = r.std(ddof=1) / np.sqrt(r.shape[0])
         avg = r.mean()
+        a = math.log(1 / (0.5 + (avg - stderr)) - 1.0) / math.log(10) * -400
+        b = math.log(1 / (0.5 + (avg + stderr)) - 1.0) / math.log(10) * -400
         print('%.3f ± %.3f' % (avg, stderr))
+        print(f'ELO_STDERR({int2str(int(a))}, {int2str(int(b))})')
         print(
           ('%d' % (r == 0.5).sum()).rjust(4),
           ('%d' % (r == 0.25).sum()).rjust(4),
