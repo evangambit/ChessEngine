@@ -49,7 +49,9 @@ ExtMove *compute_pawn_moves(const Position& pos, ExtMove *moves, Bitboard target
   Bitboard checkMask;
   if (MGT == MoveGenType::CHECKS_AND_CAPTURES || MGT == MoveGenType::CAPTURES) {
     const Bitboard enemyKing = pos.pieceBitboards_[coloredPiece<opposite_color<US>(), Piece::KING>()];
-    checkMask = (US == Color::WHITE ? kRanks[0] : kRanks[7]);  // include promotion rank.
+    // Include pushing pawns close to promotion. Note: pawns moving to the last two ranks automatically
+    // implies that they are passed.
+    checkMask = (US == Color::WHITE ? (kRanks[0] | kRanks[1]) : (kRanks[7] | kRanks[6]));
     checkMask |= shift<opposite_dir(CAPTURE_NE)>(enemyKing) | shift<opposite_dir(CAPTURE_NW)>(enemyKing);
   } else {
     checkMask = kUniverse;

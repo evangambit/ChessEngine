@@ -602,7 +602,7 @@ class SetOptionTask : public Task {
         std::cout << "Value must be an integer" << std::endl;
         return;
       }
-      state->thinkerInterface()->set_cache_size(cacheSize);
+      state->thinkerInterface()->set_cache_size(cacheSize * 1000);
       return;
     } else if (does_pattern_match(command, {"SyzygyPath", "value", "*"})) {
       // TODO
