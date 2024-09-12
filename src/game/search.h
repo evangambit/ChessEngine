@@ -498,12 +498,6 @@ struct Search {
       // 0.4814 ± 0.0035 after 512 games at 50,000 nodes/move
       SearchResult<TURN> r = qsearch<TURN>(thinker, thread, 0, plyFromRoot, alpha, beta);
 
-      // // Search Extensions
-      // // 0.0293 ± 0.0116 after 512 games at 50,000 nodes/move
-      // if (SEARCH_TYPE == SearchTypeNormal && r.score > alpha && r.score < beta) {
-      //   r = search<TURN, SearchTypeExtended, IS_PARALLEL>(thinker, thread, 2, plyFromRoot, alpha, beta, recommendedMoves, distFromPV);
-      // }
-
       if (IS_PRINT_NODE) {
         std::cout << pad(plyFromRoot) << "end g " << thread->pos.hash_ << " qsearch " << to_white(r) << std::endl;
       }
