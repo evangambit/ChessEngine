@@ -316,7 +316,11 @@ static SearchResult<TURN> qsearch(Thinker *thinker, Thread *thread, int32_t dept
       kQSimplePieceValues[move->piece]
     );
     move->score += (move->capture != ColoredPiece::NO_COLORED_PIECE) * 1000;
-  }
+
+    // Killer Moves. ELO_STDERR(+2, +14)
+    move->score += thinker->killerMoves[plyFromRoot].moves[0] == move->move ? 10 : 0;
+    move->score += thinker->killerMoves[plyFromRoot].moves[1] == move->move ? 10 : 0;
+}
 
   std::sort(moves, end, [](ExtMove a, ExtMove b) {
     return a.score > b.score;
