@@ -18,9 +18,6 @@
 
 namespace ChessEngine {
 
-// Arbitrary constant that our "special_boosts" will never accidentally return.
-static const Evaluation kKnownDraw = kMinEval + 10;
-
 /**
  * Engine is bad at
  * 1) knowing when trapped pieces (e.g. knights in corners) aren't long for this world
@@ -1067,108 +1064,6 @@ struct Evaluator {
     #endif
 
     return eval;
-  }
-
-  template<Color US>
-  Evaluation special_boosts(const Position& pos) {
-    constexpr Color THEM = opposite_color<US>();
-    constexpr Evaluation kKnownWinBonus = 1000;
-
-    const Square ourKingSq = lsb(pos.pieceBitboards_[coloredPiece<US, Piece::KING>()]);
-    const Square theirKingSq = lsb(pos.pieceBitboards_[coloredPiece<THEM, Piece::KING>()]);
-
-    const Bitboard ourPawns = pos.pieceBitboards_[coloredPiece<US, Piece::PAWN>()];
-    const Bitboard ourKings = pos.pieceBitboards_[coloredPiece<US, Piece::KING>()];
-
-    const Bitboard theirPawns = pos.pieceBitboards_[coloredPiece<THEM, Piece::PAWN>()];
-    const Bitboard theirKings = pos.pieceBitboards_[coloredPiece<THEM, Piece::KING>()];
-
-    const Square whiteKingSq = (US == Color::WHITE ? ourKingSq : theirKingSq);
-    const Square blackKingSq = (US == Color::BLACK ? ourKingSq : theirKingSq);
-
-    const Bitboard ourMen = pos.colorBitboards_[US];
-    const Bitboard theirMen = pos.colorBitboards_[THEM];
-    const Bitboard everyone = ourMen | theirMen;
-
-    const bool doWeOnlyHavePawnsLeft = (ourMen & ~(ourPawns | ourKings)) == 0;
-    const bool doTheyOnlyHavePawnsLeft = (theirMen & ~(theirPawns | theirKings)) == 0;
-    const bool isKingPawnEndgame = doWeOnlyHavePawnsLeft && doTheyOnlyHavePawnsLeft;
-
-    if (isKingPawnEndgame && (std::popcount(ourPawns) == 1) && (theirPawns == 0)) {
-      int result;
-      if (US == Color::WHITE) {
-        result = known_kpvk_result(ourKingSq, theirKingSq, lsb(ourPawns), true);
-      } else {
-        result = known_kpvk_result(Square(63 - ourKingSq), Square(63 - theirKingSq), Square(63 - lsb(ourPawns)), true);
-      }
-      if (result == 0) {
-        return kKnownDraw;
-      }
-      if (result == 2) {
-        return 1000;
-      }
-    }
-    else if (isKingPawnEndgame && (std::popcount(theirPawns) == 1) && (ourPawns == 0)) {
-      int result;
-      if (US == Color::BLACK) {
-        result = known_kpvk_result(theirKingSq, ourKingSq, lsb(theirPawns), false);
-      } else {
-        result = known_kpvk_result(Square(63 - theirKingSq), Square(63 - ourKingSq), Square(63 - lsb(theirPawns)), false);
-      }
-      if (result == 0) {
-        return kKnownDraw;
-      }
-      if (result == 2) {
-        return -1000;
-      }
-    }
-
-    const int wx = ourKingSq % 8;
-    const int wy = ourKingSq / 8;
-    const int bx = theirKingSq % 8;
-    const int by = theirKingSq / 8;
-
-    Evaluation r = 0;
-
-    {
-      const bool theyHaveLonelyKing = (theirMen == theirKings);
-      const bool weHaveLonelyKing = (ourMen == ourKings);
-      const bool weHaveMaterialToMate = (
-        std::popcount(pos.pieceBitboards_[coloredPiece<US, Piece::KNIGHT>()]) > 2
-        || std::popcount(pos.pieceBitboards_[coloredPiece<US, Piece::BISHOP>()]) > 1
-        || std::popcount(pos.pieceBitboards_[coloredPiece<US, Piece::ROOK>()]) > 0
-        || std::popcount(pos.pieceBitboards_[coloredPiece<US, Piece::QUEEN>()]) > 0
-      );
-      const bool theyHaveMaterialToMate = (
-        std::popcount(pos.pieceBitboards_[coloredPiece<THEM, Piece::KNIGHT>()]) > 2
-        || std::popcount(pos.pieceBitboards_[coloredPiece<THEM, Piece::BISHOP>()]) > 1
-        || std::popcount(pos.pieceBitboards_[coloredPiece<THEM, Piece::ROOK>()]) > 0
-        || std::popcount(pos.pieceBitboards_[coloredPiece<THEM, Piece::QUEEN>()]) > 0
-      );
-
-      r += value_or_zero(theyHaveLonelyKing && weHaveMaterialToMate, kKnownWinBonus);
-      r -= value_or_zero(weHaveLonelyKing && theyHaveMaterialToMate, kKnownWinBonus);
-
-      r += value_or_zero(theyHaveLonelyKing, (3 - kDistToEdge[theirKingSq]) * 50);
-      r -= value_or_zero(  weHaveLonelyKing, (3 - kDistToEdge[ourKingSq]) * 50);
-      r += value_or_zero(theyHaveLonelyKing, (3 - kDistToCorner[theirKingSq]) * 50);
-      r -= value_or_zero(  weHaveLonelyKing, (3 - kDistToCorner[ourKingSq]) * 50);
-
-      int dx = std::abs(wx - bx);
-      int dy = std::abs(wy - by);
-      const bool opposition = (dx == 2 && dy == 0) || (dx == 0 && dy == 2);
-
-      // We don't want it to be our turn if they have the opposition.
-      r -= value_or_zero(weHaveLonelyKing && opposition, 75);
-
-      // And put our king next to the enemy king.
-      r += value_or_zero(theyHaveLonelyKing, (8 - std::max(dx, dy)) * 50);
-      r -= value_or_zero(  weHaveLonelyKing, (8 - std::max(dx, dy)) * 50);
-      r += value_or_zero(theyHaveLonelyKing, (8 - std::min(dx, dy)) * 25);
-      r -= value_or_zero(  weHaveLonelyKing, (8 - std::min(dx, dy)) * 25);
-    }
-
-    return r;
   }
 
   template<Color US>
