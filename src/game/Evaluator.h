@@ -1044,19 +1044,13 @@ struct Evaluator {
     const int32_t late = this->late<US>(pos);
     const int32_t ineq = this->ineq<US>(pos);
 
-    // 0.043 ± 0.019
-    // TODO: we'd like to learn piece maps based on king positions (king-side vs queen-side) in addition to time.
-    // 4 maps total:
-    // 1) early, white king side
-    // 2) early, black king side
-    // 1)  late, white king side
-    // 2)  late, black king side
-    int32_t pieceMap = (pos.pieceMapScores[PieceMapType::PieceMapTypeEarly] * (18 - time) + pos.pieceMapScores[PieceMapType::PieceMapTypeLate] * time) / 18;
+    // Piece-square tables ELO_STDERR(+20, +37)
+    int32_t pieceMap = pos.pieceMapScores[PieceMapType::PieceMapTypeEarly] * (18 - time) + pos.pieceMapScores[PieceMapType::PieceMapTypeLate] * time;
     if (US == Color::BLACK) {
       pieceMap *= -1;
     }
 
-    int32_t eval = (early * (18 - time) + late * time) / 18 + ineq + pieceMap;
+    int32_t eval = (early * (18 - time) + late * time + ineq * 18 + pieceMap) / 18;
 
     eval = std::min(int32_t(-kQLongestForcedMate), std::max(int32_t(kQLongestForcedMate), eval));
 
