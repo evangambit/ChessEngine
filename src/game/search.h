@@ -309,6 +309,8 @@ static SearchResult<TURN> qsearch(Thinker *thinker, Thread *thread, int32_t dept
     r.score = kQLongestForcedMate;
   }
 
+  MoveRecommender& recommender = thinker->moveRecommender;
+
   for (ExtMove *move = moves; move < end; ++move) {
     move->score = kQSimplePieceValues[cp2p(move->capture)];
     move->score -= value_or_zero(
@@ -318,8 +320,7 @@ static SearchResult<TURN> qsearch(Thinker *thinker, Thread *thread, int32_t dept
     move->score += (move->capture != ColoredPiece::NO_COLORED_PIECE) * 1000;
 
     // Killer Moves. ELO_STDERR(+2, +14)
-    move->score += thinker->killerMoves[plyFromRoot].moves[0] == move->move ? 10 : 0;
-    move->score += thinker->killerMoves[plyFromRoot].moves[1] == move->move ? 10 : 0;
+    move->score += recommender.is_recommended(thread->pos, plyFromRoot, move->move) * 10;
 }
 
   std::sort(moves, end, [](ExtMove a, ExtMove b) {
@@ -606,6 +607,8 @@ struct Search {
     
     Threats<TURN> threats(thread->pos);
 
+    MoveRecommender& recommender = thinker->moveRecommender;
+
     // const ExtMove lastMove = thread->pos.history_.size() > 0 ? thread->pos.history_.back() : kNullExtMove;
     // TODO: use lastMove (above) to sort better.
     for (ExtMove *move = moves; move < movesEnd; ++move) {
@@ -623,8 +626,9 @@ struct Search {
       move->score += value_or_zero(move->move == recommendedMoves.moves[1], 50);
 
       // Killer Moves. ELO_STDERR(+15 to +30)
-      move->score += thinker->killerMoves[plyFromRoot].moves[0] == move->move ? 100 : 0;
-      move->score += thinker->killerMoves[plyFromRoot].moves[1] == move->move ? 100 : 0;
+      if (SEARCH_TYPE != SearchTypeRoot) {
+        move->score += recommender.is_recommended(thread->pos, plyFromRoot, move->move) * 100;
+      }
 
       // History Heuristic ELO_STDERR(+35 to +52)
       const int32_t history = thinker->historyHeuristicTable[TURN][move->piece][move->move.from][move->move.to];
@@ -804,7 +808,7 @@ struct Search {
             if (r.score >= beta) {
               // TODO: make thinker thread safe.
               thinker->historyHeuristicTable[TURN][extMove->piece][extMove->move.from][extMove->move.to] += value_or_zero(extMove->capture == ColoredPiece::NO_COLORED_PIECE, depthRemaining * depthRemaining);
-              thinker->killerMoves[plyFromRoot].add(extMove->move);
+              recommender.recommend(thread->pos, plyFromRoot, extMove->move);
               break;
             }
             if (r.score > alpha) {

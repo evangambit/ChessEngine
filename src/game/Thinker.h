@@ -9,6 +9,8 @@
 #include "StopThinkingCondition.h"
 #include "ThinkerInterface.h"
 
+#include <random>
+
 namespace ChessEngine {
 
 struct RecommendedMoves {
@@ -75,6 +77,23 @@ std::ostream& operator<<(std::ostream& os, const VariationHead<COLOR>& vh) {
   return os;
 }
 
+struct MoveRecommender {
+  int is_recommended(const Position& pos, int plyFromRoot, Move move) const {
+    assert(pos.history_.size() > 0);
+    ExtMove lastMove = pos.history_.back();
+    int r = 0;
+    r += plyTable[plyFromRoot].moves[0] == move || plyTable[plyFromRoot].moves[1] == move;
+    return r;
+  }
+  void recommend(const Position& pos, int plyFromRoot, Move move) {
+    plyTable[plyFromRoot].add(move);
+  }
+
+  static void initialize() {}
+
+  RecommendedMoves plyTable[127];
+};
+
 struct Search;
 struct Thinker : public ThinkerInterface {
   friend Search;
@@ -89,7 +108,7 @@ struct Thinker : public ThinkerInterface {
     numThreads = 1;
   }
 
-  RecommendedMoves killerMoves[127];
+  MoveRecommender moveRecommender;
 
 private:
 

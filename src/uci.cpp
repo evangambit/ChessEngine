@@ -987,6 +987,7 @@ int main(int argc, char *argv[]) {
   initialize_geometry();
   initialize_zorbrist();
   initialize_movegen();
+  MoveRecommender::initialize();
 
   UciEngine engine;
   engine.start(std::cin, commands);
