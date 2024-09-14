@@ -984,6 +984,7 @@ struct Search {
 
     thinker->nodeCounter = 0;
 
+    size_t depthLimit = command.depthLimit;
     uint64_t timeLimitMs = command.timeLimitMs;
 
     const int64_t increment = command.pos.turn_ == Color::WHITE ? command.wIncrementMs : command.bIncrementMs;
@@ -991,6 +992,12 @@ struct Search {
     if (timeRemaining != 0) {
       const int64_t numMovesRemaining = 30;
       timeLimitMs = std::max<int64_t>(10, increment + timeRemaining / numMovesRemaining - thinker->moveOverheadMs);
+
+      // If we're managing our own time and only have one legal move, we return as soon as we've done a valid search.
+      if (command.moves.size() == 1) {
+        timeLimitMs = -1;
+        depthLimit = 1;
+      }
     }
 
     thinker->stopThinkingCondition = std::make_unique<OrStopCondition>(
@@ -1044,7 +1051,7 @@ struct Search {
 
     size_t depth;
     bool stoppedEarly = false;
-    for (depth = 1; depth <= command.depthLimit; ++depth) {
+    for (depth = 1; depth <= depthLimit; ++depth) {
       lastVar = thinker->variations;
       if (copy.turn_ == Color::WHITE) {
         _search_fixed_depth<Color::WHITE>(thinker, copy, &threadObjs, Depth(depth));
