@@ -682,6 +682,7 @@ struct Search {
     #endif
     std::vector<VariationHead<TURN>> children;
     size_t numValidMoves = 0;
+    size_t numQuietMoves = 0;
     for (int isDeferred = 0; isDeferred <= 1; ++isDeferred) {
       ExtMove *start = (isDeferred ? deferredMoves : &moves[0]);
       ExtMove *end = (isDeferred ? deferredMovesEnd : movesEnd);
@@ -727,6 +728,7 @@ struct Search {
         }
 
         ++numValidMoves;
+        numQuietMoves += extMove->capture == ColoredPiece::NO_COLORED_PIECE;
 
         const Depth childDepth = depthRemaining - 1;
 
@@ -736,7 +738,14 @@ struct Search {
         if (extMove == moves || SEARCH_TYPE == SearchTypeNullWindow) {
           a = child2parent(search<opposingColor, kChildSearchType, IS_PARALLEL>(thinker, thread, childDepth, plyFromRoot + 1, child_beta, child_alpha, recommendationsForChildren, distFromPV + (extMove != moves)));
         } else {
-          a = child2parent(search<opposingColor, SearchTypeNullWindow, IS_PARALLEL>(thinker, thread, childDepth, plyFromRoot + 1, child_alpha_plus1, child_alpha, recommendationsForChildren, distFromPV + (extMove != moves)));
+          // Late move reductions ELO_STDERR(+31, +48)
+          bool LMR = (numQuietMoves > 3 && depthRemaining >= 3);
+          if (LMR) {
+            a = child2parent(search<opposingColor, SearchTypeNullWindow, IS_PARALLEL>(thinker, thread, childDepth - 1, plyFromRoot + 1, child_alpha_plus1, child_alpha, recommendationsForChildren, distFromPV + (extMove != moves)));
+          }
+          if (!LMR || a.score > alpha) {
+            a = child2parent(search<opposingColor, SearchTypeNullWindow, IS_PARALLEL>(thinker, thread, childDepth, plyFromRoot + 1, child_alpha_plus1, child_alpha, recommendationsForChildren, distFromPV + (extMove != moves)));
+          }
           if (a.score > alpha) {
             a = child2parent(search<opposingColor, kChildSearchType, IS_PARALLEL>(thinker, thread, childDepth, plyFromRoot + 1, child_beta, child_alpha, recommendationsForChildren, distFromPV));
           }
