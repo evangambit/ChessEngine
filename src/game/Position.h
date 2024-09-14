@@ -3,6 +3,7 @@
 
 #include <cassert>
 #include <cstdint>
+#include <cstring>
 
 #include <string>
 #include <vector>
@@ -47,7 +48,7 @@ struct Move {
   std::string uci() const;
 
   bool operator==(const Move& a) const {
-    return from == a.from && to == a.to && promotion == a.promotion && moveType == a.moveType;
+    return std::memcmp(this, &a, sizeof(Move)) == 0;
   }
 };
 
