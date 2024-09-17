@@ -1033,10 +1033,6 @@ struct Evaluator {
       features[EF::KING_TROPISM] /= 2;
     }
 
-    if (features[EF::KNOWN_KPVK_DRAW]) {
-      return 0;
-    }
-
     // Handle some typically drawn endgames. ELO_STDERR(+8, +25)
     bool isDrawn = false;
     const int numOurMen = std::popcount(ourMen);
@@ -1062,7 +1058,8 @@ struct Evaluator {
       isDrawn |= (std::popcount(theirRooks) == 1) && (ourBishops) && (kDistToEdge[ourKingSq] > 0);
     }
     features[EF::KNOWN_DRAW] = isDrawn;
-    if (isDrawn) {
+
+    if (features[EF::KNOWN_KPVK_DRAW] || isDrawn) {
       return 0;
     }
 
