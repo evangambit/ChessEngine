@@ -194,6 +194,8 @@ enum EF {
   ROOKS_X_QUEENS,
   ROOKS_X_QUEENS_2,
 
+  KNOWN_DRAW,
+
   NUM_EVAL_FEATURES,
 };
 
@@ -343,6 +345,7 @@ std::string EFSTR[] = {
   "BISHOPS_X_QUEENS_2",
   "ROOKS_X_QUEENS",
   "ROOKS_X_QUEENS_2",
+  "KNOWN_DRAW"
 };
 
 template<size_t N>
@@ -1031,6 +1034,37 @@ struct Evaluator {
     }
 
     if (features[EF::KNOWN_KPVK_DRAW]) {
+      return 0;
+    }
+
+    // 0.0137 ± 0.0121
+    // ELO_STDERR(+1, +17)
+
+    bool isDrawn = false;
+    const int numOurMen = std::popcount(ourMen);
+    const int numTheirMen = std::popcount(theirMen);
+    const int numOurMinors = std::popcount(ourMinors);
+    const int numTheirMinors = std::popcount(theirMinors);
+    if (numOurMen == 1 && numTheirMen == 2) {
+      isDrawn |= (numTheirMinors == 1);
+    }
+    if (numOurMen == 2 && numTheirMen == 1) {
+      isDrawn |= (numOurMinors == 1);
+    }
+    if (numOurMen == 2 && numTheirMen == 2) {
+      isDrawn |= (numOurMinors) && (numTheirMinors == 1);
+      isDrawn |= (std::popcount(ourBishops) == 1) && (std::popcount(theirPawns) == 1);
+      isDrawn |= (std::popcount(ourPawns) == 1) && (std::popcount(theirBishops) == 1);
+      isDrawn |= (std::popcount(ourKnights) == 1) && (std::popcount(theirPawns) == 1);
+      isDrawn |= (std::popcount(ourPawns) == 1) && (std::popcount(theirKnights) == 1);
+      isDrawn |= (std::popcount(ourRooks) == 1) && (std::popcount(theirRooks) == 1);
+      isDrawn |= (std::popcount(ourRooks) == 1) && (theirKnights & kCenter16) && (kDistToEdge[theirKingSq] > 0);
+      isDrawn |= (std::popcount(theirRooks) == 1) && (ourKnights & kCenter16) && (kDistToEdge[ourKingSq] > 0);
+      isDrawn |= (std::popcount(ourRooks) == 1) && (theirBishops) && (kDistToEdge[theirKingSq] > 0);
+      isDrawn |= (std::popcount(theirRooks) == 1) && (ourBishops) && (kDistToEdge[ourKingSq] > 0);
+    }
+    features[EF::KNOWN_DRAW] = isDrawn;
+    if (isDrawn) {
       return 0;
     }
 
