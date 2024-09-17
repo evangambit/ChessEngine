@@ -1037,9 +1037,7 @@ struct Evaluator {
       return 0;
     }
 
-    // 0.0137 ± 0.0121
-    // ELO_STDERR(+1, +17)
-
+    // Handle some typically drawn endgames. ELO_STDERR(+8, +25)
     bool isDrawn = false;
     const int numOurMen = std::popcount(ourMen);
     const int numTheirMen = std::popcount(theirMen);
