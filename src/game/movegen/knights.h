@@ -6,8 +6,6 @@
 
 namespace ChessEngine {
 
-namespace {
-
 constexpr Bitboard kKnightMoves[Square::NO_SQUARE + 1] = {
   0x0000000000020400,
   0x0000000000050800,
@@ -75,8 +73,6 @@ constexpr Bitboard kKnightMoves[Square::NO_SQUARE + 1] = {
   0x0020400000000000,
   0x0000000000000000,  // NO_SQUARE -> empty bitboard
 };
-
-}  // namespace
 
 template<Color US>
 Bitboard compute_knight_targets(const Position& pos) {

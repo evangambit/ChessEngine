@@ -10,6 +10,31 @@ namespace ChessEngine {
 // Rotates east-most file to south-most rank.
 constexpr Bitboard kRookMagic = bb(49) | bb(42) | bb(35) | bb(28) | bb(21) | bb(14) | bb(7) | bb(0);
 
+Bitboard compute_single_rook_moves(Square rookSquare, const Bitboard occupied) {
+  Bitboard r = kEmptyBitboard;
+
+  const Location fromLoc = square2location(rookSquare);
+  const unsigned y = rookSquare / 8;
+  const unsigned x = rookSquare % 8;
+
+  {  // Compute east/west moves.
+    const unsigned rankShift = y * 8;
+    uint8_t fromByte = fromLoc >> rankShift;
+    uint8_t enemiesByte = occupied >> rankShift;
+    r |= Bitboard(sliding_moves(fromByte, enemiesByte)) << rankShift;
+  }
+
+  {  // Compute north/south moves.
+    const unsigned columnShift = 7 - x;
+    uint8_t fromByte = (((fromLoc << columnShift) & kFiles[7]) * kRookMagic) >> 56;
+    uint8_t enemiesByte = (((occupied << columnShift) & kFiles[7]) * kRookMagic) >> 56;
+    uint8_t toByte = sliding_moves(fromByte, enemiesByte);
+    r |= (((Bitboard(toByte & 254) * kRookMagic) & kFiles[0]) | (toByte & 1)) << x;
+  }
+
+  return r;
+}
+
 Bitboard compute_rooklike_targets(Bitboard rookLikePieces, const Bitboard occupied) {
   Bitboard r = kEmptyBitboard;
 

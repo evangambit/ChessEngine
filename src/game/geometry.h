@@ -55,7 +55,7 @@ constexpr Bitboard kFiles[8] = {
   0x8080808080808080ULL,
 };
 
-constexpr Bitboard kRanks[8] = {
+constexpr Bitboard kRanks[9] = {
   0x00000000000000ffULL,
   0x000000000000ff00ULL,
   0x0000000000ff0000ULL,
@@ -64,6 +64,7 @@ constexpr Bitboard kRanks[8] = {
   0x0000ff0000000000ULL,
   0x00ff000000000000ULL,
   0xff00000000000000ULL,
+  0x0000000000000000ULL,  // Maps NO_SQUARE / 8 maps to 0.
 };
 
 constexpr Bitboard kCenter16 = (kFiles[2] | kFiles[3] | kFiles[4] | kFiles[5]) & (kRanks[2] | kRanks[3] | kRanks[4] | kRanks[5]);

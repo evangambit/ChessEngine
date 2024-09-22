@@ -1066,7 +1066,7 @@ struct Evaluator {
     // TODO: bonus for controlling squares ahead of your own pawns
 
     // Use larger integer to make arithmetic safe.
-    const int32_t early = this->early<US>(pos);
+    int32_t early = this->early<US>(pos);
     const int32_t late = this->late<US>(pos);
     const int32_t ineq = this->ineq<US>(pos);
 
@@ -1075,6 +1075,48 @@ struct Evaluator {
     if (US == Color::BLACK) {
       pieceMap *= -1;
     }
+
+    // ELO_STDERR(+0, +16)
+    const int kSafetyDist = 2;
+    int ourKingDanger = 0;
+    {
+      ourKingDanger += (threats.theirPawnTargets & kNearby[kSafetyDist][ourKingSq]) > 0;
+      ourKingDanger += (threats.theirKnightTargets & kNearby[kSafetyDist][ourKingSq]) > 0;
+      ourKingDanger += (threats.theirBishopTargets & kNearby[kSafetyDist][ourKingSq] & kBlackSquares) > 0;
+      ourKingDanger += (threats.theirBishopTargets & kNearby[kSafetyDist][ourKingSq] & kWhiteSquares) > 0;
+      ourKingDanger += (threats.theirRookTargets & kNearby[kSafetyDist][ourKingSq]) > 0;
+      ourKingDanger += (threats.theirQueenTargets & kNearby[kSafetyDist][ourKingSq]) > 0;
+      ourKingDanger += (threats.theirKingTargets & kNearby[kSafetyDist][ourKingSq]) > 0;
+
+      ourKingDanger -= (threats.ourPawnTargets & kNearby[kSafetyDist][ourKingSq]) > 0;
+      ourKingDanger -= (threats.ourKnightTargets & kNearby[kSafetyDist][ourKingSq]) > 0;
+      ourKingDanger -= (threats.ourBishopTargets & kNearby[kSafetyDist][ourKingSq] & kWhiteSquares) > 0;
+      ourKingDanger -= (threats.ourBishopTargets & kNearby[kSafetyDist][ourKingSq] & kBlackSquares) > 0;
+      ourKingDanger -= (threats.ourRookTargets & kNearby[kSafetyDist][ourKingSq]) > 0;
+      ourKingDanger -= (threats.ourQueenTargets & kNearby[kSafetyDist][ourKingSq]) > 0;
+
+      ourKingDanger = std::max(0, ourKingDanger - 1);
+    }
+    int theirKingDanger = 0;
+    {
+      theirKingDanger += (threats.ourPawnTargets & kNearby[kSafetyDist][theirKingSq]) > 0;
+      theirKingDanger += (threats.ourKnightTargets & kNearby[kSafetyDist][theirKingSq]) > 0;
+      theirKingDanger += (threats.ourBishopTargets & kNearby[kSafetyDist][theirKingSq] & kBlackSquares) > 0;
+      theirKingDanger += (threats.ourBishopTargets & kNearby[kSafetyDist][theirKingSq] & kWhiteSquares) > 0;
+      theirKingDanger += (threats.ourRookTargets & kNearby[kSafetyDist][theirKingSq]) > 0;
+      theirKingDanger += (threats.ourQueenTargets & kNearby[kSafetyDist][theirKingSq]) > 0;
+      theirKingDanger += (threats.ourKingTargets & kNearby[kSafetyDist][theirKingSq]) > 0;
+
+      theirKingDanger -= (threats.theirPawnTargets & kNearby[kSafetyDist][theirKingSq]) > 0;
+      theirKingDanger -= (threats.theirKnightTargets & kNearby[kSafetyDist][theirKingSq]) > 0;
+      theirKingDanger -= (threats.theirBishopTargets & kNearby[kSafetyDist][theirKingSq] & kWhiteSquares) > 0;
+      theirKingDanger -= (threats.theirBishopTargets & kNearby[kSafetyDist][theirKingSq] & kBlackSquares) > 0;
+      theirKingDanger -= (threats.theirRookTargets & kNearby[kSafetyDist][theirKingSq]) > 0;
+      theirKingDanger -= (threats.theirQueenTargets & kNearby[kSafetyDist][theirKingSq]) > 0;
+
+      theirKingDanger = std::max(0, theirKingDanger - 1);
+    }
+    early -= (ourKingDanger - theirKingDanger) * 15;
 
     int32_t eval = (early * (18 - time) + late * time + ineq * 18 + pieceMap) / 18;
 
