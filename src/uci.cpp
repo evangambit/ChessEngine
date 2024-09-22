@@ -953,6 +953,8 @@ struct UciEngine {
     } else if (parts[0] == "printdebug") {
       state->taskQueue.push_back(std::make_shared<PrintDebugTask>(parts));
     #endif
+    } else if (parts[0] == "ponderhit") {
+      // Ignore. (TODO: handle pondering better).
     } else {
       state->taskQueue.push_back(std::make_shared<UnrecognizedCommandTask>(parts));
     }
