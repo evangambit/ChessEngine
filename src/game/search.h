@@ -661,17 +661,15 @@ struct Search {
       #endif
       const bool scaredOfZugzwang = std::popcount(thread->pos.colorBitboards_[TURN] & ~thread->pos.pieceBitboards_[coloredPiece<TURN, Piece::PAWN>()]) <= 3;
 
-      // Null-move pruning.
+      // Null-move pruning. ELO_STDERR(+44, +60)
       if (staticEval >= beta && !inCheck && !scaredOfZugzwang && depthRemaining >= 2) {
-        if (staticEval >= beta) {
-          make_nullmove<TURN>(&thread->pos);
-          SearchResult<TURN> a = flip(search<opposingColor, SearchTypeNullWindow, IS_PARALLEL>(thinker, thread, depthRemaining - 2, plyFromRoot + 1, -beta, -(beta - 1), recommendationsForChildren, distFromPV));
-          undo_nullmove<TURN>(&thread->pos);
-          if (a.score >= originalBeta) {
-            a.score = originalBeta;
-            a.move = kNullMove;
-            return a;
-          }
+        make_nullmove<TURN>(&thread->pos);
+        SearchResult<TURN> a = flip(search<opposingColor, SearchTypeNullWindow, IS_PARALLEL>(thinker, thread, depthRemaining - 2, plyFromRoot + 1, -beta, -(beta - 1), recommendationsForChildren, distFromPV));
+        undo_nullmove<TURN>(&thread->pos);
+        if (a.score >= originalBeta) {
+          a.score = originalBeta;
+          a.move = kNullMove;
+          return a;
         }
       }
     }
