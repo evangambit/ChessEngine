@@ -67,7 +67,7 @@ bool is_kpvk_draw(Square yourKing, Square theirKing, Square yourPawn, bool yourM
   isDrawn |= (bx == px && by == py - 1);
 
   // Black king two in front of pawn and not on back rank.
-  isDrawn |= (by == py - 2 && by != 0);
+  isDrawn |= (by == py - 2 && bx == px && by != 0);
 
   // Distance Rule:
   //   1) Compute the distance between your king and your pawn
