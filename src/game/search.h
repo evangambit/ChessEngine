@@ -287,6 +287,10 @@ static SearchResult<TURN> qsearch(Thinker *thinker, Thread *thread, int32_t dept
     // r.score -= value_or_zero((enemyThreats.badForTheir[Piece::ROOK] & thread->pos.pieceBitboards_[coloredPiece<TURN>(Piece::ROOK)]) > 0, k);
     // r.score -= value_or_zero((enemyThreats.badForTheir[Piece::QUEEN] & thread->pos.pieceBitboards_[coloredPiece<TURN>(Piece::QUEEN)]) > 0, k);
   }
+  if (inCheck) {
+    // Cannot stand pat if you're in check.
+    r.score = kQLongestForcedMate;
+  }
   if (moves == end || r.score >= beta) {
     if (IS_PRINT_NODE) {
       std::cout << pad(plyFromRoot) << "Q end pat " << r << "  " << thread->pos.history_ << "  " << alpha << "  " << beta << std::endl;
@@ -304,10 +308,7 @@ static SearchResult<TURN> qsearch(Thinker *thinker, Thread *thread, int32_t dept
 
 
 
-  if (inCheck) {
-    // Cannot stand pat if you're in check.
-    r.score = kQLongestForcedMate;
-  }
+
 
   MoveRecommender& recommender = thinker->moveRecommender;
 
