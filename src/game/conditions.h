@@ -50,7 +50,7 @@ struct StopThinkingNodeCountCondition : public StopThinkingCondition {
     offset = thinker.get_node_count();
   }
   bool should_stop_thinking(const ThinkerInterface& thinker) override {
-    assert(thinker.nodeCounter >= offset);
+    assert(thinker.get_node_count() >= offset);
     return thinker.get_node_count() - offset > this->numNodes;
   }
   size_t offset;
