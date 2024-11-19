@@ -8,22 +8,28 @@
 #include <iostream>
 
 #include "../../game/search.h"
+#include "../../game/Thinker.h"
 
 using namespace ChessEngine;
 
 SearchResult<Color::WHITE> go(Thinker* thinker, std::string fen, size_t depth) {
   Position position(fen);
-  thinker->load_weights_from_file("./src/tests/test-weights.txt");
+  {
+    std::ifstream file;
+    file.open("./src/tests/test-weights.txt");
+    EXPECT_TRUE(file.is_open());
+    thinker->load_weights(file);
+  }
   GoCommand cmd;
   cmd.pos = position;
   cmd.depthLimit = depth;
   cmd.moves = compute_legal_moves_set(&position);
-  return search(thinker, cmd, nullptr);
+  return Search::search(thinker, cmd, nullptr);
 }
 
 TEST(Mates, CheckmateScoreCorrect) {
   Thinker thinker;
-  std::cout << thinker.variations << std::endl;
+  std::cout << thinker.get_variations() << std::endl;
   SearchResult<Color::WHITE> result = go(&thinker, "1k6/3R4/2K5/8/8/8/8/8 w - - 12 7", 6);
   std::cout << result << std::endl;
   EXPECT_EQ(result.score, -kCheckmate - 5);

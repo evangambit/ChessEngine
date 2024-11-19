@@ -110,6 +110,20 @@ struct Thinker : public ThinkerInterface {
 
   MoveRecommender moveRecommender;
 
+  void load_weights(std::istream& myfile) override {
+    this->evaluator.load_weights_from_file(myfile);
+    this->pieceMaps.load_weights_from_file(myfile);
+  }
+  void save_weights(std::ostream& myfile) override {
+    this->evaluator.save_weights_to_file(myfile);
+    this->pieceMaps.save_weights_to_file(myfile);
+  }
+
+  const std::vector<VariationHead<Color::WHITE>>& get_variations() override {
+    return variations;
+  }
+
+
 private:
 
   size_t nodeCounter;
@@ -167,10 +181,6 @@ private:
     return cache.kb_size();
   }
 
-  const std::vector<VariationHead<Color::WHITE>>& get_variations() override {
-    return variations;
-  }
-
   void set_cache_size(size_t kilobytes) override {
     cache.set_cache_size(kilobytes);
   }
@@ -220,14 +230,6 @@ private:
 
   PieceMaps& get_piece_maps() override {
     return pieceMaps;
-  }
-  void load_weights(std::istream& myfile) override {
-    this->evaluator.load_weights_from_file(myfile);
-    this->pieceMaps.load_weights_from_file(myfile);
-  }
-  void save_weights(std::ostream& myfile) override {
-    this->evaluator.save_weights_to_file(myfile);
-    this->pieceMaps.save_weights_to_file(myfile);
   }
   void save_weights_to_file(const std::string& filename) {
     std::ofstream myfile;

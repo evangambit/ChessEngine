@@ -139,6 +139,7 @@
       0  // early BISHOPS_X_QUEENS_2
       0  // early ROOKS_X_QUEENS
       0  // early ROOKS_X_QUEENS_2
+      0  // early KNOWN_DRAW
       0  // late bias
     100  // late OUR_PAWNS
     300  // late OUR_KNIGHTS
@@ -280,6 +281,7 @@
       0  // late BISHOPS_X_QUEENS_2
       0  // late ROOKS_X_QUEENS
       0  // late ROOKS_X_QUEENS_2
+      0  // late KNOWN_DRAW
       0  // ineq bias
       0  // ineq OUR_PAWNS
       0  // ineq OUR_KNIGHTS
@@ -421,6 +423,7 @@
       0  // ineq BISHOPS_X_QUEENS_2
       0  // ineq ROOKS_X_QUEENS
       0  // ineq ROOKS_X_QUEENS_2
+      0  // ineq KNOWN_DRAW
 // ?
      0     0     0     0     0     0     0     0
      0     0     0     0     0     0     0     0
