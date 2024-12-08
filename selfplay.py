@@ -56,11 +56,7 @@ class UciPlayer:
     else:
       self.command(f"position fen {fen} moves {' '.join(moves)}")
     if 'stockfish' not in self.name[0]:
-      if 'nnue' in self.name[1]:
-        self.command(f"go nodes {int(nodes / 3.22 + 1)}")
-      else:
-        self.command(f"go nodes {nodes}")
-      # self.command("go depth 3")
+      self.command(f"go nodes {nodes}")
     else:
       self.command(f"go nodes {self.name[1]}")
     lines = []
@@ -192,10 +188,14 @@ if __name__ == '__main__':
         r = np.array(R, dtype=np.float64).reshape(-1)
         stderr = r.std(ddof=1) / np.sqrt(r.shape[0])
         avg = r.mean()
-        a = math.log(1 / (0.5 + (avg - stderr)) - 1.0) / math.log(10) * -400
-        b = math.log(1 / (0.5 + (avg + stderr)) - 1.0) / math.log(10) * -400
         print('%.3f ± %.3f' % (avg, stderr))
-        print(f'ELO_STDERR({int2str(int(a))}, {int2str(int(b))})')
+        try:
+          a = math.log(1 / (0.5 + (avg - stderr)) - 1.0) / math.log(10) * -400
+          b = math.log(1 / (0.5 + (avg + stderr)) - 1.0) / math.log(10) * -400
+          # print(f'ELO_STDERR({int2str(int(a))}, {int2str(int(b))})')
+          print('ELO_STDERR(%.1f %.1f)' % (a, b))
+        except ValueError:
+          pass
         print(
           ('%d' % (r == 0.5).sum()).rjust(4),
           ('%d' % (r == 0.25).sum()).rjust(4),

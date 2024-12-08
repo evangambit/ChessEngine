@@ -67,7 +67,7 @@ class SimpleIterablesDataset(tdata.IterableDataset):
   def __len__(self):
     return self.X.num_rows
 
-a = "de6-md2"
+a = "de8-tuning"
 dataset = SimpleIterablesDataset(f'data/{a}/data-table', f'data/{a}/data-eval')
 print(f'%.3f million positions loaded' % (len(dataset) / 1_000_000))
 
@@ -100,13 +100,17 @@ class Model(nn.Module):
       a[6 + i,:,:] = -1
       expansion.append(a)
 
-    # Rough estimate of material imbalance
-    expansion.append(
-      expansion[-5] * 1 + expansion[-4] * 3 + expansion[-3] * 3 + expansion[-2] * 5 + expansion[-1] * 9
-    )
+      a = np.zeros((12, 8, 8))
+      a[i,:,:] = 1
+      expansion.append(a)
+
+      a = np.zeros((12, 8, 8))
+      a[6 + i,:,:] = -1
+      expansion.append(a)
 
     # King locations
-    for i in [5, 11]:
+    # for i in [5, 11]:
+    for i in range(12):
       x = np.zeros((12, 8, 8))
       x[i,:,:] = np.tile(np.linspace(-1.0, 1.0, 8).reshape(1, 1, -1), (1, 8, 1))
       expansion.append(x)
@@ -120,13 +124,19 @@ class Model(nn.Module):
     # Add dummy variables for misc features
     expansion = np.concatenate([expansion, np.zeros((expansion.shape[0], 8))], 1).T
 
+    # (  1,  1) 8.2993 ± 0.0651
+    # (  8,  8) 5.8051 ± 0.0526
+    # ( 32, 32) 5.0939 ± 0.0472
+    # (256, 32) 4.4317 ± 0.0459
+    k1, k2 = 32, 8
+
     self.seq = nn.Sequential(
-      ExpandedLinear(12 * 8 * 8 + 8, 512, expansion=expansion),
-      nn.ReLU(),
-      nn.Linear(512, 64),
-      nn.ReLU(),
-      nn.Linear(64, 1, bias=False),
-      nn.Sigmoid(),
+      # ExpandedLinear(12 * 8 * 8 + 8, k1, expansion=expansion),
+      nn.Linear(12 * 8 * 8 + 8, k1),
+      nn.LeakyReLU(),
+      nn.Linear(k1, k2),
+      nn.LeakyReLU(),
+      nn.Linear(k2, 1, bias=False),
     )
     for layer in self.seq:
       if isinstance(layer, nn.Linear):
@@ -162,27 +172,33 @@ class PiecewiseFunction:
     return self.y[low] * (1 - t) + self.y[high] * t
 
 model = Model()
-opt = optim.AdamW(model.parameters(), lr=3e-1, weight_decay=0.01)
+opt = optim.AdamW(model.parameters(), lr=0.0, weight_decay=0.01)
 
-loss_fn = nn.MSELoss(reduction='none')
+def loss_fn(yhat: torch.Tensor, y: torch.Tensor):
+  k = 3.5
+  y = torch.logit(y).clip(-k, k)
+  yhat = soft_clip(yhat, k=k)
+  return ((yhat - y)**2)
 
 L = []
 
-dataloader = tdata.DataLoader(dataset, batch_size=2048, drop_last=True)
+dataloader = tdata.DataLoader(dataset, batch_size=8192*4, drop_last=True)
+maxlr = 0.03
 scheduler = PiecewiseFunction(
-  [0, 100, len(dataloader) // 2, len(dataloader)],
-  [0.0, 3e-3, 3e-4, 3e-5],
+  [0, 20, len(dataloader) // 2, len(dataloader)],
+  [0.0, maxlr, maxlr * 0.1, maxlr * 0.01]
 )
 
 
 it = 0
 for x, y in tqdm(dataloader):
+  lr = scheduler(it)
   for pg in opt.param_groups:
-    pg['lr'] = scheduler(it)
+    pg['lr'] = lr
 
   # Unpacking bits into bytes.
   x = x.to(torch.float32)
-  y = y.to(torch.float32) / 1000.0
+  y = (y[:,2].to(torch.float32) + 4) / 1008.0
 
   t = x[:,:768].reshape(-1, 12, 8, 8)
   m = x[:,768:]
@@ -197,10 +213,12 @@ for x, y in tqdm(dataloader):
   flipped_misc[:,2] = m[:,4]
   flipped_misc[:,3] = m[:,1]
   flipped_misc[:,4] = m[:,2]
+  flipped_y = 1.0 - y
 
   t = torch.cat([t, flipped_tables], 0)
   m = torch.cat([m, flipped_misc], 0)
-  y = torch.cat([y, 1.0 - y], 0)
+  y = torch.cat([y, flipped_y], 0)
+
 
 
   yhat = model(t, m)
@@ -211,9 +229,12 @@ for x, y in tqdm(dataloader):
   opt.step()
   L.append((float(loss.mean()), float(loss.std()) / math.sqrt(loss.shape[0])))
   it += 1
-  if it % 100 == 0:
+  if it % 20 == 0:
     mean, std = L[-1]
     print('%.4f ± %.4f' % (mean, std))
+    # w = model.seq[0].to_linear().weight.detach().numpy()[:,:12*8*8].reshape(-1, 12, 8, 8).copy()
+    # w = model.seq[0].weight.detach().numpy()[:,:12*8*8].reshape(-1, 12, 8, 8).copy()
+    # print(np.round(w.mean((2, 3)) * 10000))
 
 linears = [l for l in model.seq if isinstance(l, nn.Linear)]
 linears = [l.to_linear() if isinstance(l, ExpandedLinear) else l for l in linears]
@@ -223,7 +244,10 @@ outfile = 'nnue-' + '-'.join(str(x) for x in widths) + '.bin'
 
 print('writing out to "%s"' % outfile)
 
-w1 = model.seq[0].to_linear().weight.detach().numpy()
+if isinstance(model.seq[0], ExpandedLinear):
+  model.seq[0] = model.seq[0].to_linear()
+
+w1 = model.seq[0].weight.detach().numpy()
 w2 = model.seq[2].weight.detach().numpy()
 w3 = model.seq[4].weight.detach().numpy()
 b1 = model.seq[0].bias.detach().numpy()

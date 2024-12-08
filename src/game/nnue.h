@@ -76,8 +76,8 @@ struct DummyNetwork : public NnueNetworkInterface {
 
 struct NnueNetwork : public NnueNetworkInterface {
   static constexpr int kInputDim = 12 * 8 * 8 + 8;
-  static constexpr int kWidth1 = 1024;
-  static constexpr int kWidth2 = 128;
+  static constexpr int kWidth1 = 32;
+  static constexpr int kWidth2 = 8;
   static constexpr int kWidth3 = 1;
 
   Matrix<MatType, 1, Eigen::Dynamic> x0;  // 1 x 64*12  (768)
@@ -140,14 +140,14 @@ struct NnueNetwork : public NnueNetworkInterface {
     return this->fastforward();
   }
   float fastforward() {
-    x1_relu.noalias() = x1.unaryExpr([](MatType x) -> MatType {
-      return x > kZero ? x : kZero;
+    x1_relu.noalias() = x1.unaryExpr([](float x) -> float {
+      return x > 0 ? x : x * 0.01;
     });
 
     x2.noalias() = x1_relu * w1;
     x2.noalias() += b1;
-    x2.noalias() = x2.unaryExpr([](MatType x) -> MatType {
-      return x > kZero ? x : kZero;
+    x2.noalias() = x2.unaryExpr([](float x) -> float {
+      return x > 0 ? x : x * 0.01;
     });
     x3.noalias() = x2 * w2;
     x3.noalias() += b2;

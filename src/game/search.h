@@ -33,6 +33,8 @@
 #define DEBUG_TT 0
 #endif
 
+#define SIMPLE_SEARCH 1
+
 #ifdef PRINT_DEBUG
 bool gPrintDebug = false;
 #define IS_PRINT_NODE gPrintDebug
@@ -654,6 +656,7 @@ struct Search {
       kNullMove
     );
 
+    #if !SIMPLE_SEARCH
     if (SEARCH_TYPE == SearchTypeNullWindow) {
       #if NNUE_EVAL
       Evaluation staticEval = nnue_evaluate<TURN>(thread->pos);
@@ -674,6 +677,7 @@ struct Search {
         }
       }
     }
+    #endif
 
     // Should be optimized away if SEARCH_TYPE != SearchTypeRoot.
     #if PRINT_PV_CHANGES
@@ -738,7 +742,11 @@ struct Search {
           a = child2parent(search<opposingColor, kChildSearchType, IS_PARALLEL>(thinker, thread, childDepth, plyFromRoot + 1, child_beta, child_alpha, recommendationsForChildren, distFromPV + (extMove != moves)));
         } else {
           // Late move reductions ELO_STDERR(+31, +48)
+          #if !SIMPLE_SEARCH
           bool LMR = (numQuietMoves > 3 && depthRemaining >= 3);
+          #else
+          bool LMR = false;
+          #endif
           if (LMR) {
             a = child2parent(search<opposingColor, SearchTypeNullWindow, IS_PARALLEL>(thinker, thread, childDepth - 1, plyFromRoot + 1, child_alpha_plus1, child_alpha, recommendationsForChildren, distFromPV + (extMove != moves)));
           }
@@ -750,6 +758,7 @@ struct Search {
           }
         }
 
+        #if !SIMPLE_SEARCH
         // Extended sequences of captures/checks ELO_STDERR(+4, +21)
         if (SEARCH_TYPE == SearchTypeNormal && a.score > alpha && a.score < beta) {
           int interestingness = extMove->capture != ColoredPiece::NO_COLORED_PIECE;
@@ -761,6 +770,7 @@ struct Search {
             a = child2parent(search<opposingColor, SearchTypeExtended, IS_PARALLEL>(thinker, thread, depthRemaining, plyFromRoot + 1, child_beta, child_alpha, recommendationsForChildren, distFromPV));
           }
         }
+        #endif
 
         if (IS_PRINT_NODE) {
           std::cout << pad(plyFromRoot) << ": a " << extMove->move << " " << to_white(a) << std::endl;
