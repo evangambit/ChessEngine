@@ -136,9 +136,10 @@ if __name__ == '__main__':
 
   assert args.for_tuning in [0, 1]
 
-  database = f'de{args.depth}-md{args.min_depth}'
   if args.for_tuning:
-    database += '-tuning'
+    database = f'de{args.depth}-tuning'
+  else:
+    database = f'de{args.depth}-md{args.min_depth}'
   database = os.path.join('data', database, f'db.sqlite3')
   if not os.path.exists(os.path.dirname(database)):
     os.makedirs(os.path.dirname(database))
