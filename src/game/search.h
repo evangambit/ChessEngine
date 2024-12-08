@@ -33,7 +33,9 @@
 #define DEBUG_TT 0
 #endif
 
+#if NNUE_EVAL
 #define SIMPLE_SEARCH 1
+#endif
 
 #ifdef PRINT_DEBUG
 bool gPrintDebug = false;

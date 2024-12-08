@@ -118,14 +118,7 @@ struct NnueNetwork : public NnueNetworkInterface {
     b1 = Matrix<MatType, 1, kWidth2>::Zero(1, kWidth2);
     b2 = Matrix<MatType, 1, kWidth3>::Zero(1, kWidth3);
 
-    std::ifstream myfile;
-    myfile.open("nnue-776-1024-128.bin", std::ios::in | std::ios::binary);
-    if (!myfile.is_open()) {
-      std::cout << "Error opening file \"nnue-776-512-64.bin\"" << std::endl;
-      exit(0);
-    }
-    this->load(myfile);
-    myfile.close();
+    this->load("nnue-776-32-8.bin");
   }
 
   void empty() {
@@ -154,14 +147,15 @@ struct NnueNetwork : public NnueNetworkInterface {
     return x3(0, 0);
   }
 
-  template<int H, int W>
-  void _load(std::istream& file, Eigen::Matrix<MatType, H, W>& out) {
-    const size_t N = out.size();
-    for (size_t i = 0; i < N; ++i) {
-      float value;
-      file.read(reinterpret_cast<char*>(&value), sizeof(float));
-      reinterpret_cast<MatType*>(out.data())[i] = MatType(value);
+  void load(std::string filename) {
+    std::ifstream myfile;
+    myfile.open(filename, std::ios::in | std::ios::binary);
+    if (!myfile.is_open()) {
+      std::cout << "Error opening file \"" << filename << "\"" << std::endl;
+      exit(0);
     }
+    this->load(myfile);
+    myfile.close();
   }
 
   void load(std::istream& myfile) {
