@@ -58,7 +58,9 @@ def helper(engine, resultQueue, args):
         b.push(moves[0])
         is_quiet = False
         for i in range(1, len(moves) - args.min_depth):
-          if 'x' not in b.san(moves[i]):
+          san = b.san(moves[i])
+          # TODO: try adding "and '+' not in san and '=' not in san" to exclude noisy positions.
+          if 'x' not in san:
             is_quiet = True
             break
           b.push(moves[i])
