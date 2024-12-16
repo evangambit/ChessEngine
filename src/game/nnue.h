@@ -159,16 +159,11 @@ struct NnueNetwork : public NnueNetworkInterface {
   }
 
   void load(std::istream& myfile) {
-    // myfile.read(reinterpret_cast<char*>(w0.data()), w0.size() * sizeof(float));
-    // myfile.read(reinterpret_cast<char*>(w1.data()), w1.size() * sizeof(float));
-    // myfile.read(reinterpret_cast<char*>(w2.data()), w2.size() * sizeof(float));
-    // myfile.read(reinterpret_cast<char*>(b0.data()), b0.size() * sizeof(float));
-    // myfile.read(reinterpret_cast<char*>(b1.data()), b1.size() * sizeof(float));
-    _load(myfile, w0);
-    _load(myfile, w1);
-    _load(myfile, w2);
-    _load(myfile, b0);
-    _load(myfile, b1);
+    myfile.read(reinterpret_cast<char*>(w0.data()), w0.size() * sizeof(float));
+    myfile.read(reinterpret_cast<char*>(w1.data()), w1.size() * sizeof(float));
+    myfile.read(reinterpret_cast<char*>(w2.data()), w2.size() * sizeof(float));
+    myfile.read(reinterpret_cast<char*>(b0.data()), b0.size() * sizeof(float));
+    myfile.read(reinterpret_cast<char*>(b1.data()), b1.size() * sizeof(float));
   }
 
   void set_piece(ColoredPiece piece, Square square, float newValue) {
