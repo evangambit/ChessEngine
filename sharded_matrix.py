@@ -263,6 +263,7 @@ class ShardedLoader(LoaderInterface):
     assert start < self._cumsum_rows[-1], 'Start index is out of bounds'
     i = (start < self._cumsum_rows).argmax()
     j = (end <= self._cumsum_rows).argmax()
+    assert j >= i, f'Oops -- {start} {end} {i} {j} {self._cumsum_rows}'
     R = []
     for shard_index in range(i, j + 1):
       shard = self.load_shard(shard_index)
@@ -395,13 +396,10 @@ class RowMapper(LoaderInterface):
     return self._f(*A)
 
 def _compute_innerproduct(loader1, loader2, offset):
-  print(offset, 'start')
   shard = loader1.load_shard(offset).astype(np.float32)
   i = loader1.shard_to_slice_indices(offset)
-  print(offset, 'loading slice', i)
   slice = loader2.load_slice(*i).astype(np.float32)
   r = shard.T @ slice
-  print(offset, 'end')
   return r
 
 def _compute_weighted_innerproduct(loader1: LoaderInterface, loader2: LoaderInterface, weights_loader: LoaderInterface, offset: int):
