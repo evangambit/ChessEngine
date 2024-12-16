@@ -42,7 +42,7 @@ void process(
   , WriterI8& pstWriter
   #endif
   ) {
-  if (line.size() != 7) {
+  if (line.size() != 4) {
     std::cout << "error: line has " << line.size() << " elements" << std::endl;
     return;
   }
@@ -50,6 +50,15 @@ void process(
   Position pos(line[0]);
 
   Evaluator& evaluator = ((ThinkerInterface *)(&gThinker))->get_evaluator();
+
+  if (pos.turn_ == Color::WHITE) {
+    evaluator.score<Color::WHITE>(pos);
+  } else {
+    evaluator.score<Color::BLACK>(pos);
+  }
+  if (evaluator.features[EF::KNOWN_DRAW] || evaluator.features[EF::KNOWN_KPVK_DRAW]) {
+    return;
+  }
 
   #if NNUE
   std::shared_ptr<DummyNetwork> network = std::make_shared<DummyNetwork>();
@@ -79,26 +88,20 @@ void process(
   pstWriter.write_row(pst);
   #endif
 
-  if (pos.turn_ == Color::WHITE) {
-    evaluator.score<Color::WHITE>(pos);
-  } else {
-    evaluator.score<Color::BLACK>(pos);
-  }
-  if (evaluator.features[EF::KNOWN_DRAW] || evaluator.features[EF::KNOWN_KPVK_DRAW]) {
-    return;
-  }
   int8_t features[EF::NUM_EVAL_FEATURES];
   for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
     features[i] = evaluator.features[i];
   }
   featureWriter.write_row(features);
 
-  int16_t a[3] = {
-    (int16_t) (std::stof(line[2]) * 1000),
-    (int16_t) (std::stof(line[4]) * 1000),
-    (int16_t) (std::stof(line[6]) * 1000)
-  };
-  evalWriter.write_row(a);
+  // int16_t a[3] = {
+  //   (int16_t) (std::stof(line[2]) * 1000),
+  //   (int16_t) (std::stof(line[4]) * 1000),
+  //   (int16_t) (std::stof(line[6]) * 1000)
+  // };
+  // evalWriter.write_row(a);
+  int16_t a = std::stof(line[1]) + std::stof(line[2]) * 0.5;
+  evalWriter.write_row(&a);
 
   int8_t turn = pos.turn_ == Color::WHITE ? 1 : -1;
   turnWriter.write_row(&turn);
@@ -143,7 +146,7 @@ int main(int argc, char *argv[]) {
   WriterB tableWriter(outpath + "-table", { NnueFeatures::NF_NUM_FEATURES });
   #endif
   WriterI8 featureWriter(outpath + "-features", { EF::NUM_EVAL_FEATURES });
-  WriterI16 evalWriter(outpath + "-eval", { 3 });
+  WriterI16 evalWriter(outpath + "-eval", { 1 });
   WriterI8 turnWriter(outpath + "-turn", { 1 });
   WriterF32 timeWriter(outpath + "-time", { 1 });
   WriterI8 pieceCountWriter(outpath + "-piece-counts", { 10 });
