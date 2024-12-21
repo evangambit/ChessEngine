@@ -13,6 +13,7 @@ from functools import lru_cache
 from typing import Union
 
 import numpy as np
+import torch
 
 """
 General matrix format is
@@ -367,6 +368,7 @@ class Slice(LoaderInterface):
 class RowMapper(LoaderInterface):
   def __init__(self, f, *loaders):
     super().__init__()
+    # TODO: sort loaders by size so the biggest one is loaded by shard.
     self._loaders = loaders
     self._f = f
 
@@ -416,7 +418,9 @@ def _compute_weighted_innerproduct(loader1: LoaderInterface, loader2: LoaderInte
 def _compute_self_innerproduct(loader1: LoaderInterface, offset: int):
   print('_compute_self_innerproduct', offset)
   A = loader1.load_shard(offset).astype(np.float32)
-  return A.T @ A
+  # Use torch to compute the inner product seems to be faster than numpy.
+  A = torch.tensor(A, dtype=torch.float32)
+  return (A.T @ A).numpy()
 
 def _compute_weighted_self_innerproduct(loader1: LoaderInterface, weights_loader: LoaderInterface, offset: int):
   print('_compute_weighted_self_innerproduct', offset)
