@@ -161,7 +161,7 @@ class Weights:
       self.vecs[k] = np.array(self.vecs[k],  dtype=np.float32)
 
   def write(self, f):
-    for name in ['early', 'late', 'clipped']:
+    for name in ['early', 'late', 'ineq']:
       f.write((" %d" % self.biases[name]).rjust(7) + "  // bias\n")
       for i, v in enumerate(self.vecs[name]):
         f.write((" %d" % v).rjust(7) + f"  // {name} {varnames[i]}\n")
