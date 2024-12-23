@@ -907,11 +907,11 @@ struct UciEngine {
     }
 
     state->taskQueueLock.lock();
-    if (parts[0] == "position") {
+    if (parts[0] == "position" || parts[0] == "p") {
       state->taskQueue.push_back(std::make_shared<PositionTask>(parts));
     } else if (parts[0] == "go") {
       state->taskQueue.push_back(std::make_shared<GoTask>(parts));
-    } else if (parts[0] == "setoption") {
+    } else if (parts[0] == "setoption" || parts[0] == "so") {
       state->taskQueue.push_back(std::make_shared<SetOptionTask>(parts));
     } else if (parts[0] == "ucinewgame") {
       state->taskQueue.push_back(std::make_shared<NewGameTask>());
@@ -923,7 +923,7 @@ struct UciEngine {
     } else if (parts[0] == "loadnnue") {  // Custom commands below this line.
       state->taskQueue.push_back(std::make_shared<LoadNnueTask>(parts));
 #else
-    } else if (parts[0] == "loadweights") {  // Custom commands below this line.
+    } else if (parts[0] == "loadweights" || parts[0] == "lw") {  // Custom commands below this line.
       state->taskQueue.push_back(std::make_shared<LoadWeightsTask>(parts));
     } else if (parts[0] == "dumpweights") {
       state->taskQueue.push_back(std::make_shared<DumpEncodedWeights>());
@@ -934,11 +934,11 @@ struct UciEngine {
       state->taskQueue.push_back(std::make_shared<PrintOptionsTask>());
     } else if (parts[0] == "isready") {
       state->taskQueue.push_back(std::make_shared<IsReadyTask>());
-    } else if (parts[0] == "move") {
+    } else if (parts[0] == "move" || parts[0] == "m") {
       state->taskQueue.push_back(std::make_shared<MoveTask>(parts));
     } else if (parts[0] == "undo") {
       state->taskQueue.push_back(std::make_shared<UndoTask>(parts));
-    } else if (parts[0] == "eval") {
+    } else if (parts[0] == "eval" || parts[0] == "e") {
       state->taskQueue.push_back(std::make_shared<EvalTask>(parts));
     } else if (parts[0] == "probe") {
       state->taskQueue.push_back(std::make_shared<ProbeTask>(parts));
