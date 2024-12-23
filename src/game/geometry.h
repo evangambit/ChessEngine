@@ -101,6 +101,18 @@ enum SafeSquare : uint8_t {
   SA1, SB1, SC1, SD1, SE1, SF1, SG1, SH1,
 };
 
+enum UnsafeSquare : uint8_t {
+  UA8, UB8, UC8, UD8, UE8, UF8, UG8, UH8,
+  UA7, UB7, UC7, UD7, UE7, UF7, UG7, UH7,
+  UA6, UB6, UC6, UD6, UE6, UF6, UG6, UH6,
+  UA5, UB5, UC5, UD5, UE5, UF5, UG5, UH5,
+  UA4, UB4, UC4, UD4, UE4, UF4, UG4, UH4,
+  UA3, UB3, UC3, UD3, UE3, UF3, UG3, UH3,
+  UA2, UB2, UC2, UD2, UE2, UF2, UG2, UH2,
+  UA1, UB1, UC1, UD1, UE1, UF1, UG1, UH1,
+  NO_SQUARE,
+};
+
 constexpr Bitboard kMainWhiteDiagonal = 0x8040201008040201;
 constexpr Bitboard kMainBlackDiagonal = 0x10204081020408;
 
