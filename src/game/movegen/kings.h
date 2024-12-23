@@ -8,7 +8,7 @@ namespace ChessEngine {
 
 namespace {
 
-constexpr Bitboard kKingMoves[64] = {
+constexpr Bitboard kKingMoves[65] = {
   0x0000000000000302,
   0x0000000000000705,
   0x0000000000000e0a,
@@ -73,12 +73,13 @@ constexpr Bitboard kKingMoves[64] = {
   0x5070000000000000,
   0xa0e0000000000000,
   0x40c0000000000000,
+  0x0,  // NO_SQUARE
 };
 
 }  // namespace
 
 template<Color US>
-Bitboard compute_king_targets(const Position& pos, Square sq) {
+Bitboard compute_king_targets(const Position& pos, UnsafeSquare sq) {
   return kKingMoves[sq];
 }
 

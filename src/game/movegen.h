@@ -158,7 +158,7 @@ Bitboard compute_my_targets(const Position& pos) {
   const Bitboard rookLikePieces = pos.pieceBitboards_[coloredPiece<US, Piece::ROOK>()] | pos.pieceBitboards_[coloredPiece<US, Piece::QUEEN>()];
 
   r |= compute_rooklike_targets(rookLikePieces, occupied & ~rookLikePieces);
-  const Square kingSq = lsb(pos.pieceBitboards_[coloredPiece<US, Piece::KING>()]);
+  const SafeSquare kingSq = safe_lsb(pos.pieceBitboards_[coloredPiece<US, Piece::KING>()]);
   r |= compute_king_targets<US>(pos, kingSq);
   return r;
 }
@@ -289,7 +289,7 @@ PinMasks compute_pin_masks(const SafeSquare sq, const Bitboard occ, const Bitboa
 
 template<Color US>
 PinMasks compute_pin_masks(const Position& pos, const SafeSquare sq) {
-  assert(sq != Square::NO_SQUARE);
+  assert_valid_square(sq);
   constexpr Color THEM = opposite_color<US>();
 
   const Bitboard occ = pos.colorBitboards_[US] | pos.colorBitboards_[THEM];
@@ -385,7 +385,7 @@ ExtMove* compute_moves(const Position& pos, ExtMove *moves) {
   Bitboard rookCheckMask;
   if (MGT == MoveGenType::CHECKS_AND_CAPTURES) {
     rookCheckMask = compute_rook_check_mask(
-      pos.pieceBitboards_[coloredPiece<opposite_color<US>(), Piece::KING>()],
+      safe_lsb(pos.pieceBitboards_[coloredPiece<opposite_color<US>(), Piece::KING>()]),
       everyone
     );
   } else {

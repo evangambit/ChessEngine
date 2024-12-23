@@ -318,6 +318,10 @@ inline Square msb_or(Bitboard b, Square defaultValue) {
   return select<Square>(b != 0, Square(63 ^ __builtin_clzll(b)), defaultValue);
 }
 
+inline UnsafeSquare msb_or(Bitboard b, UnsafeSquare defaultValue) {
+  return select<UnsafeSquare>(b != 0, UnsafeSquare(63 ^ __builtin_clzll(b)), defaultValue);
+}
+
 inline Square pop_lsb(Bitboard& b) {
   assert(b != 0);
   Square s = lsb(b);

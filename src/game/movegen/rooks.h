@@ -52,9 +52,9 @@ Bitboard compute_rooklike_targets(const Position& pos, Bitboard rookLikePieces) 
   return compute_rooklike_targets(rookLikePieces, occupied);
 }
 
-Bitboard compute_rook_check_mask(const Location king, const Bitboard everyone) {
+Bitboard compute_rook_check_mask(const SafeSquare kingSq, const Bitboard everyone) {
   Bitboard checkMask = kEmptyBitboard;
-  const Square kingSq = lsb(king);
+  Location king = square2location(kingSq);
   {  // East/west.
     unsigned y = kingSq / 8;
     const unsigned rankShift = y * 8;

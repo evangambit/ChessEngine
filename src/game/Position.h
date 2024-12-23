@@ -435,7 +435,7 @@ void undo_nullmove(Position *pos) {
 template<Color TURN>
 void make_move(Position *pos, Move move) {
   foo<TURN>(pos);
-  assert(move.to != Square::NO_SQUARE);
+  assert_valid_square(move.to);
   assert(cp2color(pos->tiles_[move.to]) != TURN);
 
   pos->hashes_.push_back(pos->hash_);
@@ -533,7 +533,7 @@ void make_move(Position *pos, Move move) {
       assert(move.from / 8 == 3);
       assert(move.to / 8 == 2);
     }
-    Square enpassantSq = Square(TURN == Color::WHITE ? move.to + 8 : move.to - 8);
+    SafeSquare enpassantSq = SafeSquare(TURN == Color::WHITE ? move.to + 8 : move.to - 8);
     Bitboard enpassantLocBB = bb(enpassantSq);
 
     constexpr ColoredPiece opposingPawn = coloredPiece<opposingColor, Piece::PAWN>();
