@@ -56,7 +56,7 @@ std::pair<Evaluation, Move> simple_qsearch(
   const bool lookAtChecks = (depth <= 2) && !lookAtAllMoves;
   constexpr Color opposingColor = opposite_color<TURN>();
   constexpr ColoredPiece moverKing = coloredPiece<TURN, Piece::KING>();
-  const bool inCheck = can_enemy_attack<TURN>(*position, lsb(position->pieceBitboards_[moverKing]));
+  const bool inCheck = can_enemy_attack<TURN>(*position, safe_lsb(position->pieceBitboards_[moverKing]));
 
   ExtMove moves[kMaxNumMoves];
   ExtMove *end;

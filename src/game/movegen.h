@@ -66,13 +66,13 @@ int static_exchange(Position *pos) {
 
   constexpr int kPieceValues[7] = {0, 1, 3, 3, 5, 9, 99};
 
-  if (compute_attackers<THEM>(*pos, lsb(pos->pieceBitboards_[coloredPiece<US, Piece::KING>()]))) {
+  if (compute_attackers<THEM>(*pos, safe_lsb(pos->pieceBitboards_[coloredPiece<US, Piece::KING>()]))) {
     return kPieceValues[Piece::KING];
   }
 
   // Try all ways to capture enemy queen.
   if (pos->pieceBitboards_[theirQueenCP]) {
-    Square queenSq = lsb(pos->pieceBitboards_[theirQueenCP]);
+    SafeSquare queenSq = safe_lsb(pos->pieceBitboards_[theirQueenCP]);
     Bitboard attackers = compute_attackers<US>(*pos, queenSq);
     for (Piece piece = Piece::PAWN; piece <= Piece::QUEEN; piece = Piece(piece + 1)) {
       ColoredPiece cp = coloredPiece<US>(piece);
@@ -131,7 +131,7 @@ int static_exchange(Position *pos) {
 // Absolutely required for castling.
 // Also helps generate real moves (as opposed to pseudo-moves).
 template<Color US>
-bool can_enemy_attack(const Position& pos, Square sq) {
+bool can_enemy_attack(const Position& pos, SafeSquare sq) {
   return compute_attackers<opposite_color<US>()>(pos, sq) > 0;
 }
 
@@ -173,12 +173,12 @@ Bitboard compute_my_targets_except_king(const Position& pos) {
 }
 
 template<Color US>
-Bitboard compute_attackers(const Position& pos, const Square sq) {
+Bitboard compute_attackers(const Position& pos, const SafeSquare sq) {
   constexpr Color THEM = opposite_color<US>();
 
   const Bitboard ourRooks = pos.pieceBitboards_[coloredPiece<US, Piece::ROOK>()] | pos.pieceBitboards_[coloredPiece<US, Piece::QUEEN>()];
   const Bitboard ourBishops = pos.pieceBitboards_[coloredPiece<US, Piece::BISHOP>()] | pos.pieceBitboards_[coloredPiece<US, Piece::QUEEN>()];
-  const Location loc = square2location(sq);
+  const Location loc = value_or_zero(sq < 64, square2location(SafeSquare(sq)));
   const Bitboard enemies = pos.colorBitboards_[US];
   const Bitboard friends = pos.colorBitboards_[THEM] & ~loc;
 
@@ -224,22 +224,12 @@ Bitboard compute_attackers(const Position& pos, const Square sq) {
   return attackers;
 }
 
-template<Color US>
-Bitboard can_enemy_attack(const Position& pos, const SafeSquare sq) {
-  return can_enemy_attack<US>(pos, Square(sq));
-}
-
-template<Color US>
-Bitboard compute_attackers(const Position& pos, const SafeSquare sq) {
-  return compute_attackers<US>(pos, Square(sq));
-}
-
 struct CheckMap {
   Bitboard data[Piece::KING + 1];
 };
 
 template<Color US>
-CheckMap compute_potential_attackers(const Position& pos, const Square sq) {
+CheckMap compute_potential_attackers(const Position& pos, const SafeSquare sq) {
   const Location loc = square2location(sq);
 
   const Bitboard everyone = (pos.colorBitboards_[Color::WHITE] | pos.colorBitboards_[Color::BLACK]) & ~loc;
@@ -293,15 +283,10 @@ CheckMap compute_potential_attackers(const Position& pos, const Square sq) {
   return r;
 }
 
-template<Color US>
-CheckMap compute_potential_attackers(const Position& pos, const SafeSquare sq) {
-  return compute_potential_attackers<US>(pos, Square(sq));
-}
-
-PinMasks compute_pin_masks(const Square sq, const Bitboard occ, const Bitboard enemyRooks, const Bitboard enemyBishops);
+PinMasks compute_pin_masks(const SafeSquare sq, const Bitboard occ, const Bitboard enemyRooks, const Bitboard enemyBishops);
 
 template<Color US>
-PinMasks compute_pin_masks(const Position& pos, const Square sq) {
+PinMasks compute_pin_masks(const Position& pos, const SafeSquare sq) {
   assert(sq != Square::NO_SQUARE);
   constexpr Color THEM = opposite_color<US>();
 
@@ -313,12 +298,7 @@ PinMasks compute_pin_masks(const Position& pos, const Square sq) {
   return compute_pin_masks(sq, occ, enemyRooks, enemyBishops);
 }
 
-template<Color US>
-PinMasks compute_pin_masks(const Position& pos, const SafeSquare sq) {
-  return compute_pin_masks<US>(pos, Square(sq));
-}
-
-PinMasks compute_pin_masks(const Square sq, const Bitboard occ, const Bitboard enemyRooks, const Bitboard enemyBishops) {
+PinMasks compute_pin_masks(const SafeSquare sq, const Bitboard occ, const Bitboard enemyRooks, const Bitboard enemyBishops) {
   const Bitboard sqBitboard = bb(sq);
   const unsigned y = sq / 8;
   const unsigned x = sq % 8;
@@ -362,7 +342,7 @@ PinMasks compute_pin_masks(const Square sq, const Bitboard occ, const Bitboard e
 
 template<Color US>
 PinMasks compute_absolute_pin_masks(const Position& pos) {
-  return compute_pin_masks<US>(pos, lsb(pos.pieceBitboards_[coloredPiece<US, Piece::KING>()]));
+  return compute_pin_masks<US>(pos, safe_lsb(pos.pieceBitboards_[coloredPiece<US, Piece::KING>()]));
 }
 
 // According to perft tests, the only illegal moves this will generate are enpassants that put you
@@ -379,7 +359,7 @@ ExtMove* compute_moves(const Position& pos, ExtMove *moves) {
     // Game over, no legal moves.
     return moves;
   }
-  const Square ourKing = lsb(ourKings);
+  const SafeSquare ourKing = safe_lsb(ourKings);
   Bitboard checkers = compute_attackers<enemyColor>(pos, ourKing);
   const PinMasks pm = compute_absolute_pin_masks<US>(pos);
 
@@ -413,7 +393,7 @@ ExtMove* compute_moves(const Position& pos, ExtMove *moves) {
   Bitboard bishopCheckMask;
   if (MGT == MoveGenType::CHECKS_AND_CAPTURES) {
     bishopCheckMask = compute_bishop_check_mask(
-      pos.pieceBitboards_[coloredPiece<opposite_color<US>(), Piece::KING>()],
+      safe_lsb(pos.pieceBitboards_[coloredPiece<opposite_color<US>(), Piece::KING>()]),
       everyone
     );
   } else {
@@ -444,7 +424,7 @@ ExtMove* compute_legal_moves(Position *pos, ExtMove *moves) {
   ExtMove *end = compute_moves<US, MoveGenType::ALL_MOVES>(*pos, pseudoMoves);
   for (ExtMove *move = pseudoMoves; move < end; ++move) {
     make_move<US>(pos, move->move);
-    Square sq = lsb(pos->pieceBitboards_[coloredPiece<US,Piece::KING>()]);
+    SafeSquare sq = safe_lsb(pos->pieceBitboards_[coloredPiece<US,Piece::KING>()]);
     if (can_enemy_attack<US>(*pos, sq) == 0) {
       (*moves++) = *move;
     }
@@ -460,7 +440,7 @@ bool is_checkmate(Position *pos) {
   if (end - moves != 0) {
     return false;
   }
-  Square sq = lsb(pos->pieceBitboards_[coloredPiece<TURN,Piece::KING>()]);
+  SafeSquare sq = safe_lsb(pos->pieceBitboards_[coloredPiece<TURN,Piece::KING>()]);
   return can_enemy_attack<TURN>(*pos, sq);
 }
 

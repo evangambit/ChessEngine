@@ -10,7 +10,7 @@ namespace ChessEngine {
 namespace diag {
 
 // For a given square, get all points along its southwest/northeast diagonal.
-constexpr Bitboard kSouthWestDiagonalMask[64] = {
+constexpr Bitboard kSouthWestDiagonalMask[65] = {
   0x1,
   0x102,
   0x10204,
@@ -75,10 +75,11 @@ constexpr Bitboard kSouthWestDiagonalMask[64] = {
   0x2040800000000000,
   0x4080000000000000,
   0x8000000000000000,
+  0x0,  // NO_SQUARE
 };
 
 // For a given square, get all points along its southeast/northwest diagonal.
-constexpr Bitboard kSouthEastDiagonalMask[64] = {
+constexpr Bitboard kSouthEastDiagonalMask[65] = {
   0x8040201008040201,
   0x80402010080402,
   0x804020100804,
@@ -143,9 +144,10 @@ constexpr Bitboard kSouthEastDiagonalMask[64] = {
   0x2010080402010000,
   0x4020100804020100,
   0x8040201008040201,
+  0x0,  // NO_SQUARE
 };
 
-const uint64_t kSouthEastShift[64] = {
+const uint64_t kSouthEastShift[65] = {
   0, 1, 2, 3, 4, 5, 6, 7,
   0, 0, 1, 2, 3, 4, 5, 6,
   0, 0, 0, 1, 2, 3, 4, 5,
@@ -154,9 +156,10 @@ const uint64_t kSouthEastShift[64] = {
   0, 0, 0, 0, 0, 0, 1, 2,
   0, 0, 0, 0, 0, 0, 0, 1,
   0, 0, 0, 0, 0, 0, 0, 0,
+  0,  // NO_SQUARE
 };
 
-const uint64_t kSouthWestShift[64] = {
+const uint64_t kSouthWestShift[65] = {
   7, 6, 5, 4, 3, 2, 1, 0,
   6, 5, 4, 3, 2, 1, 0, 0,
   5, 4, 3, 2, 1, 0, 0, 0,
@@ -165,6 +168,7 @@ const uint64_t kSouthWestShift[64] = {
   2, 1, 0, 0, 0, 0, 0, 0,
   1, 0, 0, 0, 0, 0, 0, 0,
   0, 0, 0, 0, 0, 0, 0, 0,
+  0,  // NO_SQUARE
 };
 
 // After calling "southeast_diag_to_byte", this array indicates
@@ -202,19 +206,27 @@ const uint8_t kSouthWestOffBoard[64] = {
 
 constexpr Bitboard kBishopMagic = bb(56) | bb(48) | bb(40) | bb(32) | bb(24) | bb(16) | bb(8) | bb(0);
 
-uint8_t southeast_diag_to_byte(Square sq, Bitboard b) {
+uint8_t southeast_diag_to_byte(UnsafeSquare sq, Bitboard b) {
   b &= kSouthEastDiagonalMask[sq];
   b >>= kSouthEastShift[sq];
   return (b * kBishopMagic) >> 56;
 }
 
-uint8_t southwest_diag_to_byte(Square sq, Bitboard b) {
+uint8_t southeast_diag_to_byte(SafeSquare sq, Bitboard b) {
+  return southeast_diag_to_byte(UnsafeSquare(sq), b);
+}
+
+uint8_t southwest_diag_to_byte(UnsafeSquare sq, Bitboard b) {
   b &= kSouthWestDiagonalMask[sq];
   b <<= kSouthWestShift[sq];
   return (b * kBishopMagic) >> 56;
 }
 
-Bitboard byte_to_southeast_diag(Square sq, Bitboard byte) {
+uint8_t southwest_diag_to_byte(SafeSquare sq, Bitboard b) {
+  return southwest_diag_to_byte(UnsafeSquare(sq), b);
+}
+
+Bitboard byte_to_southeast_diag(UnsafeSquare sq, Bitboard byte) {
   assert(byte < 256);
   byte *= kBishopMagic;
   byte <<= diag::kSouthEastShift[sq];
@@ -222,12 +234,20 @@ Bitboard byte_to_southeast_diag(Square sq, Bitboard byte) {
   return byte;
 }
 
-Bitboard byte_to_southwest_diag(Square sq, Bitboard byte) {
+Bitboard byte_to_southeast_diag(SafeSquare sq, Bitboard byte) {
+  return byte_to_southeast_diag(UnsafeSquare(sq), byte);
+}
+
+Bitboard byte_to_southwest_diag(UnsafeSquare sq, Bitboard byte) {
   assert(byte < 256);
   byte *= kBishopMagic;
   byte >>= diag::kSouthWestShift[sq];
   byte &= kSouthWestDiagonalMask[sq];
   return byte;
+}
+
+Bitboard byte_to_southwest_diag(SafeSquare sq, Bitboard byte) {
+  return byte_to_southwest_diag(UnsafeSquare(sq), byte);
 }
 
 }  // namespace diag
@@ -236,7 +256,7 @@ Bitboard compute_bishoplike_targets(Bitboard bishopLikePieces, const Bitboard oc
   Bitboard r = kEmptyBitboard;
 
   while (bishopLikePieces) {
-    const Square from = pop_lsb(bishopLikePieces);
+    const SafeSquare from = (SafeSquare)pop_lsb(bishopLikePieces);
     Location fromLoc = square2location(from);
 
     {  // Southeast/Northwest diagonal.
@@ -260,9 +280,9 @@ Bitboard compute_bishoplike_targets(const Position& pos, Bitboard bishopLikePiec
   return compute_bishoplike_targets(bishopLikePieces, occupied);
 }
 
-Bitboard compute_bishop_check_mask(const Bitboard king, const Bitboard everyone) {
+Bitboard compute_bishop_check_mask(const SafeSquare kingSq, const Bitboard everyone) {
   Bitboard checkMask = kEmptyBitboard;
-  const Square kingSq = lsb(king);
+  const Location king = bb(kingSq);
   {  // Southeast/Northwest diagonal.
     uint8_t occupied = diag::southeast_diag_to_byte(kingSq, everyone & ~king);
     uint8_t fromByte = diag::southeast_diag_to_byte(kingSq, king);
@@ -290,7 +310,7 @@ ExtMove *compute_bishop_like_moves(const Position& pos, ExtMove *moves, Bitboard
   bishopLikePieces &= ~(pm.horizontal | pm.vertical);
 
   while (bishopLikePieces) {
-    const Square from = pop_lsb(bishopLikePieces);
+    const SafeSquare from = (SafeSquare)pop_lsb(bishopLikePieces);
     const Piece piece = cp2p(pos.tiles_[from]);
     Location fromLoc = square2location(from);
 
@@ -327,7 +347,7 @@ ExtMove *compute_bishop_like_moves(const Position& pos, ExtMove *moves, Bitboard
 
     while (tos) {
       Square to = pop_lsb(tos);
-      *moves++ = ExtMove(piece, pos.tiles_[to], Move{from, to, 0, MoveType::NORMAL});
+      *moves++ = ExtMove(piece, pos.tiles_[to], Move{Square(from), to, 0, MoveType::NORMAL});
     }
   }
 

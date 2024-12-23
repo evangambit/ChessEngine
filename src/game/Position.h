@@ -504,8 +504,8 @@ void make_move(Position *pos, Move move) {
       assert(move.from == 60);
       assert(move.to == 62 || move.to == 58);
     }
-    Square rookDestination = Square((uint16_t(move.from) + uint16_t(move.to)) / 2);
-    Square rookOrigin = Square(((uint16_t(move.to) % 8) * 7 - 14) / 4 + (TURN == Color::WHITE ? 56 : 0));
+    SafeSquare rookDestination = SafeSquare((uint16_t(move.from) + uint16_t(move.to)) / 2);
+    SafeSquare rookOrigin = SafeSquare(((uint16_t(move.to) % 8) * 7 - 14) / 4 + (TURN == Color::WHITE ? 56 : 0));
 
     Bitboard rookDestinationBB = bb(rookDestination);
     Bitboard rookOriginBB = bb(rookOrigin);

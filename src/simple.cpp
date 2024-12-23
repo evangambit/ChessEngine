@@ -293,7 +293,7 @@ struct SimpleThinker {
 
     if (moves == end) {
       constexpr ColoredPiece moverKing = coloredPiece<US, Piece::KING>();
-      const bool inCheck = can_enemy_attack<US>(*position, lsb(position->pieceBitboards_[moverKing]));
+      const bool inCheck = can_enemy_attack<US>(*position, safe_lsb(position->pieceBitboards_[moverKing]));
       if (inCheck) {
         Evaluation e = kCheckmate;
         // std::cout << pad << "</end> checkmate " << e << std::endl;
