@@ -283,18 +283,25 @@ CheckMap compute_potential_attackers(const Position& pos, const Square sq) {
   return r;
 }
 
+PinMasks compute_pin_masks(const Square sq, const Bitboard occ, const Bitboard enemyRooks, const Bitboard enemyBishops);
+
 template<Color US>
 PinMasks compute_pin_masks(const Position& pos, const Square sq) {
   assert(sq != Square::NO_SQUARE);
   constexpr Color THEM = opposite_color<US>();
 
   const Bitboard occ = pos.colorBitboards_[US] | pos.colorBitboards_[THEM];
-  const Bitboard sqBitboard = bb(sq);
-  const unsigned y = sq / 8;
-  const unsigned x = sq % 8;
 
   const Bitboard enemyRooks = pos.pieceBitboards_[coloredPiece<THEM, Piece::ROOK>()] | pos.pieceBitboards_[coloredPiece<THEM, Piece::QUEEN>()];
   const Bitboard enemyBishops = pos.pieceBitboards_[coloredPiece<THEM, Piece::BISHOP>()] | pos.pieceBitboards_[coloredPiece<THEM, Piece::QUEEN>()];
+
+  return compute_pin_masks(sq, occ, enemyRooks, enemyBishops);
+}
+
+PinMasks compute_pin_masks(const Square sq, const Bitboard occ, const Bitboard enemyRooks, const Bitboard enemyBishops) {
+  const Bitboard sqBitboard = bb(sq);
+  const unsigned y = sq / 8;
+  const unsigned x = sq % 8;
 
   PinMasks r;
 
