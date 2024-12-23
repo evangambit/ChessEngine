@@ -197,7 +197,7 @@ Location square2location(Square sq);
 
 Location square2location(SafeSquare sq);
 
-int8_t king_dist(Square sq1, Square sq2);
+int8_t king_dist(SafeSquare sq1, SafeSquare sq2);
 
 constexpr Location bb(SafeSquare sq) {
   return Location(1) << sq;

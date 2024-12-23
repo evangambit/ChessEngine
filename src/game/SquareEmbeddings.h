@@ -236,8 +236,8 @@ SquareEmbeddings compute_embeddings(const Position& position) {
 
 	const Threats<US> threats(position);
 	const PawnAnalysis<US> pawnAnalysis(position, threats);
-	const Square ourKingSq = lsb(position.pieceBitboards_[coloredPiece<US, Piece::KING>()]);
-  const Square theirKingSq = lsb(position.pieceBitboards_[coloredPiece<THEM, Piece::KING>()]);
+	const SafeSquare ourKingSq = safe_lsb(position.pieceBitboards_[coloredPiece<US, Piece::KING>()]);
+  const SafeSquare theirKingSq = lsb(position.pieceBitboards_[coloredPiece<THEM, Piece::KING>()]);
 
   std::fill_n(evaluator.features, EF::NUM_EVAL_FEATURES, 0);
 	evaluator.score<US>(position, threats);    
@@ -274,7 +274,7 @@ SquareEmbeddings compute_embeddings(const Position& position) {
     aheadOfTheirPassedPawns = northFill(pawnAnalysis.theirPassedPawns);
   }
 
-	for (Square sq = Square(0); sq < kNumSquares; sq = Square(sq + 1)) {
+	for (SafeSquare sq = Square(0); sq < kNumSquares; sq = SafeSquare(sq + 1)) {
 		const Location loc = square2location(sq);
 		int16_t *f = r.features[sq];
 

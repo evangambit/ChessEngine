@@ -33,7 +33,7 @@ std::string bstr(uint8_t b) {
   return r;
 }
 
-int8_t king_dist(Square sq1, Square sq2) {
+int8_t king_dist(SafeSquare sq1, SafeSquare sq2) {
   assert(sq1 != Square::NO_SQUARE);
   assert(sq2 != Square::NO_SQUARE);
   int8_t a = sq1;
@@ -131,9 +131,9 @@ void initialize_geometry() {
     for (int i = 0; i < 64; ++i) {
       kSquareRuleYourTurn[color][i] = kEmptyBitboard;
       for (int j = 8; j < 56; ++j) {
-        const Square kingSq = Square(i);
-        const Square pawnSq = Square(j);
-        const Square promoSq = Square(color == Color::WHITE ? pawnSq % 8 : pawnSq % 8 + 56);
+        const SafeSquare kingSq = SafeSquare(i);
+        const SafeSquare pawnSq = SafeSquare(j);
+        const SafeSquare promoSq = SafeSquare(color == Color::WHITE ? pawnSq % 8 : pawnSq % 8 + 56);
         if (king_dist(pawnSq, promoSq) < king_dist(kingSq, promoSq)) {
           kSquareRuleTheirTurn[color][i] |= bb(j);
         }
