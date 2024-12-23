@@ -78,17 +78,6 @@ const Bitboard kBlackSide = 0x00000000ffffffff;
 constexpr Bitboard kOuterRing = kFiles[0] | kFiles[7] | kRanks[0] | kRanks[7];
 
 constexpr int kNumSquares = 64;
-enum Square : uint8_t {
-  A8, B8, C8, D8, E8, F8, G8, H8,
-  A7, B7, C7, D7, E7, F7, G7, H7,
-  A6, B6, C6, D6, E6, F6, G6, H6,
-  A5, B5, C5, D5, E5, F5, G5, H5,
-  A4, B4, C4, D4, E4, F4, G4, H4,
-  A3, B3, C3, D3, E3, F3, G3, H3,
-  A2, B2, C2, D2, E2, F2, G2, H2,
-  A1, B1, C1, D1, E1, F1, G1, H1,
-  NO_SQUARE,
-};
 
 enum SafeSquare : uint8_t {
   SA8, SB8, SC8, SD8, SE8, SF8, SG8, SH8,
@@ -193,8 +182,6 @@ constexpr Direction opposite_dir() {
 }
 
 
-Location square2location(Square sq);
-
 Location square2location(SafeSquare sq);
 
 int8_t king_dist(SafeSquare sq1, SafeSquare sq2);
@@ -293,11 +280,6 @@ inline UnsafeSquare lsb_or_none(Bitboard b) {
 
 inline SafeSquare lsb_or(Bitboard b, SafeSquare defaultValue) {
   return select<SafeSquare>(b != 0, SafeSquare(__builtin_ctzll(b)), defaultValue);
-}
-
-inline Square msb(Bitboard b) {
-  assert(b != 0);
-  return Square(63 ^ __builtin_clzll(b));
 }
 
 inline UnsafeSquare msb_or_none(Bitboard b) {

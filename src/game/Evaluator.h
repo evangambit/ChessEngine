@@ -974,7 +974,7 @@ struct Evaluator {
           features[EF::KNOWN_KPVK_DRAW] = (ourPieces == ourKings) && (std::popcount(ourPawns) == 1) && is_kpvk_draw(ourKingSq, theirKingSq, lsb_i_promise_board_is_not_empty(pawnAnalysis.ourPassedPawns), true);
         } else {
           features[EF::KNOWN_KPVK_WIN] = is_kpvk_win(SafeSquare(63 - ourKingSq), SafeSquare(63 - theirKingSq), SafeSquare(63 - safe_msb(pawnAnalysis.ourPassedPawns)), true);
-          features[EF::KNOWN_KPVK_DRAW] = (ourPieces == ourKings) && (std::popcount(ourPawns) == 1) && is_kpvk_draw(SafeSquare(63 - ourKingSq), SafeSquare(63 - theirKingSq), SafeSquare(63 - msb(pawnAnalysis.ourPassedPawns)), true);
+          features[EF::KNOWN_KPVK_DRAW] = (ourPieces == ourKings) && (std::popcount(ourPawns) == 1) && is_kpvk_draw(SafeSquare(63 - ourKingSq), SafeSquare(63 - theirKingSq), SafeSquare(63 - safe_msb(pawnAnalysis.ourPassedPawns)), true);
         }
       }
       if (isTheirKPPVK && std::popcount(pawnAnalysis.theirPassedPawns) >= 1) {

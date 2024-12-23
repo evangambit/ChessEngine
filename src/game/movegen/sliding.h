@@ -362,7 +362,7 @@ void initialize_sliding() {
         uint8_t leftPinners = pinners & (king - 1);
         if (leftPinners) {
           // There is a pinner to our left.
-          uint8_t between = (king - 1) & ~(uint8_t(1 << msb(leftPinners)) - 1);
+          uint8_t between = (king - 1) & ~(uint8_t(1 << safe_msb(leftPinners)) - 1);
           if (std::popcount(between & occ) == 2) {
             kPinLookup[idx] |= between;
           }

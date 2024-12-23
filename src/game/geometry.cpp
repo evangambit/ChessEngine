@@ -181,12 +181,6 @@ void initialize_geometry() {
  56 57 58 59 60 61 62 63
 */
 
-Location square2location(Square sq) {
-  assert(sq < 65);  // sq is valid
-  if (sq == 64) return 0;
-  return Location(1) << sq;
-}
-
 Location square2location(SafeSquare sq) {
   assert(sq < 64);  // sq is valid
   return Location(1) << sq;
