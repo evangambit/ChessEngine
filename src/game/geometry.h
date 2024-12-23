@@ -232,6 +232,8 @@ Square string_to_square(const std::string& string);
 
 std::string square_to_string(Square sq);
 
+std::string square_to_string(SafeSquare sq);
+
 template<Direction dir>
 Bitboard shift(Bitboard b) {
   b = (dir > 0) ? (b << dir) : (b >> (-dir));
@@ -271,6 +273,10 @@ constexpr Square operator-(Square s, Direction d) { return Square(int(s) - int(d
 
 inline Square& operator+=(Square& s, Direction d) { return s = s + d; }
 inline Square& operator-=(Square& s, Direction d) { return s = s - d; }
+
+// Strictly speaking, this is not safe. We rely on the caller to ensure that the result is a valid square.
+constexpr SafeSquare operator+(SafeSquare s, Direction d) { return SafeSquare(int(s) + int(d)); }
+constexpr SafeSquare operator-(SafeSquare s, Direction d) { return SafeSquare(int(s) - int(d)); }
 
 inline Square lsb(Bitboard b) {
   assert(b != 0);

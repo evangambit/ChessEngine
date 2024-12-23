@@ -229,6 +229,10 @@ std::string square_to_string(Square sq) {
   return r;
 }
 
+std::string square_to_string(SafeSquare sq) {
+  return square_to_string(Square(sq));
+}
+
 Bitboard southFill(Bitboard b) {
    b |= (b <<  8);
    b |= (b << 16);

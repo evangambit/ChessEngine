@@ -40,8 +40,8 @@ enum MoveType {
 };
 
 struct Move {
-  Square from : 6;
-  Square to : 6;
+  SafeSquare from : 6;
+  SafeSquare to : 6;
   unsigned promotion : 2;  // knight, bishop, rook, queen
   MoveType moveType : 2;
 
@@ -70,7 +70,7 @@ struct ExtMove {
 std::ostream& operator<<(std::ostream& stream, const Move move);
 std::ostream& operator<<(std::ostream& stream, const ExtMove move);
 
-const Move kNullMove = Move{Square(0), Square(0), 0, MoveType::NORMAL};
+const Move kNullMove = Move{SafeSquare(0), SafeSquare(0), 0, MoveType::NORMAL};
 const ExtMove kNullExtMove = ExtMove(Piece::NO_PIECE, kNullMove);
 
 struct PositionState {
@@ -345,7 +345,7 @@ void undo(Position *pos) {
     pos->decrement_piece_map(myRookPiece, rookDestination);
   }
 
-  if (move.to == epSquare && movingPiece == coloredPiece<MOVER_TURN, Piece::PAWN>()) {
+  if (Square(move.to) == epSquare && movingPiece == coloredPiece<MOVER_TURN, Piece::PAWN>()) {
     // TODO: get rid of if statement
     if (MOVER_TURN == Color::BLACK) {
       assert(move.from / 8 == 4);
@@ -524,7 +524,7 @@ void make_move(Position *pos, Move move) {
     pos->decrement_piece_map(myRookPiece, rookOrigin);
   }
 
-  if (move.to == epSquare && movingPiece == coloredPiece<TURN, Piece::PAWN>()) {
+  if (Square(move.to) == epSquare && movingPiece == coloredPiece<TURN, Piece::PAWN>()) {
     // TODO: get rid of if statement
     if (TURN == Color::BLACK) {
       assert(move.from / 8 == 4);

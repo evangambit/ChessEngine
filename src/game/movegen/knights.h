@@ -99,10 +99,10 @@ ExtMove *compute_knight_moves(const Position& pos, ExtMove *moves, Bitboard targ
 
   Bitboard knights = pos.pieceBitboards_[cp] & ~pm.all;
   while (knights) {
-    const Square from = pop_lsb(knights);
+    const SafeSquare from = (SafeSquare)pop_lsb(knights);
     Bitboard tos = kKnightMoves[from] & target;
     while (tos) {
-      Square to = pop_lsb(tos);
+      SafeSquare to = (SafeSquare)pop_lsb(tos);
       *moves++ = ExtMove(Piece::KNIGHT, pos.tiles_[to], Move{from, to, 0, MoveType::NORMAL});
     }
   }
