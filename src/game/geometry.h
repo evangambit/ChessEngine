@@ -264,7 +264,7 @@ inline SafeSquare lsb_i_promise_board_is_not_empty(Bitboard b) {
   return SafeSquare(__builtin_ctzll(b));
 }
 
-inline SafeSquare safe_msb(Bitboard b) {
+inline SafeSquare msb_i_promise_board_is_not_empty(Bitboard b) {
   assert(b != 0);
   return SafeSquare(63 ^ __builtin_clzll(b));
 }
