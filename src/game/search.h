@@ -37,6 +37,10 @@
 #define SIMPLE_SEARCH 1
 #endif
 
+#ifndef SIMPLE_SEARCH  // -0.089 ± 0.022
+#define SIMPLE_SEARCH 0
+#endif
+
 #ifdef PRINT_DEBUG
 bool gPrintDebug = false;
 #define IS_PRINT_NODE gPrintDebug
