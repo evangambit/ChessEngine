@@ -149,7 +149,7 @@ bool _isCheckmate(Position *pos) {
     return false;
   }
   constexpr ColoredPiece moverKing = coloredPiece<TURN, Piece::KING>();
-  const bool inCheck = can_enemy_attack<TURN>(*pos, safe_lsb(pos->pieceBitboards_[moverKing]));
+  const bool inCheck = can_enemy_attack<TURN>(*pos, lsb_i_promise_board_is_not_empty(pos->pieceBitboards_[moverKing]));
   return inCheck;
 }
 
@@ -256,7 +256,7 @@ static SearchResult<TURN> qsearch(Thinker *thinker, Thread *thread, int32_t dept
 
   constexpr Color opposingColor = opposite_color<TURN>();
   constexpr ColoredPiece moverKing = coloredPiece<TURN, Piece::KING>();
-  const bool inCheck = can_enemy_attack<TURN>(thread->pos, safe_lsb(thread->pos.pieceBitboards_[moverKing]));
+  const bool inCheck = can_enemy_attack<TURN>(thread->pos, lsb_i_promise_board_is_not_empty(thread->pos.pieceBitboards_[moverKing]));
 
   ExtMove moves[kMaxNumMoves];
   ExtMove *end;
@@ -532,7 +532,7 @@ struct Search {
       return r;
     }
 
-    const bool inCheck = can_enemy_attack<TURN>(thread->pos, safe_lsb(thread->pos.pieceBitboards_[moverKing]));
+    const bool inCheck = can_enemy_attack<TURN>(thread->pos, lsb_i_promise_board_is_not_empty(thread->pos.pieceBitboards_[moverKing]));
 
     #if FUTILITY_PRUNING
     if (depthRemaining == 2) {
@@ -713,7 +713,7 @@ struct Search {
         make_move<TURN>(&thread->pos, extMove->move);
 
         // Don't move into check.
-        if (can_enemy_attack<TURN>(thread->pos, safe_lsb(thread->pos.pieceBitboards_[moverKing]))) {
+        if (can_enemy_attack<TURN>(thread->pos, lsb_i_promise_board_is_not_empty(thread->pos.pieceBitboards_[moverKing]))) {
           undo<TURN>(&thread->pos);
           continue;
         }

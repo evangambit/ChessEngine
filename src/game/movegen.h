@@ -66,18 +66,18 @@ int static_exchange(Position *pos) {
 
   constexpr int kPieceValues[7] = {0, 1, 3, 3, 5, 9, 99};
 
-  if (compute_attackers<THEM>(*pos, safe_lsb(pos->pieceBitboards_[coloredPiece<US, Piece::KING>()]))) {
+  if (compute_attackers<THEM>(*pos, lsb_i_promise_board_is_not_empty(pos->pieceBitboards_[coloredPiece<US, Piece::KING>()]))) {
     return kPieceValues[Piece::KING];
   }
 
   // Try all ways to capture enemy queen.
   if (pos->pieceBitboards_[theirQueenCP]) {
-    SafeSquare queenSq = safe_lsb(pos->pieceBitboards_[theirQueenCP]);
+    SafeSquare queenSq = lsb_i_promise_board_is_not_empty(pos->pieceBitboards_[theirQueenCP]);
     Bitboard attackers = compute_attackers<US>(*pos, queenSq);
     for (Piece piece = Piece::PAWN; piece <= Piece::QUEEN; piece = Piece(piece + 1)) {
       ColoredPiece cp = coloredPiece<US>(piece);
       if (attackers & pos->pieceBitboards_[cp]) {
-        SafeSquare attackersSq = safe_lsb(attackers & pos->pieceBitboards_[cp]);
+        SafeSquare attackersSq = lsb_i_promise_board_is_not_empty(attackers & pos->pieceBitboards_[cp]);
         simple_make_move<US>(pos, attackersSq, queenSq);
         int r = kPieceValues[Piece::QUEEN] - static_exchange<THEM>(pos);
         simple_undo_move<US>(pos, attackersSq, queenSq, theirQueenCP);
@@ -93,11 +93,11 @@ int static_exchange(Position *pos) {
     if (!vulnerablePieces) {
       continue;
     }
-    SafeSquare targetSq = safe_lsb(vulnerablePieces);
+    SafeSquare targetSq = lsb_i_promise_board_is_not_empty(vulnerablePieces);
     Location targetLoc = bb(targetSq);
     Bitboard attackPawns = pos->pieceBitboards_[ourPawnCP] & (shift<southeast>(targetLoc) | shift<southwest>(targetLoc));
     assert(attackPawns);  // Should be guaranteed by "!vulnerablePieces" short-circuit.
-    SafeSquare attackersSq = safe_lsb(attackPawns);
+    SafeSquare attackersSq = lsb_i_promise_board_is_not_empty(attackPawns);
     simple_make_move<US>(pos, attackersSq, targetSq);
     int r = kPieceValues[piece] - static_exchange<THEM>(pos);
     simple_undo_move<US>(pos, attackersSq, targetSq, coloredPiece<THEM>(piece));
@@ -110,9 +110,9 @@ int static_exchange(Position *pos) {
     const SafeSquare sq = (SafeSquare)pop_lsb(ourKnights);
     const Bitboard to = kKnightMoves[sq] & theirRooks;
     if (to) {
-      simple_make_move<US>(pos, sq, lsb(to));
+      simple_make_move<US>(pos, sq, lsb_i_promise_board_is_not_empty(to));
       int r = kPieceValues[Piece::ROOK] - static_exchange<THEM>(pos);
-      simple_undo_move<US>(pos, sq, lsb(to), coloredPiece<THEM>(Piece::ROOK));
+      simple_undo_move<US>(pos, sq, lsb_i_promise_board_is_not_empty(to), coloredPiece<THEM>(Piece::ROOK));
       return r;
     }
   }
@@ -158,7 +158,7 @@ Bitboard compute_my_targets(const Position& pos) {
   const Bitboard rookLikePieces = pos.pieceBitboards_[coloredPiece<US, Piece::ROOK>()] | pos.pieceBitboards_[coloredPiece<US, Piece::QUEEN>()];
 
   r |= compute_rooklike_targets(rookLikePieces, occupied & ~rookLikePieces);
-  const SafeSquare kingSq = safe_lsb(pos.pieceBitboards_[coloredPiece<US, Piece::KING>()]);
+  const SafeSquare kingSq = lsb_i_promise_board_is_not_empty(pos.pieceBitboards_[coloredPiece<US, Piece::KING>()]);
   r |= compute_king_targets<US>(pos, kingSq);
   return r;
 }
@@ -344,7 +344,7 @@ PinMasks compute_pin_masks(const SafeSquare sq, const Bitboard occ, const Bitboa
 
 template<Color US>
 PinMasks compute_absolute_pin_masks(const Position& pos) {
-  return compute_pin_masks<US>(pos, safe_lsb(pos.pieceBitboards_[coloredPiece<US, Piece::KING>()]));
+  return compute_pin_masks<US>(pos, lsb_i_promise_board_is_not_empty(pos.pieceBitboards_[coloredPiece<US, Piece::KING>()]));
 }
 
 // According to perft tests, the only illegal moves this will generate are enpassants that put you
@@ -361,7 +361,7 @@ ExtMove* compute_moves(const Position& pos, ExtMove *moves) {
     // Game over, no legal moves.
     return moves;
   }
-  const SafeSquare ourKing = safe_lsb(ourKings);
+  const SafeSquare ourKing = lsb_i_promise_board_is_not_empty(ourKings);
   Bitboard checkers = compute_attackers<enemyColor>(pos, ourKing);
   const PinMasks pm = compute_absolute_pin_masks<US>(pos);
 
@@ -373,7 +373,7 @@ ExtMove* compute_moves(const Position& pos, ExtMove *moves) {
 
   Bitboard target = kUniverse;
   if (numCheckers == 1) {
-    target = kSquaresBetween[ourKing][lsb(checkers)];
+    target = kSquaresBetween[ourKing][lsb_i_promise_board_is_not_empty(checkers)];
   }
 
   const Bitboard validKingSquares = ~compute_my_targets<opposite_color<US>(), true>(pos);
@@ -385,7 +385,7 @@ ExtMove* compute_moves(const Position& pos, ExtMove *moves) {
   Bitboard rookCheckMask;
   if (MGT == MoveGenType::CHECKS_AND_CAPTURES) {
     rookCheckMask = compute_rook_check_mask(
-      safe_lsb(pos.pieceBitboards_[coloredPiece<opposite_color<US>(), Piece::KING>()]),
+      lsb_i_promise_board_is_not_empty(pos.pieceBitboards_[coloredPiece<opposite_color<US>(), Piece::KING>()]),
       everyone
     );
   } else {
@@ -395,7 +395,7 @@ ExtMove* compute_moves(const Position& pos, ExtMove *moves) {
   Bitboard bishopCheckMask;
   if (MGT == MoveGenType::CHECKS_AND_CAPTURES) {
     bishopCheckMask = compute_bishop_check_mask(
-      safe_lsb(pos.pieceBitboards_[coloredPiece<opposite_color<US>(), Piece::KING>()]),
+      lsb_i_promise_board_is_not_empty(pos.pieceBitboards_[coloredPiece<opposite_color<US>(), Piece::KING>()]),
       everyone
     );
   } else {
@@ -426,7 +426,7 @@ ExtMove* compute_legal_moves(Position *pos, ExtMove *moves) {
   ExtMove *end = compute_moves<US, MoveGenType::ALL_MOVES>(*pos, pseudoMoves);
   for (ExtMove *move = pseudoMoves; move < end; ++move) {
     make_move<US>(pos, move->move);
-    SafeSquare sq = safe_lsb(pos->pieceBitboards_[coloredPiece<US,Piece::KING>()]);
+    SafeSquare sq = lsb_i_promise_board_is_not_empty(pos->pieceBitboards_[coloredPiece<US,Piece::KING>()]);
     if (can_enemy_attack<US>(*pos, sq) == 0) {
       (*moves++) = *move;
     }
@@ -442,7 +442,7 @@ bool is_checkmate(Position *pos) {
   if (end - moves != 0) {
     return false;
   }
-  SafeSquare sq = safe_lsb(pos->pieceBitboards_[coloredPiece<TURN,Piece::KING>()]);
+  SafeSquare sq = lsb_i_promise_board_is_not_empty(pos->pieceBitboards_[coloredPiece<TURN,Piece::KING>()]);
   return can_enemy_attack<TURN>(*pos, sq);
 }
 

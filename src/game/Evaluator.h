@@ -486,8 +486,8 @@ struct Evaluator {
       return 0;
     }
 
-    const SafeSquare ourKingSq = (SafeSquare)lsb(pos.pieceBitboards_[coloredPiece<US, Piece::KING>()]);
-    const SafeSquare theirKingSq = (SafeSquare)lsb(pos.pieceBitboards_[coloredPiece<THEM, Piece::KING>()]);
+    const SafeSquare ourKingSq = lsb_i_promise_board_is_not_empty(pos.pieceBitboards_[coloredPiece<US, Piece::KING>()]);
+    const SafeSquare theirKingSq = lsb_i_promise_board_is_not_empty(pos.pieceBitboards_[coloredPiece<THEM, Piece::KING>()]);
 
     const Bitboard ourPawns = pos.pieceBitboards_[coloredPiece<US, Piece::PAWN>()];
     const Bitboard ourKnights = pos.pieceBitboards_[coloredPiece<US, Piece::KNIGHT>()];
@@ -970,8 +970,8 @@ struct Evaluator {
       // KPVK games are winning if square rule is true.
       if (isOurKPPVK && std::popcount(pawnAnalysis.ourPassedPawns) >= 1) {
         if (US == Color::WHITE) {
-          features[EF::KNOWN_KPVK_WIN] = is_kpvk_win(ourKingSq, theirKingSq, safe_lsb(pawnAnalysis.ourPassedPawns), true);
-          features[EF::KNOWN_KPVK_DRAW] = (ourPieces == ourKings) && (std::popcount(ourPawns) == 1) && is_kpvk_draw(ourKingSq, theirKingSq, safe_lsb(pawnAnalysis.ourPassedPawns), true);
+          features[EF::KNOWN_KPVK_WIN] = is_kpvk_win(ourKingSq, theirKingSq, lsb_i_promise_board_is_not_empty(pawnAnalysis.ourPassedPawns), true);
+          features[EF::KNOWN_KPVK_DRAW] = (ourPieces == ourKings) && (std::popcount(ourPawns) == 1) && is_kpvk_draw(ourKingSq, theirKingSq, lsb_i_promise_board_is_not_empty(pawnAnalysis.ourPassedPawns), true);
         } else {
           features[EF::KNOWN_KPVK_WIN] = is_kpvk_win(SafeSquare(63 - ourKingSq), SafeSquare(63 - theirKingSq), SafeSquare(63 - safe_msb(pawnAnalysis.ourPassedPawns)), true);
           features[EF::KNOWN_KPVK_DRAW] = (ourPieces == ourKings) && (std::popcount(ourPawns) == 1) && is_kpvk_draw(SafeSquare(63 - ourKingSq), SafeSquare(63 - theirKingSq), SafeSquare(63 - msb(pawnAnalysis.ourPassedPawns)), true);
@@ -979,8 +979,8 @@ struct Evaluator {
       }
       if (isTheirKPPVK && std::popcount(pawnAnalysis.theirPassedPawns) >= 1) {
         if (US == Color::BLACK) {
-          features[EF::KNOWN_KPVK_WIN] = is_kpvk_win(theirKingSq, ourKingSq, safe_lsb(pawnAnalysis.theirPassedPawns), false);
-          features[EF::KNOWN_KPVK_DRAW] = (theirPieces == theirKings) && (std::popcount(theirPawns) == 1) && is_kpvk_draw(theirKingSq, ourKingSq, safe_lsb(pawnAnalysis.theirPassedPawns), false);
+          features[EF::KNOWN_KPVK_WIN] = is_kpvk_win(theirKingSq, ourKingSq, lsb_i_promise_board_is_not_empty(pawnAnalysis.theirPassedPawns), false);
+          features[EF::KNOWN_KPVK_DRAW] = (theirPieces == theirKings) && (std::popcount(theirPawns) == 1) && is_kpvk_draw(theirKingSq, ourKingSq, lsb_i_promise_board_is_not_empty(pawnAnalysis.theirPassedPawns), false);
         } else {
           features[EF::KNOWN_KPVK_WIN] = is_kpvk_win(SafeSquare(63 - theirKingSq), SafeSquare(63 - ourKingSq), SafeSquare(63 - safe_msb(pawnAnalysis.theirPassedPawns)), false);
           features[EF::KNOWN_KPVK_DRAW] = (theirPieces == theirKings) && (std::popcount(theirPawns) == 1) && is_kpvk_draw(SafeSquare(63 - theirKingSq), SafeSquare(63 - ourKingSq), SafeSquare(63 - safe_msb(pawnAnalysis.theirPassedPawns)), false);

@@ -93,7 +93,7 @@ ExtMove *compute_knight_moves(const Position& pos, ExtMove *moves, Bitboard targ
   } else if (MGT == MoveGenType::CAPTURES) {
     target &= enemies;
   } else if (MGT == MoveGenType::CHECKS_AND_CAPTURES) {
-    const Bitboard checkMask = kKnightMoves[lsb(pos.pieceBitboards_[coloredPiece<opposite_color<US>(), Piece::KING>()])];
+    const Bitboard checkMask = kKnightMoves[lsb_i_promise_board_is_not_empty(pos.pieceBitboards_[coloredPiece<opposite_color<US>(), Piece::KING>()])];
     target &= enemies | (checkMask & notfriends);
   }
 

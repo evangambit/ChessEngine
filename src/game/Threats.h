@@ -79,8 +79,8 @@ struct Threats {
     constexpr Direction kBackwardRight = (kForward == Direction::NORTH ? Direction::SOUTH_WEST : Direction::NORTH_EAST);
     constexpr Direction kBackwardLeft = (kForward == Direction::NORTH ? Direction::SOUTH_EAST : Direction::NORTH_WEST);
 
-    const SafeSquare ourKingSq = safe_lsb(pos.pieceBitboards_[coloredPiece<US, Piece::KING>()]);
-    const SafeSquare theirKingSq = safe_lsb(pos.pieceBitboards_[coloredPiece<THEM, Piece::KING>()]);
+    const SafeSquare ourKingSq = lsb_i_promise_board_is_not_empty(pos.pieceBitboards_[coloredPiece<US, Piece::KING>()]);
+    const SafeSquare theirKingSq = lsb_i_promise_board_is_not_empty(pos.pieceBitboards_[coloredPiece<THEM, Piece::KING>()]);
 
     const Bitboard everyone = pos.colorBitboards_[Color::WHITE] | pos.colorBitboards_[Color::BLACK];
 

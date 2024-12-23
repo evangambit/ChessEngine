@@ -371,7 +371,7 @@ void initialize_sliding() {
         uint8_t rightPinners = pinners & ~(king * 2 - 1);
         if (rightPinners) {
           // There is a pinner to our right.
-          uint8_t between = ((1 << lsb(rightPinners)) * 2 - 1) & ~(king * 2 - 1);
+          uint8_t between = ((1 << lsb_i_promise_board_is_not_empty(rightPinners)) * 2 - 1) & ~(king * 2 - 1);
           if (std::popcount(between & occ) == 2) {
             kPinLookup[idx] |= between;
           }
@@ -384,7 +384,7 @@ void initialize_sliding() {
 
 inline uint8_t sliding_pinmask(uint8_t loc, uint8_t occ, uint8_t pinners) {
   assert(std::popcount(loc) == 1);
-  return kPinLookup[65536*lsb(loc)+256*occ+pinners];
+  return kPinLookup[65536*lsb_i_promise_board_is_not_empty(loc)+256*occ+pinners];
 }
 
 }  // namespace ChessEngine
