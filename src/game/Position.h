@@ -123,7 +123,7 @@ class Position {
       pieceMapScores[i] = 0;
     }
     for (size_t i = 0; i < kNumSquares; ++i) {
-      this->increment_piece_map(tiles_[i], Square(i));
+      this->increment_piece_map(tiles_[i], SafeSquare(i));
     }
   }
   PieceMaps const * pieceMaps_;
@@ -205,15 +205,6 @@ class Position {
       this->network->set_piece(cp, sq, 0);
     }
     #endif
-  }
-
-  inline void increment_piece_map(ColoredPiece cp, Square sq) {
-    assert(sq < 64);
-    increment_piece_map(cp, SafeSquare(sq));
-  }
-  inline void decrement_piece_map(ColoredPiece cp, Square sq) {
-    assert(sq < 64);
-    decrement_piece_map(cp, SafeSquare(sq));
   }
 
   void assert_valid_state() const;
@@ -356,7 +347,7 @@ void undo(Position *pos) {
     }
 
     constexpr Color opposingColor = opposite_color<MOVER_TURN>();
-    Square enpassantSq = Square((MOVER_TURN == Color::WHITE ? move.to + 8 : move.to - 8));
+    SafeSquare enpassantSq = SafeSquare((MOVER_TURN == Color::WHITE ? move.to + 8 : move.to - 8));
     Bitboard enpassantLocBB = bb(enpassantSq);
 
     constexpr ColoredPiece opposingPawn = coloredPiece<opposingColor, Piece::PAWN>();

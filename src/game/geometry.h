@@ -268,19 +268,13 @@ inline uint8_t eastmost_file_to_byte(Bitboard board) {
 extern const int8_t kDistToEdge[64];
 extern const int8_t kDistToCorner[64];
 
-constexpr Square operator+(Square s, Direction d) { return Square(int(s) + int(d)); }
-constexpr Square operator-(Square s, Direction d) { return Square(int(s) - int(d)); }
-
-inline Square& operator+=(Square& s, Direction d) { return s = s + d; }
-inline Square& operator-=(Square& s, Direction d) { return s = s - d; }
-
 // Strictly speaking, this is not safe. We rely on the caller to ensure that the result is a valid square.
 constexpr SafeSquare operator+(SafeSquare s, Direction d) { return SafeSquare(int(s) + int(d)); }
 constexpr SafeSquare operator-(SafeSquare s, Direction d) { return SafeSquare(int(s) - int(d)); }
 
-inline Square lsb(Bitboard b) {
+inline UnsafeSquare lsb(Bitboard b) {
   assert(b != 0);
-  return Square(__builtin_ctzll(b));
+  return UnsafeSquare(__builtin_ctzll(b));
 }
 
 inline SafeSquare safe_lsb(Bitboard b) {
@@ -293,12 +287,8 @@ inline SafeSquare safe_msb(Bitboard b) {
   return SafeSquare(63 ^ __builtin_clzll(b));
 }
 
-inline Square lsb_or_none(Bitboard b) {
-  return select<Square>(b != 0, Square(__builtin_ctzll(b)), Square::NO_SQUARE);
-}
-
-inline Square lsb_or(Bitboard b, Square defaultValue) {
-  return select<Square>(b != 0, Square(__builtin_ctzll(b)), defaultValue);
+inline UnsafeSquare lsb_or_none(Bitboard b) {
+  return select<UnsafeSquare>(b != 0, UnsafeSquare(__builtin_ctzll(b)), UnsafeSquare::UNO_SQUARE);
 }
 
 inline SafeSquare lsb_or(Bitboard b, SafeSquare defaultValue) {
@@ -310,21 +300,17 @@ inline Square msb(Bitboard b) {
   return Square(63 ^ __builtin_clzll(b));
 }
 
-inline Square msb_or_none(Bitboard b) {
-  return select<Square>(b != 0, Square(63 ^ __builtin_clzll(b)), Square::NO_SQUARE);
-}
-
-inline Square msb_or(Bitboard b, Square defaultValue) {
-  return select<Square>(b != 0, Square(63 ^ __builtin_clzll(b)), defaultValue);
+inline UnsafeSquare msb_or_none(Bitboard b) {
+  return select<UnsafeSquare>(b != 0, UnsafeSquare(63 ^ __builtin_clzll(b)), UnsafeSquare::UNO_SQUARE);
 }
 
 inline UnsafeSquare msb_or(Bitboard b, UnsafeSquare defaultValue) {
   return select<UnsafeSquare>(b != 0, UnsafeSquare(63 ^ __builtin_clzll(b)), defaultValue);
 }
 
-inline Square pop_lsb(Bitboard& b) {
+inline UnsafeSquare pop_lsb(Bitboard& b) {
   assert(b != 0);
-  Square s = lsb(b);
+  UnsafeSquare s = lsb(b);
   b &= b - 1;
   return s;
 }

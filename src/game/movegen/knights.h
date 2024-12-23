@@ -6,7 +6,7 @@
 
 namespace ChessEngine {
 
-constexpr Bitboard kKnightMoves[Square::NO_SQUARE + 1] = {
+constexpr Bitboard kKnightMoves[UnsafeSquare::UNO_SQUARE + 1] = {
   0x0000000000020400,
   0x0000000000050800,
   0x00000000000a1100,
