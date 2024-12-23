@@ -145,29 +145,29 @@ void initialize_geometry() {
   }
 
   std::fill_n(&kKingHome[0], kNumSquares, kEmptyBitboard);
-  kKingHome[Square::A1] = bb(Square::A2) | bb(Square::A3)
-    | bb(Square::B2) | bb(Square::B3);
-  kKingHome[Square::B1] = bb(Square::A2) | bb(Square::A3)
-    | bb(Square::B2) | bb(Square::B3) | bb(Square::C2);
-  kKingHome[Square::C1] = bb(Square::A2) | bb(Square::A3)
-    | bb(Square::B2) | bb(Square::B3) | bb(Square::C2);
-  kKingHome[Square::G1] = bb(Square::F2) | bb(Square::F3)
-    | bb(Square::G2) | bb(Square::G3)
-    | bb(Square::F2);
-  kKingHome[Square::H1] = bb(Square::G2) | bb(Square::G3)
-    | bb(Square::H2) | bb(Square::H3);
+  kKingHome[Square::A1] = bb(SafeSquare::SA2) | bb(SafeSquare::SA3)
+    | bb(SafeSquare::SB2) | bb(SafeSquare::SB3);
+  kKingHome[Square::B1] = bb(SafeSquare::SA2) | bb(SafeSquare::SA3)
+    | bb(SafeSquare::SB2) | bb(SafeSquare::SB3) | bb(SafeSquare::SC2);
+  kKingHome[Square::C1] = bb(SafeSquare::SA2) | bb(SafeSquare::SA3)
+    | bb(SafeSquare::SB2) | bb(SafeSquare::SB3) | bb(SafeSquare::SC2);
+  kKingHome[Square::G1] = bb(SafeSquare::SF2) | bb(SafeSquare::SF3)
+    | bb(SafeSquare::SG2) | bb(SafeSquare::SG3)
+    | bb(SafeSquare::SF2);
+  kKingHome[Square::H1] = bb(SafeSquare::SG2) | bb(SafeSquare::SG3)
+    | bb(SafeSquare::SH2) | bb(SafeSquare::SH3);
 
-  kKingHome[Square::A8] = bb(Square::A7) | bb(Square::A6)
-    | bb(Square::B7) | bb(Square::B6);
-  kKingHome[Square::B8] = bb(Square::A7) | bb(Square::A6)
-    | bb(Square::B7) | bb(Square::B6) | bb(Square::C7);
-  kKingHome[Square::C8] = bb(Square::A7) | bb(Square::A6)
-    | bb(Square::B7) | bb(Square::B6) | bb(Square::C7);
-  kKingHome[Square::G8] = bb(Square::F7) | bb(Square::F6)
-    | bb(Square::G7) | bb(Square::G6)
-    | bb(Square::F7);
-  kKingHome[Square::H8] = bb(Square::G7) | bb(Square::G6)
-    | bb(Square::H7) | bb(Square::H6);
+  kKingHome[Square::A8] = bb(SafeSquare::SA7) | bb(SafeSquare::SA6)
+    | bb(SafeSquare::SB7) | bb(SafeSquare::SB6);
+  kKingHome[Square::B8] = bb(SafeSquare::SA7) | bb(SafeSquare::SA6)
+    | bb(SafeSquare::SB7) | bb(SafeSquare::SB6) | bb(SafeSquare::SC7);
+  kKingHome[Square::C8] = bb(SafeSquare::SA7) | bb(SafeSquare::SA6)
+    | bb(SafeSquare::SB7) | bb(SafeSquare::SB6) | bb(SafeSquare::SC7);
+  kKingHome[Square::G8] = bb(SafeSquare::SF7) | bb(SafeSquare::SF6)
+    | bb(SafeSquare::SG7) | bb(SafeSquare::SG6)
+    | bb(SafeSquare::SF7);
+  kKingHome[Square::H8] = bb(SafeSquare::SG7) | bb(SafeSquare::SG6)
+    | bb(SafeSquare::SH7) | bb(SafeSquare::SH6);
 }
 
 /*

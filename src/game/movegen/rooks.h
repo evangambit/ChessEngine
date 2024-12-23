@@ -8,7 +8,7 @@
 namespace ChessEngine {
 
 // Rotates east-most file to south-most rank.
-constexpr Bitboard kRookMagic = bb(49) | bb(42) | bb(35) | bb(28) | bb(21) | bb(14) | bb(7) | bb(0);
+constexpr Bitboard kRookMagic = bb(SafeSquare(49)) | bb(SafeSquare(42)) | bb(SafeSquare(35)) | bb(SafeSquare(28)) | bb(SafeSquare(21)) | bb(SafeSquare(14)) | bb(SafeSquare(7)) | bb(SafeSquare(0));
 
 Bitboard compute_single_rook_moves(SafeSquare rookSquare, const Bitboard occupied) {
   Bitboard r = kEmptyBitboard;

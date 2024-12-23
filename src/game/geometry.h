@@ -110,7 +110,7 @@ enum UnsafeSquare : uint8_t {
   UA3, UB3, UC3, UD3, UE3, UF3, UG3, UH3,
   UA2, UB2, UC2, UD2, UE2, UF2, UG2, UH2,
   UA1, UB1, UC1, UD1, UE1, UF1, UG1, UH1,
-  NO_SQUARE,
+  UNO_SQUARE,
 };
 
 constexpr Bitboard kMainWhiteDiagonal = 0x8040201008040201;
@@ -199,6 +199,11 @@ Location square2location(SafeSquare sq);
 
 int8_t king_dist(Square sq1, Square sq2);
 
+constexpr Location bb(SafeSquare sq) {
+  return Location(1) << sq;
+}
+
+// Deprecated.
 constexpr Location bb(unsigned sq) {
   return Location(1) << sq;
 }
@@ -254,7 +259,7 @@ Bitboard eastFill(Bitboard b);
 Bitboard westFill(Bitboard b);
 
 inline uint8_t eastmost_file_to_byte(Bitboard board) {
-  constexpr Bitboard magic = bb(49) | bb(42) | bb(35) | bb(28) | bb(21) | bb(14) | bb(7) | bb(0);
+  constexpr Bitboard magic = bb(SafeSquare(49)) | bb(SafeSquare(42)) | bb(SafeSquare(35)) | bb(SafeSquare(28)) | bb(SafeSquare(21)) | bb(SafeSquare(14)) | bb(SafeSquare(7)) | bb(SafeSquare(0));
   return (board * magic) >> 56;
 }
 

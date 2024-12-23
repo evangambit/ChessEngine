@@ -199,10 +199,10 @@ enum EF {
   NUM_EVAL_FEATURES,
 };
 
-constexpr Bitboard kWhiteKingCorner = bb(Square::H1) | bb(Square::H2) | bb(Square::G1) | bb(Square::G2) | bb(Square::F1);
-constexpr Bitboard kWhiteQueenCorner = bb(Square::A1) | bb(Square::A2) | bb(Square::B1) | bb(Square::B2) | bb(Square::C1);
-constexpr Bitboard kBlackKingCorner = bb(Square::H8) | bb(Square::H7) | bb(Square::G8) | bb(Square::G7) | bb(Square::F8);
-constexpr Bitboard kBlackQueenCorner = bb(Square::A8) | bb(Square::A7) | bb(Square::B8) | bb(Square::B7) | bb(Square::C8);
+constexpr Bitboard kWhiteKingCorner = bb(SafeSquare::SH1) | bb(SafeSquare::SH2) | bb(SafeSquare::SG1) | bb(SafeSquare::SG2) | bb(SafeSquare::SF1);
+constexpr Bitboard kWhiteQueenCorner = bb(SafeSquare::SA1) | bb(SafeSquare::SA2) | bb(SafeSquare::SB1) | bb(SafeSquare::SB2) | bb(SafeSquare::SC1);
+constexpr Bitboard kBlackKingCorner = bb(SafeSquare::SH8) | bb(SafeSquare::SH7) | bb(SafeSquare::SG8) | bb(SafeSquare::SG7) | bb(SafeSquare::SF8);
+constexpr Bitboard kBlackQueenCorner = bb(SafeSquare::SA8) | bb(SafeSquare::SA7) | bb(SafeSquare::SB8) | bb(SafeSquare::SB7) | bb(SafeSquare::SC8);
 
 std::string EFSTR[] = {
   "OUR_PAWNS",
@@ -529,7 +529,6 @@ struct Evaluator {
     constexpr Direction kBackward2 = opposite_dir<kForward2>();
     constexpr Bitboard kOurBackRanks = (US == Color::WHITE ? kRanks[6] | kRanks[7] : kRanks[1] | kRanks[0]);
     constexpr Bitboard kTheirBackRanks = (US == Color::WHITE ? kRanks[1] | kRanks[0] : kRanks[6] | kRanks[7]);
-    constexpr Bitboard kHappyKingSquares = bb(62) | bb(58) | bb(57) | bb(6) | bb(1) | bb(2);
 
     features[EF::OUR_PAWNS] = std::popcount(ourPawns);
     features[EF::OUR_KNIGHTS] = std::popcount(ourKnights);
@@ -682,9 +681,9 @@ struct Evaluator {
     const Bitboard theirBishopTargetsIgnoringNonBlockades = compute_bishoplike_targets(theirBishops, pawnAnalysis.theirBlockadedPawns);
     {  // Bishops
       if (US == Color::WHITE) {
-        features[EF::BISHOPS_DEVELOPED] = std::popcount(theirBishops & (bb( 2) | bb( 5))) - std::popcount(ourBishops & (bb(58) | bb(61)));
+        features[EF::BISHOPS_DEVELOPED] = std::popcount(theirBishops & (bb(SafeSquare::SC8) | bb(SafeSquare::SF8))) - std::popcount(ourBishops & (bb(SafeSquare::SC1) | bb(SafeSquare::SF1)));
       } else {
-        features[EF::BISHOPS_DEVELOPED] = std::popcount(theirBishops & (bb(58) | bb(61))) - std::popcount(ourBishops & (bb( 2) | bb( 5)));
+        features[EF::BISHOPS_DEVELOPED] = std::popcount(theirBishops & (bb(SafeSquare::SC1) | bb(SafeSquare::SF1))) - std::popcount(ourBishops & (bb(SafeSquare::SC8) | bb(SafeSquare::SF8)));
       }
       features[EF::BISHOP_PAIR] = (std::popcount(ourBishops) >= 2) - (std::popcount(theirBishops) >= 2);
       features[EF::BLOCKADED_BISHOPS] = std::popcount(ourBishopTargetsIgnoringNonBlockades & (pawnAnalysis.ourBlockadedPawns | pawnAnalysis.theirProtectedPawns)) - std::popcount(theirBishopTargetsIgnoringNonBlockades & (pawnAnalysis.theirBlockadedPawns | pawnAnalysis.ourProtectedPawns));
@@ -704,9 +703,9 @@ struct Evaluator {
 
     {  // Knights
       if (US == Color::WHITE) {
-        features[EF::KNIGHTS_DEVELOPED] = std::popcount(theirKnights & (bb( 1) | bb( 6))) - std::popcount(ourKnights & (bb(57) | bb(62)));
+        features[EF::KNIGHTS_DEVELOPED] = std::popcount(theirKnights & (bb(SafeSquare::SB8) | bb(SafeSquare::SG8))) - std::popcount(ourKnights & (bb(SafeSquare::SB1) | bb(SafeSquare::SG1)));
       } else {
-        features[EF::KNIGHTS_DEVELOPED] = std::popcount(theirKnights & (bb(57) | bb(62))) - std::popcount(ourKnights & (bb( 1) | bb( 6)));
+        features[EF::KNIGHTS_DEVELOPED] = std::popcount(theirKnights & (bb(SafeSquare::SB1) | bb(SafeSquare::SG1))) - std::popcount(ourKnights & (bb(SafeSquare::SB8) | bb(SafeSquare::SG8)));
       }
       features[EF::KNIGHT_MAJOR_CAPTURES] = std::popcount(threats.ourKnightTargets & theirMajors) - std::popcount(threats.theirKnightTargets & ourMajors);
       features[EF::KNIGHTS_CENTER_16] = std::popcount(ourKnights & kCenter16) - std::popcount(theirKnights & kCenter16);

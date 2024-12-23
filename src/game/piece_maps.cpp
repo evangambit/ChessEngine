@@ -4,7 +4,7 @@
 
 namespace ChessEngine {
 
-int32_t const *PieceMaps::weights(ColoredPiece cp, Square sq) const {
+int32_t const *PieceMaps::weights(ColoredPiece cp, SafeSquare sq) const {
   assert(cp >= 0);
   assert(cp < 13);
   assert(sq >= 0);

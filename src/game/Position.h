@@ -182,7 +182,7 @@ class Position {
     return isDraw;
   }
 
-  inline void increment_piece_map(ColoredPiece cp, Square sq) {
+  inline void increment_piece_map(ColoredPiece cp, SafeSquare sq) {
     int32_t const *w = pieceMaps_->weights(cp, sq);
     for (int i = 0; i < PieceMapType::PieceMapTypeCount; ++i) {
       pieceMapScores[i] += w[i];
@@ -194,7 +194,7 @@ class Position {
     }
     #endif
   }
-  inline void decrement_piece_map(ColoredPiece cp, Square sq) {
+  inline void decrement_piece_map(ColoredPiece cp, SafeSquare sq) {
     int32_t const *w = pieceMaps_->weights(cp, sq);
     for (int i = 0; i < PieceMapType::PieceMapTypeCount; ++i) {
       pieceMapScores[i] -= w[i];
@@ -205,6 +205,15 @@ class Position {
       this->network->set_piece(cp, sq, 0);
     }
     #endif
+  }
+
+  inline void increment_piece_map(ColoredPiece cp, Square sq) {
+    assert(sq < 64);
+    increment_piece_map(cp, SafeSquare(sq));
+  }
+  inline void decrement_piece_map(ColoredPiece cp, Square sq) {
+    assert(sq < 64);
+    decrement_piece_map(cp, SafeSquare(sq));
   }
 
   void assert_valid_state() const;
@@ -246,18 +255,18 @@ namespace {
 
 // Maps (0 -> 0), (7 -> 1), (56 -> 2), and (63 -> 3)
 uint8_t four_corners_to_byte(Bitboard b) {
-  constexpr Bitboard mask = bb(0) | bb(7) | bb(56) | bb(63);
+  constexpr Bitboard mask = bb(SafeSquare::SA1) | bb(SafeSquare::SA8) | bb(SafeSquare::SH1) | bb(SafeSquare::SH8);
   return ((b & mask) * 0x1040000000000041) >> 60;
 }
 
 // Maps (4 -> {0, 1}) and (60 -> {3, 4})
 uint8_t king_starts_to_byte(Bitboard b) {
-  constexpr Bitboard mask = bb(4) | bb(60);
-  constexpr Bitboard magic = bb(6) | bb(7) | bb(60) | bb(61);
+  constexpr Bitboard mask = bb(SafeSquare::SE1) | bb(SafeSquare::SE8);
+  constexpr Bitboard magic = bb(SafeSquare(6)) | bb(SafeSquare(7)) | bb(SafeSquare(60)) | bb(SafeSquare(61));
   return (((b & mask) >> 4) * magic) >> 60;
 }
 
-constexpr Bitboard kKingStartingPosition = bb(4) | bb(60);
+constexpr Bitboard kKingStartingPosition = bb(SafeSquare::SE1) | bb(SafeSquare::SE8);
 
 }  // namespace
 
@@ -316,8 +325,8 @@ void undo(Position *pos) {
       assert(move.from == 60);
       assert(move.to == 62 || move.to == 58);
     }
-    Square rookDestination = Square((uint16_t(move.from) + uint16_t(move.to)) / 2);
-    Square rookOrigin = Square(((uint16_t(move.to) % 8) * 7 - 14) / 4 + (MOVER_TURN == Color::WHITE ? 56 : 0));
+    SafeSquare rookDestination = SafeSquare((uint16_t(move.from) + uint16_t(move.to)) / 2);
+    SafeSquare rookOrigin = SafeSquare(((uint16_t(move.to) % 8) * 7 - 14) / 4 + (MOVER_TURN == Color::WHITE ? 56 : 0));
 
     Bitboard rookDestinationBB = bb(rookDestination);
     Bitboard rookOriginBB = bb(rookOrigin);

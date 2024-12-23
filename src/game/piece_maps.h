@@ -25,7 +25,7 @@ struct PieceMaps {
     }
   }
 
-  int32_t const *weights(ColoredPiece cp, Square sq) const;
+  int32_t const *weights(ColoredPiece cp, SafeSquare sq) const;
 
   void save_weights_to_file(std::ostream& myfile) {
     for (size_t k = 0; k < PieceMapType::PieceMapTypeCount; ++k) {
