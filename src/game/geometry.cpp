@@ -187,6 +187,11 @@ Location square2location(Square sq) {
   return Location(1) << sq;
 }
 
+Location square2location(SafeSquare sq) {
+  assert(sq < 64);  // sq is valid
+  return Location(1) << sq;
+}
+
 void assert_valid_square(Square sq) {
   assert(sq >= 0 && sq < kNumSquares);
 }

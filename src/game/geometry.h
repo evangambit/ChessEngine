@@ -90,6 +90,17 @@ enum Square : uint8_t {
   NO_SQUARE,
 };
 
+enum SafeSquare : uint8_t {
+  SA8, SB8, SC8, SD8, SE8, SF8, SG8, SH8,
+  SA7, SB7, SC7, SD7, SE7, SF7, SG7, SH7,
+  SA6, SB6, SC6, SD6, SE6, SF6, SG6, SH6,
+  SA5, SB5, SC5, SD5, SE5, SF5, SG5, SH5,
+  SA4, SB4, SC4, SD4, SE4, SF4, SG4, SH4,
+  SA3, SB3, SC3, SD3, SE3, SF3, SG3, SH3,
+  SA2, SB2, SC2, SD2, SE2, SF2, SG2, SH2,
+  SA1, SB1, SC1, SD1, SE1, SF1, SG1, SH1,
+};
+
 constexpr Bitboard kMainWhiteDiagonal = 0x8040201008040201;
 constexpr Bitboard kMainBlackDiagonal = 0x10204081020408;
 
@@ -171,6 +182,8 @@ constexpr Direction opposite_dir() {
 
 
 Location square2location(Square sq);
+
+Location square2location(SafeSquare sq);
 
 int8_t king_dist(Square sq1, Square sq2);
 
