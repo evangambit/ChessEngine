@@ -39,7 +39,7 @@ Bitboard compute_rooklike_targets(Bitboard rookLikePieces, const Bitboard occupi
   Bitboard r = kEmptyBitboard;
 
   while (rookLikePieces) {
-    const SafeSquare from = (SafeSquare)pop_lsb(rookLikePieces);
+    const SafeSquare from = pop_lsb_i_promise_board_is_not_empty(rookLikePieces);
     r |= compute_single_rook_moves(from, occupied);
   }
 
@@ -87,7 +87,7 @@ ExtMove *compute_rook_like_moves(const Position& pos, ExtMove *moves, Bitboard t
   rookLikePieces &= ~(pm.northeast | pm.northwest);
 
   while (rookLikePieces) {
-    const SafeSquare from = (SafeSquare)pop_lsb(rookLikePieces);
+    const SafeSquare from = pop_lsb_i_promise_board_is_not_empty(rookLikePieces);
     const Piece piece = cp2p(pos.tiles_[from]);
     Location fromLoc = square2location(from);
     const unsigned y = from / 8;
@@ -124,7 +124,7 @@ ExtMove *compute_rook_like_moves(const Position& pos, ExtMove *moves, Bitboard t
     tos &= required;
 
     while (tos) {
-      SafeSquare to = (SafeSquare)pop_lsb(tos);
+      SafeSquare to = pop_lsb_i_promise_board_is_not_empty(tos);
       *moves++ = ExtMove(piece, pos.tiles_[to], Move{from, to, 0, MoveType::NORMAL});
     }
 

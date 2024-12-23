@@ -256,7 +256,7 @@ Bitboard compute_bishoplike_targets(Bitboard bishopLikePieces, const Bitboard oc
   Bitboard r = kEmptyBitboard;
 
   while (bishopLikePieces) {
-    const SafeSquare from = (SafeSquare)pop_lsb(bishopLikePieces);
+    const SafeSquare from = pop_lsb_i_promise_board_is_not_empty(bishopLikePieces);
     Location fromLoc = square2location(from);
 
     {  // Southeast/Northwest diagonal.
@@ -310,7 +310,7 @@ ExtMove *compute_bishop_like_moves(const Position& pos, ExtMove *moves, Bitboard
   bishopLikePieces &= ~(pm.horizontal | pm.vertical);
 
   while (bishopLikePieces) {
-    const SafeSquare from = (SafeSquare)pop_lsb(bishopLikePieces);
+    const SafeSquare from = pop_lsb_i_promise_board_is_not_empty(bishopLikePieces);
     const Piece piece = cp2p(pos.tiles_[from]);
     Location fromLoc = square2location(from);
 
@@ -346,7 +346,7 @@ ExtMove *compute_bishop_like_moves(const Position& pos, ExtMove *moves, Bitboard
     }
 
     while (tos) {
-      SafeSquare to = (SafeSquare)pop_lsb(tos);
+      SafeSquare to = pop_lsb_i_promise_board_is_not_empty(tos);
       *moves++ = ExtMove(piece, pos.tiles_[to], Move{from, to, 0, MoveType::NORMAL});
     }
   }

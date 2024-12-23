@@ -72,7 +72,7 @@ ExtMove *compute_pawn_moves(const Position& pos, ExtMove *moves, Bitboard target
     promoting = b1 & promotionRow;
     b1 &= ~promoting;
     while (promoting) {
-      SafeSquare to = (SafeSquare)pop_lsb(promoting);
+      SafeSquare to = pop_lsb_i_promise_board_is_not_empty(promoting);
       if (MGT != MoveGenType::CHECKS_AND_CAPTURES) {
         *moves++ = ExtMove(Piece::PAWN, Move{to - FORWARD, to, 0, MoveType::PROMOTION});
         *moves++ = ExtMove(Piece::PAWN, Move{to - FORWARD, to, 1, MoveType::PROMOTION});
@@ -82,11 +82,11 @@ ExtMove *compute_pawn_moves(const Position& pos, ExtMove *moves, Bitboard target
     }
 
     while (b1) {
-      SafeSquare to = (SafeSquare)pop_lsb(b1);
+      SafeSquare to = pop_lsb_i_promise_board_is_not_empty(b1);
       *moves++ = ExtMove(Piece::PAWN, Move{to - FORWARD, to, 0, MoveType::NORMAL});
     }
     while (b2) {
-      SafeSquare to = (SafeSquare)pop_lsb(b2);
+      SafeSquare to = pop_lsb_i_promise_board_is_not_empty(b2);
       *moves++ = ExtMove(Piece::PAWN, Move{to - FORWARD - FORWARD, to, 0, MoveType::NORMAL});
     }
   }
@@ -103,7 +103,7 @@ ExtMove *compute_pawn_moves(const Position& pos, ExtMove *moves, Bitboard target
     promoting = b1 & promotionRow;
     b1 &= ~promoting;
     while (promoting) {
-      SafeSquare to = (SafeSquare)pop_lsb(promoting);
+      SafeSquare to = pop_lsb_i_promise_board_is_not_empty(promoting);
       ColoredPiece capture = pos.tiles_[to];
       if (MGT != MoveGenType::CHECKS_AND_CAPTURES) {
         *moves++ = ExtMove(Piece::PAWN, capture, Move{to - CAPTURE_NE, to, 0, MoveType::PROMOTION});
@@ -113,7 +113,7 @@ ExtMove *compute_pawn_moves(const Position& pos, ExtMove *moves, Bitboard target
       *moves++ = ExtMove(Piece::PAWN, capture, Move{to - CAPTURE_NE, to, 3, MoveType::PROMOTION});
     }
     while (b1) {
-      SafeSquare to = (SafeSquare)pop_lsb(b1);
+      SafeSquare to = pop_lsb_i_promise_board_is_not_empty(b1);
       *moves++ = ExtMove(Piece::PAWN, pos.tiles_[to], Move{to - CAPTURE_NE, to, 0, MoveType::NORMAL});
     }
 
@@ -122,7 +122,7 @@ ExtMove *compute_pawn_moves(const Position& pos, ExtMove *moves, Bitboard target
     promoting = b1 & promotionRow;
     b1 &= ~promoting;
     while (promoting) {
-      SafeSquare to = (SafeSquare)pop_lsb(promoting);
+      SafeSquare to = pop_lsb_i_promise_board_is_not_empty(promoting);
       ColoredPiece capture = pos.tiles_[to];
       *moves++ = ExtMove(Piece::PAWN, capture, Move{to - CAPTURE_NW, to, 0, MoveType::PROMOTION});
       *moves++ = ExtMove(Piece::PAWN, capture, Move{to - CAPTURE_NW, to, 1, MoveType::PROMOTION});
@@ -130,7 +130,7 @@ ExtMove *compute_pawn_moves(const Position& pos, ExtMove *moves, Bitboard target
       *moves++ = ExtMove(Piece::PAWN, capture, Move{to - CAPTURE_NW, to, 3, MoveType::PROMOTION});
     }
     while (b1) {
-      SafeSquare to = (SafeSquare)pop_lsb(b1);
+      SafeSquare to = pop_lsb_i_promise_board_is_not_empty(b1);
       ColoredPiece capture = pos.tiles_[to];
       *moves++ = ExtMove(Piece::PAWN, capture, Move{to - CAPTURE_NW, to, 0, MoveType::NORMAL});
     }

@@ -107,7 +107,7 @@ int static_exchange(Position *pos) {
   Bitboard ourKnights = pos->pieceBitboards_[coloredPiece<US, Piece::KNIGHT>()];
   const Bitboard theirRooks = pos->pieceBitboards_[coloredPiece<THEM, Piece::ROOK>()];
   while (ourKnights) {
-    const SafeSquare sq = (SafeSquare)pop_lsb(ourKnights);
+    const SafeSquare sq = pop_lsb_i_promise_board_is_not_empty(ourKnights);
     const Bitboard to = kKnightMoves[sq] & theirRooks;
     if (to) {
       simple_make_move<US>(pos, sq, lsb_i_promise_board_is_not_empty(to));

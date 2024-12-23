@@ -259,11 +259,6 @@ extern const int8_t kDistToCorner[64];
 constexpr SafeSquare operator+(SafeSquare s, Direction d) { return SafeSquare(int(s) + int(d)); }
 constexpr SafeSquare operator-(SafeSquare s, Direction d) { return SafeSquare(int(s) - int(d)); }
 
-inline UnsafeSquare lsb(Bitboard b) {
-  assert(b != 0);
-  return UnsafeSquare(__builtin_ctzll(b));
-}
-
 inline SafeSquare lsb_i_promise_board_is_not_empty(Bitboard b) {
   assert(b != 0);
   return SafeSquare(__builtin_ctzll(b));
@@ -290,9 +285,9 @@ inline UnsafeSquare msb_or(Bitboard b, UnsafeSquare defaultValue) {
   return select<UnsafeSquare>(b != 0, UnsafeSquare(63 ^ __builtin_clzll(b)), defaultValue);
 }
 
-inline UnsafeSquare pop_lsb(Bitboard& b) {
+inline SafeSquare pop_lsb_i_promise_board_is_not_empty(Bitboard& b) {
   assert(b != 0);
-  UnsafeSquare s = lsb(b);
+  SafeSquare s = SafeSquare(__builtin_ctzll(b));
   b &= b - 1;
   return s;
 }

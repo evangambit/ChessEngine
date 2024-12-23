@@ -96,7 +96,7 @@ ExtMove *compute_king_moves(const Position& pos, ExtMove *moves, Bitboard target
   const Bitboard allPieces = pos.colorBitboards_[Color::WHITE] | pos.colorBitboards_[Color::BLACK];
   Bitboard kings = pos.pieceBitboards_[cp];
   while (kings) {
-    const SafeSquare from = (SafeSquare)pop_lsb(kings);
+    const SafeSquare from = pop_lsb_i_promise_board_is_not_empty(kings);
     Bitboard tos = kKingMoves[from] & target;
     if (MGT == MoveGenType::ALL_MOVES) {
       tos &= notfriends;
@@ -104,7 +104,7 @@ ExtMove *compute_king_moves(const Position& pos, ExtMove *moves, Bitboard target
       tos &= enemies;
     }
     while (tos) {
-      SafeSquare to = (SafeSquare)pop_lsb(tos);
+      SafeSquare to = pop_lsb_i_promise_board_is_not_empty(tos);
       *moves++ = ExtMove(Piece::KING, pos.tiles_[to], Move{from, to, 0, MoveType::NORMAL});
     }
   }

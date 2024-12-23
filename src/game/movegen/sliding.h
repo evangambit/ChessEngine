@@ -308,7 +308,7 @@ uint8_t kPinLookup[8*256*256];
 
 uint8_t sliding_moves(uint8_t loc, uint8_t occ) {
   assert(std::popcount(loc) == 1);
-  return kSlideLookup[256 * lsb(loc) + occ];
+  return kSlideLookup[256 * __builtin_ctzll(loc) + occ];
 }
 
 void initialize_sliding() {
