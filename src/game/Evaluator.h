@@ -623,10 +623,10 @@ struct Evaluator {
       constexpr Bitboard kOurBlackCorner = (US == Color::BLACK ? kWhiteQueenCorner : kBlackKingCorner);
       constexpr Bitboard kTheirWhiteCorner = (US != Color::WHITE ? kWhiteKingCorner : kBlackQueenCorner);
       constexpr Bitboard kTheirBlackCorner = (US != Color::BLACK ? kWhiteQueenCorner : kBlackKingCorner);
-      constexpr Bitboard ourWhiteFianchettoPawn = bb(US == Color::WHITE ? Square::G2 : Square::B7);
-      constexpr Bitboard ourBlackFianchettoPawn = bb(US == Color::WHITE ? Square::B2 : Square::G7);
-      constexpr Bitboard theirWhiteFianchettoPawn = bb(US != Color::WHITE ? Square::G2 : Square::B7);
-      constexpr Bitboard theirBlackFianchettoPawn = bb(US != Color::WHITE ? Square::B2 : Square::G7);
+      constexpr Bitboard ourWhiteFianchettoPawn = bb(US == Color::WHITE ? SafeSquare::SG2 : SafeSquare::SB7);
+      constexpr Bitboard ourBlackFianchettoPawn = bb(US == Color::WHITE ? SafeSquare::SB2 : SafeSquare::SG7);
+      constexpr Bitboard theirWhiteFianchettoPawn = bb(US != Color::WHITE ? SafeSquare::SG2 : SafeSquare::SB7);
+      constexpr Bitboard theirBlackFianchettoPawn = bb(US != Color::WHITE ? SafeSquare::SB2 : SafeSquare::SG7);
       features[EF::MISSING_FIANCHETTO_BISHOP] = 0;
       features[EF::MISSING_FIANCHETTO_BISHOP] += ((ourKings & kOurWhiteCorner) > 0) && ((kMainWhiteDiagonal & ourBishops) == 0) && ((kWhiteSquares & theirBishops) > 0) && ((ourPawns & ourWhiteFianchettoPawn) == 0);
       features[EF::MISSING_FIANCHETTO_BISHOP] += ((ourKings & kOurBlackCorner) > 0) && ((kMainBlackDiagonal & ourBishops) == 0) && ((kBlackSquares & theirBishops) > 0) && ((ourPawns & ourBlackFianchettoPawn) == 0);
@@ -856,12 +856,12 @@ struct Evaluator {
     // Bonus for king having pawns in front of him, or having pawns in front of him once he castles.
     features[EF::KING_HOME_QUALITY] = std::popcount(kKingHome[ourKingSq] & ourPawns) - std::popcount(kKingHome[theirKingSq] & theirPawns);
     const Evaluation whitePotentialHome = std::max(
-      value_or_zero((cr & kCastlingRights_WhiteKing) > 0, std::popcount(kKingHome[Square::G1] & ourPawns)),
-      value_or_zero((cr & kCastlingRights_WhiteQueen) > 0, std::popcount(kKingHome[Square::B1] & ourPawns))
+      value_or_zero((cr & kCastlingRights_WhiteKing) > 0, std::popcount(kKingHome[SafeSquare::SG1] & ourPawns)),
+      value_or_zero((cr & kCastlingRights_WhiteQueen) > 0, std::popcount(kKingHome[SafeSquare::SB1] & ourPawns))
     );
     const Evaluation blackPotentialHome = std::max(
-      value_or_zero((cr & kCastlingRights_BlackKing) > 0, std::popcount(kKingHome[Square::G8] & theirPawns)),
-      value_or_zero((cr & kCastlingRights_BlackQueen) > 0, std::popcount(kKingHome[Square::B8] & theirPawns))
+      value_or_zero((cr & kCastlingRights_BlackKing) > 0, std::popcount(kKingHome[SafeSquare::SG8] & theirPawns)),
+      value_or_zero((cr & kCastlingRights_BlackQueen) > 0, std::popcount(kKingHome[SafeSquare::SB8] & theirPawns))
     );
     if (US == Color::WHITE) {
       features[EF::KING_HOME_QUALITY] += whitePotentialHome - blackPotentialHome;
