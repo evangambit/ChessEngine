@@ -224,7 +224,7 @@ extern Bitboard kKingHome[64];
 
 void initialize_geometry();
 
-void assert_valid_square(Square sq);
+void assert_valid_square(unsigned sq);
 
 void assert_valid_location(Location loc);
 

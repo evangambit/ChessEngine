@@ -167,9 +167,9 @@ class Position {
     return r;
   }
 
-  void place_piece_(ColoredPiece cp, Square square);
+  void place_piece_(ColoredPiece cp, SafeSquare square);
 
-  void remove_piece_(Square square);
+  void remove_piece_(SafeSquare square);
 
   bool is_material_draw() const {
     const Bitboard everyone = this->colorBitboards_[Color::WHITE] | this->colorBitboards_[Color::BLACK];

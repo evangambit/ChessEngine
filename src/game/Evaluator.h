@@ -363,7 +363,7 @@ inline Bitboard _king_fill(Bitboard b) {
       |  shift<Direction::SOUTH_WEST>(b);
 }
 template<size_t N>
-Flood<N> king_flood(Square kingSq, Bitboard blocked) {
+Flood<N> king_flood(SafeSquare kingSq, Bitboard blocked) {
   Flood<N> result;
   result[0] = bb(kingSq);
   for (int i = 1; i < N; ++i) {

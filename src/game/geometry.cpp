@@ -192,7 +192,7 @@ Location square2location(SafeSquare sq) {
   return Location(1) << sq;
 }
 
-void assert_valid_square(Square sq) {
+void assert_valid_square(unsigned sq) {
   assert(sq >= 0 && sq < kNumSquares);
 }
 

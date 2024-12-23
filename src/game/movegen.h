@@ -20,7 +20,7 @@ Bitboard kFreePieceMoves[Piece::NUM_PIECES][kNumSquares];
 
 void initialize_movegen() {
   initialize_sliding();
-  for (Square sq = Square(0); sq < kNumSquares; sq = Square(sq + 1)) {
+  for (SafeSquare sq = SafeSquare(0); sq < kNumSquares; sq = SafeSquare(sq + 1)) {
     const Bitboard b = bb(sq);
     kFreePieceMoves[Piece::NO_PIECE][sq] = kEmptyBitboard;
     kFreePieceMoves[Piece::PAWN][sq] = kKingMoves[sq];  // Obviously this is wrong, but what can you do?
@@ -35,7 +35,7 @@ void initialize_movegen() {
 namespace StaticExchangeAnalysis {
 
 template<Color US>
-void simple_make_move(Position *pos, Square from, Square to) {
+void simple_make_move(Position *pos, SafeSquare from, SafeSquare to) {
   const ColoredPiece movingCP = pos->tiles_[from];
   const ColoredPiece capturedPieceCP = pos->tiles_[to];
   pos->tiles_[to] = movingCP;
@@ -46,7 +46,7 @@ void simple_make_move(Position *pos, Square from, Square to) {
 }
 
 template<Color US>
-void simple_undo_move(Position *pos, Square from, Square to, ColoredPiece capturedPiece) {
+void simple_undo_move(Position *pos, SafeSquare from, SafeSquare to, ColoredPiece capturedPiece) {
   const ColoredPiece movingCP = pos->tiles_[to];
   pos->tiles_[to] = capturedPiece;
   pos->tiles_[from] = movingCP;
@@ -77,7 +77,7 @@ int static_exchange(Position *pos) {
     for (Piece piece = Piece::PAWN; piece <= Piece::QUEEN; piece = Piece(piece + 1)) {
       ColoredPiece cp = coloredPiece<US>(piece);
       if (attackers & pos->pieceBitboards_[cp]) {
-        Square attackersSq = lsb(attackers & pos->pieceBitboards_[cp]);
+        SafeSquare attackersSq = safe_lsb(attackers & pos->pieceBitboards_[cp]);
         simple_make_move<US>(pos, attackersSq, queenSq);
         int r = kPieceValues[Piece::QUEEN] - static_exchange<THEM>(pos);
         simple_undo_move<US>(pos, attackersSq, queenSq, theirQueenCP);
@@ -93,9 +93,11 @@ int static_exchange(Position *pos) {
     if (!vulnerablePieces) {
       continue;
     }
-    Square targetSq = lsb(vulnerablePieces);
+    SafeSquare targetSq = safe_lsb(vulnerablePieces);
     Location targetLoc = bb(targetSq);
-    Square attackersSq = lsb(pos->pieceBitboards_[ourPawnCP] & (shift<southeast>(targetLoc) | shift<southwest>(targetLoc)));
+    Bitboard attackPawns = pos->pieceBitboards_[ourPawnCP] & (shift<southeast>(targetLoc) | shift<southwest>(targetLoc));
+    assert(attackPawns);  // Should be guaranteed by "!vulnerablePieces" short-circuit.
+    SafeSquare attackersSq = safe_lsb(attackPawns);
     simple_make_move<US>(pos, attackersSq, targetSq);
     int r = kPieceValues[piece] - static_exchange<THEM>(pos);
     simple_undo_move<US>(pos, attackersSq, targetSq, coloredPiece<THEM>(piece));
@@ -105,7 +107,7 @@ int static_exchange(Position *pos) {
   Bitboard ourKnights = pos->pieceBitboards_[coloredPiece<US, Piece::KNIGHT>()];
   const Bitboard theirRooks = pos->pieceBitboards_[coloredPiece<THEM, Piece::ROOK>()];
   while (ourKnights) {
-    const Square sq = pop_lsb(ourKnights);
+    const SafeSquare sq = (SafeSquare)pop_lsb(ourKnights);
     const Bitboard to = kKnightMoves[sq] & theirRooks;
     if (to) {
       simple_make_move<US>(pos, sq, lsb(to));

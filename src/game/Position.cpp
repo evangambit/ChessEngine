@@ -142,7 +142,7 @@ Position::Position(const std::string& fen) : pieceMaps_(&kZeroPieceMap) {
       x += (c - '0');
       continue;
     }
-    this->place_piece_(char_to_colored_piece(c), Square(8 * y + x));
+    this->place_piece_(char_to_colored_piece(c), SafeSquare(8 * y + x));
     ++x;
   }
   if (y != 7 || x != 8) {
@@ -187,7 +187,7 @@ Position::Position(const std::string& fen) : pieceMaps_(&kZeroPieceMap) {
   wholeMoveCounter_ = std::stoi(parts[5]);
 }
 
-void Position::place_piece_(ColoredPiece cp, Square square) {
+void Position::place_piece_(ColoredPiece cp, SafeSquare square) {
   assert_valid_square(square);
   const Location loc = square2location(square);
   assert(tiles_[square] == ColoredPiece::NO_COLORED_PIECE);
@@ -198,7 +198,7 @@ void Position::place_piece_(ColoredPiece cp, Square square) {
   this->increment_piece_map(cp, square);
 }
 
-void Position::remove_piece_(Square square) {
+void Position::remove_piece_(SafeSquare square) {
   assert_valid_square(square);
   const Location loc = square2location(square);
 
