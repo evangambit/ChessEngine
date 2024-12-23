@@ -76,7 +76,7 @@ const ExtMove kNullExtMove = ExtMove(Piece::NO_PIECE, kNullMove);
 struct PositionState {
   CastlingRights castlingRights;
   uint8_t halfMoveCounter;
-  Square epSquare;
+  UnsafeSquare epSquare;
   uint64_t hash;  // Required for 3-move draw.
 };
 
@@ -297,7 +297,7 @@ void undo(Position *pos) {
   const ColoredPiece promoPiece = move.moveType == MoveType::PROMOTION ? coloredPiece<MOVER_TURN>(Piece(move.promotion + 2)) : movingPiece;
   const Location f = square2location(move.from);
   const Location t = square2location(move.to);
-  const Square epSquare = pos->currentState_.epSquare;
+  const UnsafeSquare epSquare = pos->currentState_.epSquare;
 
   pos->pieceBitboards_[movingPiece] |= f;
   pos->pieceBitboards_[promoPiece] &= ~t;
@@ -345,7 +345,7 @@ void undo(Position *pos) {
     pos->decrement_piece_map(myRookPiece, rookDestination);
   }
 
-  if (Square(move.to) == epSquare && movingPiece == coloredPiece<MOVER_TURN, Piece::PAWN>()) {
+  if (UnsafeSquare(move.to) == epSquare && movingPiece == coloredPiece<MOVER_TURN, Piece::PAWN>()) {
     // TODO: get rid of if statement
     if (MOVER_TURN == Color::BLACK) {
       assert(move.from / 8 == 4);
@@ -402,7 +402,7 @@ void make_nullmove(Position *pos) {
 
   pos->history_.push_back(ExtMove(Piece::NO_PIECE, ColoredPiece::NO_COLORED_PIECE, kNullMove));
 
-  pos->currentState_.epSquare = Square::NO_SQUARE;
+  pos->currentState_.epSquare = UnsafeSquare::UNO_SQUARE;
 
   if (TURN == Color::BLACK) {
     pos->wholeMoveCounter_ += 1;
@@ -457,13 +457,13 @@ void make_move(Position *pos, Move move) {
 
   // TODO: Set epSquare to NO_SQUARE if there is now way your opponent can play en passant next move.
   //       This will make it easier to count 3-fold draw.
-  const Square epSquare = pos->currentState_.epSquare;
+  const UnsafeSquare epSquare = pos->currentState_.epSquare;
   if (TURN == Color::WHITE) {
     bool cond = (movingPiece == coloredPiece<TURN, Piece::PAWN>() && move.from - move.to == 16);
-    pos->currentState_.epSquare = Square(cond * (move.to + 8) + (1 - cond) * Square::NO_SQUARE);
+    pos->currentState_.epSquare = UnsafeSquare(cond * (move.to + 8) + (1 - cond) * UnsafeSquare::UNO_SQUARE);
   } else {
     bool cond = (movingPiece == coloredPiece<TURN, Piece::PAWN>() && move.to - move.from == 16);
-    pos->currentState_.epSquare = Square(cond * (move.to - 8) + (1 - cond) * Square::NO_SQUARE);
+    pos->currentState_.epSquare = UnsafeSquare(cond * (move.to - 8) + (1 - cond) * UnsafeSquare::UNO_SQUARE);
   }
 
   // Remove castling rights if a king moves. both lines are equivalent but the
@@ -524,7 +524,7 @@ void make_move(Position *pos, Move move) {
     pos->decrement_piece_map(myRookPiece, rookOrigin);
   }
 
-  if (Square(move.to) == epSquare && movingPiece == coloredPiece<TURN, Piece::PAWN>()) {
+  if (UnsafeSquare(move.to) == epSquare && movingPiece == coloredPiece<TURN, Piece::PAWN>()) {
     // TODO: get rid of if statement
     if (TURN == Color::BLACK) {
       assert(move.from / 8 == 4);

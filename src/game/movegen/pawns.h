@@ -42,7 +42,9 @@ ExtMove *compute_pawn_moves(const Position& pos, ExtMove *moves, Bitboard target
 
   Bitboard enemies = pos.colorBitboards_[opposite_color<US>()];
   const Bitboard emptySquares = ~(pos.colorBitboards_[Color::BLACK] | pos.colorBitboards_[Color::WHITE]);
-  const Location epLoc = square2location(pos.currentState_.epSquare);
+
+  // TODO: Technically "square2location" with an unsafe square is undefined behavior.
+  const Location epLoc = value_or_zero(pos.currentState_.epSquare < kNumSquares, square2location(Square(pos.currentState_.epSquare)));
 
   const Bitboard pawns = pos.pieceBitboards_[cp] & ~pm.horizontal;
 

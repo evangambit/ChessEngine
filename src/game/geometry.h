@@ -228,9 +228,9 @@ void assert_valid_square(unsigned sq);
 
 void assert_valid_location(Location loc);
 
-Square string_to_square(const std::string& string);
+UnsafeSquare string_to_square(const std::string& string);
 
-std::string square_to_string(Square sq);
+std::string square_to_string(UnsafeSquare sq);
 
 std::string square_to_string(SafeSquare sq);
 

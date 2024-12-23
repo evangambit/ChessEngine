@@ -200,9 +200,9 @@ void assert_valid_location(Location loc) {
   assert((loc & (loc - 1)) == 0);
 }
 
-Square string_to_square(const std::string& string) {
+UnsafeSquare string_to_square(const std::string& string) {
   if (string == "-") {
-    return Square::NO_SQUARE;
+    return UnsafeSquare::UNO_SQUARE;
   }
   if (string.size() != 2) {
     throw std::runtime_error("string_to_square error 1");
@@ -213,13 +213,15 @@ Square string_to_square(const std::string& string) {
   if (string[1] < '1' || string[1] > '8') {
     throw std::runtime_error("string_to_square error 3");
   }
-  Square sq = Square((7 - (string[1] - '1')) * 8 + (string[0] - 'a'));
-  assert(sq >= 0 && sq < kNumSquares);
+  UnsafeSquare sq = UnsafeSquare((7 - (string[1] - '1')) * 8 + (string[0] - 'a'));
+  if (sq < 0 || sq >= kNumSquares) {
+    throw std::runtime_error("Bad square");
+  }
   return sq;
 }
 
-std::string square_to_string(Square sq) {
-  if (sq == Square::NO_SQUARE) {
+std::string square_to_string(UnsafeSquare sq) {
+  if (sq == UnsafeSquare::UNO_SQUARE) {
     return "-";
   }
   assert_valid_square(sq);
@@ -230,7 +232,8 @@ std::string square_to_string(Square sq) {
 }
 
 std::string square_to_string(SafeSquare sq) {
-  return square_to_string(Square(sq));
+  assert_valid_square(sq);
+  return square_to_string(UnsafeSquare(sq));
 }
 
 Bitboard southFill(Bitboard b) {

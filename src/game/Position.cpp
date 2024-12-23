@@ -112,7 +112,7 @@ void Position::_empty_() {
   std::fill_n(tiles_, kNumSquares, ColoredPiece::NO_COLORED_PIECE);
   colorBitboards_[Color::WHITE] = kEmptyBitboard;
   colorBitboards_[Color::BLACK] = kEmptyBitboard;
-  currentState_.epSquare = Square::NO_SQUARE;
+  currentState_.epSquare = UnsafeSquare::UNO_SQUARE;
   for (int i = 0; i < PieceMapType::PieceMapTypeCount; ++i) {
     pieceMapScores[i] = 0;
   }
