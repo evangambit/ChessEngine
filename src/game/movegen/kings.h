@@ -82,6 +82,11 @@ Bitboard compute_king_targets(const Position& pos, Square sq) {
   return kKingMoves[sq];
 }
 
+template<Color US>
+Bitboard compute_king_targets(const Position& pos, SafeSquare sq) {
+  return kKingMoves[sq];
+}
+
 template<Color US, MoveGenType MGT, bool inCheck>
 ExtMove *compute_king_moves(const Position& pos, ExtMove *moves, Bitboard target) {
   constexpr ColoredPiece cp = (US == Color::WHITE ? ColoredPiece::WHITE_KING : ColoredPiece::BLACK_KING);

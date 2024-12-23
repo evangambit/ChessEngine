@@ -8,7 +8,7 @@ namespace ChessEngine {
 // Returns 2 if white wins
 // Returns 0 if white draws
 // Returns 1 if unknown
-int known_kpvk_result(Square yourKing, Square theirKing, Square yourPawn, bool yourMove) {
+int known_kpvk_result(SafeSquare yourKing, SafeSquare theirKing, SafeSquare yourPawn, bool yourMove) {
   if (is_kpvk_win(yourKing, theirKing, yourPawn, yourMove)) {
     return 2;
   } else if (is_kpvk_draw(yourKing, theirKing, yourPawn, yourMove)) {
@@ -18,7 +18,7 @@ int known_kpvk_result(Square yourKing, Square theirKing, Square yourPawn, bool y
   }
 }
 
-bool is_kpvk_win(Square yourKing, Square theirKing, Square yourPawn, bool yourMove) {
+bool is_kpvk_win(SafeSquare yourKing, SafeSquare theirKing, SafeSquare yourPawn, bool yourMove) {
   const int wx = yourKing % 8;
   const int wy = yourKing / 8;
   const int bx = theirKing % 8;
@@ -46,7 +46,7 @@ bool is_kpvk_win(Square yourKing, Square theirKing, Square yourPawn, bool yourMo
   return isWinning;
 }
 
-bool is_kpvk_draw(Square yourKing, Square theirKing, Square yourPawn, bool yourMove) {
+bool is_kpvk_draw(SafeSquare yourKing, SafeSquare theirKing, SafeSquare yourPawn, bool yourMove) {
   const int wx = yourKing % 8;
   const int wy = yourKing / 8;
   const int bx = theirKing % 8;

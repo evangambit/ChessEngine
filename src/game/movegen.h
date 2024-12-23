@@ -224,6 +224,16 @@ Bitboard compute_attackers(const Position& pos, const Square sq) {
   return attackers;
 }
 
+template<Color US>
+Bitboard can_enemy_attack(const Position& pos, const SafeSquare sq) {
+  return can_enemy_attack<US>(pos, Square(sq));
+}
+
+template<Color US>
+Bitboard compute_attackers(const Position& pos, const SafeSquare sq) {
+  return compute_attackers<US>(pos, Square(sq));
+}
+
 struct CheckMap {
   Bitboard data[Piece::KING + 1];
 };
@@ -283,6 +293,11 @@ CheckMap compute_potential_attackers(const Position& pos, const Square sq) {
   return r;
 }
 
+template<Color US>
+CheckMap compute_potential_attackers(const Position& pos, const SafeSquare sq) {
+  return compute_potential_attackers<US>(pos, Square(sq));
+}
+
 PinMasks compute_pin_masks(const Square sq, const Bitboard occ, const Bitboard enemyRooks, const Bitboard enemyBishops);
 
 template<Color US>
@@ -296,6 +311,11 @@ PinMasks compute_pin_masks(const Position& pos, const Square sq) {
   const Bitboard enemyBishops = pos.pieceBitboards_[coloredPiece<THEM, Piece::BISHOP>()] | pos.pieceBitboards_[coloredPiece<THEM, Piece::QUEEN>()];
 
   return compute_pin_masks(sq, occ, enemyRooks, enemyBishops);
+}
+
+template<Color US>
+PinMasks compute_pin_masks(const Position& pos, const SafeSquare sq) {
+  return compute_pin_masks<US>(pos, Square(sq));
 }
 
 PinMasks compute_pin_masks(const Square sq, const Bitboard occ, const Bitboard enemyRooks, const Bitboard enemyBishops) {

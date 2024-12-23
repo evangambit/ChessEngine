@@ -277,12 +277,26 @@ inline Square lsb(Bitboard b) {
   return Square(__builtin_ctzll(b));
 }
 
+inline SafeSquare safe_lsb(Bitboard b) {
+  assert(b != 0);
+  return SafeSquare(__builtin_ctzll(b));
+}
+
+inline SafeSquare safe_msb(Bitboard b) {
+  assert(b != 0);
+  return SafeSquare(63 ^ __builtin_clzll(b));
+}
+
 inline Square lsb_or_none(Bitboard b) {
   return select<Square>(b != 0, Square(__builtin_ctzll(b)), Square::NO_SQUARE);
 }
 
 inline Square lsb_or(Bitboard b, Square defaultValue) {
   return select<Square>(b != 0, Square(__builtin_ctzll(b)), defaultValue);
+}
+
+inline SafeSquare lsb_or(Bitboard b, SafeSquare defaultValue) {
+  return select<SafeSquare>(b != 0, SafeSquare(__builtin_ctzll(b)), defaultValue);
 }
 
 inline Square msb(Bitboard b) {
