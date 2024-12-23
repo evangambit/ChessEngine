@@ -40,7 +40,7 @@ struct NnueNetworkInterface {
   virtual float slowforward() { return 0.0; }
   virtual float fastforward() { return 0.0; }
   virtual void load(std::string filename) {}
-  virtual void set_piece(ColoredPiece piece, Square square, float newValue) {}
+  virtual void set_piece(ColoredPiece piece, SafeSquare square, float newValue) {}
   virtual void set_index(size_t index, float newValue) {}
 };
 
@@ -62,7 +62,7 @@ struct DummyNetwork : public NnueNetworkInterface {
 
   void load(std::string filename) {}
 
-  void set_piece(ColoredPiece piece, Square square, float newValue) {
+  void set_piece(ColoredPiece piece, SafeSquare square, float newValue) {
     int y = square / 8;
     int x = square % 8;
     size_t index = (piece - 1) * 64 + y * 8 + x;
@@ -166,10 +166,9 @@ struct NnueNetwork : public NnueNetworkInterface {
     myfile.read(reinterpret_cast<char*>(b1.data()), b1.size() * sizeof(float));
   }
 
-  void set_piece(ColoredPiece piece, Square square, float newValue) {
+  void set_piece(ColoredPiece piece, SafeSquare square, float newValue) {
     assert(piece != ColoredPiece::NO_COLORED_PIECE);
-    assert(square >= 0);
-    assert(square < Square::NO_SQUARE);
+    assert_valid_square(square);
     int y = square / 8;
     int x = square % 8;
     size_t index = (piece - 1) * 64 + y * 8 + x;

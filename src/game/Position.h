@@ -138,7 +138,7 @@ class Position {
       if (cp == ColoredPiece::NO_COLORED_PIECE) {
         continue;
       }
-      network->set_piece(cp, Square(sq), 1);
+      network->set_piece(cp, SafeSquare(sq), 1);
     }
 
     network->set_index(NnueFeatures::NF_IS_WHITE_TURN, (this->turn_ == Color::WHITE));
@@ -368,7 +368,7 @@ void undo(Position *pos) {
     pos->hash_ ^= kZorbristNumbers[opposingPawn][enpassantSq];
 
     // TODO: tell network about en passant square
-    pos->increment_piece_map(opposingPawn, enpassantSq);
+    pos->increment_piece_map(opposingPawn, SafeSquare(enpassantSq));
   }
 
   #if NNUE_EVAL
