@@ -320,7 +320,7 @@ std::string EFSTR[] = {
   "OUR_KING_HAS_2_ESCAPE_SQUARES",
   "THEIR_KING_HAS_2_ESCAPE_SQUARES",
   "OPPOSITE_SIDE_KINGS_PAWN_STORM",
-  "IN_CHECK_AND_OUR_HANING_QUEENS",
+  "IN_CHECK_AND_OUR_HANGING_QUEENS",
   "PROMOTABLE_PAWN",
   "PINNED_PIECES",
   "KNOWN_KPVK_DRAW",
@@ -755,7 +755,7 @@ struct Evaluator {
       features[EF::THEIR_HANGING_PAWNS] = std::popcount(theirPawns & themHanging) && !anyOfThemHanging;
       features[EF::OUR_HANGING_PAWNS] = std::popcount(ourPawns & usHanging) && !anyOfUsHanging;
 
-      features[EF::IN_CHECK_AND_OUR_HANGING_QUEENS] = features[EF::OUR_HANGING_QUEENS] * features[EF::IN_CHECK];
+      features[EF::IN_CHECK_AND_OUR_HANGING_QUEENS] = features[EF::OUR_HANGING_QUEENS] && features[EF::IN_CHECK];
 
       const int wx = ourKingSq % 8;
       const int wy = ourKingSq / 8;
