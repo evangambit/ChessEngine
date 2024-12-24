@@ -48,7 +48,8 @@ struct Move {
   std::string uci() const;
 
   bool operator==(const Move& a) const {
-    return std::memcmp(this, &a, sizeof(Move)) == 0;
+    # 0.067 ± 0.016
+    return from == a.from && to == a.to && promotion == a.promotion && moveType == a.moveType;
   }
 };
 
