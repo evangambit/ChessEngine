@@ -89,7 +89,9 @@ struct MoveRecommender {
     plyTable[plyFromRoot].add(move);
   }
 
-  static void initialize() {}
+  void reset() {
+    std::fill_n(plyTable, 127, RecommendedMoves());
+  }
 
   RecommendedMoves plyTable[127];
 };
@@ -306,6 +308,7 @@ private:
   void clear_history_heuristic() override {
     std::fill_n(historyHeuristicTable[Color::WHITE][0][0], Piece::NUM_PIECES * 64 * 64, 0);
     std::fill_n(historyHeuristicTable[Color::BLACK][0][0], Piece::NUM_PIECES * 64 * 64, 0);
+    moveRecommender.reset();
   }
 
   SearchManager _manager;
