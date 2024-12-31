@@ -12,6 +12,50 @@ namespace {
   float leaky_relu(float x) {
     return x > 0.0 ? x : 0.01 * x;
   }
+
+  // Intepreted as <N, 1> matrix.
+  template<size_t N>
+  struct Vector {
+    Vector() : _data(new float[N]) {
+      std::fill_n(_data, N, 0.0);
+    }
+    ~Vector() {
+      delete[] _data;
+    }
+    Vector(const Vector& other) : _data(new float[N]) {
+      std::copy_n(other._data, N, _data);
+    }
+    Vector& operator=(const Vector& other) {
+      std::copy_n(other._data, N, _data);
+      return *this;
+    }
+    void zero_() {
+      std::fill_n(_data, N, 0.0);
+    }
+    Vector& operator+=(const Vector& other) {
+      for (size_t i = 0; i < N; ++i) {
+        _data[i] += other._data[i];
+      }
+      return *this;
+    }
+
+    inline float operator()(size_t i) const {
+      return _data[i];
+    }
+    inline float& operator()(size_t i) {
+      return _data[i];
+    }
+    float *data() {
+      return _data;
+    }
+    size_t size() const {
+      return N;
+    }
+
+    float *_data;
+  };
+  
+
   template<size_t ROWS, size_t COLS>
   struct Matrix {
     Matrix() : _data(new float[ROWS * COLS]) {
@@ -37,20 +81,20 @@ namespace {
       return *this;
     }
 
-    void affine(const Matrix<COLS, 1>& in, const Matrix<ROWS, 1>& bias, Matrix<ROWS, 1>& out) {
+    void affine(const Vector<COLS>& in, const Vector<ROWS>& bias, Vector<ROWS>& out) {
       for (size_t i = 0; i < ROWS; ++i) {
-        out(i, 0) = bias(i, 0);
+        out(i) = bias(i);
         for (size_t j = 0; j < COLS; ++j) {
-          out(i, 0) += (*this)(i, j) * in(j, 0);
+          out(i) += (*this)(i, j) * in(j);
         }
       }
     }
 
-    void leaky_relu_then_affine(const Matrix<COLS, 1>& in, const Matrix<ROWS, 1>& bias, Matrix<ROWS, 1>& out) {
+    void leaky_relu_then_affine(const Vector<COLS>& in, const Vector<ROWS>& bias, Vector<ROWS>& out) {
       for (size_t i = 0; i < ROWS; ++i) {
-        out(i, 0) = bias(i, 0);
+        out(i) = bias(i);
         for (size_t j = 0; j < COLS; ++j) {
-          out(i, 0) += (*this)(i, j) * leaky_relu(in(j, 0));
+          out(i) += (*this)(i, j) * leaky_relu(in(j));
         }
       }
     }
@@ -74,9 +118,9 @@ namespace {
   };
 
   template<size_t ROWS, size_t COLS>
-  void incremental_update(Matrix<ROWS, 1>& mutable_matrix, const Matrix<ROWS, COLS>& weights_matrix, size_t col, float scale) {
+  void incremental_update(Vector<ROWS>& mutable_vector, const Matrix<ROWS, COLS>& weights_matrix, size_t col, float scale) {
     for (size_t i = 0; i < ROWS; ++i) {
-      mutable_matrix(i, 0) += weights_matrix(i, col) * scale;
+      mutable_vector(i) += weights_matrix(i, col) * scale;
     }
   }
 }
@@ -152,20 +196,20 @@ struct NnueNetwork : public NnueNetworkInterface {
   static constexpr int kWidth2 = 16;
   static constexpr int kWidth3 = 1;
 
-  Matrix<kInputDim, 1> x0;  // 1 x 64*12  (768)
-  Matrix<kWidth1, kInputDim> w0;  // kInputDim x kWidth1
-  Matrix<kWidth1, 1> b0;
+  Vector<kInputDim> x0;
+  Matrix<kWidth1, kInputDim> w0;
+  Vector<kWidth1> b0;
 
-  Matrix<kWidth1, 1> x1;
-  Matrix<kWidth1, 1> x1_relu;
-  Matrix<kWidth2, kWidth1> w1;  // kWidth1 x kWidth2
-  Matrix<kWidth2, 1> b1;
+  Vector<kWidth1> x1;
+  Vector<kWidth1> x1_relu;
+  Matrix<kWidth2, kWidth1> w1;
+  Vector<kWidth2> b1;
 
-  Matrix<kWidth2, 1> x2;
-  Matrix<kWidth3, kWidth2> w2;  // kWidth2 x kWidth3
-  Matrix<kWidth3, 1> b2;
+  Vector<kWidth2> x2;
+  Matrix<kWidth3, kWidth2> w2;
+  Vector<kWidth3> b2;
 
-  Matrix<kWidth3, 1> x3;
+  Vector<kWidth3> x3;
 
   NnueNetwork() {
     // this->load("nnue-776-32-8.bin");
@@ -186,7 +230,7 @@ struct NnueNetwork : public NnueNetworkInterface {
   float fastforward() {
     w1.leaky_relu_then_affine(x1, b1, x2);
     w2.leaky_relu_then_affine(x2, b2, x3);
-    return x3(0, 0);
+    return x3(0);
   }
 
   void load(std::string filename) {
@@ -218,20 +262,12 @@ struct NnueNetwork : public NnueNetworkInterface {
   }
 
   void set_index(size_t index, float newValue) {
-    MatType delta = MatType(newValue) - x0(0, index);
+    MatType delta = MatType(newValue) - x0(index);
     if (delta == 0.0) {
       return;
     }
     x0.data()[index] += delta;
     incremental_update(x1, w0, index, delta);
-    // if (delta == 1.0) {
-    //   // x1.row(0).noalias() += w0.row(index);
-    //   x1.increment_from_col(w0, index, delta);
-    // } else if (delta == -1.0) {
-    //   x1.row(0).noalias() -= w0.row(index);
-    // } else {
-    //   x1.row(0).noalias() += w0.row(index) * MatType(delta);
-    // }
   }
 };
 
