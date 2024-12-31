@@ -1,13 +1,85 @@
 #ifndef CHESS_ENGINE_NNUE_H
 #define CHESS_ENGINE_NNUE_H
 
-#include <eigen3/Eigen/Dense>
+// #include <eigen3/Eigen/Dense>
 
 #include "utils.h"
 #include "geometry.h"
 
-using Eigen::MatrixXd;
-using Eigen::Matrix;
+#include <algorithm>
+
+namespace {
+  float leaky_relu(float x) {
+    return x > 0.0 ? x : 0.01 * x;
+  }
+  template<size_t ROWS, size_t COLS>
+  struct Matrix {
+    Matrix() : _data(new float[ROWS * COLS]) {
+      std::fill_n(_data, ROWS * COLS, 0.0);
+    }
+    ~Matrix() {
+      delete[] _data;
+    }
+    Matrix(const Matrix& other) : _data(new float[ROWS * COLS]) {
+      std::copy_n(other._data, ROWS * COLS, _data);
+    }
+    Matrix& operator=(const Matrix& other) {
+      std::copy_n(other._data, ROWS * COLS, _data);
+      return *this;
+    }
+    void zero_() {
+      std::fill_n(_data, ROWS * COLS, 0.0);
+    }
+    Matrix& operator+=(const Matrix& other) {
+      for (size_t i = 0; i < ROWS * COLS; ++i) {
+        _data[i] += other._data[i];
+      }
+      return *this;
+    }
+
+    void affine(const Matrix<COLS, 1>& in, const Matrix<ROWS, 1>& bias, Matrix<ROWS, 1>& out) {
+      for (size_t i = 0; i < ROWS; ++i) {
+        out(i, 0) = bias(i, 0);
+        for (size_t j = 0; j < COLS; ++j) {
+          out(i, 0) += (*this)(i, j) * in(j, 0);
+        }
+      }
+    }
+
+    void leaky_relu_then_affine(const Matrix<COLS, 1>& in, const Matrix<ROWS, 1>& bias, Matrix<ROWS, 1>& out) {
+      for (size_t i = 0; i < ROWS; ++i) {
+        out(i, 0) = bias(i, 0);
+        for (size_t j = 0; j < COLS; ++j) {
+          out(i, 0) += (*this)(i, j) * leaky_relu(in(j, 0));
+        }
+      }
+    }
+
+    inline float operator()(size_t i, size_t j) const {
+      return _data[i * COLS + j];
+    }
+    inline float& operator()(size_t i, size_t j) {
+      return _data[i * COLS + j];
+    }
+
+    float *data() {
+      return _data;
+    }
+
+    size_t size() const {
+      return ROWS * COLS;
+    }
+
+    float *_data;
+  };
+
+  template<size_t ROWS, size_t COLS>
+  void incremental_update(Matrix<ROWS, 1>& mutable_matrix, const Matrix<ROWS, COLS>& weights_matrix, size_t col, float scale) {
+    for (size_t i = 0; i < ROWS; ++i) {
+      mutable_matrix(i, 0) += weights_matrix(i, col) * scale;
+    }
+  }
+}
 
 namespace ChessEngine {
 
@@ -76,74 +148,44 @@ struct DummyNetwork : public NnueNetworkInterface {
 
 struct NnueNetwork : public NnueNetworkInterface {
   static constexpr int kInputDim = 12 * 8 * 8 + 8;
-  static constexpr int kWidth1 = 32;
-  static constexpr int kWidth2 = 8;
+  static constexpr int kWidth1 = 48;
+  static constexpr int kWidth2 = 16;
   static constexpr int kWidth3 = 1;
 
-  Matrix<MatType, 1, Eigen::Dynamic> x0;  // 1 x 64*12  (768)
-  Matrix<MatType, Eigen::Dynamic, kWidth1> w0;  // kInputDim x kWidth1
-  Matrix<MatType, 1, kWidth1> b0;
+  Matrix<kInputDim, 1> x0;  // 1 x 64*12  (768)
+  Matrix<kWidth1, kInputDim> w0;  // kInputDim x kWidth1
+  Matrix<kWidth1, 1> b0;
 
-  Matrix<MatType, 1, kWidth1> x1;
-  Matrix<MatType, 1, kWidth1> x1_relu;
-  Matrix<MatType, Eigen::Dynamic, kWidth2> w1;  // kWidth1 x kWidth2
-  Matrix<MatType, 1, kWidth2> b1;
+  Matrix<kWidth1, 1> x1;
+  Matrix<kWidth1, 1> x1_relu;
+  Matrix<kWidth2, kWidth1> w1;  // kWidth1 x kWidth2
+  Matrix<kWidth2, 1> b1;
 
-  Matrix<MatType, 1, kWidth2> x2;
-  Matrix<MatType, Eigen::Dynamic, kWidth3> w2;  // kWidth2 x kWidth3
-  Matrix<MatType, 1, kWidth3> b2;
+  Matrix<kWidth2, 1> x2;
+  Matrix<kWidth3, kWidth2> w2;  // kWidth2 x kWidth3
+  Matrix<kWidth3, 1> b2;
 
-  Matrix<MatType, 1, kWidth3> x3;
-
-  // info depth 1 multipv 1 score cp 1419 nodes 0 nps 0 time 4 pv d2d4
-  // info depth 2 multipv 1 score cp 1289 nodes 253 nps 14882 time 17 pv e2e4 e7e5
-  // info depth 3 multipv 1 score cp 920 nodes 610 nps 14878 time 41 pv e2e4 e7e5 d2d4 e5d4
-  // info depth 4 multipv 1 score cp 1587 nodes 2429 nps 19277 time 126 pv e2e4 c7c5 g1f3 d7d6
-  // info depth 5 multipv 1 score cp 1351 nodes 6552 nps 20284 time 323 pv e2e4 e7e5 g1f3 b8c6 f1b5
-  // info depth 6 multipv 1 score cp 1418 nodes 35967 nps 21244 time 1693 pv e2e4 e7e6 g1f3 d7d5 b1c3 d5e4 c3e4
-  // bestmove e2e4 ponder e7e6
+  Matrix<kWidth3, 1> x3;
 
   NnueNetwork() {
-    w0 = Matrix<MatType, Eigen::Dynamic, kWidth1>::Zero(NnueFeatures::NF_NUM_FEATURES, kWidth1);
-    w1 = Matrix<MatType, Eigen::Dynamic, kWidth2>::Zero(kWidth1, kWidth2);
-    w2 = Matrix<MatType, Eigen::Dynamic, kWidth3>::Zero(kWidth2, kWidth3);
-
-    x0 = Matrix<MatType, 1, Eigen::Dynamic>::Zero(1, NnueFeatures::NF_NUM_FEATURES);
-    x1 = Matrix<MatType, 1, kWidth1>::Zero(1, kWidth1);
-    x1_relu = Matrix<MatType, 1, kWidth1>::Zero(1, kWidth1);
-    x2 = Matrix<MatType, 1, kWidth2>::Zero(1, kWidth2);
-    x3 = Matrix<MatType, 1, kWidth3>::Zero(1, kWidth3);
-
-    b0 = Matrix<MatType, 1, kWidth1>::Zero(1, kWidth1);
-    b1 = Matrix<MatType, 1, kWidth2>::Zero(1, kWidth2);
-    b2 = Matrix<MatType, 1, kWidth3>::Zero(1, kWidth3);
-
-    this->load("nnue-776-32-8.bin");
+    // this->load("nnue-776-32-8.bin");
   }
 
   void empty() {
-    x0.setZero();
-    x1.setZero();
-    x1.noalias() += b0;
+    x0.zero_();
+    x1.zero_();
+    x1 += b0;
   }
 
   float slowforward() {
-    x1.noalias() = x0 * w0;
-    x1.noalias() += b0;
+    w0.affine(x0, b0, x1);
+    // x1.noalias() = x0 * w0;
+    // x1.noalias() += b0;
     return this->fastforward();
   }
   float fastforward() {
-    x1_relu.noalias() = x1.unaryExpr([](float x) -> float {
-      return x > 0 ? x : x * 0.01;
-    });
-
-    x2.noalias() = x1_relu * w1;
-    x2.noalias() += b1;
-    x2.noalias() = x2.unaryExpr([](float x) -> float {
-      return x > 0 ? x : x * 0.01;
-    });
-    x3.noalias() = x2 * w2;
-    x3.noalias() += b2;
+    w1.leaky_relu_then_affine(x1, b1, x2);
+    w2.leaky_relu_then_affine(x2, b2, x3);
     return x3(0, 0);
   }
 
@@ -181,13 +223,15 @@ struct NnueNetwork : public NnueNetworkInterface {
       return;
     }
     x0.data()[index] += delta;
-    if (delta == 1.0) {
-      x1.row(0).noalias() += w0.row(index);
-    } else if (delta == -1.0) {
-      x1.row(0).noalias() -= w0.row(index);
-    } else {
-      x1.row(0).noalias() += w0.row(index) * MatType(delta);
-    }
+    incremental_update(x1, w0, index, delta);
+    // if (delta == 1.0) {
+    //   // x1.row(0).noalias() += w0.row(index);
+    //   x1.increment_from_col(w0, index, delta);
+    // } else if (delta == -1.0) {
+    //   x1.row(0).noalias() -= w0.row(index);
+    // } else {
+    //   x1.row(0).noalias() += w0.row(index) * MatType(delta);
+    // }
   }
 };
 
