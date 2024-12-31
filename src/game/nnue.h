@@ -1,28 +1,31 @@
 #ifndef CHESS_ENGINE_NNUE_H
 #define CHESS_ENGINE_NNUE_H
 
-// #include <eigen3/Eigen/Dense>
-
 #include "utils.h"
 #include "geometry.h"
 
 #include <algorithm>
 
 namespace {
-  float leaky_relu(float x) {
-    return x > 0.0 ? x : 0.01 * x;
+  int32_t leaky_relu(int32_t x) {
+    return x > 0.0 ? x : x / 100;
   }
+
+  typedef int32_t VecType;
+  typedef int16_t MatType;
+
+  constexpr int32_t kScale = 128;
 
   // Intepreted as <N, 1> matrix.
   template<size_t N>
   struct Vector {
-    Vector() : _data(new float[N]) {
+    Vector() : _data(new VecType[N]) {
       std::fill_n(_data, N, 0.0);
     }
     ~Vector() {
       delete[] _data;
     }
-    Vector(const Vector& other) : _data(new float[N]) {
+    Vector(const Vector& other) : _data(new VecType[N]) {
       std::copy_n(other._data, N, _data);
     }
     Vector& operator=(const Vector& other) {
@@ -39,10 +42,10 @@ namespace {
       return *this;
     }
 
-    inline float operator()(size_t i) const {
+    inline VecType operator()(size_t i) const {
       return _data[i];
     }
-    inline float& operator()(size_t i) {
+    inline VecType& operator()(size_t i) {
       return _data[i];
     }
     size_t size() const {
@@ -50,22 +53,25 @@ namespace {
     }
 
     void read(std::istream& myfile) {
-      myfile.read(reinterpret_cast<char*>(_data), this->size() * sizeof(float));
+      float *data = new float[N];
+      myfile.read(reinterpret_cast<char*>(data), this->size() * sizeof(float));
+      for (size_t i = 0; i < N; ++i) {
+        _data[i] = data[i] * kScale;
+      }
     }
 
-    float *_data;
+    VecType *_data;
   };
-  
 
   template<size_t ROWS, size_t COLS>
   struct Matrix {
-    Matrix() : _data(new float[ROWS * COLS]) {
+    Matrix() : _data(new MatType[ROWS * COLS]) {
       std::fill_n(_data, ROWS * COLS, 0.0);
     }
     ~Matrix() {
       delete[] _data;
     }
-    Matrix(const Matrix& other) : _data(new float[ROWS * COLS]) {
+    Matrix(const Matrix& other) : _data(new MatType[ROWS * COLS]) {
       std::copy_n(other._data, ROWS * COLS, _data);
     }
     Matrix& operator=(const Matrix& other) {
@@ -84,26 +90,28 @@ namespace {
 
     void affine(const Vector<COLS>& in, const Vector<ROWS>& bias, Vector<ROWS>& out) {
       for (size_t i = 0; i < ROWS; ++i) {
-        out(i) = bias(i);
+        int32_t sum = 0;
         for (size_t j = 0; j < COLS; ++j) {
-          out(i) += (*this)(i, j) * in(j);
+          sum += (*this)(i, j) * in(j);
         }
+        out(i) = sum / kScale + bias(i);
       }
     }
 
     void leaky_relu_then_affine(const Vector<COLS>& in, const Vector<ROWS>& bias, Vector<ROWS>& out) {
       for (size_t i = 0; i < ROWS; ++i) {
-        out(i) = bias(i);
+        int32_t sum = 0;
         for (size_t j = 0; j < COLS; ++j) {
-          out(i) += (*this)(i, j) * leaky_relu(in(j));
+          sum += (*this)(i, j) * leaky_relu(in(j));
         }
+        out(i) = sum / kScale + bias(i);
       }
     }
 
-    inline float operator()(size_t i, size_t j) const {
+    inline MatType operator()(size_t i, size_t j) const {
       return _data[i * COLS + j];
     }
-    inline float& operator()(size_t i, size_t j) {
+    inline MatType& operator()(size_t i, size_t j) {
       return _data[i * COLS + j];
     }
 
@@ -112,10 +120,14 @@ namespace {
     }
 
     void read(std::istream& myfile) {
-      myfile.read(reinterpret_cast<char*>(_data), this->size() * sizeof(float));
+      float *data = new float[ROWS * COLS];
+      myfile.read(reinterpret_cast<char*>(data), this->size() * sizeof(float));
+      for (size_t i = 0; i < ROWS * COLS; ++i) {
+        _data[i] = data[i] * kScale;
+      }
     }
 
-    float *_data;
+    MatType *_data;
   };
 
   template<size_t ROWS, size_t COLS>
@@ -162,7 +174,7 @@ struct NnueNetworkInterface {
 };
 
 struct DummyNetwork : public NnueNetworkInterface {
-  int16_t x[NnueFeatures::NF_NUM_FEATURES];
+  int32_t x[NnueFeatures::NF_NUM_FEATURES];
 
   DummyNetwork() {}
 
