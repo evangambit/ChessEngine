@@ -11,7 +11,8 @@
 #include "game/nnue.h"
 #endif
 
-#define PST 1
+#define FEATURES 0
+#define PST 0
 #define NNUE 1
 
 #include <thread>
@@ -33,10 +34,14 @@ void process(
   #if NNUE
   , WriterB& tableWriter
   #endif
+  #if FEATURES
   , WriterI8& featureWriter
+  #endif
   , WriterI16& evalWriter
   , WriterI8& turnWriter
+  #if FEATURES
   , WriterF32& timeWriter
+  #endif
   , WriterI8& pieceCountWriter
   #if PST
   , WriterI8& pstWriter
@@ -56,9 +61,14 @@ void process(
   } else {
     evaluator.score<Color::BLACK>(pos);
   }
+
+  // If we don't want to write the write features, then we're training a neural network
+  // so we don't want to skip known draws.
+  #if FEATURES
   if (evaluator.features[EF::KNOWN_DRAW] || evaluator.features[EF::KNOWN_KPVK_DRAW]) {
     return;
   }
+  #endif
 
   #if NNUE
   std::shared_ptr<DummyNetwork> network = std::make_shared<DummyNetwork>();
@@ -74,7 +84,7 @@ void process(
 
   #if PST
   int8_t pst[6 * kNumSquares];
-  for (Square sq = Square(0); sq < Square::NO_SQUARE; sq = Square(sq + 1)) {
+  for (SafeSquare sq = SafeSquare(0); sq < kNumSquares; sq = SafeSquare(sq + 1)) {
     int8_t x = sq % 8;
     int8_t y = sq / 8;
     int8_t op = (7 - y) * 8 + x;
@@ -88,11 +98,13 @@ void process(
   pstWriter.write_row(pst);
   #endif
 
+  #if FEATURES
   int8_t features[EF::NUM_EVAL_FEATURES];
   for (size_t i = 0; i < EF::NUM_EVAL_FEATURES; ++i) {
     features[i] = evaluator.features[i];
   }
   featureWriter.write_row(features);
+  #endif
 
   // int16_t a[3] = {
   //   (int16_t) (std::stof(line[2]) * 1000),
@@ -119,8 +131,10 @@ void process(
   pieceCounts[9] = std::popcount(pos.pieceBitboards_[ColoredPiece::BLACK_QUEEN]);
   pieceCountWriter.write_row(pieceCounts);
 
+  #if FEATURES
   float time = float(features[EF::TIME]) / 18.0;
   timeWriter.write_row(&time);
+  #endif
 }
 
 std::string get_shard_name(size_t n) {
@@ -145,10 +159,14 @@ int main(int argc, char *argv[]) {
   #if NNUE
   WriterB tableWriter(outpath + "-table", { NnueFeatures::NF_NUM_FEATURES });
   #endif
+  #if FEATURES
   WriterI8 featureWriter(outpath + "-features", { EF::NUM_EVAL_FEATURES });
+  #endif
   WriterI16 evalWriter(outpath + "-eval", { 1 });
   WriterI8 turnWriter(outpath + "-turn", { 1 });
+  #if FEATURES
   WriterF32 timeWriter(outpath + "-time", { 1 });
+  #endif
   WriterI8 pieceCountWriter(outpath + "-piece-counts", { 10 });
   #if PST
   WriterI8 pstWriter(outpath + "-pst", { 6 * kNumSquares });
@@ -172,10 +190,14 @@ int main(int argc, char *argv[]) {
     #if NNUE
     , tableWriter
     #endif
+    #if FEATURES
     , featureWriter
+    #endif
     , evalWriter
     , turnWriter
+    #if FEATURES
     , timeWriter
+    #endif
     , pieceCountWriter
     #if PST
     , pstWriter
