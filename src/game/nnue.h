@@ -45,11 +45,12 @@ namespace {
     inline float& operator()(size_t i) {
       return _data[i];
     }
-    float *data() {
-      return _data;
-    }
     size_t size() const {
       return N;
+    }
+
+    void read(std::istream& myfile) {
+      myfile.read(reinterpret_cast<char*>(_data), this->size() * sizeof(float));
     }
 
     float *_data;
@@ -106,12 +107,12 @@ namespace {
       return _data[i * COLS + j];
     }
 
-    float *data() {
-      return _data;
-    }
-
     size_t size() const {
       return ROWS * COLS;
+    }
+
+    void read(std::istream& myfile) {
+      myfile.read(reinterpret_cast<char*>(_data), this->size() * sizeof(float));
     }
 
     float *_data;
@@ -245,11 +246,11 @@ struct NnueNetwork : public NnueNetworkInterface {
   }
 
   void load(std::istream& myfile) {
-    myfile.read(reinterpret_cast<char*>(w0.data()), w0.size() * sizeof(float));
-    myfile.read(reinterpret_cast<char*>(w1.data()), w1.size() * sizeof(float));
-    myfile.read(reinterpret_cast<char*>(w2.data()), w2.size() * sizeof(float));
-    myfile.read(reinterpret_cast<char*>(b0.data()), b0.size() * sizeof(float));
-    myfile.read(reinterpret_cast<char*>(b1.data()), b1.size() * sizeof(float));
+    w0.read(myfile);
+    w1.read(myfile);
+    w2.read(myfile);
+    b0.read(myfile);
+    b1.read(myfile);
   }
 
   void set_piece(ColoredPiece piece, SafeSquare square, float newValue) {
@@ -266,7 +267,7 @@ struct NnueNetwork : public NnueNetworkInterface {
     if (delta == 0.0) {
       return;
     }
-    x0.data()[index] += delta;
+    x0(index) += delta;
     incremental_update(x1, w0, index, delta);
   }
 };
