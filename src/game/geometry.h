@@ -102,6 +102,15 @@ enum UnsafeSquare : uint8_t {
   UNO_SQUARE,
 };
 
+/**
+ * Flips a square vertically (a1 -> a8, b1 -> b8, etc.)
+ * 
+ * Equivalent to (7 - sq // 8) * 8 + (sq % 8)
+ */
+inline SafeSquare vertical_mirror(SafeSquare sq) {
+  return SafeSquare(sq ^ 0b111000);
+}
+
 constexpr Bitboard kMainWhiteDiagonal = 0x8040201008040201;
 constexpr Bitboard kMainBlackDiagonal = 0x10204081020408;
 

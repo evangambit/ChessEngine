@@ -62,10 +62,11 @@ struct PieceMaps {
             if (i >= ColoredPiece::BLACK_PAWN) {
               continue;
             }
+            SafeSquare sq = SafeSquare(y * 8 + x);
             int val = stoi(parts[x]);
-            pieceMaps[i * 64 + y * 8 + x][k] = val;
+            pieceMaps[i * 64 + sq][k] = val;
             if (i != ColoredPiece::NO_COLORED_PIECE) {
-              pieceMaps[(i + ColoredPiece::BLACK_PAWN - ColoredPiece::WHITE_PAWN) * 64 + (7 - y) * 8 + x][k] = -val;
+              pieceMaps[(i + ColoredPiece::BLACK_PAWN - ColoredPiece::WHITE_PAWN) * 64 + vertical_mirror(sq)][k] = -val;
             }
           }
         }
