@@ -11,16 +11,16 @@ namespace {
     return x > 0.0 ? x : x / 100;
   }
 
-  typedef int32_t VecType;
+  typedef int16_t VecType;
   typedef int16_t MatType;
 
-  constexpr int32_t kScale = 128;
+  constexpr int32_t kScale = 256;
 
   // Intepreted as <N, 1> matrix.
   template<size_t N>
   struct Vector {
     Vector() : _data(new VecType[N]) {
-      std::fill_n(_data, N, 0.0);
+      std::fill_n(_data, N, VecType(0));
     }
     ~Vector() {
       delete[] _data;
@@ -73,7 +73,7 @@ namespace {
   template<size_t ROWS, size_t COLS>
   struct Matrix {
     Matrix() : _data(new MatType[ROWS * COLS]) {
-      std::fill_n(_data, ROWS * COLS, 0.0);
+      std::fill_n(_data, ROWS * COLS, MatType(0));
     }
     ~Matrix() {
       delete[] _data;
