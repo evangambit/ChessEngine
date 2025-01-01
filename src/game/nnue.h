@@ -60,6 +60,13 @@ namespace {
       }
     }
 
+    void leaky_relu(Vector<N>& out) {
+      for (size_t i = 0; i < N; ++i) {
+        VecType x = (*this)(i);
+        out(i) = x > 0 ? x : x / 100;
+      }
+    }
+
     VecType *_data;
   };
 
@@ -93,16 +100,6 @@ namespace {
         int32_t sum = 0;
         for (size_t j = 0; j < COLS; ++j) {
           sum += (*this)(i, j) * in(j);
-        }
-        out(i) = sum / kScale + bias(i);
-      }
-    }
-
-    void leaky_relu_then_affine(const Vector<COLS>& in, const Vector<ROWS>& bias, Vector<ROWS>& out) {
-      for (size_t i = 0; i < ROWS; ++i) {
-        int32_t sum = 0;
-        for (size_t j = 0; j < COLS; ++j) {
-          sum += (*this)(i, j) * leaky_relu(in(j));
         }
         out(i) = sum / kScale + bias(i);
       }
@@ -219,6 +216,7 @@ struct NnueNetwork : public NnueNetworkInterface {
   Vector<kWidth2> b1;
 
   Vector<kWidth2> x2;
+  Vector<kWidth2> x2_relu;
   Matrix<kWidth3, kWidth2> w2;
   Vector<kWidth3> b2;
 
@@ -236,13 +234,13 @@ struct NnueNetwork : public NnueNetworkInterface {
 
   float slowforward() {
     w0.affine(x0, b0, x1);
-    // x1.noalias() = x0 * w0;
-    // x1.noalias() += b0;
     return this->fastforward();
   }
   float fastforward() {
-    w1.leaky_relu_then_affine(x1, b1, x2);
-    w2.leaky_relu_then_affine(x2, b2, x3);
+    x1.leaky_relu(x1_relu);
+    w1.affine(x1_relu, b1, x2);
+    x2.leaky_relu(x2_relu);
+    w2.affine(x2_relu, b2, x3);
     return x3(0);
   }
 
