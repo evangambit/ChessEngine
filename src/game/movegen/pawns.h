@@ -45,7 +45,7 @@ ExtMove *compute_pawn_moves(const Position& pos, ExtMove *moves, Bitboard target
 
   // TODO: Technically the bitshift is undefined behavior if epSquare is NO_SQUARE. We force the value to zero,
   // so not a huge problem in practice, but theoretically this could destroy the universe.
-  const Location epLoc = value_or_zero(pos.currentState_.epSquare < kNumSquares, Location(1 << pos.currentState_.epSquare));
+  const Location epLoc = value_or_zero(pos.currentState_.epSquare < kNumSquares, Location(1) << pos.currentState_.epSquare);
 
   const Bitboard pawns = pos.pieceBitboards_[cp] & ~pm.horizontal;
 
