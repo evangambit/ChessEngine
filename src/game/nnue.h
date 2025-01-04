@@ -218,9 +218,7 @@ struct NnueNetwork : public NnueNetworkInterface {
 
   Vector<kWidth3> x3;
 
-  NnueNetwork() {
-    // this->load("nnue-776-32-8.bin");
-  }
+  NnueNetwork() {}
 
   void empty() {
     x0.zero_();
