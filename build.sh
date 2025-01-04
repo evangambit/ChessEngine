@@ -2,7 +2,6 @@ g++ src/game/*.cpp \
 -std=c++20 \
 -DNDEBUG \
 -O3 \
--I /opt/homebrew/Cellar/eigen/3.4.0_1/include \
 -I src $@
 
 

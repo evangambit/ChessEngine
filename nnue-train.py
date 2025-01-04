@@ -78,7 +78,7 @@ class Model(nn.Module):
       CReLU(),
       nn.Linear(k1, k2),
       CReLU(),
-      nn.Linear(k2, 1, bias=False),
+      nn.Linear(k2, 2, bias=False),
     )
     for layer in self.seq:
       if isinstance(layer, nn.Linear):
@@ -220,8 +220,14 @@ for split, _, (x, y) in tqdm(interweaver(
   m = torch.cat([m, flipped_misc], 0)
   y = torch.cat([y, flipped_y], 0)
 
-  yhat, penalty = model(t, m)
-  loss = loss_fn(yhat.squeeze(), y.squeeze())
+  output, penalty = model(t, m)
+  yhat = output[:,0]
+  uncertainty = output[:,1]
+
+  loss = loss_fn(yhat, y.squeeze())
+
+  residuals = torch.sigmoid(yhat) - y.squeeze()
+  loss += ((residuals - uncertainty)**2).mean() * 0.1
 
   if split == 'train':
     opt.zero_grad()
