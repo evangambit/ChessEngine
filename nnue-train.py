@@ -1,23 +1,15 @@
-import math
+import inspect
+import json
 import os
-import re
-
-import chess
-from chess import pgn
+import uuid
 
 import numpy as np
-import matplotlib.pyplot as plt
-from scipy.ndimage import uniform_filter1d
 
 import torch
 from torch import nn, optim
 import torch.utils.data as tdata
 
 from collections import defaultdict
-
-from utils import ExpandedLinear, ShardedMatrixDataset
-
-import chess.engine
 
 """
 
@@ -33,6 +25,10 @@ T = X[:,:-8].reshape(-1, 12, 8, 8)
 
 1B1N1b1r/4pkp1/p4p2/7p/Pp1R3P/1b6/1P3PP1/6K1 b - - 3 28
 
+
+sqlite3 data/de7-md2/db.sqlite3 'select * from positions where abs(random()) % 4 = 0' > data/de7-md2/pos.txt
+shuf data/de7-md2/pos.txt > data/de7-md2/pos.shuf.txt
+./make_tables data/de7-md2/pos.shuf.txt data/de7-md2/data
 
 """
 
@@ -60,82 +56,28 @@ class SimpleIterablesDataset(tdata.IterableDataset):
         yi += 1
         y = self.Y.load_shard(yi)
         yj = 0
-      yield x[xj], y[yj]
+      yield x[xj].copy(), y[yj].copy()
       xj += 1
       yj += 1
   
   def __len__(self):
     return self.X.num_rows
 
-a = "de8-tuning"
-dataset = SimpleIterablesDataset(f'data/{a}/data-table', f'data/{a}/data-eval')
-print(f'%.3f million positions loaded' % (len(dataset) / 1_000_000))
-
-def soft_clip(x, k = 4.0):
-  x = nn.functional.leaky_relu(x + k) - k
-  x = k - nn.functional.leaky_relu(k - x)
-  return x
-
-class LossFn(nn.Module):
-  def forward(self, yhat, y):
-    yhat = soft_clip(yhat)
-    r = yhat - y
-    return (r**2).mean()
+class CReLU(nn.Module):
+  def forward(self, x):
+    return x.clip(0, 1)
 
 class Model(nn.Module):
   def __init__(self):
     super().__init__()
-    """
-         512, 64: 0.04407808091491461
-                  0.042864857465028765
-                  0.0382  // with classic eval
-    """
-    expansion = [
-    ]
 
-    # Piece differences
-    for i in range(5):
-      a = np.zeros((12, 8, 8))
-      a[i,:,:] = 1
-      a[6 + i,:,:] = -1
-      expansion.append(a)
-
-      a = np.zeros((12, 8, 8))
-      a[i,:,:] = 1
-      expansion.append(a)
-
-      a = np.zeros((12, 8, 8))
-      a[6 + i,:,:] = -1
-      expansion.append(a)
-
-    # King locations
-    # for i in [5, 11]:
-    for i in range(12):
-      x = np.zeros((12, 8, 8))
-      x[i,:,:] = np.tile(np.linspace(-1.0, 1.0, 8).reshape(1, 1, -1), (1, 8, 1))
-      expansion.append(x)
-
-      x = np.zeros((12, 8, 8))
-      x[i,:,:] = np.tile(np.linspace(-1.0, 1.0, 8).reshape(1, -1, 1), (1, 1, 8))
-      expansion.append(x)
-
-    expansion = np.concatenate(expansion, 0).reshape(-1, 12 * 8 * 8)
-
-    # Add dummy variables for misc features
-    expansion = np.concatenate([expansion, np.zeros((expansion.shape[0], 8))], 1).T
-
-    # (  1,  1) 8.2993 ± 0.0651
-    # (  8,  8) 5.8051 ± 0.0526
-    # ( 32, 32) 5.0939 ± 0.0472
-    # (256, 32) 4.4317 ± 0.0459
-    k1, k2 = 32, 8
+    k1, k2 = 48, 16
 
     self.seq = nn.Sequential(
-      # ExpandedLinear(12 * 8 * 8 + 8, k1, expansion=expansion),
       nn.Linear(12 * 8 * 8 + 8, k1),
-      nn.LeakyReLU(),
+      CReLU(),
       nn.Linear(k1, k2),
-      nn.LeakyReLU(),
+      CReLU(),
       nn.Linear(k2, 1, bias=False),
     )
     for layer in self.seq:
@@ -149,12 +91,35 @@ class Model(nn.Module):
   # w = w1[:,:-8].reshape((2, 12, 8, 8))
   def forward(self, tables, misc_features):
     tables = tables.reshape(tables.shape[0], -1)
-    return self.seq(torch.cat([tables, misc_features], 1))
+    x = torch.cat([tables, misc_features], 1)
+    penalty = 0.0
+    for layer in self.seq:
+      x = layer(x)
+      if isinstance(layer, nn.Linear) and layer is not self.seq[-1]:
+        scale = 256
+        quant = 65_536
+        low = quant // 2
+        shift = quant * 5 + low
 
-def forever(loader):
-  while True:
-    for batch in loader:
-      yield batch
+        x = x * scale
+
+        # We penalize any value that is more than 0.5 away from the nearest quantization point, just to be safe.
+        # In theory any value up to "low - 1" is technically okay.
+        penalty += ((torch.relu(torch.abs(x) - low * 0.5) / scale)**2).mean()
+
+        x = x + torch.rand(x.shape, device=x.device) - 0.5
+        x = ((x + shift) % quant - quant // 2) / scale
+    return x, penalty
+  
+  def layer_outputs(self, tables, misc_features):
+    tables = tables.reshape(tables.shape[0], -1)
+    x = torch.cat([tables, misc_features], 1)
+    r = []
+    for layer in self.seq:
+      x = layer(x)
+      if isinstance(layer, nn.Linear):
+        r.append(x)
+    return r
 
 class PiecewiseFunction:
   def __init__(self, x, y):
@@ -171,34 +136,70 @@ class PiecewiseFunction:
     t = (x - self.x[low]) / (self.x[high] - self.x[low])
     return self.y[low] * (1 - t) + self.y[high] * t
 
+def interweaver(*A):
+  """
+  Merges multiple data loaders and loops over them endlessly.
+
+  Example:
+
+  # Run 1 test batch every 5 training batches.
+  for split, (x, y) in interweaver(
+    ("train", 5, trainloader),
+    ("test", 1, testloader),
+    ):
+  """
+  n = len(A)
+  names = [a[0] for a in A]
+  steps = [a[1] for a in A]
+  loaders = [a[2] for a in A]
+  iters = [iter(a) for a in loaders]
+  i = 0
+  while True:
+    name = names[i % n]
+    for _ in range(steps[i % n]):
+      try:
+        yield name, loaders[i % n].dataset, next(iters[i % n])
+      except StopIteration:
+        iters[i % n] = iter(loaders[i % n])
+        yield name, loaders[i % n].dataset, next(iters[i % n])
+    i += 1
+
+trainset = SimpleIterablesDataset(f'data/de6-md2/data-table', f'data/de6-md2/data-eval')
+testset = SimpleIterablesDataset(f'data/de7-md2/data-table', f'data/de7-md2/data-eval')
+print(f'train: %.3fM   test: %.3fM' % (len(trainset) / 1_000_000, len(testset) / 1_000_000))
+
 model = Model()
-opt = optim.AdamW(model.parameters(), lr=0.0, weight_decay=0.01)
+opt = optim.AdamW(model.parameters(), lr=0.0, weight_decay=0.1)
 
 def loss_fn(yhat: torch.Tensor, y: torch.Tensor):
-  k = 3.5
-  y = torch.logit(y).clip(-k, k)
-  yhat = soft_clip(yhat, k=k)
-  return ((yhat - y)**2)
+  return (torch.abs(torch.sigmoid(yhat) - y)**2.5)
 
 L = []
 
-dataloader = tdata.DataLoader(dataset, batch_size=8192*4, drop_last=True)
+kBatchSize = 2048
+trainloader = tdata.DataLoader(trainset, batch_size=kBatchSize, drop_last=True)
+testloader = tdata.DataLoader(testset, batch_size=kBatchSize, drop_last=True)
 maxlr = 0.03
 scheduler = PiecewiseFunction(
-  [0, 20, len(dataloader) // 2, len(dataloader)],
+  [0, 20, len(trainloader) // 2, len(trainloader)],
   [0.0, maxlr, maxlr * 0.1, maxlr * 0.01]
 )
 
-
+metrics = defaultdict(list)
 it = 0
-for x, y in tqdm(dataloader):
+for split, _, (x, y) in tqdm(interweaver(
+    ("train", 5, trainloader),
+    ("test", 1, testloader),
+  ), total=len(trainloader)):
+  if split == 'train':
+    it += 1
   lr = scheduler(it)
   for pg in opt.param_groups:
     pg['lr'] = lr
 
   # Unpacking bits into bytes.
   x = x.to(torch.float32)
-  y = (y[:,2].to(torch.float32) + 4) / 1008.0
+  y = y.to(torch.float32) / 1000.0
 
   t = x[:,:768].reshape(-1, 12, 8, 8)
   m = x[:,768:]
@@ -219,33 +220,55 @@ for x, y in tqdm(dataloader):
   m = torch.cat([m, flipped_misc], 0)
   y = torch.cat([y, flipped_y], 0)
 
-
-
-  yhat = model(t, m)
+  yhat, penalty = model(t, m)
   loss = loss_fn(yhat.squeeze(), y.squeeze())
 
-  opt.zero_grad()
-  loss.mean().backward()
-  opt.step()
-  L.append((float(loss.mean()), float(loss.std()) / math.sqrt(loss.shape[0])))
-  it += 1
-  if it % 20 == 0:
-    mean, std = L[-1]
-    print('%.4f ± %.4f' % (mean, std))
-    # w = model.seq[0].to_linear().weight.detach().numpy()[:,:12*8*8].reshape(-1, 12, 8, 8).copy()
-    # w = model.seq[0].weight.detach().numpy()[:,:12*8*8].reshape(-1, 12, 8, 8).copy()
-    # print(np.round(w.mean((2, 3)) * 10000))
+  if split == 'train':
+    opt.zero_grad()
+    (loss.mean() + penalty).backward()
+    opt.step()
+  metrics[f'{split}:loss'].append(loss.mean().item())
+  metrics[f'{split}:penalty'].append(penalty.item())
+  if split == 'train' and it % 50 == 0:
+    train_loss = sum(metrics[f'train:loss'][-10:]) / len(metrics[f'train:loss'][-10:])
+    test_loss = sum(metrics[f'test:loss'][-10:]) / len(metrics[f'test:loss'][-10:])
+    print('train: %.4f test: %.4f' % (train_loss, test_loss))
+  
+  if it >= len(trainloader):
+    break
+
+layer_outputs = model.layer_outputs(t, m)
+for layer in layer_outputs:
+  layer = layer.detach().numpy().flatten()
+  print(np.percentile(layer, 1), layer.mean(), layer.std(), np.percentile(layer, 99))
 
 linears = [l for l in model.seq if isinstance(l, nn.Linear)]
-linears = [l.to_linear() if isinstance(l, ExpandedLinear) else l for l in linears]
 
 widths =  [l.weight.shape[1] for l in linears]
-outfile = 'nnue-' + '-'.join(str(x) for x in widths) + '.bin'
+run_id = uuid.uuid4().hex
+outfile = os.path.join('runs', run_id, 'nnue-' + '-'.join(str(x) for x in widths) + '.bin')
+os.makedirs(os.path.dirname(outfile), exist_ok=True)
+
+with open(os.path.join('runs', run_id, 'config.txt'), 'w') as f:
+  lines = [
+    'Widths',
+    ' '.join(str(x) for x in widths),
+    '',
+    'Train Loss: %.3f' % (np.array(metrics['train:loss'][-100:]).mean()),
+    'Test Loss: %.3f' % (np.array(metrics['test:loss'][-100:]).mean()),
+    '',
+    'Schedule',
+    json.dumps(scheduler.x.tolist()),
+    json.dumps(scheduler.y.tolist()),
+    '',
+    'Batch size: %d\n' % kBatchSize,
+    '',
+    'Loss',
+    inspect.getsource(loss_fn),
+  ]
+  f.write('\n'.join(lines))
 
 print('writing out to "%s"' % outfile)
-
-if isinstance(model.seq[0], ExpandedLinear):
-  model.seq[0] = model.seq[0].to_linear()
 
 w1 = model.seq[0].weight.detach().numpy()
 w2 = model.seq[2].weight.detach().numpy()
