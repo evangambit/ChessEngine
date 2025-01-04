@@ -63,7 +63,7 @@ namespace {
     void leaky_relu(Vector<N>& out) {
       for (size_t i = 0; i < N; ++i) {
         VecType x = (*this)(i);
-        out(i) = x > 0 ? x : x / 100;
+        out(i) = std::max(VecType(0), std::min(VecType(kScale), x));
       }
     }
 

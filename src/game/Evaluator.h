@@ -1196,7 +1196,7 @@ Evaluation nnue_evaluate(const Position& pos) {
       -float(kQLongestForcedMate),
       std::max(
         float(kQLongestForcedMate),
-        std::round(score * 300)
+        std::round(score)
       )
     )
   );
