@@ -662,7 +662,6 @@ struct Search {
       kNullMove
     );
 
-    #if !SIMPLE_SEARCH
     if (SEARCH_TYPE == SearchTypeNullWindow) {
       #if NNUE_EVAL
       Evaluation staticEval = nnue_evaluate<TURN>(thread->pos);
@@ -683,7 +682,6 @@ struct Search {
         }
       }
     }
-    #endif
 
     // Should be optimized away if SEARCH_TYPE != SearchTypeRoot.
     #if PRINT_PV_CHANGES
