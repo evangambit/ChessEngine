@@ -7,10 +7,6 @@
 #include <algorithm>
 
 namespace {
-  int32_t leaky_relu(int32_t x) {
-    return x > 0.0 ? x : x / 100;
-  }
-
   typedef int16_t VecType;
   typedef int16_t MatType;
 
@@ -60,7 +56,7 @@ namespace {
       }
     }
 
-    void leaky_relu(Vector<N>& out) {
+    void clipped_relu(Vector<N>& out) {
       for (size_t i = 0; i < N; ++i) {
         VecType x = (*this)(i);
         out(i) = std::max(VecType(0), std::min(VecType(kScale), x));
@@ -237,9 +233,9 @@ struct NnueNetwork : public NnueNetworkInterface {
     return this->fastforward();
   }
   float fastforward() {
-    x1.leaky_relu(x1_relu);
+    x1.clipped_relu(x1_relu);
     w1.affine(x1_relu, b1, x2);
-    x2.leaky_relu(x2_relu);
+    x2.clipped_relu(x2_relu);
     w2.affine(x2_relu, b2, x3);
     return x3(0);
   }
