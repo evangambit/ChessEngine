@@ -124,7 +124,7 @@ namespace {
   };
 
   template<size_t ROWS, size_t COLS>
-  void incremental_update(Vector<ROWS>& mutable_vector, const Matrix<ROWS, COLS>& weights_matrix, size_t col, float scale) {
+  void incremental_update(Vector<ROWS>& mutable_vector, const Matrix<ROWS, COLS>& weights_matrix, size_t col, VecType scale) {
     for (size_t i = 0; i < ROWS; ++i) {
       mutable_vector(i) += weights_matrix(i, col) * scale;
     }
@@ -132,8 +132,6 @@ namespace {
 }
 
 namespace ChessEngine {
-
-typedef float MatType;
 
 static MatType kZero = MatType(0.0);
 
@@ -159,11 +157,11 @@ enum NnueFeatures {
 
 struct NnueNetworkInterface {
   virtual void empty() {}
-  virtual float slowforward() { return 0.0; }
-  virtual float fastforward() { return 0.0; }
+  virtual Evaluation slowforward() { return 0.0; }
+  virtual Evaluation fastforward() { return 0.0; }
   virtual void load(std::string filename) {}
-  virtual void set_piece(ColoredPiece piece, SafeSquare square, float newValue) {}
-  virtual void set_index(size_t index, float newValue) {}
+  virtual void set_piece(ColoredPiece piece, SafeSquare square, VecType newValue) {}
+  virtual void set_index(size_t index, VecType newValue) {}
 };
 
 struct DummyNetwork : public NnueNetworkInterface {
@@ -175,23 +173,23 @@ struct DummyNetwork : public NnueNetworkInterface {
     std::fill_n(x, NnueFeatures::NF_NUM_FEATURES, 0);
   }
 
-  float slowforward() {
+  Evaluation slowforward() {
     return 0.0;
   }
-  float fastforward() {
+  Evaluation fastforward() {
     return 0.0;
   }
 
   void load(std::string filename) {}
 
-  void set_piece(ColoredPiece piece, SafeSquare square, float newValue) {
+  void set_piece(ColoredPiece piece, SafeSquare square, VecType newValue) {
     int y = square / 8;
     int x = square % 8;
     size_t index = (piece - 1) * 64 + y * 8 + x;
     this->set_index(index, newValue);
   }
 
-  void set_index(size_t index, float newValue) {
+  void set_index(size_t index, VecType newValue) {
     x[index] = newValue;
   }
 };
@@ -226,11 +224,11 @@ struct NnueNetwork : public NnueNetworkInterface {
     x1 += b0;
   }
 
-  float slowforward() {
+  Evaluation slowforward() {
     w0.affine(x0, b0, x1);
     return this->fastforward();
   }
-  float fastforward() {
+  Evaluation fastforward() {
     x1.clipped_relu(x1_relu);
     w1.affine(x1_relu, b1, x2);
     x2.clipped_relu(x2_relu);
@@ -257,7 +255,7 @@ struct NnueNetwork : public NnueNetworkInterface {
     b1.read(myfile);
   }
 
-  void set_piece(ColoredPiece piece, SafeSquare square, float newValue) {
+  void set_piece(ColoredPiece piece, SafeSquare square, VecType newValue) {
     assert(piece != ColoredPiece::NO_COLORED_PIECE);
     assert_valid_square(square);
     int y = square / 8;
@@ -266,7 +264,7 @@ struct NnueNetwork : public NnueNetworkInterface {
     this->set_index(index, newValue);
   }
 
-  void set_index(size_t index, float newValue) {
+  void set_index(size_t index, VecType newValue) {
     MatType delta = MatType(newValue) - x0(index);
     if (delta == 0.0) {
       return;

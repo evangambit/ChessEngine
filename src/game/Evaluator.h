@@ -1187,19 +1187,11 @@ struct Evaluator {
 #if NNUE_EVAL
 template<Color US>
 Evaluation nnue_evaluate(const Position& pos) {
-  float score = pos.network->fastforward();
+  Evaluation score = pos.network->fastforward();
   if (US == Color::BLACK) {
-    score *= -1.0;
+    score *= -1;
   }
-  return Evaluation(
-    std::min(
-      -float(kQLongestForcedMate),
-      std::max(
-        float(kQLongestForcedMate),
-        std::round(score)
-      )
-    )
-  );
+  return std::min<Evaluation>(-kQLongestForcedMate, std::max(kQLongestForcedMate, score));
 }
 #endif
 
