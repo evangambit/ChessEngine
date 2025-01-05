@@ -7,10 +7,11 @@
 #include <algorithm>
 
 namespace {
-  typedef int16_t VecType;
-  typedef int16_t MatType;
+  typedef float VecType;
+  typedef float MatType;
 
-  constexpr int32_t kScale = 256;
+  constexpr VecType kScale = 64;
+  constexpr VecType kFinalScale = 64;
 
   // Intepreted as <N, 1> matrix.
   template<size_t N>
@@ -93,7 +94,7 @@ namespace {
 
     void affine(const Vector<COLS>& in, const Vector<ROWS>& bias, Vector<ROWS>& out) {
       for (size_t i = 0; i < ROWS; ++i) {
-        int32_t sum = 0;
+        VecType sum = 0;
         for (size_t j = 0; j < COLS; ++j) {
           sum += (*this)(i, j) * in(j);
         }
@@ -233,7 +234,7 @@ struct NnueNetwork : public NnueNetworkInterface {
     w1.affine(x1_relu, b1, x2);
     x2.clipped_relu(x2_relu);
     w2.affine(x2_relu, b2, x3);
-    return x3(0);
+    return x3(0) * kFinalScale / kScale;
   }
 
   void load(std::string filename) {
@@ -265,11 +266,11 @@ struct NnueNetwork : public NnueNetworkInterface {
   }
 
   void set_index(size_t index, VecType newValue) {
-    MatType delta = MatType(newValue) - x0(index);
-    if (delta == 0.0) {
+    MatType delta = MatType(newValue) - x0(index) / kScale;
+    if (delta == VecType(0)) {
       return;
     }
-    x0(index) += delta;
+    x0(index) += delta * kScale;
     incremental_update(x1, w0, index, delta);
   }
 };

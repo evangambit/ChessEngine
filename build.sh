@@ -2,6 +2,7 @@ g++ src/game/*.cpp \
 -std=c++20 \
 -DNDEBUG \
 -O3 \
+-ffast-math \
 -I src $@
 
 

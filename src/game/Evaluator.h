@@ -1187,7 +1187,11 @@ struct Evaluator {
 #if NNUE_EVAL
 template<Color US>
 Evaluation nnue_evaluate(const Position& pos) {
+  #if SLOW
+  Evaluation score = pos.network->slowforward();
+  #else
   Evaluation score = pos.network->fastforward();
+  #endif
   if (US == Color::BLACK) {
     score *= -1;
   }
