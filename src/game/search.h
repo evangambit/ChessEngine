@@ -615,6 +615,32 @@ struct Search {
     }
     
     Threats<TURN> threats(thread->pos);
+    RecommendedMoves recommendationsForChildren;
+
+    Move nullMoveResponse = kNullMove;
+    Piece nullMover = Piece::NO_PIECE;
+    if (SEARCH_TYPE == SearchTypeNullWindow) {
+      #if NNUE_EVAL
+      Evaluation staticEval = nnue_evaluate<TURN>(thread->pos);
+      #else
+      Evaluation staticEval = thread->evaluator.score<TURN>(thread->pos, threats);
+      #endif
+      const bool scaredOfZugzwang = std::popcount(thread->pos.colorBitboards_[TURN] & ~thread->pos.pieceBitboards_[coloredPiece<TURN, Piece::PAWN>()]) <= 3;
+
+      // Null-move pruning. ELO_STDERR(+44, +60)
+      if (staticEval >= beta && !inCheck && !scaredOfZugzwang && depthRemaining >= 2) {
+        make_nullmove<TURN>(&thread->pos);
+        SearchResult<TURN> a = flip(search<opposingColor, SearchTypeNullWindow, IS_PARALLEL>(thinker, thread, depthRemaining - 2, plyFromRoot + 1, -beta, -(beta - 1), recommendationsForChildren, distFromPV));
+        undo_nullmove<TURN>(&thread->pos);
+        if (a.score >= originalBeta) {
+          a.score = originalBeta;
+          a.move = kNullMove;
+          return a;
+        }
+        nullMoveResponse = a.move;
+        nullMover = cp2p(thread->pos.tiles_[nullMoveResponse.to]);
+      }
+    }
 
     MoveRecommender& recommender = thinker->moveRecommender;
 
@@ -652,8 +678,6 @@ struct Search {
       return a.score > b.score;
     });
 
-    RecommendedMoves recommendationsForChildren;
-
     ExtMove deferredMoves[kMaxNumMoves];
     ExtMove *deferredMovesEnd = &deferredMoves[0];
 
@@ -661,27 +685,6 @@ struct Search {
       kMinEval + 1,
       kNullMove
     );
-
-    if (SEARCH_TYPE == SearchTypeNullWindow) {
-      #if NNUE_EVAL
-      Evaluation staticEval = nnue_evaluate<TURN>(thread->pos);
-      #else
-      Evaluation staticEval = thread->evaluator.score<TURN>(thread->pos, threats);
-      #endif
-      const bool scaredOfZugzwang = std::popcount(thread->pos.colorBitboards_[TURN] & ~thread->pos.pieceBitboards_[coloredPiece<TURN, Piece::PAWN>()]) <= 3;
-
-      // Null-move pruning. ELO_STDERR(+44, +60)
-      if (staticEval >= beta && !inCheck && !scaredOfZugzwang && depthRemaining >= 2) {
-        make_nullmove<TURN>(&thread->pos);
-        SearchResult<TURN> a = flip(search<opposingColor, SearchTypeNullWindow, IS_PARALLEL>(thinker, thread, depthRemaining - 2, plyFromRoot + 1, -beta, -(beta - 1), recommendationsForChildren, distFromPV));
-        undo_nullmove<TURN>(&thread->pos);
-        if (a.score >= originalBeta) {
-          a.score = originalBeta;
-          a.move = kNullMove;
-          return a;
-        }
-      }
-    }
 
     // Should be optimized away if SEARCH_TYPE != SearchTypeRoot.
     #if PRINT_PV_CHANGES
