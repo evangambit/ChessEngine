@@ -56,7 +56,7 @@ std::pair<Evaluation, Move> simple_qsearch(
   const bool lookAtChecks = (depth <= 2) && !lookAtAllMoves;
   constexpr Color opposingColor = opposite_color<TURN>();
   constexpr ColoredPiece moverKing = coloredPiece<TURN, Piece::KING>();
-  const bool inCheck = can_enemy_attack<TURN>(*position, safe_lsb(position->pieceBitboards_[moverKing]));
+  const bool inCheck = can_enemy_attack<TURN>(*position, lsb_i_promise_board_is_not_empty(position->pieceBitboards_[moverKing]));
 
   ExtMove moves[kMaxNumMoves];
   ExtMove *end;
@@ -84,7 +84,7 @@ std::pair<Evaluation, Move> simple_qsearch(
   if (!lookAtAllMoves) {
     alpha = std::max(alpha, evaluator->score<TURN>(*position));
     if (alpha >= beta) {
-      return std::make_pair(beta, Move{Square::A1, Square::A2});
+      return std::make_pair(beta, Move{SafeSquare::SA1, SafeSquare::SA2});
     }
   }
 
@@ -160,18 +160,31 @@ struct Datapoint {
   std::vector<Evaluation> evals;
 };
 
-std::pair<double, double> process_datapoints(int threadId, const Datapoint *start, const Datapoint *end, std::string weightsFile) {
-  Evaluator evaluator;
-  PieceMaps pieceMaps;
+std::pair<double, double> process_datapoints(int threadId, const Datapoint *start, const Datapoint *end, std::string weightsFile1, std::string weightsFile2) {
+  Evaluator evaluator1;
+  PieceMaps pieceMaps1;
   {
     std::ifstream f;
-    f.open(weightsFile);
+    f.open(weightsFile1);
     if (!f.is_open()) {
       std::cout << "Failed to open file" << std::endl;
       return std::make_pair(0.0, 0.0);
     }
-    evaluator.load_weights_from_file(f);
-    pieceMaps.load_weights_from_file(f);
+    evaluator1.load_weights_from_file(f);
+    pieceMaps1.load_weights_from_file(f);
+  }
+
+  Evaluator evaluator2;
+  PieceMaps pieceMaps2;
+  {
+    std::ifstream f;
+    f.open(weightsFile2);
+    if (!f.is_open()) {
+      std::cout << "Failed to open file" << std::endl;
+      return std::make_pair(0.0, 0.0);
+    }
+    evaluator2.load_weights_from_file(f);
+    pieceMaps2.load_weights_from_file(f);
   }
 
   const int multiPV = 1;
@@ -180,26 +193,39 @@ std::pair<double, double> process_datapoints(int threadId, const Datapoint *star
   double loss2 = 0.0;
   for (const Datapoint *datapoint = start; datapoint != end; ++datapoint) {
     Position pos(datapoint->fen);
-    pos.set_piece_maps(pieceMaps);
     
-    Result result;
+    Result result1;
+    pos.set_piece_maps(pieceMaps1);
     if (pos.turn_ == Color::WHITE) {
-      simple_search<WHITE>(&pos, &evaluator, &result, multiPV);
+      simple_search<WHITE>(&pos, &evaluator1, &result1, multiPV);
     } else {
-      simple_search<BLACK>(&pos, &evaluator, &result, multiPV);
+      simple_search<BLACK>(&pos, &evaluator1, &result1, multiPV);
     }
-    std::vector<std::pair<Evaluation, std::string>> pvs = result.pvs;
 
-    double score = datapoint->evals.back();  // Default
+    Result result2;
+    pos.set_piece_maps(pieceMaps2);
+    if (pos.turn_ == Color::WHITE) {
+      simple_search<WHITE>(&pos, &evaluator2, &result2, multiPV);
+    } else {
+      simple_search<BLACK>(&pos, &evaluator2, &result2, multiPV);
+    }
+
+    double score1 = datapoint->evals.back();  // Default
+    double score2 = datapoint->evals.back();  // Default
     for (size_t i = 0; i < datapoint->evals.size(); ++i) {
-      if (datapoint->ucis[i] == pvs[0].second) {
-        score = datapoint->evals[i];
+      if (datapoint->ucis[i] == result1.pvs[0].second) {
+        score1 = datapoint->evals[i];
+        break;
+      }
+    }
+    for (size_t i = 0; i < datapoint->evals.size(); ++i) {
+      if (datapoint->ucis[i] == result2.pvs[0].second) {
+        score2 = datapoint->evals[i];
         break;
       }
     }
 
-    // double delta = std::min(datapoint->evals[0] - score, 200.0);
-    double delta = std::abs(datapoint->evals[0] - score);
+    double delta = score1 - score2;
 
     loss += delta;
     loss2 += delta * delta;
@@ -240,11 +266,11 @@ int main(int argc, char *argv[]) {
     args.push_back(argv[i]);
   }
 
-  if (args.size() != 4) {
-    throw std::runtime_error("Usage: opt <train.txt> <weights.txt> <SampleSize> <NumThreads>");
+  if (args.size() != 5) {
+    throw std::runtime_error("Usage: opt <train.txt> <SampleSize> <NumThreads> <weights.txt> <weights2.txt>");
   }
-  const int sampleSize = std::stoi(args[2]);
-  const int numThreads = std::stoi(args[3]);
+  const int sampleSize = std::stoi(args[1]);
+  const int numThreads = std::stoi(args[2]);
 
   std::ifstream myfile;
   myfile.open(args[0]);
@@ -289,7 +315,7 @@ int main(int argc, char *argv[]) {
       const uint64_t n = datapoints.size();
       const uint64_t start = i * n / numThreads;
       const uint64_t end = (i == numThreads - 1 ? n : (i + 1) * n / numThreads);
-      results[i] = process_datapoints(i, &datapoints[0] + start, &datapoints[0] + end, args[1]);
+      results[i] = process_datapoints(i, &datapoints[0] + start, &datapoints[0] + end, args[3], args[4]);
     }));
   }
 
