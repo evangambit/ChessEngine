@@ -11,8 +11,8 @@
 #include "game/nnue.h"
 #endif
 
-#define FEATURES 0
-#define PST 0
+#define FEATURES 1
+#define PST 1
 #define NNUE 1
 
 #include <thread>

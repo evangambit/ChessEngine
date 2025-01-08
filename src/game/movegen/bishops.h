@@ -182,7 +182,7 @@ const uint64_t kSouthWestShift[65] = {
 //     std::cout << std::endl;
 //   }
 // }
-const uint8_t kSouthEastOffBoard[64] = {
+const uint8_t kSouthEastOffBoard[65] = {
   0x0, 0x80, 0xc0, 0xe0, 0xf0, 0xf8, 0xfc, 0xfe,
   0x80, 0x0, 0x80, 0xc0, 0xe0, 0xf0, 0xf8, 0xfc,
   0xc0, 0x80, 0x0, 0x80, 0xc0, 0xe0, 0xf0, 0xf8,
@@ -191,9 +191,10 @@ const uint8_t kSouthEastOffBoard[64] = {
   0xf8, 0xf0, 0xe0, 0xc0, 0x80, 0x0, 0x80, 0xc0,
   0xfc, 0xf8, 0xf0, 0xe0, 0xc0, 0x80, 0x0, 0x80,
   0xfe, 0xfc, 0xf8, 0xf0, 0xe0, 0xc0, 0x80, 0x0,
+  0x0,
 };
 
-const uint8_t kSouthWestOffBoard[64] = {
+const uint8_t kSouthWestOffBoard[65] = {
   0x7f, 0x3f, 0x1f, 0xf, 0x7, 0x3, 0x1, 0x0,
   0x3f, 0x1f, 0xf, 0x7, 0x3, 0x1, 0x0, 0x1,
   0x1f, 0xf, 0x7, 0x3, 0x1, 0x0, 0x1, 0x3,
@@ -202,6 +203,7 @@ const uint8_t kSouthWestOffBoard[64] = {
   0x3, 0x1, 0x0, 0x1, 0x3, 0x7, 0xf, 0x1f,
   0x1, 0x0, 0x1, 0x3, 0x7, 0xf, 0x1f, 0x3f,
   0x0, 0x1, 0x3, 0x7, 0xf, 0x1f, 0x3f, 0x7f,
+  0x0,
 };
 
 constexpr Bitboard kBishopMagic = bb(56) | bb(48) | bb(40) | bb(32) | bb(24) | bb(16) | bb(8) | bb(0);
@@ -252,23 +254,40 @@ Bitboard byte_to_southwest_diag(SafeSquare sq, Bitboard byte) {
 
 }  // namespace diag
 
+Bitboard compute_one_bishops_targets(SafeSquare from, const Bitboard occupied) {
+  Location fromLoc = square2location(from);
+  Bitboard r = kEmptyBitboard;
+  {  // Southeast/Northwest diagonal.
+    uint8_t enemiesByte = diag::southeast_diag_to_byte(from, occupied);
+    uint8_t fromByte = diag::southeast_diag_to_byte(from, fromLoc);
+    r |= diag::byte_to_southeast_diag(from, sliding_moves(fromByte, enemiesByte));
+  }
+  {  // Southwest/Northeast diagonal.
+    uint8_t enemiesByte = diag::southwest_diag_to_byte(from, occupied);
+    uint8_t fromByte = diag::southwest_diag_to_byte(from, fromLoc);
+    r |= diag::byte_to_southwest_diag(from, sliding_moves(fromByte, enemiesByte));
+  }
+  return r;
+}
+
 Bitboard compute_bishoplike_targets(Bitboard bishopLikePieces, const Bitboard occupied) {
   Bitboard r = kEmptyBitboard;
 
   while (bishopLikePieces) {
     const SafeSquare from = pop_lsb_i_promise_board_is_not_empty(bishopLikePieces);
-    Location fromLoc = square2location(from);
+    r |= compute_one_bishops_targets(from, occupied);
+    // Location fromLoc = square2location(from);
 
-    {  // Southeast/Northwest diagonal.
-      uint8_t enemiesByte = diag::southeast_diag_to_byte(from, occupied);
-      uint8_t fromByte = diag::southeast_diag_to_byte(from, fromLoc);
-      r |= diag::byte_to_southeast_diag(from, sliding_moves(fromByte, enemiesByte));
-    }
-    {  // Southwest/Northeast diagonal.
-      uint8_t enemiesByte = diag::southwest_diag_to_byte(from, occupied);
-      uint8_t fromByte = diag::southwest_diag_to_byte(from, fromLoc);
-      r |= diag::byte_to_southwest_diag(from, sliding_moves(fromByte, enemiesByte));
-    }
+    // {  // Southeast/Northwest diagonal.
+    //   uint8_t enemiesByte = diag::southeast_diag_to_byte(from, occupied);
+    //   uint8_t fromByte = diag::southeast_diag_to_byte(from, fromLoc);
+    //   r |= diag::byte_to_southeast_diag(from, sliding_moves(fromByte, enemiesByte));
+    // }
+    // {  // Southwest/Northeast diagonal.
+    //   uint8_t enemiesByte = diag::southwest_diag_to_byte(from, occupied);
+    //   uint8_t fromByte = diag::southwest_diag_to_byte(from, fromLoc);
+    //   r |= diag::byte_to_southwest_diag(from, sliding_moves(fromByte, enemiesByte));
+    // }
 
   }
   return r;
