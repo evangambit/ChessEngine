@@ -41,6 +41,8 @@ GoCommand make_go_command(std::deque<std::string> *command, Position *pos) {
       || part == "searchmoves"
       ) {
       lastCommand = part;
+    } else if (part == "mm") {
+      goCommand.makeBestMove = true;
     } else if (lastCommand == "depth") {
       goCommand.depthLimit = stoi(part);
     } else if (lastCommand == "nodes") {
@@ -716,6 +718,14 @@ class GoTask : public Task {
         std::cout << " ponder " << head.response;
       }
       std::cout << std::endl;
+    }
+
+    if (goCommand.makeBestMove) {
+      if (state->pos.turn_ == Color::WHITE) {
+        make_move<Color::WHITE>(&state->pos, result.move);
+      } else {
+        make_move<Color::BLACK>(&state->pos, result.move);
+      }
     }
 
     *isRunning = false;
