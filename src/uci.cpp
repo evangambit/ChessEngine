@@ -594,17 +594,17 @@ class SetOptionTask : public Task {
       state->thinkerInterface()->set_num_threads(numThreads);
       return;
     } else if (does_pattern_match(command, {"Hash", "value", "*"})) {
-      int cacheSize;
+      int cacheSizeMb;
       try {
-        cacheSize = std::stoi(command[2]);
-        if (cacheSize <= 0) {
+        cacheSizeMb = std::stoi(command[2]);
+        if (cacheSizeMb <= 0) {
           throw std::invalid_argument("Value must be at least 1");
         }
       } catch (std::invalid_argument&) {
         std::cout << "Value must be an integer" << std::endl;
         return;
       }
-      state->thinkerInterface()->set_cache_size(cacheSize * 1000);
+      state->thinkerInterface()->set_cache_size(cacheSizeMb * 1000);
       return;
     } else if (does_pattern_match(command, {"SyzygyPath", "value", "*"})) {
       // TODO
