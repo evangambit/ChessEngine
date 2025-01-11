@@ -37,7 +37,7 @@ class UciPlayer:
     self.io = []
     self.command("uci")
     if weights.lower() != 'none':
-      if 'nnue' in path:
+      if weights.endswith('.bin'):
         self.command(f"loadnnue {weights}")
       else:
         self.command(f"loadweights {weights}")
@@ -56,7 +56,7 @@ class UciPlayer:
     else:
       self.command(f"position fen {fen} moves {' '.join(moves)}")
     if 'stockfish' not in self.name[0]:
-      self.command(f"go nodes {nodes}")
+      self.command(f"go nodes {int(nodes)}")
     else:
       self.command(f"go nodes {self.name[1]}")
     lines = []
