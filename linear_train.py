@@ -89,13 +89,22 @@ class JobType(enum.Enum):
   ZERO = 4
 
 """
-perl -ne 'print if (rand() < .1)' data/de6-md2/positions-160M.txt > data/de6-md2/pos.sample.txt
+# Dump from Sqlite table
+sqlite3 data/de6-md2/db.sqlite3 "select * from positions limit 100" > data/de6-md2/pos-60M.txt
 
-shuf data/de6-md2/pos.sample.txt > data/de6-md2/pos.sample.shuf.txt
+# Downsample from both datasets
+perl -ne 'print if (rand() < .1)' data/de6-md2/pos-60M.txt > data/de6-md2/pos-60M.sample.txt
+perl -ne 'print if (rand() < .1)' data/de6-md2/positions-160M.txt > data/de6-md2/pos-160M.sample.txt
+
+# Combine datasets
+cat data/de6-md2/pos-60M.sample.txt data/de6-md2/pos-160M.sample.txt > data/de6-md2/pos.sample.combined.txt
+
+# Shuffle datapoints.
+shuf data/de6-md2/pos.sample.combined.txt > data/de6-md2/pos.sample.combined.shuf.txt
 
 rm data/de6-md2/data-*
 
-./make_tables data/de6-md2/pos.sample.shuf.txt data/de6-md2/data
+./make_tables data/de6-md2/pos.sample.combined.shuf.txt data/de6-md2/data
 """
 
 def logit(x):
