@@ -90,7 +90,7 @@ bool history_is(const Position& pos, std::string movesString) {
 struct GoCommand {
   GoCommand()
   : depthLimit(100), nodeLimit(-1), timeLimitMs(-1),
-  wtimeMs(0), btimeMs(0), wIncrementMs(0), bIncrementMs(0), movesUntilTimeControl(-1) {}
+  wtimeMs(0), btimeMs(0), wIncrementMs(0), bIncrementMs(0), movesUntilTimeControl(-1), makeBestMove(false) {}
 
   Position pos;
 
@@ -104,6 +104,9 @@ struct GoCommand {
   uint64_t wIncrementMs;
   uint64_t bIncrementMs;
   uint64_t movesUntilTimeControl;
+
+  // If true, the best (found) move is made after the command finishes.
+  bool makeBestMove;
 };
 
 std::unordered_set<std::string> compute_legal_moves_set(Position *pos) {
@@ -469,14 +472,20 @@ struct Search {
           // We need to make sure returning the cached node doesn't enable our opponent to achieve
           // a 3-fold repetition.
           bool is3FoldDraw = false;
-          if (cr.bestMove != kNullMove) {
-            // Hash collisions can mean cr.bestMove is not actually valid, which can cause
-            // Position to reach a bad state... so we need to check the move is valid first.
-            if (thread->pos.is_valid_move<TURN>(cr.bestMove)) {
-              make_move<TURN>(&thread->pos, cr.bestMove);
-              is3FoldDraw = thread->pos.is_3fold_repetition(plyFromRoot + 1);
-              undo<TURN>(&thread->pos);
+          // Hash collisions can mean cr.bestMove is not actually valid, which can cause
+          // Position to reach a bad state... so we need to check the move is valid first.
+          if (cr.bestMove != kNullMove && thread->pos.is_valid_move<TURN>(cr.bestMove)) {
+            make_move<TURN>(&thread->pos, cr.bestMove);
+            is3FoldDraw = thread->pos.is_3fold_repetition(plyFromRoot + 1);
+            if (!is3FoldDraw) {
+              CacheResult cr2 = thinker->cache.find<IS_PARALLEL>(thread->pos.hash_);
+              if (cr2.bestMove != kNullMove && thread->pos.is_valid_move<TURN>(cr2.bestMove)) {
+                make_move<opposingColor>(&thread->pos, cr2.bestMove);
+                is3FoldDraw |= thread->pos.is_3fold_repetition(plyFromRoot + 2);
+                undo<opposingColor>(&thread->pos);
+              }
             }
+            undo<TURN>(&thread->pos);
           }
           /**
            * TODO: do we have a similar 3-fold repetition bug where self.child.child.child is a draw?
