@@ -67,18 +67,53 @@ class CReLU(nn.Module):
   def forward(self, x):
     return x.clip(0, 1)
 
+class Emb(nn.Module):
+  def __init__(self, dout):
+    super().__init__()
+    din = 776
+    self.misc = nn.Parameter(torch.randn(8, dout) * 0.01)
+
+    self.tiles = nn.Parameter(torch.randn(12, 8, 8, dout) * 0.01)
+    self.coord = nn.Parameter(torch.randn(1, 8, 8, dout) * 0.01)
+    self.piece = nn.Parameter(torch.randn(12, 1, 1, dout) * 0.01)
+    self.row = nn.Parameter(torch.randn(1, 8, 1, dout) * 0.01)
+    self.col = nn.Parameter(torch.randn(1, 1, 8, dout) * 0.01)
+    self.tilecolor = nn.Parameter(torch.randn(1, 1, 1, dout) * 0.01)
+
+    self.white_tile_mask = torch.zeros(1, 8, 8, 1)
+    for y in range(8):
+      for x in range(8):
+        self.white_tile_mask[0, y, x, 0] = (y + x) % 2 == 0
+
+    self.zeros = nn.Parameter(torch.zeros(1, dout))
+    self.bias = nn.Parameter(torch.zeros(dout))
+  
+  @property
+  def weight(self):
+    T = (
+      self.tiles + self.coord + self.piece + self.row + self.col
+      + (self.tilecolor * self.white_tile_mask)
+    ).reshape(12 * 8 * 8, -1)
+    return torch.cat([T, self.misc, self.zeros], 0)
+  
+  def forward(self, x):
+    return self.weight[x.to(torch.int32)].sum(1) + self.bias
+
 class Model(nn.Module):
   def __init__(self):
     super().__init__()
 
-    k1, k2 = 48, 16
+    k1, k2, k3 = 128, 32, 32
+    # 13317it [06:52, 34.86it/s]train: 0.0381 test: 0.0314 (16, 16)
 
     self.seq = nn.Sequential(
-      nn.Linear(12 * 8 * 8 + 8, k1),
+      Emb(k1),
       CReLU(),
       nn.Linear(k1, k2),
       CReLU(),
-      nn.Linear(k2, 2, bias=False),
+      nn.Linear(k2, k3),
+      CReLU(),
+      nn.Linear(k3, 1, bias=False),
     )
     for layer in self.seq:
       if isinstance(layer, nn.Linear):
@@ -86,12 +121,7 @@ class Model(nn.Module):
         if layer.bias is not None:
           nn.init.zeros_(layer.bias)
 
-    # nn.init.zeros_(self.seq[-1].weight)
-
-  # w = w1[:,:-8].reshape((2, 12, 8, 8))
-  def forward(self, tables, misc_features):
-    tables = tables.reshape(tables.shape[0], -1)
-    x = torch.cat([tables, misc_features], 1)
+  def forward(self, x):
     penalty = 0.0
     for layer in self.seq:
       x = layer(x)
@@ -111,13 +141,11 @@ class Model(nn.Module):
         x = ((x + shift) % quant - quant // 2) / scale
     return x, penalty
   
-  def layer_outputs(self, tables, misc_features):
-    tables = tables.reshape(tables.shape[0], -1)
-    x = torch.cat([tables, misc_features], 1)
+  def layer_outputs(self, x):
     r = []
     for layer in self.seq:
       x = layer(x)
-      if isinstance(layer, nn.Linear):
+      if isinstance(layer, (nn.Linear, Emb)):
         r.append(x)
     return r
 
@@ -164,9 +192,11 @@ def interweaver(*A):
         yield name, loaders[i % n].dataset, next(iters[i % n])
     i += 1
 
-trainset = SimpleIterablesDataset(f'data/de6-md2/data-table', f'data/de6-md2/data-eval')
-testset = SimpleIterablesDataset(f'data/de7-md2/data-table', f'data/de7-md2/data-eval')
+trainset = SimpleIterablesDataset(f'data/de6-md2/data-nnue', f'data/de6-md2/data-eval')
+testset = SimpleIterablesDataset(f'data/de7-md2/data-nnue', f'data/de7-md2/data-eval')
 print(f'train: %.3fM   test: %.3fM' % (len(trainset) / 1_000_000, len(testset) / 1_000_000))
+
+# train: 0.0357 test: 0.0294
 
 model = Model()
 opt = optim.AdamW(model.parameters(), lr=0.0, weight_decay=0.1)
@@ -179,7 +209,7 @@ L = []
 kBatchSize = 2048
 trainloader = tdata.DataLoader(trainset, batch_size=kBatchSize, drop_last=True)
 testloader = tdata.DataLoader(testset, batch_size=kBatchSize, drop_last=True)
-maxlr = 0.03
+maxlr = 0.01
 scheduler = PiecewiseFunction(
   [0, 20, len(trainloader) // 2, len(trainloader)],
   [0.0, maxlr, maxlr * 0.1, maxlr * 0.01]
@@ -193,41 +223,41 @@ for split, _, (x, y) in tqdm(interweaver(
   ), total=len(trainloader)):
   if split == 'train':
     it += 1
+    if it % 1000 == 999:
+      print(it, len(trainloader), sum(metrics['train:loss'][-50:]) / 50)
   lr = scheduler(it)
   for pg in opt.param_groups:
     pg['lr'] = lr
 
-  # Unpacking bits into bytes.
-  x = x.to(torch.float32)
+  # # Unpacking bits into bytes.
+  # x = x.to(torch.float32)
   y = y.to(torch.float32) / 1000.0
 
-  t = x[:,:768].reshape(-1, 12, 8, 8)
-  m = x[:,768:]
+  # t = x[:,:768].reshape(-1, 12, 8, 8)
+  # m = x[:,768:]
 
-  flipped_tables = torch.cat([
-    torch.flip(t[:,6::,:,:], (2,)),
-    torch.flip(t[:,:6,:,:], (2,)),
-  ], 1)
-  flipped_misc = torch.zeros(m.shape)
-  flipped_misc[:,0] = 1 - m[:,0]  # turn
-  flipped_misc[:,1] = m[:,3]
-  flipped_misc[:,2] = m[:,4]
-  flipped_misc[:,3] = m[:,1]
-  flipped_misc[:,4] = m[:,2]
-  flipped_y = 1.0 - y
+  # flipped_tables = torch.cat([
+  #   torch.flip(t[:,6::,:,:], (2,)),
+  #   torch.flip(t[:,:6,:,:], (2,)),
+  # ], 1)
+  # flipped_misc = torch.zeros(m.shape)
+  # flipped_misc[:,0] = 1 - m[:,0]  # turn
+  # flipped_misc[:,1] = m[:,3]
+  # flipped_misc[:,2] = m[:,4]
+  # flipped_misc[:,3] = m[:,1]
+  # flipped_misc[:,4] = m[:,2]
+  # flipped_y = 1.0 - y
 
-  t = torch.cat([t, flipped_tables], 0)
-  m = torch.cat([m, flipped_misc], 0)
-  y = torch.cat([y, flipped_y], 0)
+  # t = torch.cat([t, flipped_tables], 0)
+  # m = torch.cat([m, flipped_misc], 0)
+  # y = torch.cat([y, flipped_y], 0)
 
-  output, penalty = model(t, m)
-  yhat = output[:,0]
-  uncertainty = output[:,1]
+  yhat, penalty = model(x)
+  penalty = penalty * 0.0  # Ignore the penalty for now.
 
-  loss = loss_fn(yhat, y.squeeze())
+  loss = loss_fn(yhat.squeeze(), y.squeeze())
 
-  residuals = torch.sigmoid(yhat) - y.squeeze()
-  loss += ((residuals - uncertainty)**2).mean() * 0.1
+  residuals = torch.sigmoid(yhat.squeeze()) - y.squeeze()
 
   if split == 'train':
     opt.zero_grad()
@@ -243,14 +273,14 @@ for split, _, (x, y) in tqdm(interweaver(
   if it >= len(trainloader):
     break
 
-layer_outputs = model.layer_outputs(t, m)
+layer_outputs = model.layer_outputs(x.to(torch.int32))
 for layer in layer_outputs:
   layer = layer.detach().numpy().flatten()
   print(np.percentile(layer, 1), layer.mean(), layer.std(), np.percentile(layer, 99))
 
-linears = [l for l in model.seq if isinstance(l, nn.Linear)]
+linears = [l for l in model.seq if isinstance(l, (nn.Linear, Emb))]
 
-widths =  [l.weight.shape[1] for l in linears]
+widths =  [(l.weight.shape[1] if isinstance(l, nn.Linear) else l.weight.shape[0]) for l in linears]
 run_id = uuid.uuid4().hex
 outfile = os.path.join('runs', run_id, 'nnue-' + '-'.join(str(x) for x in widths) + '.bin')
 os.makedirs(os.path.dirname(outfile), exist_ok=True)
@@ -276,7 +306,7 @@ with open(os.path.join('runs', run_id, 'config.txt'), 'w') as f:
 
 print('writing out to "%s"' % outfile)
 
-w1 = model.seq[0].weight.detach().numpy()
+w1 = model.seq[0].weight.T.detach().numpy()[:,:-1]
 w2 = model.seq[2].weight.detach().numpy()
 w3 = model.seq[4].weight.detach().numpy()
 b1 = model.seq[0].bias.detach().numpy()
@@ -284,10 +314,9 @@ b2 = model.seq[2].bias.detach().numpy()
 
 # save
 with open(outfile, 'wb') as f:
-  f.write(w1.tobytes())
-  f.write(w2.tobytes())
-  f.write(w3.tobytes())
-  f.write(b1.tobytes())
-  f.write(b2.tobytes())
+  for mat in [w1, w2, w3, b1, b2]:
+    f.write(np.array([len(mat.shape)], dtype=np.int32).tobytes())
+    f.write(np.array(mat.shape, dtype=np.int32).tobytes())
+    f.write(mat.tobytes())
 
 # 2048 1.4365 1.4369
