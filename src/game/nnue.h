@@ -50,6 +50,18 @@ namespace {
     }
 
     void read(std::istream& myfile) {
+      int32_t numDims;
+      myfile.read(reinterpret_cast<char*>(&numDims), sizeof(int32_t));
+      if (numDims != 1) {
+        std::cout << "Error: expected 1 dimensions, got " << numDims << std::endl;
+        exit(0);
+      }
+      int32_t shape[1];
+      myfile.read(reinterpret_cast<char*>(shape), 1 * sizeof(int32_t));
+      if (shape[0] != N) {
+        std::cout << "Error: expected shape (" << N << "), got (" << shape[0] << ")" << std::endl;
+        exit(0);
+      }
       float *data = new float[N];
       myfile.read(reinterpret_cast<char*>(data), this->size() * sizeof(float));
       for (size_t i = 0; i < N; ++i) {
@@ -114,6 +126,18 @@ namespace {
     }
 
     void read(std::istream& myfile) {
+      int32_t numDims;
+      myfile.read(reinterpret_cast<char*>(&numDims), sizeof(int32_t));
+      if (numDims != 2) {
+        std::cout << "Error: expected 2 dimensions, got " << numDims << std::endl;
+        exit(0);
+      }
+      int32_t shape[2];
+      myfile.read(reinterpret_cast<char*>(shape), 2 * sizeof(int32_t));
+      if (shape[0] != ROWS || shape[1] != COLS) {
+        std::cout << "Error: expected shape (" << ROWS << ", " << COLS << "), got (" << shape[0] << ", " << shape[1] << ")" << std::endl;
+        exit(0);
+      }
       float *data = new float[ROWS * COLS];
       myfile.read(reinterpret_cast<char*>(data), this->size() * sizeof(float));
       for (size_t i = 0; i < ROWS * COLS; ++i) {
@@ -197,8 +221,8 @@ struct DummyNetwork : public NnueNetworkInterface {
 
 struct NnueNetwork : public NnueNetworkInterface {
   static constexpr int kInputDim = 12 * 8 * 8 + 8;
-  static constexpr int kWidth1 = 48;
-  static constexpr int kWidth2 = 16;
+  static constexpr int kWidth1 = 128;
+  static constexpr int kWidth2 = 32;
   static constexpr int kWidth3 = 1;
 
   Vector<kInputDim> x0;

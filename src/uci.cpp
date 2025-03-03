@@ -810,7 +810,7 @@ struct UciEngine {
     this->state.pos = Position("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
 
     #if NNUE_EVAL
-    LoadNnueTask task({"loadnnue", "nnue-776-48-16-1.bin"});
+    LoadNnueTask task({"loadnnue", "nnue-777-128-32.bin"});
     task.start(&this->state);
     #else
     #if INCLUDE_WEIGHTS
