@@ -11,8 +11,8 @@
 #include "game/nnue.h"
 #endif
 
-#define FEATURES 1
-#define PST 1
+#define FEATURES 0
+#define PST 0
 #define NNUE 1
 
 #include <thread>
@@ -25,6 +25,8 @@ using WriterI16 = ShardedMatrix::Writer<int16_t>;
 
 Thinker gThinker;
 
+constexpr int kMaxNumOnesInNnueInputVector = 32 + 5;
+
 void write_feature(uint8_t *pieceMaps, NnueFeatures feature, bool value) {
   pieceMaps[feature / 8] |= (value ? 1 : 0) << (feature % 8);
 }
@@ -33,6 +35,7 @@ void process(
   const std::vector<std::string>& line
   #if NNUE
   , WriterB& tableWriter
+  , WriterI16& sparseNnueInputWriter
   #endif
   #if FEATURES
   , WriterI8& featureWriter
@@ -75,11 +78,18 @@ void process(
   pos.set_network(network);
 
   bool pieceMaps[NnueFeatures::NF_NUM_FEATURES];
+  int16_t sparseNnueInput[kMaxNumOnesInNnueInputVector];
   std::fill_n(pieceMaps, 8 * 12 + 1, 0);
+  std::fill_n(sparseNnueInput, kMaxNumOnesInNnueInputVector, NnueFeatures::NF_NUM_FEATURES);
+  size_t j = 0;
   for (size_t i = 0; i < NnueFeatures::NF_NUM_FEATURES; ++i) {
     pieceMaps[i] = network->x[i] > 0;
+    if (pieceMaps[i]) {
+      sparseNnueInput[j++] = i;
+    }
   }
   tableWriter.write_row(pieceMaps);
+  sparseNnueInputWriter.write_row(sparseNnueInput);
   #endif
 
   #if PST
@@ -158,6 +168,7 @@ int main(int argc, char *argv[]) {
   std::ifstream infile(inpath);
   #if NNUE
   WriterB tableWriter(outpath + "-table", { NnueFeatures::NF_NUM_FEATURES });
+  WriterI16 sparseNnueInputWriter(outpath + "-nnue", { kMaxNumOnesInNnueInputVector });
   #endif
   #if FEATURES
   WriterI8 featureWriter(outpath + "-features", { EF::NUM_EVAL_FEATURES });
@@ -189,6 +200,7 @@ int main(int argc, char *argv[]) {
     process(parts
     #if NNUE
     , tableWriter
+    , sparseNnueInputWriter
     #endif
     #if FEATURES
     , featureWriter
