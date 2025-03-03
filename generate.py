@@ -125,6 +125,18 @@ def sql_inserter(resultQueue, args, database):
       t = time.time()
       conn.commit()
 
+"""
+Rather than saving (64x13 = 832) columns, we can save 32 integers indicating the location and piece type of each piece.
+Then we can use nn.Embedding to convert these integers to a vector.
+
+We can also save the castling rights and en passant square as integers.
+
+[P1, P2, ..., P32, castlingWhite, castlingBlack, enPassantWhite, enPassantBlack]
+
+P1, P2, ..., P32 are integers from 0 to (64 * 12 - 1) and we'll use 16-bit integers to store them.
+
+"""
+
 if __name__ == '__main__':
   parser = argparse.ArgumentParser()
   parser.add_argument('--engine', default='/opt/homebrew/bin/stockfish')
