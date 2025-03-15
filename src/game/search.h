@@ -652,6 +652,9 @@ struct Search {
     }
 
     MoveRecommender& recommender = thinker->moveRecommender;
+    constexpr ColoredPiece theirKing = coloredPiece<opposingColor, Piece::KING>();
+
+    const CheckMap checkMap = compute_potential_attackers<TURN>(thread->pos, lsb_i_promise_board_is_not_empty(thread->pos.pieceBitboards_[theirKing]));
 
     // const ExtMove lastMove = thread->pos.history_.size() > 0 ? thread->pos.history_.back() : kNullExtMove;
     // TODO: use lastMove (above) to sort better.
@@ -660,7 +663,8 @@ struct Search {
 
       // Bonus for moving threatened pieces and not moving into threats. ELO_STDERR(+7, +24)
       move->score += threats.badForOur[move->piece] & bb(move->move.from) ? 50 : 0;
-      move->score -= threats.badForOur[move->piece] & bb(move->move.to) ? 50 : 0;
+      const bool movingSomewhereBad = (threats.badForOur[move->piece] & bb(move->move.to)) > 0;
+      move->score -= movingSomewhereBad ? 50 : 0;
 
       // Bonus if it was the last-found best move. ELO_STDERR(+109, +126)
       move->score += value_or_zero((move->move == lastFoundBestMove) && (depthRemaining >= 1), 5000);
@@ -668,6 +672,9 @@ struct Search {
       // Bonus if siblings like a move. ELO_STDERR(+0 to +15)
       move->score += value_or_zero(move->move == recommendedMoves.moves[0], 50);
       move->score += value_or_zero(move->move == recommendedMoves.moves[1], 50);
+
+      const bool isCheck = ((checkMap.data[move->piece] & bb(move->move.to)) > 0);
+      move->score += value_or_zero(isCheck & !movingSomewhereBad , 100);
 
       // Killer Moves. ELO_STDERR(+15 to +30)
       if (SEARCH_TYPE != SearchTypeRoot) {
