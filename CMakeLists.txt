@@ -5,6 +5,7 @@ find_package(Torch REQUIRED)
 
 # Option to enable/disable NNUE evaluation
 option(NNUE_EVAL "Use NNUE evaluation" OFF)
+option(SIMPLE_SEARCH "Use simple search" OFF)
 
 if(NNUE_EVAL)
     add_definitions(-DNNUE_EVAL=1)
@@ -12,6 +13,13 @@ if(NNUE_EVAL)
 else()
     add_definitions(-DNNUE_EVAL=0)
     message(STATUS "NNUE evaluation disabled")
+endif()
+if(SIMPLE_SEARCH)
+    add_definitions(-DSIMPLE_SEARCH=1)
+    message(STATUS "Simple search enabled")
+else()
+    add_definitions(-DSIMPLE_SEARCH=0)
+    message(STATUS "Simple search disabled")
 endif()
 
 # 1. Use C++20 standard
