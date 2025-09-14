@@ -144,7 +144,7 @@ if __name__ == '__main__':
   parser.add_argument('--multipv', type=int, default=5)
   parser.add_argument('--num_workers', type=int, default=4)
   parser.add_argument('--min_depth', type=int, default=2)
-  parser.add_argument('--for_tuning', type=int, default=0)
+  parser.add_argument('--for_tuning', type=int, default=0, help='if enabled, positions are *not* required to be quiet')
   args = parser.parse_args()
 
   assert args.for_tuning in [0, 1]

@@ -464,6 +464,7 @@ struct Search {
     #endif
     // Short-circuiting due to a cached result.
     // 0.0729 ± 0.0109 after 512 games at 50,000 nodes/move
+    #if SIMPLE_SEARCH==0
     if (!(SEARCH_TYPE == SearchTypeRoot && thread->id == 0)) {
       // It's important that the root node of thread 0 not short-circuit here
       // so that thinker->variations is properly set.
@@ -511,6 +512,7 @@ struct Search {
         beta = std::min(beta, cr.upperbound());
       }
     }
+    #endif  // SIMPLE_SEARCH==0
 
     if (depthRemaining <= 0) {
       // Quiescence Search
@@ -547,6 +549,7 @@ struct Search {
 
     const bool inCheck = can_enemy_attack<TURN>(thread->pos, lsb_i_promise_board_is_not_empty(thread->pos.pieceBitboards_[moverKing]));
 
+    #if SIMPLE_SEARCH==0
     #if FUTILITY_PRUNING
     if (depthRemaining == 2) {
       const int32_t futilityThreshold = 150;
@@ -566,6 +569,7 @@ struct Search {
       }
     }
     #endif  // FUTILITY_PRUNING
+    #endif  // SIMPLE_SEARCH==0
 
     Move lastFoundBestMove = (isNullCacheResult(cr) ? kNullMove : cr.bestMove);
 
@@ -637,6 +641,7 @@ struct Search {
       const bool scaredOfZugzwang = std::popcount(thread->pos.colorBitboards_[TURN] & ~thread->pos.pieceBitboards_[coloredPiece<TURN, Piece::PAWN>()]) <= 3;
 
       // Null-move pruning. ELO_STDERR(+44, +60)
+      #if SIMPLE_SEARCH==0
       if (staticEval >= beta && !inCheck && !scaredOfZugzwang && depthRemaining >= 2) {
         make_nullmove<TURN>(&thread->pos);
         SearchResult<TURN> a = flip(search<opposingColor, SearchTypeNullWindow, IS_PARALLEL>(thinker, thread, depthRemaining - 2, plyFromRoot + 1, -beta, -(beta - 1), recommendationsForChildren, distFromPV));
@@ -649,6 +654,7 @@ struct Search {
         nullMoveResponse = a.move;
         nullMover = cp2p(thread->pos.tiles_[nullMoveResponse.to]);
       }
+      #endif  // SIMPLE_SEARCH==0
     }
 
     MoveRecommender& recommender = thinker->moveRecommender;

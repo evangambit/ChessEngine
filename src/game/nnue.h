@@ -4,7 +4,9 @@
 #include "utils.h"
 #include "geometry.h"
 
+#ifndef NO_TORCH
 #include <torch/script.h> // One-stop header.
+#endif
 
 #include <algorithm>
 
@@ -220,6 +222,7 @@ struct DummyNetwork : public NnueNetworkInterface {
   }
 };
 
+#ifndef NO_TORCH
 struct PyTorchNetwork : public NnueNetworkInterface {
   int16_t x[NnueFeatures::NF_NUM_FEATURES];
   torch::Tensor embeddings_[NnueFeatures::NF_NUM_FEATURES];
@@ -391,6 +394,7 @@ struct NnueNetwork : public NnueNetworkInterface {
     incremental_update(x1, w0, index, delta);
   }
 };
+#endif // NO_TORCH
 
 }  // namespace ChessEngine
 

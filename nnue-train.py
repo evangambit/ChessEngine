@@ -145,6 +145,7 @@ class Emb(nn.Module):
     for y in range(8):
       for x in range(8):
         self.white_tile_mask[0, y, x, 0] = (y + x) % 2 == 0
+    self.white_tile_mask = nn.Parameter(self.white_tile_mask, requires_grad=False)
 
     self.zeros = nn.Parameter(torch.zeros(1, dout))
     self.bias = nn.Parameter(torch.zeros(dout))
@@ -163,63 +164,64 @@ class Emb(nn.Module):
   def forward2(self, x):
     return self.weight[x.to(torch.int32)]  # (x.shape[0], 37, dout)
 
-class Model(nn.Module):
-  def __init__(self):
-    super().__init__()
+# class Model(nn.Module):
+#   def __init__(self):
+#     super().__init__()
 
-    k1, k2, k3 = 128, 32, 32
-    # 13317it [06:52, 34.86it/s]train: 0.0381 test: 0.0314 (16, 16)
+#     k1, k2, k3 = 128, 32, 32
 
-    self.seq = nn.Sequential(
-      Emb(k1),
-      CReLU(),
-      nn.Linear(k1, k2),
-      CReLU(),
-      nn.Linear(k2, k3),
-      CReLU(),
-      nn.Linear(k3, 1, bias=False),
-    )
-    for layer in self.seq:
-      if isinstance(layer, nn.Linear):
-        nn.init.xavier_normal_(layer.weight)
-        if layer.bias is not None:
-          nn.init.zeros_(layer.bias)
+#     self.seq = nn.Sequential(
+#       Emb(k1),
+#       CReLU(),
+#       nn.Linear(k1, k2),
+#       CReLU(),
+#       nn.Linear(k2, k3),
+#       CReLU(),
+#       nn.Linear(k3, 1, bias=False),
+#     )
+#     for layer in self.seq:
+#       if isinstance(layer, nn.Linear):
+#         nn.init.xavier_normal_(layer.weight)
+#         if layer.bias is not None:
+#           nn.init.zeros_(layer.bias)
 
-  def forward(self, x):
-    penalty = 0.0
-    for layer in self.seq:
-      x = layer(x)
-      if isinstance(layer, nn.Linear) and layer is not self.seq[-1]:
-        scale = 256
-        quant = 65_536
-        low = quant // 2
-        shift = quant * 5 + low
+#   def forward(self, x):
+#     penalty = 0.0
+#     for layer in self.seq:
+#       x = layer(x)
+#       if isinstance(layer, nn.Linear) and layer is not self.seq[-1]:
+#         scale = 256
+#         quant = 65_536
+#         low = quant // 2
+#         shift = quant * 5 + low
 
-        x = x * scale
+#         x = x * scale
 
-        # We penalize any value that is more than 0.5 away from the nearest quantization point, just to be safe.
-        # In theory any value up to "low - 1" is technically okay.
-        penalty += ((torch.relu(torch.abs(x) - low * 0.5) / scale)**2).mean()
+#         # We penalize any value that is more than 0.5 away from the nearest quantization point, just to be safe.
+#         # In theory any value up to "low - 1" is technically okay.
+#         penalty += ((torch.relu(torch.abs(x) - low * 0.5) / scale)**2).mean()
 
-        x = x + torch.rand(x.shape, device=x.device) - 0.5
-        x = ((x + shift) % quant - quant // 2) / scale
-    return x, penalty
+#         x = x + torch.rand(x.shape, device=x.device) - 0.5
+#         x = ((x + shift) % quant - quant // 2) / scale
+#     return x, penalty
   
-  def layer_outputs(self, x):
-    r = []
-    for layer in self.seq:
-      x = layer(x)
-      if isinstance(layer, (nn.Linear, Emb)):
-        r.append(x)
-    return r
+#   def layer_outputs(self, x):
+#     r = []
+#     for layer in self.seq:
+#       x = layer(x)
+#       if isinstance(layer, (nn.Linear, Emb)):
+#         r.append(x)
+#     return r
 
 class Model(nn.Module):
   def __init__(self, k):
     super().__init__()
     self.seq = nn.Sequential(
-      nn.Linear(k, 128),
+      nn.Linear(k, 256),
       nn.LeakyReLU(0.1),
-      nn.Linear(128, 1, bias=False),
+      nn.Linear(256, 256),
+      nn.LeakyReLU(0.1),
+      nn.Linear(256, 1, bias=False),
     )
     nn.init.xavier_normal_(self.seq[0].weight)
     nn.init.xavier_normal_(self.seq[2].weight)
@@ -278,80 +280,95 @@ def interweaver(*A):
         yield name, loaders[i % n].dataset, next(iters[i % n])
     i += 1
 
-trainset = SimpleIterablesDataset(f'data/de6-md2/data-nnue', f'data/de6-md2/data-eval')
-testset = SimpleIterablesDataset(f'data/de7-md2/data-nnue', f'data/de7-md2/data-eval')
-print(f'train: %.3fM   test: %.3fM' % (len(trainset) / 1_000_000, len(testset) / 1_000_000))
+if __name__ == '__main__':
+  trainset = SimpleIterablesDataset(f'data/de6-md2/x-nnue', f'data/de6-md2/x-eval')
+  testset = SimpleIterablesDataset(f'data/de7-md2/x-nnue', f'data/de7-md2/x-eval')
+  print(f'train: %.3fM   test: %.3fM' % (len(trainset) / 1_000_000, len(testset) / 1_000_000))
 
-# train: 0.0357 test: 0.0294
+  # train: 0.0357 test: 0.0294
 
-k = 256
-emb = Emb(k)
-model = Model(k)
-opt = optim.AdamW(list(model.parameters()) + list(emb.parameters()), lr=0.0, weight_decay=0.1)
+  device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-def loss_fn(yhat: torch.Tensor, y: torch.Tensor):
-  return (torch.abs(torch.sigmoid(yhat) - y)**2.5)
+  k = 256
+  emb = Emb(k).to(device)
+  model = Model(k).to(device)
+  opt = optim.AdamW(list(model.parameters()) + list(emb.parameters()), lr=0.0, weight_decay=0.1)
 
-L = []
+  def loss_fn(yhat: torch.Tensor, y: torch.Tensor):
+    return (torch.abs(torch.sigmoid(yhat) - y)**2.5)
 
-kBatchSize = 2048
-trainloader = tdata.DataLoader(trainset, batch_size=kBatchSize, drop_last=True)
-testloader = tdata.DataLoader(testset, batch_size=kBatchSize, drop_last=True)
-maxlr = 0.01
-scheduler = PiecewiseFunction(
-  [0, 20, len(trainloader) // 2, len(trainloader)],
-  [0.0, maxlr, maxlr * 0.1, maxlr * 0.01]
-)
+  L = []
 
-metrics = defaultdict(list)
-it = 0
-for split, _, (x, y) in tqdm(interweaver(
-    ("train", 5, trainloader),
-    ("test", 1, testloader),
-  ), total=len(trainloader)):
-  if split == 'train':
-    it += 1
-    if it % 1000 == 999:
-      print(it, len(trainloader), sum(metrics['train:loss'][-50:]) / 50)
-  lr = scheduler(it)
-  for pg in opt.param_groups:
-    pg['lr'] = lr
+  kBatchSize = 2048
+  trainloader = tdata.DataLoader(trainset, batch_size=kBatchSize, drop_last=True)
+  testloader = tdata.DataLoader(testset, batch_size=kBatchSize, drop_last=True)
+  maxlr = 0.01
+  scheduler = PiecewiseFunction(
+    [0, 20, len(trainloader) // 2, len(trainloader)],
+    [0.0, maxlr, maxlr * 0.1, maxlr * 0.01]
+  )
 
-  # # Unpacking bits into bytes.
-  # x = x.to(torch.float32)
-  y = y.to(torch.float32) / 1000.0
+  metrics = defaultdict(list)
+  it = 0
+  for split, _, (x, y) in tqdm(interweaver(
+      ("train", 5, trainloader),
+      ("test", 1, testloader),
+    ), total=int(len(trainloader)*(6/5))):
+    if split == 'train':
+      it += 1
+      if it % 1000 == 999:
+        print(it, len(trainloader), sum(metrics['train:loss'][-50:]) / 50)
+    lr = scheduler(it)
+    for pg in opt.param_groups:
+      pg['lr'] = lr
 
-  x = emb(x)
-  yhat, penalty = model(x)
-  penalty = penalty * 0.0  # Ignore the penalty for now.
+    # # Unpacking bits into bytes.
+    # x = x.to(torch.float32)
+    y = y.to(device).to(torch.float32) / 1000.0
 
-  loss = loss_fn(yhat.squeeze(), y.squeeze())
+    x = emb(x.to(device))
+    yhat, penalty = model(x)
+    penalty = penalty * 0.0  # Ignore the penalty for now.
 
-  residuals = torch.sigmoid(yhat.squeeze()) - y.squeeze()
+    loss = loss_fn(yhat.squeeze(), y.squeeze())
 
-  if split == 'train':
-    opt.zero_grad()
-    (loss.mean() + penalty).backward()
-    opt.step()
-  metrics[f'{split}:loss'].append(loss.mean().item())
-  metrics[f'{split}:penalty'].append(penalty.item())
-  if split == 'train' and it % 50 == 0:
-    train_loss = sum(metrics[f'train:loss'][-10:]) / len(metrics[f'train:loss'][-10:])
-    test_loss = sum(metrics[f'test:loss'][-10:]) / len(metrics[f'test:loss'][-10:])
-    print('train: %.4f test: %.4f' % (train_loss, test_loss))
-  
-  if it >= len(trainloader):
-    break
+    residuals = torch.sigmoid(yhat.squeeze()) - y.squeeze()
 
-torch.jit.trace(model, torch.zeros(size=(1, 256))).save("my_module.pt")
-# torch.jit.script(model).save("my_module.pt")
-with open('my_module.emb', 'wb') as f:
-  mat = emb.weight.detach().numpy()[:-1]
-  bias = emb.bias.detach().numpy()
-  f.write(np.array([len(mat.shape)], dtype=np.int32).tobytes())
-  f.write(np.array(mat.shape, dtype=np.int32).tobytes())
-  f.write(mat.tobytes())
-  f.write(np.array([len(bias.shape)], dtype=np.int32).tobytes())
-  f.write(np.array(bias.shape, dtype=np.int32).tobytes())
-  f.write(bias.tobytes())
+    if split == 'train':
+      opt.zero_grad()
+      (loss.mean() + penalty).backward()
+      opt.step()
+    metrics[f'{split}:loss'].append(loss.mean().item())
+    metrics[f'{split}:penalty'].append(penalty.item())
+    if split == 'train' and it % 50 == 0:
+      train_loss = sum(metrics[f'train:loss'][-10:]) / len(metrics[f'train:loss'][-10:])
+      test_loss = sum(metrics[f'test:loss'][-10:]) / len(metrics[f'test:loss'][-10:])
+      print('train: %.4f test: %.4f' % (train_loss, test_loss))
+    
+    if it >= len(trainloader):
+      break
+
+  l = np.array(metrics[f'test:loss'][-50:])
+  id_ = f"{str(uuid.uuid4())[:8]}-{(l.mean() * 1_000_000):.0f}-{(l.std() * 1_000_000):.0f}"
+  print(f'Saving model to {id_}.pt and {id_}.emb')
+  with open(f'{id_}.json', 'w') as f:
+    json.dump({
+      'id': id_,
+      'test_loss_mean': l.mean(),
+      'test_loss_std': l.std() / (np.sqrt(len(l)) - 1),
+      'train_size': len(trainset),
+      'test_size': len(testset),
+      'widths': [s.in_features for s in model.seq if isinstance(s, nn.Linear)],
+    }, f, indent=2)
+  torch.jit.trace(model.cpu(), torch.zeros(size=(1, 256))).save(f"{id_}.pt")
+  # torch.jit.script(model).save("my_module.pt")
+  with open(f'{id_}.emb', 'wb') as f:
+    mat = emb.weight.cpu().detach().numpy()[:-1]
+    bias = emb.bias.cpu().detach().numpy()
+    f.write(np.array([len(mat.shape)], dtype=np.int32).tobytes())
+    f.write(np.array(mat.shape, dtype=np.int32).tobytes())
+    f.write(mat.tobytes())
+    f.write(np.array([len(bias.shape)], dtype=np.int32).tobytes())
+    f.write(np.array(bias.shape, dtype=np.int32).tobytes())
+    f.write(bias.tobytes())
 

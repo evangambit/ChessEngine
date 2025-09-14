@@ -4,7 +4,9 @@
 #include "game/movegen.h"
 #include "game/movegen/sliding.h"
 #include "game/Evaluator.h"
+#if FEATURES
 #include "game/Thinker.h"
+#endif
 #include "sharded_matrix.h"
 
 #if NNUE_EVAL
@@ -23,7 +25,9 @@ using WriterB = ShardedMatrix::Writer<bool>;
 using WriterI8 = ShardedMatrix::Writer<int8_t>;
 using WriterI16 = ShardedMatrix::Writer<int16_t>;
 
+#if FEATURES
 Thinker gThinker;
+#endif
 
 constexpr int kMaxNumOnesInNnueInputVector = 32 + 5;
 
@@ -57,6 +61,7 @@ void process(
 
   Position pos(line[0]);
 
+  #if FEATURES
   Evaluator& evaluator = ((ThinkerInterface *)(&gThinker))->get_evaluator();
 
   if (pos.turn_ == Color::WHITE) {
@@ -64,6 +69,7 @@ void process(
   } else {
     evaluator.score<Color::BLACK>(pos);
   }
+  #endif
 
   // If we don't want to write the write features, then we're training a neural network
   // so we don't want to skip known draws.
