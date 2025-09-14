@@ -1,7 +1,9 @@
 
 
+## Building
 
-
+cmake . -DCMAKE_BUILD_TYPE=Release -DNNUE_EVAL=1
+make
 
 ## Profiling
 

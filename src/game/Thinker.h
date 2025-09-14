@@ -104,7 +104,9 @@ struct Thinker : public ThinkerInterface {
     this->clear_history_heuristic();
     this->nodeCounter = 0;
     #if NNUE_EVAL
-    this->nnue = std::make_shared<NnueNetwork>();
+    std::cout << "Using NNUE evaluation" << std::endl;
+    this->nnue = static_pointer_cast<NnueNetworkInterface>(std::make_shared<PyTorchNetwork>());
+    std::cout << "NNUE network initialized" << std::endl;
     #endif
     multiPV = 1;
     numThreads = 1;
@@ -174,7 +176,7 @@ private:
   }
 
   #if NNUE_EVAL
-  std::shared_ptr<NnueNetwork> get_nnue() override {
+  std::shared_ptr<NnueNetworkInterface> get_nnue() override {
     return nnue;
   }
   #endif
@@ -204,7 +206,7 @@ private:
   }
 
   #if NNUE_EVAL
-  std::shared_ptr<NnueNetwork> nnue;
+  std::shared_ptr<NnueNetworkInterface> nnue;
   #endif
 
   Evaluator evaluator;
@@ -212,17 +214,7 @@ private:
 
   #if NNUE_EVAL
   void load_nnue(const std::string& filename) {
-    std::ifstream myfile;
-    myfile.open(filename);
-    if (!myfile.is_open()) {
-      std::cout << "Error opening file \"" << filename << "\"" << std::endl;
-      exit(0);
-    }
-    this->load_nnue(myfile);
-    myfile.close();
-  }
-  void load_nnue(std::istream& myfile) override {
-    this->nnue->load(myfile);
+    nnue->load(filename);
   }
   #endif
 

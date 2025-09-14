@@ -1,12 +1,17 @@
 cmake_minimum_required(VERSION 4.0)
 project(example_project)
 
-# -DNNUE_EVAL=1 or -DNNUE_EVAL=0
-set(USE_NNUE_EVAL 1 BOOL "Use NNUE evaluation")
-if(USE_NNUE_EVAL)
+find_package(Torch REQUIRED)
+
+# Option to enable/disable NNUE evaluation
+option(NNUE_EVAL "Use NNUE evaluation" OFF)
+
+if(NNUE_EVAL)
     add_definitions(-DNNUE_EVAL=1)
+    message(STATUS "NNUE evaluation enabled")
 else()
     add_definitions(-DNNUE_EVAL=0)
+    message(STATUS "NNUE evaluation disabled")
 endif()
 
 # 1. Use C++20 standard
@@ -25,9 +30,11 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 # 7. Set compiler flags
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -pedantic -ffast-math")
 # 8. Set optimization level
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -DNDEBUG")
 
 add_executable(uci ${SOURCES} "src/uci.cpp")
+target_link_libraries(uci "${TORCH_LIBRARIES}")
+
 # add_executable(make_tables ${SOURCES} "src/make_tables.cpp")
 # add_executable(perft ${SOURCES} "src/perft.cpp")
 

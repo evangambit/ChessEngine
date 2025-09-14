@@ -14,6 +14,8 @@
 #include <sstream>
 #include <unordered_set>
 
+#include <torch/script.h> // One-stop header.
+
 // TODO: Add support for "ponder" and "ponderhit" command.
 // TODO: Add support for remaining options.
 
@@ -453,14 +455,7 @@ class LoadNnueTask : public Task {
       invalid(join(command, " "));
     }
 
-    std::ifstream myfile;
-    myfile.open(command.at(1));
-    if (!myfile.is_open()) {
-      std::cout << "Error opening file \"" << command.at(1) << "\"" << std::endl;
-      exit(0);
-    }
-    state->thinkerInterface()->load_nnue(myfile);
-    myfile.close();
+    state->thinkerInterface()->load_nnue(command.at(1));
   }
   std::deque<std::string> command;
 };
@@ -810,7 +805,7 @@ struct UciEngine {
     this->state.pos = Position("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
 
     #if NNUE_EVAL
-    LoadNnueTask task({"loadnnue", "nnue-777-128-32.bin"});
+    LoadNnueTask task({"loadnnue", "my_module"});
     task.start(&this->state);
     #else
     #if INCLUDE_WEIGHTS

@@ -31,8 +31,8 @@ struct ThinkerInterface {
   virtual void set_move_overhead_ms(int64_t moveOverheadMs) = 0;
   virtual void set_stop_thinking_condition(std::shared_ptr<StopThinkingCondition> condition) = 0;
 #if NNUE_EVAL
-  virtual void load_nnue(std::istream& myfile) = 0;
-  virtual std::shared_ptr<NnueNetwork> get_nnue() = 0;
+  virtual void load_nnue(const std::string& filename) = 0;
+  virtual std::shared_ptr<NnueNetworkInterface> get_nnue() = 0;
 #endif
 
   virtual void load_weights(std::istream& myfile) = 0;

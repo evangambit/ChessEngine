@@ -34,6 +34,67 @@ shuf data/de7-md2/pos.txt > data/de7-md2/pos.shuf.txt
 
 from tqdm import tqdm
 from sharded_matrix import ShardedLoader, ShardedLoader
+import chess
+
+def x2board(vec):
+  assert len(vec.shape) == 1
+  assert vec.shape[0] == 37
+  board = chess.Board.empty()
+  board.turn = False
+  castling = ''
+  for val in vec:
+    if val < 768:
+      piece = val // 64
+      val = val % 64
+      y = 7 - val // 8
+      x = val % 8
+      sq = chess.square(x, y)
+      board.set_piece_at(sq, chess.Piece(piece % 6 + 1, chess.WHITE if piece < 6 else chess.BLACK))
+    if val == 768:
+      board.turn = True
+    if val == 769:
+      castling += 'K'
+    if val == 770:
+      castling += 'Q'
+    if val == 771:
+      castling += 'k'
+    if val == 772:
+      castling += 'q'
+  # board.set_castling_fen(castling) doesn't work?
+  parts = board.fen().split(' ')
+  parts[2] = castling if castling else '-'
+  return chess.Board(' '.join(parts))
+
+def board2x(board):
+  vec = np.ones(37, dtype=np.int16) * 776
+  i = 0
+  for sq, piece in board.piece_map().items():
+    val = 0
+    val += 'PNBRQKpnbrqk'.index(piece.symbol()) * 64
+    val += 8 * (7 - sq // 8)
+    val += sq % 8
+    vec[i] = val
+    i += 1
+  if board.turn:
+    vec[i] = 768
+    i += 1
+  if board.has_kingside_castling_rights(chess.WHITE):
+    vec[i] = 769
+    i += 1
+  if board.has_queenside_castling_rights(chess.WHITE):
+    vec[i] = 770
+    i += 1
+  if board.has_kingside_castling_rights(chess.BLACK):
+    vec[i] = 771
+    i += 1
+  if board.has_queenside_castling_rights(chess.BLACK):
+    vec[i] = 772
+    i += 1
+  assert i <= 37
+  vec.sort()
+  return vec
+
+
 
 class SimpleIterablesDataset(tdata.IterableDataset):
   def __init__(self, xpath, ypath):
@@ -98,6 +159,9 @@ class Emb(nn.Module):
   
   def forward(self, x):
     return self.weight[x.to(torch.int32)].sum(1) + self.bias
+  
+  def forward2(self, x):
+    return self.weight[x.to(torch.int32)]  # (x.shape[0], 37, dout)
 
 class Model(nn.Module):
   def __init__(self):
@@ -149,6 +213,28 @@ class Model(nn.Module):
         r.append(x)
     return r
 
+class Model(nn.Module):
+  def __init__(self, k):
+    super().__init__()
+    self.seq = nn.Sequential(
+      nn.Linear(k, 128),
+      nn.LeakyReLU(0.1),
+      nn.Linear(128, 1, bias=False),
+    )
+    nn.init.xavier_normal_(self.seq[0].weight)
+    nn.init.xavier_normal_(self.seq[2].weight)
+
+  def forward(self, x):
+    x = nn.functional.leaky_relu(x)
+    x = self.seq(x)  # (n, 1)
+    return x, torch.zeros(1, device=x.device)
+
+
+  # 5000: train: 0.0312 test: 0.0263
+  def layer_outputs(self, x):
+    return []
+
+
 class PiecewiseFunction:
   def __init__(self, x, y):
     self.x = np.array(x, dtype=np.float64)
@@ -198,8 +284,10 @@ print(f'train: %.3fM   test: %.3fM' % (len(trainset) / 1_000_000, len(testset) /
 
 # train: 0.0357 test: 0.0294
 
-model = Model()
-opt = optim.AdamW(model.parameters(), lr=0.0, weight_decay=0.1)
+k = 256
+emb = Emb(k)
+model = Model(k)
+opt = optim.AdamW(list(model.parameters()) + list(emb.parameters()), lr=0.0, weight_decay=0.1)
 
 def loss_fn(yhat: torch.Tensor, y: torch.Tensor):
   return (torch.abs(torch.sigmoid(yhat) - y)**2.5)
@@ -233,25 +321,7 @@ for split, _, (x, y) in tqdm(interweaver(
   # x = x.to(torch.float32)
   y = y.to(torch.float32) / 1000.0
 
-  # t = x[:,:768].reshape(-1, 12, 8, 8)
-  # m = x[:,768:]
-
-  # flipped_tables = torch.cat([
-  #   torch.flip(t[:,6::,:,:], (2,)),
-  #   torch.flip(t[:,:6,:,:], (2,)),
-  # ], 1)
-  # flipped_misc = torch.zeros(m.shape)
-  # flipped_misc[:,0] = 1 - m[:,0]  # turn
-  # flipped_misc[:,1] = m[:,3]
-  # flipped_misc[:,2] = m[:,4]
-  # flipped_misc[:,3] = m[:,1]
-  # flipped_misc[:,4] = m[:,2]
-  # flipped_y = 1.0 - y
-
-  # t = torch.cat([t, flipped_tables], 0)
-  # m = torch.cat([m, flipped_misc], 0)
-  # y = torch.cat([y, flipped_y], 0)
-
+  x = emb(x)
   yhat, penalty = model(x)
   penalty = penalty * 0.0  # Ignore the penalty for now.
 
@@ -273,50 +343,15 @@ for split, _, (x, y) in tqdm(interweaver(
   if it >= len(trainloader):
     break
 
-layer_outputs = model.layer_outputs(x.to(torch.int32))
-for layer in layer_outputs:
-  layer = layer.detach().numpy().flatten()
-  print(np.percentile(layer, 1), layer.mean(), layer.std(), np.percentile(layer, 99))
+torch.jit.trace(model, torch.zeros(size=(1, 256))).save("my_module.pt")
+# torch.jit.script(model).save("my_module.pt")
+with open('my_module.emb', 'wb') as f:
+  mat = emb.weight.detach().numpy()[:-1]
+  bias = emb.bias.detach().numpy()
+  f.write(np.array([len(mat.shape)], dtype=np.int32).tobytes())
+  f.write(np.array(mat.shape, dtype=np.int32).tobytes())
+  f.write(mat.tobytes())
+  f.write(np.array([len(bias.shape)], dtype=np.int32).tobytes())
+  f.write(np.array(bias.shape, dtype=np.int32).tobytes())
+  f.write(bias.tobytes())
 
-linears = [l for l in model.seq if isinstance(l, (nn.Linear, Emb))]
-
-widths =  [(l.weight.shape[1] if isinstance(l, nn.Linear) else l.weight.shape[0]) for l in linears]
-run_id = uuid.uuid4().hex
-outfile = os.path.join('runs', run_id, 'nnue-' + '-'.join(str(x) for x in widths) + '.bin')
-os.makedirs(os.path.dirname(outfile), exist_ok=True)
-
-with open(os.path.join('runs', run_id, 'config.txt'), 'w') as f:
-  lines = [
-    'Widths',
-    ' '.join(str(x) for x in widths),
-    '',
-    'Train Loss: %.3f' % (np.array(metrics['train:loss'][-100:]).mean()),
-    'Test Loss: %.3f' % (np.array(metrics['test:loss'][-100:]).mean()),
-    '',
-    'Schedule',
-    json.dumps(scheduler.x.tolist()),
-    json.dumps(scheduler.y.tolist()),
-    '',
-    'Batch size: %d\n' % kBatchSize,
-    '',
-    'Loss',
-    inspect.getsource(loss_fn),
-  ]
-  f.write('\n'.join(lines))
-
-print('writing out to "%s"' % outfile)
-
-w1 = model.seq[0].weight.T.detach().numpy()[:,:-1]
-w2 = model.seq[2].weight.detach().numpy()
-w3 = model.seq[4].weight.detach().numpy()
-b1 = model.seq[0].bias.detach().numpy()
-b2 = model.seq[2].bias.detach().numpy()
-
-# save
-with open(outfile, 'wb') as f:
-  for mat in [w1, w2, w3, b1, b2]:
-    f.write(np.array([len(mat.shape)], dtype=np.int32).tobytes())
-    f.write(np.array(mat.shape, dtype=np.int32).tobytes())
-    f.write(mat.tobytes())
-
-# 2048 1.4365 1.4369

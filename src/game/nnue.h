@@ -4,159 +4,160 @@
 #include "utils.h"
 #include "geometry.h"
 
+#include <torch/script.h> // One-stop header.
+
 #include <algorithm>
 
-namespace {
-  typedef float VecType;
-  typedef float MatType;
+namespace ChessEngine {
 
-  constexpr VecType kScale = 64;
-  constexpr VecType kFinalScale = 64;
+typedef float VecType;
+typedef float MatType;
 
-  // Intepreted as <N, 1> matrix.
-  template<size_t N>
-  struct Vector {
-    Vector() : _data(new VecType[N]) {
-      std::fill_n(_data, N, VecType(0));
-    }
-    ~Vector() {
-      delete[] _data;
-    }
-    Vector(const Vector& other) : _data(new VecType[N]) {
-      std::copy_n(other._data, N, _data);
-    }
-    Vector& operator=(const Vector& other) {
-      std::copy_n(other._data, N, _data);
-      return *this;
-    }
-    void zero_() {
-      std::fill_n(_data, N, 0.0);
-    }
-    Vector& operator+=(const Vector& other) {
-      for (size_t i = 0; i < N; ++i) {
-        _data[i] += other._data[i];
-      }
-      return *this;
-    }
+constexpr VecType kScale = 64;
+constexpr VecType kFinalScale = 64;
 
-    inline VecType operator()(size_t i) const {
-      return _data[i];
+// Intepreted as <N, 1> matrix.
+template<size_t N>
+struct Vector {
+  Vector() : _data(new VecType[N]) {
+    std::fill_n(_data, N, VecType(0));
+  }
+  ~Vector() {
+    delete[] _data;
+  }
+  Vector(const Vector& other) : _data(new VecType[N]) {
+    std::copy_n(other._data, N, _data);
+  }
+  Vector& operator=(const Vector& other) {
+    std::copy_n(other._data, N, _data);
+    return *this;
+  }
+  void zero_() {
+    std::fill_n(_data, N, 0.0);
+  }
+  Vector& operator+=(const Vector& other) {
+    for (size_t i = 0; i < N; ++i) {
+      _data[i] += other._data[i];
     }
-    inline VecType& operator()(size_t i) {
-      return _data[i];
-    }
-    size_t size() const {
-      return N;
-    }
+    return *this;
+  }
 
-    void read(std::istream& myfile) {
-      int32_t numDims;
-      myfile.read(reinterpret_cast<char*>(&numDims), sizeof(int32_t));
-      if (numDims != 1) {
-        std::cout << "Error: expected 1 dimensions, got " << numDims << std::endl;
-        exit(0);
-      }
-      int32_t shape[1];
-      myfile.read(reinterpret_cast<char*>(shape), 1 * sizeof(int32_t));
-      if (shape[0] != N) {
-        std::cout << "Error: expected shape (" << N << "), got (" << shape[0] << ")" << std::endl;
-        exit(0);
-      }
-      float *data = new float[N];
-      myfile.read(reinterpret_cast<char*>(data), this->size() * sizeof(float));
-      for (size_t i = 0; i < N; ++i) {
-        _data[i] = data[i] * kScale;
-      }
-    }
+  inline VecType operator()(size_t i) const {
+    return _data[i];
+  }
+  inline VecType& operator()(size_t i) {
+    return _data[i];
+  }
+  size_t size() const {
+    return N;
+  }
 
-    void clipped_relu(Vector<N>& out) {
-      for (size_t i = 0; i < N; ++i) {
-        VecType x = (*this)(i);
-        out(i) = std::max(VecType(0), std::min(VecType(kScale), x));
-      }
+  void read(std::istream& myfile) {
+    int32_t numDims;
+    myfile.read(reinterpret_cast<char*>(&numDims), sizeof(int32_t));
+    if (numDims != 1) {
+      std::cout << "Error: expected 1 dimensions, got " << numDims << std::endl;
+      exit(0);
     }
+    int32_t shape[1];
+    myfile.read(reinterpret_cast<char*>(shape), 1 * sizeof(int32_t));
+    if (shape[0] != N) {
+      std::cout << "Error: expected shape (" << N << "), got (" << shape[0] << ")" << std::endl;
+      exit(0);
+    }
+    float *data = new float[N];
+    myfile.read(reinterpret_cast<char*>(data), this->size() * sizeof(float));
+    for (size_t i = 0; i < N; ++i) {
+      _data[i] = data[i] * kScale;
+    }
+  }
 
-    VecType *_data;
-  };
+  void clipped_relu(Vector<N>& out) {
+    for (size_t i = 0; i < N; ++i) {
+      VecType x = (*this)(i);
+      out(i) = std::max(VecType(0), std::min(VecType(kScale), x));
+    }
+  }
 
-  template<size_t ROWS, size_t COLS>
-  struct Matrix {
-    Matrix() : _data(new MatType[ROWS * COLS]) {
-      std::fill_n(_data, ROWS * COLS, MatType(0));
-    }
-    ~Matrix() {
-      delete[] _data;
-    }
-    Matrix(const Matrix& other) : _data(new MatType[ROWS * COLS]) {
-      std::copy_n(other._data, ROWS * COLS, _data);
-    }
-    Matrix& operator=(const Matrix& other) {
-      std::copy_n(other._data, ROWS * COLS, _data);
-      return *this;
-    }
-    void zero_() {
-      std::fill_n(_data, ROWS * COLS, 0.0);
-    }
-    Matrix& operator+=(const Matrix& other) {
-      for (size_t i = 0; i < ROWS * COLS; ++i) {
-        _data[i] += other._data[i];
-      }
-      return *this;
-    }
+  VecType *_data;
+};
 
-    void affine(const Vector<COLS>& in, const Vector<ROWS>& bias, Vector<ROWS>& out) {
-      for (size_t i = 0; i < ROWS; ++i) {
-        VecType sum = 0;
-        for (size_t j = 0; j < COLS; ++j) {
-          sum += (*this)(i, j) * in(j);
-        }
-        out(i) = sum / kScale + bias(i);
-      }
+template<size_t ROWS, size_t COLS>
+struct Matrix {
+  Matrix() : _data(new MatType[ROWS * COLS]) {
+    std::fill_n(_data, ROWS * COLS, MatType(0));
+  }
+  ~Matrix() {
+    delete[] _data;
+  }
+  Matrix(const Matrix& other) : _data(new MatType[ROWS * COLS]) {
+    std::copy_n(other._data, ROWS * COLS, _data);
+  }
+  Matrix& operator=(const Matrix& other) {
+    std::copy_n(other._data, ROWS * COLS, _data);
+    return *this;
+  }
+  void zero_() {
+    std::fill_n(_data, ROWS * COLS, 0.0);
+  }
+  Matrix& operator+=(const Matrix& other) {
+    for (size_t i = 0; i < ROWS * COLS; ++i) {
+      _data[i] += other._data[i];
     }
+    return *this;
+  }
 
-    inline MatType operator()(size_t i, size_t j) const {
-      return _data[i * COLS + j];
-    }
-    inline MatType& operator()(size_t i, size_t j) {
-      return _data[i * COLS + j];
-    }
-
-    size_t size() const {
-      return ROWS * COLS;
-    }
-
-    void read(std::istream& myfile) {
-      int32_t numDims;
-      myfile.read(reinterpret_cast<char*>(&numDims), sizeof(int32_t));
-      if (numDims != 2) {
-        std::cout << "Error: expected 2 dimensions, got " << numDims << std::endl;
-        exit(0);
-      }
-      int32_t shape[2];
-      myfile.read(reinterpret_cast<char*>(shape), 2 * sizeof(int32_t));
-      if (shape[0] != ROWS || shape[1] != COLS) {
-        std::cout << "Error: expected shape (" << ROWS << ", " << COLS << "), got (" << shape[0] << ", " << shape[1] << ")" << std::endl;
-        exit(0);
-      }
-      float *data = new float[ROWS * COLS];
-      myfile.read(reinterpret_cast<char*>(data), this->size() * sizeof(float));
-      for (size_t i = 0; i < ROWS * COLS; ++i) {
-        _data[i] = data[i] * kScale;
-      }
-    }
-
-    MatType *_data;
-  };
-
-  template<size_t ROWS, size_t COLS>
-  void incremental_update(Vector<ROWS>& mutable_vector, const Matrix<ROWS, COLS>& weights_matrix, size_t col, VecType scale) {
+  void affine(const Vector<COLS>& in, const Vector<ROWS>& bias, Vector<ROWS>& out) {
     for (size_t i = 0; i < ROWS; ++i) {
-      mutable_vector(i) += weights_matrix(i, col) * scale;
+      VecType sum = 0;
+      for (size_t j = 0; j < COLS; ++j) {
+        sum += (*this)(i, j) * in(j);
+      }
+      out(i) = sum / kScale + bias(i);
     }
+  }
+
+  inline MatType operator()(size_t i, size_t j) const {
+    return _data[i * COLS + j];
+  }
+  inline MatType& operator()(size_t i, size_t j) {
+    return _data[i * COLS + j];
+  }
+
+  size_t size() const {
+    return ROWS * COLS;
+  }
+
+  void read(std::istream& myfile) {
+    int32_t numDims;
+    myfile.read(reinterpret_cast<char*>(&numDims), sizeof(int32_t));
+    if (numDims != 2) {
+      std::cout << "Error: expected 2 dimensions, got " << numDims << std::endl;
+      exit(0);
+    }
+    int32_t shape[2];
+    myfile.read(reinterpret_cast<char*>(shape), 2 * sizeof(int32_t));
+    if (shape[0] != ROWS || shape[1] != COLS) {
+      std::cout << "Error: expected shape (" << ROWS << ", " << COLS << "), got (" << shape[0] << ", " << shape[1] << ")" << std::endl;
+      exit(0);
+    }
+    float *data = new float[ROWS * COLS];
+    myfile.read(reinterpret_cast<char*>(data), this->size() * sizeof(float));
+    for (size_t i = 0; i < ROWS * COLS; ++i) {
+      _data[i] = data[i] * kScale;
+    }
+  }
+
+  MatType *_data;
+};
+
+template<size_t ROWS, size_t COLS>
+void incremental_update(Vector<ROWS>& mutable_vector, const Matrix<ROWS, COLS>& weights_matrix, size_t col, VecType scale) {
+  for (size_t i = 0; i < ROWS; ++i) {
+    mutable_vector(i) += weights_matrix(i, col) * scale;
   }
 }
 
-namespace ChessEngine {
 
 static MatType kZero = MatType(0.0);
 
@@ -216,6 +217,98 @@ struct DummyNetwork : public NnueNetworkInterface {
 
   void set_index(size_t index, VecType newValue) {
     x[index] = newValue;
+  }
+};
+
+struct PyTorchNetwork : public NnueNetworkInterface {
+  int16_t x[NnueFeatures::NF_NUM_FEATURES];
+  torch::Tensor embeddings_[NnueFeatures::NF_NUM_FEATURES];
+  torch::Tensor bias_;
+  torch::Tensor inputTensor;
+  torch::jit::script::Module module;
+
+  PyTorchNetwork() {
+    this->empty();
+  }
+
+  void empty() {
+    std::fill_n(x, NnueFeatures::NF_NUM_FEATURES, 0);
+  }
+
+  Evaluation slowforward() {
+    inputTensor = torch::zeros({1, 256});
+    for (int i = 0; i < NnueFeatures::NF_NUM_FEATURES; ++i) {
+      if (x[i] != 0) {
+        inputTensor += embeddings_[i];
+      }
+    }
+    return this->fastforward();
+  }
+  Evaluation fastforward() {
+    auto r = module.forward({(inputTensor + bias_) / 64.0}).toTuple()->elements()[0].toTensor();
+    float result = r.item<float>();
+    return result * 500.0;
+  }
+
+  void load(std::string filename) {
+    module = torch::jit::load(filename + ".pt");
+
+    Matrix<NnueFeatures::NF_NUM_FEATURES, 256> emb;
+    Vector<256> bias;
+    std::ifstream myfile;
+    myfile.open(filename + ".emb", std::ios::in | std::ios::binary);
+    if (!myfile.is_open()) {
+      std::cout << "Error opening file \"" << filename + ".emb" << "\"" << std::endl;
+      exit(0);
+    }
+    emb.read(myfile);
+    bias.read(myfile);
+    myfile.close();
+
+    bias_ = torch::zeros({1, 256});
+    for (int j = 0; j < 256; ++j) {
+      bias_[0][j] = bias(j);
+    }
+
+    for (int i = 0; i < NnueFeatures::NF_NUM_FEATURES; ++i) {
+      embeddings_[i] = torch::zeros({1, 256});
+      for (int j = 0; j < 256; ++j) {
+        embeddings_[i][0][j] = emb(i, j);
+      }
+    }
+
+    inputTensor = torch::zeros({1, 256});
+    for (int i = 0; i < NnueFeatures::NF_NUM_FEATURES; ++i) {
+      if (x[i] != 0) {
+        inputTensor += embeddings_[i];
+      }
+    }
+  }
+
+  void set_piece(ColoredPiece piece, SafeSquare square, VecType newValue) {
+    assert(piece != ColoredPiece::NO_COLORED_PIECE);
+    assert_valid_square(square);
+    int y = square / 8;
+    int x = square % 8;
+    size_t index = (piece - 1) * 64 + y * 8 + x;
+    this->set_index(index, newValue);
+  }
+
+  void set_index(size_t index, VecType newValue) {
+    int16_t delta = newValue - x[index];
+    if (delta == 0) {
+      return;
+    }
+    x[index] = newValue;
+    if (delta == 1) {
+      inputTensor += embeddings_[index];
+    } else if (delta == -1) {
+      inputTensor -= embeddings_[index];
+    } else {
+      std::cout << "Unexpected delta: " << delta << std::endl;
+      exit(0);
+      // inputTensor += embeddings_[index] * float(delta);
+    }
   }
 };
 
