@@ -281,7 +281,7 @@ def interweaver(*A):
     i += 1
 
 if __name__ == '__main__':
-  trainset = SimpleIterablesDataset(f'data/de6-md2/x-nnue', f'data/de6-md2/x-eval')
+  trainset = SimpleIterablesDataset(f'data/lichess/x-nnue', f'data/lichess/x-eval')
   testset = SimpleIterablesDataset(f'data/de7-md2/x-nnue', f'data/de7-md2/x-eval')
   print(f'train: %.3fM   test: %.3fM' % (len(trainset) / 1_000_000, len(testset) / 1_000_000))
 
@@ -289,7 +289,7 @@ if __name__ == '__main__':
 
   device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-  k = 256
+  k = 2048
   emb = Emb(k).to(device)
   model = Model(k).to(device)
   opt = optim.AdamW(list(model.parameters()) + list(emb.parameters()), lr=0.0, weight_decay=0.1)
@@ -299,7 +299,7 @@ if __name__ == '__main__':
 
   L = []
 
-  kBatchSize = 2048
+  kBatchSize = 2048*4
   trainloader = tdata.DataLoader(trainset, batch_size=kBatchSize, drop_last=True)
   testloader = tdata.DataLoader(testset, batch_size=kBatchSize, drop_last=True)
   maxlr = 0.01
@@ -326,11 +326,25 @@ if __name__ == '__main__':
     # x = x.to(torch.float32)
     y = y.to(device).to(torch.float32) / 1000.0
 
+    # men = x // 64
+    # # -1 for all pieces except kings. -2 for all queens.
+    # time = 1.0 - (
+    #     (men == 1).sum(1)
+    #   + (men == 2).sum(1)
+    #   + (men == 3).sum(1)
+    #   + (men == 4).sum(1) * 2
+    #   + (men == 7).sum(1)
+    #   + (men == 8).sum(1)
+    #   + (men == 9).sum(1)
+    #   + (men == 10).sum(1) * 2
+    # ) / 16
+  
     x = emb(x.to(device))
     yhat, penalty = model(x)
     penalty = penalty * 0.0  # Ignore the penalty for now.
 
-    loss = loss_fn(yhat.squeeze(), y.squeeze())
+    # loss = loss_fn(yhat.squeeze(), y.squeeze())
+    loss = loss_fn(yhat.squeeze(), torch.sigmoid(y.squeeze()))
 
     residuals = torch.sigmoid(yhat.squeeze()) - y.squeeze()
 
@@ -349,7 +363,7 @@ if __name__ == '__main__':
       break
 
   l = np.array(metrics[f'test:loss'][-50:])
-  id_ = f"{str(uuid.uuid4())[:8]}-{(l.mean() * 1_000_000):.0f}-{(l.std() * 1_000_000):.0f}"
+  id_ = os.path.join('models', f"{str(uuid.uuid4())[:8]}-{(l.mean() * 1_000_000):.0f}-{(l.std() * 1_000_000):.0f}")
   print(f'Saving model to {id_}.pt and {id_}.emb')
   with open(f'{id_}.json', 'w') as f:
     json.dump({
@@ -360,7 +374,7 @@ if __name__ == '__main__':
       'test_size': len(testset),
       'widths': [s.in_features for s in model.seq if isinstance(s, nn.Linear)],
     }, f, indent=2)
-  torch.jit.trace(model.cpu(), torch.zeros(size=(1, 256))).save(f"{id_}.pt")
+  torch.jit.trace(model.cpu(), torch.zeros(size=(1, k))).save(f"{id_}.pt")
   # torch.jit.script(model).save("my_module.pt")
   with open(f'{id_}.emb', 'wb') as f:
     mat = emb.weight.cpu().detach().numpy()[:-1]

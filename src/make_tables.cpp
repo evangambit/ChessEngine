@@ -54,7 +54,7 @@ void process(
   , WriterI8& pstWriter
   #endif
   ) {
-  if (line.size() != 4) {
+  if (line.size() != 2) {
     std::cout << "error: line has " << line.size() << " elements" << std::endl;
     return;
   }
@@ -122,13 +122,7 @@ void process(
   featureWriter.write_row(features);
   #endif
 
-  // int16_t a[3] = {
-  //   (int16_t) (std::stof(line[2]) * 1000),
-  //   (int16_t) (std::stof(line[4]) * 1000),
-  //   (int16_t) (std::stof(line[6]) * 1000)
-  // };
-  // evalWriter.write_row(a);
-  int16_t a = std::stof(line[1]) + std::stof(line[2]) * 0.5;
+  int16_t a = std::stof(line[1]);
   evalWriter.write_row(&a);
 
   int8_t turn = pos.turn_ == Color::WHITE ? 1 : -1;
@@ -202,6 +196,18 @@ int main(int argc, char *argv[]) {
       continue;
     }
     std::vector<std::string> parts = split(line, '|');
+
+    if (parts.size() == 4) {
+      // Assume FEN|win|draw|loss
+      parts[1] = std::to_string(std::stof(parts[1]) + std::stof(parts[2]) * 0.5);
+      parts.pop_back();
+      parts.pop_back();
+    } else if (parts.size() == 2) {
+      // Assume FEN|eval
+    } else {
+      std::cerr << "Invalid line: " << line << std::endl;
+      continue;
+    }
 
     process(parts
     #if NNUE
