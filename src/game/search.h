@@ -764,33 +764,37 @@ struct Search {
 
         const Depth childDepth = depthRemaining - 1;
 
-        // Null-window search. ELO_STDERR(+23, +40)
         SearchResult<TURN> a(0, kNullMove);
         constexpr SearchType kChildSearchType = SEARCH_TYPE == SearchTypeRoot ? SearchTypeNormal : SEARCH_TYPE;
-        if (extMove == moves || SEARCH_TYPE == SearchTypeNullWindow) {
-          a = child2parent(search<opposingColor, kChildSearchType, IS_PARALLEL>(thinker, thread, childDepth, plyFromRoot + 1, child_beta, child_alpha, recommendationsForChildren, distFromPV + (extMove != moves)));
-        } else {
-          // Late move reductions ELO_STDERR(+31, +48)
-          #if !SIMPLE_SEARCH
-          bool LMR = (numQuietMoves > 3 && depthRemaining >= 3);
-          #else
-          bool LMR = false;
-          #endif
-          if (alpha <= kMissingKing) {
-            // Useless to try and do LMR or null-window search if this is guaranteed to be a PV node.
-            a = child2parent(search<opposingColor, kChildSearchType, IS_PARALLEL>(thinker, thread, childDepth, plyFromRoot + 1, child_beta, child_alpha, recommendationsForChildren, distFromPV));
+        #if SIMPLE_SEARCH
+          a = child2parent(search<opposingColor, kChildSearchType, IS_PARALLEL>(thinker, thread, childDepth, plyFromRoot + 1, child_beta, child_alpha, recommendationsForChildren, distFromPV));
+        #else
+          // Null-window search. ELO_STDERR(+23, +40)
+          if (extMove == moves || SEARCH_TYPE == SearchTypeNullWindow) {
+            a = child2parent(search<opposingColor, kChildSearchType, IS_PARALLEL>(thinker, thread, childDepth, plyFromRoot + 1, child_beta, child_alpha, recommendationsForChildren, distFromPV + (extMove != moves)));
           } else {
-            if (LMR) {
-              a = child2parent(search<opposingColor, SearchTypeNullWindow, IS_PARALLEL>(thinker, thread, childDepth - 1, plyFromRoot + 1, child_alpha_plus1, child_alpha, recommendationsForChildren, distFromPV + (extMove != moves)));
-            }
-            if (!LMR || a.score > alpha) {
-              a = child2parent(search<opposingColor, SearchTypeNullWindow, IS_PARALLEL>(thinker, thread, childDepth, plyFromRoot + 1, child_alpha_plus1, child_alpha, recommendationsForChildren, distFromPV + (extMove != moves)));
-            }
-            if (a.score > alpha) {
+            // Late move reductions ELO_STDERR(+31, +48)
+            #if !SIMPLE_SEARCH
+            bool LMR = (numQuietMoves > 3 && depthRemaining >= 3);
+            #else
+            bool LMR = false;
+            #endif
+            if (alpha <= kMissingKing) {
+              // Useless to try and do LMR or null-window search if this is guaranteed to be a PV node.
               a = child2parent(search<opposingColor, kChildSearchType, IS_PARALLEL>(thinker, thread, childDepth, plyFromRoot + 1, child_beta, child_alpha, recommendationsForChildren, distFromPV));
+            } else {
+              if (LMR) {
+                a = child2parent(search<opposingColor, SearchTypeNullWindow, IS_PARALLEL>(thinker, thread, childDepth - 1, plyFromRoot + 1, child_alpha_plus1, child_alpha, recommendationsForChildren, distFromPV + (extMove != moves)));
+              }
+              if (!LMR || a.score > alpha) {
+                a = child2parent(search<opposingColor, SearchTypeNullWindow, IS_PARALLEL>(thinker, thread, childDepth, plyFromRoot + 1, child_alpha_plus1, child_alpha, recommendationsForChildren, distFromPV + (extMove != moves)));
+              }
+              if (a.score > alpha) {
+                a = child2parent(search<opposingColor, kChildSearchType, IS_PARALLEL>(thinker, thread, childDepth, plyFromRoot + 1, child_beta, child_alpha, recommendationsForChildren, distFromPV));
+              }
             }
           }
-        }
+        #endif  // SIMPLE_SEARCH
 
         #if !SIMPLE_SEARCH
         // Extended sequences of captures/checks ELO_STDERR(+4, +21)
@@ -896,7 +900,7 @@ struct Search {
       r.move = kNullMove;
     }
 
-    if (depthRemaining >= kSyncDepth) {
+    if (depthRemaining >= kSyncDepth || plyFromRoot == 0) {
       if (IS_PARALLEL) {
         thinker->stopThinkingLock.lock();
         thinker->nodeCounter += thread->nodeCounter;
