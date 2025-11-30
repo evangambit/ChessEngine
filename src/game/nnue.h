@@ -183,6 +183,8 @@ enum NnueFeatures {
   NF_NUM_FEATURES = 776,
 };
 
+const int kEmbDim = 2048;
+
 struct NnueNetworkInterface {
   virtual void empty() {}
   virtual Evaluation slowforward() { return 0.0; }
@@ -239,7 +241,7 @@ struct PyTorchNetwork : public NnueNetworkInterface {
   }
 
   Evaluation slowforward() {
-    inputTensor = torch::zeros({1, 256});
+    inputTensor = torch::zeros({1, kEmbDim});
     for (int i = 0; i < NnueFeatures::NF_NUM_FEATURES; ++i) {
       if (x[i] != 0) {
         inputTensor += embeddings_[i];
@@ -254,10 +256,11 @@ struct PyTorchNetwork : public NnueNetworkInterface {
   }
 
   void load(std::string filename) {
+    std::cout << "Loading NNUE from " << filename << std::endl;
     module = torch::jit::load(filename + ".pt");
 
-    Matrix<NnueFeatures::NF_NUM_FEATURES, 256> emb;
-    Vector<256> bias;
+    Matrix<NnueFeatures::NF_NUM_FEATURES, kEmbDim> emb;
+    Vector<kEmbDim> bias;
     std::ifstream myfile;
     myfile.open(filename + ".emb", std::ios::in | std::ios::binary);
     if (!myfile.is_open()) {
@@ -268,19 +271,19 @@ struct PyTorchNetwork : public NnueNetworkInterface {
     bias.read(myfile);
     myfile.close();
 
-    bias_ = torch::zeros({1, 256});
-    for (int j = 0; j < 256; ++j) {
+    bias_ = torch::zeros({1, kEmbDim});
+    for (int j = 0; j < kEmbDim; ++j) {
       bias_[0][j] = bias(j);
     }
 
     for (int i = 0; i < NnueFeatures::NF_NUM_FEATURES; ++i) {
-      embeddings_[i] = torch::zeros({1, 256});
-      for (int j = 0; j < 256; ++j) {
+      embeddings_[i] = torch::zeros({1, kEmbDim});
+      for (int j = 0; j < kEmbDim; ++j) {
         embeddings_[i][0][j] = emb(i, j);
       }
     }
 
-    inputTensor = torch::zeros({1, 256});
+    inputTensor = torch::zeros({1, kEmbDim});
     for (int i = 0; i < NnueFeatures::NF_NUM_FEATURES; ++i) {
       if (x[i] != 0) {
         inputTensor += embeddings_[i];
